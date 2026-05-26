@@ -357,7 +357,275 @@ clone, pull, push, commit, branch switch, merge request / pull request creation.
 
 ---
 
-## 10. Phased Delivery
+## 10. Frontend Design
+
+### 10.1 Design System
+
+**Component library:** shadcn/ui (built on Radix UI primitives) + Tailwind CSS
+
+**Theming:** CSS custom properties for all design tokens. Two themes — light and dark — switchable by the user, with system preference as default.
+
+**Design tokens:**
+
+| Token | Light | Dark |
+|---|---|---|
+| Background | `#FFFFFF` | `#0D1117` |
+| Surface | `#F6F8FA` | `#161B22` |
+| Border | `#D0D7DE` | `#30363D` |
+| Text primary | `#1F2328` | `#E6EDF3` |
+| Text muted | `#656D76` | `#848D97` |
+| Accent (brand) | `#0969DA` | `#58A6FF` |
+| Destructive | `#CF222E` | `#F85149` |
+| Success | `#1A7F37` | `#3FB950` |
+
+**Typography:**
+- UI: `Inter` (system fallback: `-apple-system, BlinkMacSystemFont, sans-serif`)
+- Editor / code: `JetBrains Mono` (monospace)
+- Font scale: 12px / 14px / 16px / 20px / 24px / 32px
+
+**Spacing:** 4px base unit — all spacing is a multiple of 4 (8, 12, 16, 24, 32, 48, 64px).
+
+**Border radius:** 4px for inputs/cards, 6px for modals, 2px for editor chrome.
+
+---
+
+### 10.2 Screen Wireframes
+
+**1. Dashboard (Project List)**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [Logo] AsciiDocCollab          [Search]    [+ New] [Avatar] │
+├─────────────────────────────────────────────────────────────┤
+│  Projects                                    [Sort ▾] [⊞ ⊟]│
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│ │ Project Name │ │ Project Name │ │ Project Name │         │
+│ │ Description  │ │ Description  │ │ Description  │         │
+│ │ tag  tag     │ │ tag          │ │              │         │
+│ │ Modified 2d  │ │ Modified 5h  │ │ Modified 1w  │         │
+│ │ [Open] [···] │ │ [Open] [···] │ │ [Open] [···] │         │
+│ └──────────────┘ └──────────────┘ └──────────────┘         │
+│  [···] menu: Rename | Duplicate | Archive | Delete          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**2. Editor (Three-Panel IDE)**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ [Logo] ProjectName  [⎇ branch ▾]  [↓Pull][↑Push][⊙Commit][···] │
+│                                   [● avatar][● avatar]  [Share]  │
+├───────────┬────────────────────────────────────┬─────────────────┤
+│ FILES   ⊕ │                                    │ PREVIEW         │
+│           │  document.adoc ×  overview.adoc    │                 │
+│ ▼ root/   │ ──────────────────────────────     │  [PDF ▾]        │
+│  ▼ docs/  │  1  = Document Title               │                 │
+│    api    │  2                                 │  <HTML render   │
+│    guide  │  3  Lorem ipsum...                 │   updates on    │
+│  ▼ img/   │  4                                 │   user request> │
+│    logo   │  5  == Section One                 │                 │
+│           │  6                                 │  [↻ Refresh]    │
+│ [+ File]  │  ...                               │                 │
+│ [+ Folder]│                                    │ [◱ Fullscreen]  │
+├───────────┴────────────────────────────────────┴─────────────────┤
+│ Ln 3, Col 12  | AsciiDoc | UTF-8 | ⬡ Synced | ⎇ main | 2 online │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+File tree context menu (right-click):
+
+```
+┌──────────────────┐
+│ New File         │
+│ New Folder       │
+│ ──────────────── │
+│ Rename           │
+│ Duplicate        │
+│ Download         │
+│ ──────────────── │
+│ Delete           │
+└──────────────────┘
+```
+
+Preview panel `[PDF ▾]` dropdown:
+
+```
+┌────────────────────────┐
+│ View HTML Preview      │
+│ ──────────────────     │
+│ Generate PDF...        │
+│   Theme: [Default ▾]   │
+│   Ext:   [None    ▾]   │
+│ [Generate & Download]  │
+└────────────────────────┘
+```
+
+Git toolbar `[···]` dropdown:
+
+```
+┌──────────────────────┐
+│ ⎇  Switch Branch...  │
+│ ⊕  New Branch        │
+│ ──────────────────── │
+│ ↓  Pull              │
+│ ↑  Push              │
+│ ⊙  Commit...         │
+│ ──────────────────── │
+│ ⇌  Create MR / PR... │
+│ ──────────────────── │
+│ ⚙  Git Settings...   │
+└──────────────────────┘
+```
+
+Commit modal:
+
+```
+┌──────────────────────────────────────┐
+│ Commit Changes                       │
+│                                      │
+│ Message                              │
+│ [__________________________________] │
+│                                      │
+│ Changed files (3)                    │
+│ ✓ docs/api.adoc                      │
+│ ✓ docs/guide.adoc                    │
+│ ✓ img/logo.svg                       │
+│                                      │
+│              [Cancel] [Commit]       │
+└──────────────────────────────────────┘
+```
+
+**3. Templates**
+
+```
+┌──────────────────────────────────────────────────────┐
+│ Templates                                      [✕]   │
+│                                                      │
+│ [Search templates...]      [+ Create from project]   │
+│                                                      │
+│ Built-in                                             │
+│ ┌──────────────────┐  ┌──────────────────┐           │
+│ │ Software Arch.   │  │ User Manual      │           │
+│ │ Specification    │  │                  │           │
+│ │ [Use Template]   │  │ [Use Template]   │           │
+│ └──────────────────┘  └──────────────────┘           │
+│ ┌──────────────────┐  ┌──────────────────┐           │
+│ │ Release Notes    │  │ Test Approach    │           │
+│ │                  │  │ and Plan         │           │
+│ │ [Use Template]   │  │ [Use Template]   │           │
+│ └──────────────────┘  └──────────────────┘           │
+│                                                      │
+│ Custom                                               │
+│ ┌──────────────────┐                                 │
+│ │ My Template      │                                 │
+│ │ Created 3d ago   │                                 │
+│ │ [Use] [Edit] [✕] │                                 │
+│ └──────────────────┘                                 │
+└──────────────────────────────────────────────────────┘
+```
+
+**4. Project Settings (Members & Extensions)**
+
+```
+┌──────────────────────────────────────────────────────┐
+│ Project Settings                             [✕]     │
+├──────────────────────────────────────────────────────┤
+│ General  |  Members  |  Git  |  Extensions           │
+├──────────────────────────────────────────────────────┤
+│ Members                        [+ Invite Member]     │
+│                                                      │
+│ Name            Email              Role      Actions │
+│ João Silva      joao@example.com   Admin     [···]   │
+│ Ana Sousa       ana@example.com    Editor    [···]   │
+│ Rui Costa       rui@example.com    Viewer    [···]   │
+│                                                      │
+│ [···] per row: Change Role | Remove from Project     │
+└──────────────────────────────────────────────────────┘
+```
+
+Extensions tab:
+
+```
+├──────────────────────────────────────────────────────┤
+│ Extensions                     [+ Add Extension]     │
+│                                                      │
+│ Available for PDF rendering:                         │
+│ ☑ asciidoctor-diagram          [Remove]              │
+│ ☐ asciidoctor-mathematical                           │
+│ ☐ asciidoctor-kroki                                  │
+│                                                      │
+│ Enabled extensions are selectable per-render in the  │
+│ editor PDF dropdown.                                 │
+└──────────────────────────────────────────────────────┘
+```
+
+**5. Auth (Login)**
+
+```
+┌──────────────────────────┐
+│  [Logo] AsciiDocCollab   │
+│                          │
+│  Email                   │
+│  [____________________]  │
+│  Password                │
+│  [____________________]  │
+│                          │
+│  [      Sign In      ]   │
+│                          │
+│  ── or ──                │
+│  [  Sign in with SSO  ]  │
+│                          │
+│  Forgot password?        │
+└──────────────────────────┘
+```
+
+---
+
+### 10.3 Save / Sync State Machine
+
+The status bar shows two independent indicators: **backend sync** (auto-save to server) and **git state** (committed and pushed to repository).
+
+**Backend sync states:**
+
+| State | Icon | Label | Meaning |
+|---|---|---|---|
+| All saved | `⬡` green | `Synced` | All changes persisted to server |
+| Saving | `⬡` yellow | `Saving...` | Auto-save in progress |
+| Unsaved | `⬡` amber | `Unsaved` | Local changes not yet auto-saved |
+| Error | `⬡` red | `Sync failed` | Backend unreachable or save error |
+| Offline | `⬡` grey | `Offline` | No server connection |
+
+**Git states (shown only when a git repository is connected):**
+
+| State | Icon | Label | Meaning |
+|---|---|---|---|
+| Clean | `⎇ main` | no badge | Working tree matches last commit |
+| Uncommitted | `⎇ main ●` | amber dot | Changes saved to server but not committed |
+| Ahead | `⎇ main ↑3` | count | Commits exist that are not yet pushed |
+| Behind | `⎇ main ↓2` | count | Remote has commits not yet pulled |
+| Diverged | `⎇ main ↑2↓1` | both counts | Local and remote have diverged |
+| Conflict | `⎇ main ⚠` | warning | Merge conflict detected |
+
+Example status bar:
+
+```
+Ln 3, Col 12  |  AsciiDoc  |  UTF-8  |  ⬡ Synced  |  ⎇ main ↑2  |  2 online
+```
+
+---
+
+### 10.4 Key UI Behaviours
+
+- **Presence:** Colored avatar circles in the editor toolbar, one per connected user. Each user's cursor is rendered in their assigned color with a name label inside the editor.
+- **File tree:** Drag-and-drop to move and reorder. Right-click context menu per file/folder. Files can be uploaded by dragging onto any folder node.
+- **Image upload:** Drag file into the file tree or use context menu `Upload File`. Upload progress shown inline on the file node.
+- **Preview:** HTML preview does not auto-render on every keystroke. User explicitly clicks `↻ Refresh` to trigger a render. PDF generation uses the dropdown to select theme and extensions, then generates on demand — no automatic rendering.
+- **Panels:** File tree (left) and preview (right) panels are independently collapsible via icon button. The editor pane always remains visible with a minimum enforced width.
+- **Notifications:** Toast notifications for async operations (push succeeded, PDF ready, member invited, git conflict detected).
+
+---
+
+## 11. Phased Delivery
 
 The system is large enough to require phased implementation. Recommended order:
 
