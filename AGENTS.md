@@ -46,6 +46,32 @@ Phase 1 (Monorepo scaffold + domain layer) is **complete and merged to master**.
 - **Shared package**: Result<T,E> discriminated union + 7 DTOs
 - **164 tests** across 18 test suites
 
+## Phase 2 Implementation Summary
+
+Phase 2 (Database layer) is **complete and merged to master**.
+
+### What was built
+
+- **2 new packages**: `packages/db` (Prisma schema + client) and `packages/infrastructure` (Prisma repository implementations)
+- **Prisma schema**: 9 tables (User, Project, ProjectMember, FileNode, Document, Image, Template, GitRepository, AuditLog) with 3 enums (Role, FileNodeType, GitProvider), FK relationships with cascade rules, indexes, and `@db.Uuid` on all UUID columns
+- **9 Prisma repository implementations**: PrismaUserRepository, PrismaProjectRepository, PrismaProjectMemberRepository, PrismaFileNodeRepository, PrismaDocumentRepository, PrismaImageRepository, PrismaTemplateRepository, PrismaGitRepositoryRepository, PrismaAuditLogRepository
+- **Mapping layer**: `toDomain()` / `toPersistence()` helpers for all 9 entities, handling UUID string ↔ VO, Prisma enum ↔ domain VO, Date ↔ Timestamps, JSON ↔ AuditLog metadata
+- **Integration test suite**: 9 test files covering all repositories against real PostgreSQL via testcontainers (postgres:16-alpine)
+- **Test infrastructure**: Shared testcontainers helper and test data factories for all 9 entity types
+- **Cross-cutting**: ESLint type assertion rules (`no-explicit-any: error`, `no-as-type-cast`), type mapping round-trip verification (13 tests)
+- **All quality gates pass**: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fresh-onion`
+
+### Key design decisions
+
+- **Two-package separation**: `packages/db` owns schema + client generation; `packages/infrastructure` owns repository implementations using PrismaClient. Keeps schema concerns isolated from implementation concerns.
+- **`PrismaEnum` mapping**: Domain VOs (Role, FileNodeType, GitProvider) map to Prisma enums via `.value` ↔ string constant — no Zod or runtime parsing needed.
+- **`toDomain`/`toPersistence` pattern**: Each repository has two static/idempotent mapping functions that convert between Prisma records and domain entities. UUID VOs, Timestamps, and enums all handled uniformly.
+- **`@db.Uuid` on all UUID columns**: Native PostgreSQL `uuid` type for all primary and foreign keys — avoids implicit `text` casting.
+- **Recursive cascade delete**: FileNode hierarchy uses Prisma `onDelete: Cascade` on `parentId` self-FK — DB handles recursive deletion, not application code.
+- **Composite PK for ProjectMember**: Prisma `@@id([projectId, userId])` — mirrors the domain's composite identity.
+- **AuditLog JSON metadata**: Stored as Prisma `Json` type → mapped to/from `Record<string, unknown>` with `JSON.parse`/`JSON.stringify` round-trip.
+- **No `as` casts in production code**: All type narrowing done via typed helper functions, ternary expressions, and `JSON.parse` with explicit `Record<string, unknown>` typing. 2 test helper violations exempted via ESLint overrides.
+
 ### Code conventions established
 
 - **Zero runtime deps in domain** — enforced by fresh-onion

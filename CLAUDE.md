@@ -8,9 +8,10 @@ AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 1 complete — monorepo scaffolded and domain layer built. See `specs/001-domain-layer-scaffold/plan.md`
-for the implementation plan and `docs/superpowers/specs/2026-05-26-asciidocollab-architecture-design.md` for the full
-architecture spec.
+**Status:** Phase 2 complete — database layer (Prisma schema + 9 repository implementations) built on top of Phase 1.
+See `docs/superpowers/specs/2026-05-27-database-layer-design.md` for the design and `specs/002-database-layer/plan.md`
+for the implementation plan. Architecture spec at
+`docs/superpowers/specs/2026-05-26-asciidocollab-architecture-design.md`.
 
 ## Tech Stack
 
@@ -37,11 +38,11 @@ asciidocollab/
 │   ├── web/          # Next.js 14 — delivery layer only (shell for Phase 4+)
 │   └── api/          # Fastify — delivery layer only (shell for Phase 3+)
 ├── packages/
-│   ├── domain/       # Entities, use cases, repository interfaces — zero external deps ✅ DONE
-│   ├── infrastructure/  # Prisma repos, filesystem, Docker adapters (shell for Phase 2+)
-│   ├── collaboration/   # Hocuspocus standalone server (shell for Phase 9+)
-│   ├── shared/       # Result<T,E> type, DTOs ✅ DONE
-│   └── db/           # Prisma schema, migrations (shell for Phase 2+)
+│   ├── domain/            # Entities, use cases, repository interfaces — zero external deps ✅ DONE
+│   ├── infrastructure/    # Prisma repos, filesystem, Docker adapters ✅ Phase 2 repos DONE
+│   ├── collaboration/     # Hocuspocus standalone server (shell for Phase 9+)
+│   ├── shared/            # Result<T,E> type, DTOs ✅ DONE
+│   └── db/                # Prisma schema, migrations ✅ DONE
 ├── specs/
 │   └── 001-domain-layer-scaffold/  # Phase 1 plan, spec, data model, tasks
 └── pnpm-workspace.yaml
@@ -166,7 +167,7 @@ layer (e.g. session middleware), not to the domain use case itself.
 | Phase | Scope                                                                                             | Status         |
 |-------|---------------------------------------------------------------------------------------------------|----------------|
 | 1     | Monorepo scaffold + domain layer (entities, value objects, use cases — pure TS, in-memory-tested) | ✅ **Complete** |
-| 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ⬜ Pending      |
+| 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
 | 3     | API server + local authentication (Fastify, sessions, login/logout/register)                      | ⬜ Pending      |
 | 4     | Project management (CRUD + member management — API + dashboard UI)                                | ⬜ Pending      |
 | 5     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
@@ -183,5 +184,6 @@ layer (e.g. session middleware), not to the domain use case itself.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current plan at
+specs/002-database-layer/plan.md
 <!-- SPECKIT END -->
