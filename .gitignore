@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.vscode/
+.idea/
+*.tsbuildinfo
+packages/shared/tests/**/*.d.ts
+packages/shared/tests/**/*.js
+packages/shared/tests/**/*.js.map
