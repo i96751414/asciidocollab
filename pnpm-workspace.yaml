@@ -8,3 +8,4 @@ allowBuilds:
   prisma: true
   protobufjs: true
   ssh2: true
+  unrs-resolver: set this to true or false
