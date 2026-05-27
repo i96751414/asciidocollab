@@ -16,7 +16,7 @@ import { randomUUID } from 'crypto';
 
 /**
  * Deletes a file or folder (and its descendants) from a project.
- * Requires the actor to be a member of the project.
+ * Requires the actorId to be a member of the project.
  * The root folder cannot be deleted.
  */
 export class DeleteFileUseCase {
@@ -28,20 +28,20 @@ export class DeleteFileUseCase {
   ) {}
 
   /**
-   * @param actor - The user requesting the deletion.
+   * @param actorId - The user requesting the deletion.
    * @param fileNodeId - The file or folder to delete.
    * @param projectId - The project containing the file or folder.
    * @returns void on success.
-   * @throws PermissionDeniedError if the actor is not a project member.
+   * @throws PermissionDeniedError if the actorId is not a project member.
    * @throws FileNodeNotFoundError if the file node does not exist.
    * @throws CannotDeleteRootFolderError if the target is the project root folder.
    */
   async execute(
-    actor: UserId,
+    actorId: UserId,
     fileNodeId: FileNodeId,
     projectId: ProjectId,
   ): Promise<Result<void, DomainError>> {
-    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actor);
+    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
     }
@@ -67,7 +67,7 @@ export class DeleteFileUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      actor,
+      actorId,
       projectId,
       'file.deleted',
       'FileNode',

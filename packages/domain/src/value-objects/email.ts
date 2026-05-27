@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 const RFC_5322_BASIC = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -13,11 +15,11 @@ export class Email {
    * The value is normalized to lowercase for consistent comparison.
    * @param value - The email address string to validate and wrap
    * @returns A new Email instance
-   * @throws {Error} If the value is not a valid email format
+   * @throws {ValidationError} If the value is not a valid email format
    */
   static create(value: string): Email {
     if (!value || !RFC_5322_BASIC.test(value)) {
-      throw new Error(`Invalid email format: ${value}`);
+      throw new ValidationError(`Invalid email format: ${value}`);
     }
     return new Email(value.toLowerCase());
   }

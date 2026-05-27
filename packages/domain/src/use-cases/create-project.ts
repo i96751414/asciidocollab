@@ -22,13 +22,13 @@ export interface CreateProjectResult {
   projectId: ProjectId;
   rootFolderId: FileNodeId;
   ownerId: UserId;
-  ownerRole: 'administrator';
+  ownerRole: string;
 }
 
 /**
  * Creates a new project with a root folder, adds the creator as an administrator,
  * and records an audit log entry.
- * Requires the actor to exist as a registered user.
+ * Requires the actorId to exist as a registered user.
  */
 export class CreateProjectUseCase {
   constructor(
@@ -39,7 +39,7 @@ export class CreateProjectUseCase {
   ) {}
 
   /**
-   * @param actor - The user who is creating the project.
+   * @param actorId - The user who is creating the project.
    * @param name - The validated project name.
    * @param description - An optional project description.
    * @param initialTags - Tags to associate with the project on creation.
@@ -47,7 +47,7 @@ export class CreateProjectUseCase {
    * Never returns an error under current logic (always succeeds if dependencies are available).
    */
   async execute(
-    actor: UserId,
+    actorId: UserId,
     name: ProjectName,
     description: string | null,
     initialTags: string[],
@@ -59,7 +59,7 @@ export class CreateProjectUseCase {
       projectId,
       name,
       description,
-      actor,
+      actorId,
       initialTags,
       null,
     );
@@ -82,7 +82,7 @@ export class CreateProjectUseCase {
 
     const member = new ProjectMember(
       projectId,
-      actor,
+      actorId,
       Role.create('administrator'),
       new Date(),
     );
@@ -91,7 +91,7 @@ export class CreateProjectUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      actor,
+      actorId,
       projectId,
       'project.created',
       'Project',
@@ -106,7 +106,7 @@ export class CreateProjectUseCase {
         projectId,
         rootFolderId,
         ownerId: project.ownerId,
-        ownerRole: 'administrator' as const,
+        ownerRole: Role.create('administrator').value,
       },
     };
   }

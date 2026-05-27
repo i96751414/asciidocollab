@@ -27,7 +27,7 @@ export class RemoveMemberUseCase {
   ) {}
 
   /**
-   * @param callerId - The administrator requesting the removal.
+   * @param actorId - The administrator requesting the removal.
    * @param projectId - The project from which to remove the member.
    * @param targetUserId - The user to remove.
    * @returns void on success.
@@ -38,11 +38,11 @@ export class RemoveMemberUseCase {
    * @throws CannotRemoveLastAdminError if the target is the last administrator.
    */
   async execute(
-    callerId: UserId,
+    actorId: UserId,
     projectId: ProjectId,
     targetUserId: UserId,
   ): Promise<Result<void, DomainError>> {
-    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, callerId);
+    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!callerMembership || callerMembership.role.value !== 'administrator') {
       return { success: false, error: new PermissionDeniedError() };
     }
@@ -74,7 +74,7 @@ export class RemoveMemberUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      callerId,
+      actorId,
       projectId,
       'member.removed',
       'ProjectMember',

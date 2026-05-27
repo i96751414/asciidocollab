@@ -25,7 +25,7 @@ describe('GetProjectTreeUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let documentRepo: InMemoryDocumentRepository;
   let useCase: GetProjectTreeUseCase;
-  let actor: UserId;
+  let actorId: UserId;
   let otherUser: UserId;
   let projectId: ProjectId;
   let rootFolderId: FileNodeId;
@@ -46,7 +46,7 @@ describe('GetProjectTreeUseCase', () => {
       projectRepo,
     );
 
-    actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+    actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
     otherUser = UserId.create('660e8400-e29b-41d4-a716-446655440002');
     projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
     rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
@@ -58,7 +58,7 @@ describe('GetProjectTreeUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actor,
+      actorId,
       [],
       rootFolderId,
     );
@@ -105,14 +105,14 @@ describe('GetProjectTreeUseCase', () => {
 
     const member = new ProjectMember(
       projectId,
-      actor,
+      actorId,
       Role.create('editor'),
     );
     await projectMemberRepo.addMember(member);
   });
 
   test('returns nested tree with root folder containing children', async () => {
-    const result = await useCase.execute(actor, projectId);
+    const result = await useCase.execute(actorId, projectId);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -142,7 +142,7 @@ describe('GetProjectTreeUseCase', () => {
   });
 
   test('file nodes include mimeType when document exists', async () => {
-    const result = await useCase.execute(actor, projectId);
+    const result = await useCase.execute(actorId, projectId);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -156,7 +156,7 @@ describe('GetProjectTreeUseCase', () => {
 
   test('non-existent project returns error', async () => {
     const missingId = ProjectId.create('eeeeeeee-e29b-41d4-a716-446655440000');
-    const result = await useCase.execute(actor, missingId);
+    const result = await useCase.execute(actorId, missingId);
 
     expect(result.success).toBe(false);
     if (result.success) return;

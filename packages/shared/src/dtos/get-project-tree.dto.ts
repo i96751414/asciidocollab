@@ -1,6 +1,6 @@
 /** Input data for retrieving a project's file tree. */
 export interface GetProjectTreeDto {
-  actor: string;
+  actorId: string;
   projectId: string;
 }
 

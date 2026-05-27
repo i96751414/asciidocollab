@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 const TRAVERSAL = /(^|\/|\\)(\.\.|\.)(\/|\\|$)/;
 const VALID_PATH = /^\/[a-zA-Z0-9_\-./]*$/;
 
@@ -15,17 +17,17 @@ export class FilePath {
    * sequences, and uses only safe characters.
    * @param value - The file path string to validate and wrap
    * @returns A new FilePath instance
-   * @throws {Error} If the value fails any path validation check
+   * @throws {ValidationError} If the value fails any path validation check
    */
   static create(value: string): FilePath {
     if (!value || !value.startsWith('/')) {
-      throw new Error(`Invalid FilePath: must start with /. Got: ${value}`);
+      throw new ValidationError(`Invalid FilePath: must start with /. Got: ${value}`);
     }
     if (TRAVERSAL.test(value)) {
-      throw new Error(`Invalid FilePath: path traversal sequences not allowed. Got: ${value}`);
+      throw new ValidationError(`Invalid FilePath: path traversal sequences not allowed. Got: ${value}`);
     }
     if (!VALID_PATH.test(value)) {
-      throw new Error(`Invalid FilePath: invalid characters. Got: ${value}`);
+      throw new ValidationError(`Invalid FilePath: invalid characters. Got: ${value}`);
     }
     return new FilePath(value);
   }

@@ -27,7 +27,7 @@ describe('DeleteFileUseCase', () => {
   let auditLogRepo: InMemoryAuditLogRepository;
   let documentRepo: InMemoryDocumentRepository;
   let useCase: DeleteFileUseCase;
-  let actor: UserId;
+  let actorId: UserId;
   let projectId: ProjectId;
   let project: Project;
   let rootFolderId: FileNodeId;
@@ -53,7 +53,7 @@ describe('DeleteFileUseCase', () => {
       auditLogRepo,
     );
 
-    actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+    actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
     projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
     rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
     childFolderId = FileNodeId.create('990e8400-e29b-41d4-a716-446655440005');
@@ -64,7 +64,7 @@ describe('DeleteFileUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actor,
+      actorId,
       [],
       rootFolderId,
     );
@@ -111,14 +111,14 @@ describe('DeleteFileUseCase', () => {
 
     const member = new ProjectMember(
       projectId,
-      actor,
+      actorId,
       Role.create('editor'),
     );
     await projectMemberRepo.addMember(member);
   });
 
   test('deletes a file and its document and creates audit log', async () => {
-    const result = await useCase.execute(actor, fileNodeId, projectId);
+    const result = await useCase.execute(actorId, fileNodeId, projectId);
 
     expect(result.success).toBe(true);
 
@@ -131,7 +131,7 @@ describe('DeleteFileUseCase', () => {
     const logs = await auditLogRepo.findByProjectId(projectId);
     expect(logs).toHaveLength(1);
     expect(logs[0].action).toBe('file.deleted');
-    expect(logs[0].userId.value).toBe(actor.value);
+    expect(logs[0].userId.value).toBe(actorId.value);
   });
 
   test('deletes a folder cascading to children and their documents', async () => {
@@ -157,7 +157,7 @@ describe('DeleteFileUseCase', () => {
     );
     await documentRepo.save(grandchildDoc);
 
-    const result = await useCase.execute(actor, childFolderId, projectId);
+    const result = await useCase.execute(actorId, childFolderId, projectId);
 
     expect(result.success).toBe(true);
 
@@ -179,7 +179,7 @@ describe('DeleteFileUseCase', () => {
   });
 
   test('returns error when deleting root folder', async () => {
-    const result = await useCase.execute(actor, rootFolderId, projectId);
+    const result = await useCase.execute(actorId, rootFolderId, projectId);
 
     expect(result.success).toBe(false);
     if (result.success) return;
@@ -189,7 +189,7 @@ describe('DeleteFileUseCase', () => {
 
   test('returns error for non-existent file', async () => {
     const missingId = FileNodeId.create('cc0e8400-e29b-41d4-a716-44665544000e');
-    const result = await useCase.execute(actor, missingId, projectId);
+    const result = await useCase.execute(actorId, missingId, projectId);
 
     expect(result.success).toBe(false);
     if (result.success) return;

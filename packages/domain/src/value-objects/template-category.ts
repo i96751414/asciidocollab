@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 /**
  * Represents a template category with length constraints.
  * Validates that the value is non-empty and does not exceed 50 characters.
@@ -9,14 +11,14 @@ export class TemplateCategory {
    * Creates a new TemplateCategory instance after validating the input.
    * @param value - The template category string; must be non-empty and at most 50 characters
    * @returns A new TemplateCategory instance
-   * @throws {Error} If the value is empty or exceeds 50 characters
+   * @throws {ValidationError} If the value is empty or exceeds 50 characters
    */
   static create(value: string): TemplateCategory {
     if (!value) {
-      throw new Error('Invalid TemplateCategory: must not be empty');
+      throw new ValidationError('Invalid TemplateCategory: must not be empty');
     }
     if (value.length > 50) {
-      throw new Error('Invalid TemplateCategory: must not exceed 50 characters');
+      throw new ValidationError('Invalid TemplateCategory: must not exceed 50 characters');
     }
     return new TemplateCategory(value);
   }

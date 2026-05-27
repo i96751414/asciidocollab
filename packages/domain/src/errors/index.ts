@@ -13,3 +13,4 @@ export { CannotRemoveLastAdminError } from './cannot-remove-last-admin';
 export { CannotAttachDocumentToFolderError } from './cannot-attach-document-to-folder';
 export { CannotDeleteRootFolderError } from './cannot-delete-root-folder';
 export { MemberNotFoundError } from './member-not-found';
+export { ValidationError } from './validation-error';

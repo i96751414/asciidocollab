@@ -1,6 +1,6 @@
 /** Input data for creating a new project. */
 export interface CreateProjectDto {
-  actor: string;
+  actorId: string;
   name: string;
   description: string | null;
   initialTags: string[];

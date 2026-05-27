@@ -17,7 +17,7 @@ import { Result } from '@asciidocollab/shared';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.
- * Requires the actor to be a member of the project.
+ * Requires the actorId to be a member of the project.
  */
 export class RenameFileUseCase {
   constructor(
@@ -27,21 +27,21 @@ export class RenameFileUseCase {
   ) {}
 
   /**
-   * @param actor - The user performing the rename.
+   * @param actorId - The user performing the rename.
    * @param fileNodeId - The file or folder to rename.
    * @param newName - The new name for the file or folder.
    * @param projectId - The project containing the file or folder.
    * @returns The updated file node ID, new name, and new path.
-   * @throws PermissionDeniedError if the actor is not a project member.
+   * @throws PermissionDeniedError if the actorId is not a project member.
    * @throws FileNodeNotFoundError if the file node does not exist.
    */
   async execute(
-    actor: UserId,
+    actorId: UserId,
     fileNodeId: FileNodeId,
     newName: string,
     projectId: ProjectId,
   ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath }, DomainError>> {
-    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actor);
+    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
     }
@@ -70,7 +70,7 @@ export class RenameFileUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      actor,
+      actorId,
       projectId,
       'file.renamed',
       'FileNode',

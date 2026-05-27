@@ -8,6 +8,7 @@ import { ProjectMemberRepository } from '../repositories/project-member.reposito
 import { ProjectRepository } from '../repositories/project.repository';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { ProjectNotFoundError } from '../errors/project-not-found';
+import { DomainError } from '../errors/domain-error';
 import { Result } from '@asciidocollab/shared';
 
 export interface FileTreeNode {
@@ -38,7 +39,7 @@ function buildTree(
 
 /**
  * Retrieves the full file tree of a project, including documents and their MIME types.
- * Requires the actor to be a member of the project.
+ * Requires the actorId to be a member of the project.
  */
 export class GetProjectTreeUseCase {
   constructor(
@@ -49,22 +50,22 @@ export class GetProjectTreeUseCase {
   ) {}
 
   /**
-   * @param actor - The user requesting the file tree.
+   * @param actorId - The user requesting the file tree.
    * @param projectId - The project whose file tree to retrieve.
    * @returns The root folder and its nested children.
    * @throws ProjectNotFoundError if the project does not exist.
-   * @throws PermissionDeniedError if the actor is not a project member.
+   * @throws PermissionDeniedError if the actorId is not a project member.
    */
   async execute(
-    actor: UserId,
+    actorId: UserId,
     projectId: ProjectId,
-  ): Promise<Result<{ root: FileTreeNode }, ProjectNotFoundError | PermissionDeniedError>> {
+  ): Promise<Result<{ root: FileTreeNode }, DomainError>> {
     const project = await this.projectRepo.findById(projectId);
     if (!project) {
       return { success: false, error: new ProjectNotFoundError(projectId.value) };
     }
 
-    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actor);
+    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
     }

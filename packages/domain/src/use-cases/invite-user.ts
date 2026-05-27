@@ -27,7 +27,7 @@ export class InviteUserUseCase {
   ) {}
 
   /**
-   * @param callerId - The administrator performing the invitation.
+   * @param actorId - The administrator performing the invitation.
    * @param projectId - The project to invite the user into.
    * @param email - The email of the user to invite.
    * @param role - The role to assign to the invited user.
@@ -37,12 +37,12 @@ export class InviteUserUseCase {
    * @throws ProjectMemberAlreadyExistsError if the user is already a member.
    */
   async execute(
-    callerId: UserId,
+    actorId: UserId,
     projectId: ProjectId,
     email: Email,
     role: Role,
   ): Promise<Result<void, DomainError>> {
-    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, callerId);
+    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!callerMembership || callerMembership.role.value !== 'administrator') {
       return { success: false, error: new PermissionDeniedError() };
     }
@@ -68,7 +68,7 @@ export class InviteUserUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      callerId,
+      actorId,
       projectId,
       'member.invited',
       'ProjectMember',

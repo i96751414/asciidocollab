@@ -31,7 +31,7 @@ export class FileNode {
     public readonly timestamps: Timestamps = new Timestamps(),
   ) {
     if (this.type.value === 'file' && this.parentId === null) {
-      throw new Error('File at root level must be a folder');
+      throw new Error('Root-level node must be a folder, not a file');
     }
   }
 

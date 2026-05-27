@@ -1,6 +1,6 @@
 /** Input data for renaming a file node. */
 export interface RenameFileDto {
-  actor: string;
+  actorId: string;
   fileNodeId: string;
   newName: string;
   projectId: string;

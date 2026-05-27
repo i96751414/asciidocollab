@@ -20,7 +20,7 @@ describe('RenameFileUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: RenameFileUseCase;
-  let actor: UserId;
+  let actorId: UserId;
   let otherUser: UserId;
   let projectId: ProjectId;
   let project: Project;
@@ -41,7 +41,7 @@ describe('RenameFileUseCase', () => {
       auditLogRepo,
     );
 
-    actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+    actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
     otherUser = UserId.create('660e8400-e29b-41d4-a716-446655440002');
     projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
     rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
@@ -51,7 +51,7 @@ describe('RenameFileUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actor,
+      actorId,
       [],
       rootFolderId,
     );
@@ -79,14 +79,14 @@ describe('RenameFileUseCase', () => {
 
     const member = new ProjectMember(
       projectId,
-      actor,
+      actorId,
       Role.create('editor'),
     );
     await projectMemberRepo.addMember(member);
   });
 
   test('renames a file and updates name, path, and creates audit log', async () => {
-    const result = await useCase.execute(actor, fileNodeId, 'new-name.txt', projectId);
+    const result = await useCase.execute(actorId, fileNodeId, 'new-name.txt', projectId);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -103,12 +103,12 @@ describe('RenameFileUseCase', () => {
     const logs = await auditLogRepo.findByProjectId(projectId);
     expect(logs).toHaveLength(1);
     expect(logs[0].action).toBe('file.renamed');
-    expect(logs[0].userId.value).toBe(actor.value);
+    expect(logs[0].userId.value).toBe(actorId.value);
   });
 
   test('returns error for non-existent file', async () => {
     const missingId = FileNodeId.create('aaaa0000-e29b-41d4-a716-446655440000');
-    const result = await useCase.execute(actor, missingId, 'new-name.txt', projectId);
+    const result = await useCase.execute(actorId, missingId, 'new-name.txt', projectId);
 
     expect(result.success).toBe(false);
     if (result.success) return;
@@ -116,7 +116,7 @@ describe('RenameFileUseCase', () => {
     expect(result.error.name).toBe('FileNodeNotFoundError');
   });
 
-  test('returns error when actor is not a project member', async () => {
+  test('returns error when actorId is not a project member', async () => {
     const result = await useCase.execute(otherUser, fileNodeId, 'new-name.txt', projectId);
 
     expect(result.success).toBe(false);

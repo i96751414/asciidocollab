@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 /**
  * Represents a MIME type string.
  * Validates that the value follows the 'type/subtype' format.
@@ -9,11 +11,11 @@ export class MimeType {
    * Creates a new MimeType instance after validating the input.
    * @param value - The MIME type string; must contain '/' (type/subtype format)
    * @returns A new MimeType instance
-   * @throws {Error} If the value does not contain '/'
+   * @throws {ValidationError} If the value does not contain '/'
    */
   static create(value: string): MimeType {
     if (!value || !value.includes('/')) {
-      throw new Error(`Invalid MimeType: must contain '/'. Got: ${value}`);
+      throw new ValidationError(`Invalid MimeType: must contain '/'. Got: ${value}`);
     }
     return new MimeType(value);
   }

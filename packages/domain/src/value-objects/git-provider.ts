@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 /**
  * Represents a supported Git hosting provider.
  * Restricts valid values to 'github', 'gitlab', or 'bitbucket'.
@@ -9,11 +11,11 @@ export class GitProvider {
    * Creates a new GitProvider instance after validating the input.
    * @param value - The git provider name; must be 'github', 'gitlab', or 'bitbucket'
    * @returns A new GitProvider instance
-   * @throws {Error} If the value is not a recognized git provider
+   * @throws {ValidationError} If the value is not a recognized git provider
    */
   static create(value: string): GitProvider {
     if (value !== 'github' && value !== 'gitlab' && value !== 'bitbucket') {
-      throw new Error(`Invalid GitProvider: ${value}`);
+      throw new ValidationError(`Invalid GitProvider: ${value}`);
     }
     return new GitProvider(value);
   }

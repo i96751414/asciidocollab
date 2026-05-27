@@ -1,6 +1,6 @@
 /** Input data for deleting a file node. */
 export interface DeleteFileDto {
-  actor: string;
+  actorId: string;
   fileNodeId: string;
   projectId: string;
 }

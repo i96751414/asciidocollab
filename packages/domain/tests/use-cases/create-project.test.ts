@@ -13,7 +13,7 @@ describe('CreateProjectUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: CreateProjectUseCase;
-  let actor: UserId;
+  let actorId: UserId;
 
   beforeEach(async () => {
     projectRepo = new InMemoryProjectRepository();
@@ -27,12 +27,12 @@ describe('CreateProjectUseCase', () => {
       auditLogRepo,
     );
 
-    actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+    actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
   });
 
   test('creates project with root folder, owner-as-admin, and audit log', async () => {
     const name = ProjectName.create('My Project');
-    const result = await useCase.execute(actor, name, 'A test project', ['docs', 'frontend']);
+    const result = await useCase.execute(actorId, name, 'A test project', ['docs', 'frontend']);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -42,7 +42,7 @@ describe('CreateProjectUseCase', () => {
     expect(project).not.toBeNull();
     expect(project!.name.value).toBe('My Project');
     expect(project!.description).toBe('A test project');
-    expect(project!.ownerId.value).toBe(actor.value);
+    expect(project!.ownerId.value).toBe(actorId.value);
     expect(project!.rootFolderId).not.toBeNull();
     expect(project!.rootFolderId!.value).toBe(value.rootFolderId.value);
 
@@ -53,21 +53,21 @@ describe('CreateProjectUseCase', () => {
     expect(rootFolder!.parentId).toBeNull();
     expect(rootFolder!.projectId.value).toBe(value.projectId.value);
 
-    const member = await projectMemberRepo.findByCompositeKey(value.projectId, actor);
+    const member = await projectMemberRepo.findByCompositeKey(value.projectId, actorId);
     expect(member).not.toBeNull();
     expect(member!.role.value).toBe('administrator');
 
     const logs = await auditLogRepo.findByProjectId(value.projectId);
     expect(logs).toHaveLength(1);
     expect(logs[0].action).toBe('project.created');
-    expect(logs[0].userId.value).toBe(actor.value);
+    expect(logs[0].userId.value).toBe(actorId.value);
     expect(logs[0].resourceType).toBe('Project');
     expect(logs[0].resourceId).toBe(value.projectId.value);
   });
 
   test('returns correct result shape with ownerId and ownerRole=administrator', async () => {
     const name = ProjectName.create('Another Project');
-    const result = await useCase.execute(actor, name, null, []);
+    const result = await useCase.execute(actorId, name, null, []);
 
     expect(result.success).toBe(true);
     if (!result.success) return;

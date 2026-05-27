@@ -27,7 +27,7 @@ export class ChangeMemberRoleUseCase {
   ) {}
 
   /**
-   * @param callerId - The administrator requesting the role change.
+   * @param actorId - The administrator requesting the role change.
    * @param projectId - The project containing the member.
    * @param targetUserId - The member whose role will change.
    * @param newRole - The new role to assign.
@@ -38,12 +38,12 @@ export class ChangeMemberRoleUseCase {
    * @throws CannotRemoveLastAdminError if the target is the last administrator and the new role is not administrator.
    */
   async execute(
-    callerId: UserId,
+    actorId: UserId,
     projectId: ProjectId,
     targetUserId: UserId,
     newRole: Role,
   ): Promise<Result<void, DomainError>> {
-    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, callerId);
+    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!callerMembership || callerMembership.role.value !== 'administrator') {
       return { success: false, error: new PermissionDeniedError() };
     }
@@ -72,7 +72,7 @@ export class ChangeMemberRoleUseCase {
 
     const auditLog = new AuditLog(
       AuditLogId.create(randomUUID()),
-      callerId,
+      actorId,
       projectId,
       'member.roleChanged',
       'ProjectMember',
