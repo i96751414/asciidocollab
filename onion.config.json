@@ -1,0 +1,16 @@
+{
+  "layers": {
+    "domain": "./packages/domain/src",
+    "shared": "./packages/shared/src"
+  },
+  "rules": [
+    {
+      "from": "domain",
+      "allowedImports": ["shared"]
+    },
+    {
+      "from": "shared",
+      "allowedImports": []
+    }
+  ]
+}

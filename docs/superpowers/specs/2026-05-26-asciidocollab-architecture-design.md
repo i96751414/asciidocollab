@@ -627,13 +627,22 @@ Ln 3, Col 12  |  AsciiDoc  |  UTF-8  |  ⬡ Synced  |  ⎇ main ↑2  |  2 onlin
 
 ## 11. Phased Delivery
 
-The system is large enough to require phased implementation. Recommended order:
+The system is large enough to require phased implementation. Each phase produces independently runnable and testable software. Recommended order:
 
 | Phase | Scope |
 |---|---|
-| 1 | Monorepo setup, domain entities, PostgreSQL schema, auth (local + SAML), project & file management |
-| 2 | CodeMirror editor, Asciidoctor.js preview, single-user editing, auto-save |
-| 3 | Hocuspocus collaboration server, real-time multi-user editing, presence indicators |
-| 4 | Git integration (Docker sandbox, provider adapters) |
-| 5 | PDF generation (Ruby sidecar), template system, image management |
-| 6 | MFA, IP restrictions, audit log, advanced RBAC, performance hardening |
+| 1 | Monorepo scaffold + domain layer (entities, value objects, use cases, errors — pure TypeScript, in-memory-tested, zero external deps) |
+| 2 | Database layer (Prisma schema, migrations, Prisma repository implementations, integration tests with testcontainers) |
+| 3 | API server + local authentication (Fastify, server-side sessions via connect-pg-simple, login/logout/register with local accounts) |
+| 4 | Project management (project CRUD + member management — API routes + Next.js dashboard UI) |
+| 5 | File management (file tree CRUD, drag-drop ordering — API routes + file tree panel in editor shell) |
+| 6 | SAML authentication (passport-saml, Entra ID SSO, on-demand user provisioning on first login) |
+| 7 | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome — tabs, status bar, find/replace, code folding) |
+| 8 | HTML preview + auto-save (Asciidoctor.js Web Worker, side-by-side/fullscreen modes, refresh-on-demand, debounced auto-save, sync state indicator) |
+| 9 | Collaboration server (Hocuspocus standalone process, per-document rooms, auth verification hook, Yjs state persistence to filesystem) |
+| 10 | Real-time co-editing (y-codemirror.next binding, presence indicators with colored cursors, collaborative undo/redo) |
+| 11 | Git sandbox + core operations (Docker sandbox image, per-project isolation, clone/pull/push/commit/branch switch) |
+| 12 | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters, create MR/PR from UI, configurable base URLs for self-hosted) |
+| 13 | PDF generation (Ruby sidecar container, Asciidoctor-PDF, theme + extension selection, download flow) |
+| 14 | Templates + image management (built-in templates, custom template creation from projects, image upload/preview/version tracking) |
+| 15 | Enterprise security (MFA via TOTP, IP allowlist restrictions, audit log, performance hardening) |
