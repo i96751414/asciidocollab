@@ -7,7 +7,7 @@ export class CannotAttachDocumentToFolderError extends DomainError {
   readonly name = 'CannotAttachDocumentToFolderError';
 
   /**
-   * @param fileNodeId - The ID of the folder FileNode.
+   * @param fileNodeId - The folder FileNode that was targeted for document attachment.
    */
   constructor(fileNodeId: string) {
     super(`Cannot attach a document to folder FileNode: ${fileNodeId}`);

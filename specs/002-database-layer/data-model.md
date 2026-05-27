@@ -71,7 +71,7 @@ Composite primary key: `@@id([projectId, userId])`
 
 | Column      | Type                  | Constraints                                     | Domain Field           |
 |-------------|-----------------------|-------------------------------------------------|------------------------|
-| `id`        | `String` (UUID)       | `@id @default(uuid())`                          | `FileNodeId`           |
+| `id`        | `String` (UUID)       | `@id @default(uuid()) @db.Uuid`                 | `FileNodeId`           |
 | `projectId` | `String` (UUID)       | FK→Project, `@db.Uuid`, indexed                 | `ProjectId`            |
 | `parentId`  | `String?` (UUID)      | self-FK→FileNode, `@db.Uuid`, nullable, indexed | `FileNodeId \| null`   |
 | `name`      | `String`              | required                                        | `string`               |
@@ -98,7 +98,7 @@ Index: `@@index([projectId])`, `@@index([parentId])`
 
 | Column        | Type             | Constraints                     | Domain Field      |
 |---------------|------------------|---------------------------------|-------------------|
-| `id`          | `String` (UUID)  | `@id @default(uuid())`          | `ImageId`         |
+| `id`          | `String` (UUID)  | `@id @default(uuid()) @db.Uuid` | `ImageId`         |
 | `projectId`   | `String` (UUID)  | FK→Project, `@db.Uuid`, indexed | `ProjectId`       |
 | `filename`    | `String`         | required                        | `string`          |
 | `storagePath` | `String`         | required                        | `string`          |
@@ -114,7 +114,7 @@ Index: `@@index([projectId])`
 
 | Column            | Type             | Constraints                      | Domain Field        |
 |-------------------|------------------|----------------------------------|---------------------|
-| `id`              | `String` (UUID)  | `@id @default(uuid())`           | `TemplateId`        |
+| `id`              | `String` (UUID)  | `@id @default(uuid()) @db.Uuid`  | `TemplateId`        |
 | `name`            | `String`         | required                         | `string`            |
 | `description`     | `String?`        | nullable                         | `string \| null`    |
 | `category`        | `String`         | required                         | `TemplateCategory`  |
@@ -125,7 +125,7 @@ Index: `@@index([projectId])`
 
 | Column          | Type                 | Constraints                       | Domain Field      |
 |-----------------|----------------------|-----------------------------------|-------------------|
-| `id`            | `String` (UUID)      | `@id @default(uuid())`            | `GitRepositoryId` |
+| `id`            | `String` (UUID)      | `@id @default(uuid()) @db.Uuid`   | `GitRepositoryId` |
 | `projectId`     | `String` (UUID)      | `@unique`, FK→Project, `@db.Uuid` | `ProjectId`       |
 | `provider`      | `GitProvider` (enum) | required                          | `GitProvider`     |
 | `remoteUrl`     | `String`             | required                          | `string`          |
@@ -138,7 +138,7 @@ Index: `@@index([projectId])`
 
 | Column         | Type             | Constraints                               | Domain Field              |
 |----------------|------------------|-------------------------------------------|---------------------------|
-| `id`           | `String` (UUID)  | `@id @default(uuid())`                    | `AuditLogId`              |
+| `id`           | `String` (UUID)  | `@id @default(uuid()) @db.Uuid`           | `AuditLogId`              |
 | `userId`       | `String` (UUID)  | FK→User, `@db.Uuid`, indexed              | `UserId`                  |
 | `projectId`    | `String?` (UUID) | FK→Project, `@db.Uuid`, nullable, indexed | `ProjectId \| null`       |
 | `action`       | `String`         | required                                  | `string`                  |

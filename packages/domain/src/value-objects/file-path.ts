@@ -15,9 +15,10 @@ export class FilePath {
    * Creates a new FilePath instance after validating the input.
    * Validates that the path starts with '/', contains no path traversal
    * sequences, and uses only safe characters.
-   * @param value - The file path string to validate and wrap
-   * @returns A new FilePath instance
-   * @throws {ValidationError} If the value fails any path validation check
+   * 
+   * @param value - The file path string to validate and wrap.
+   * @returns A new FilePath instance.
+   * @throws {ValidationError} If the value fails any path validation check.
    */
   static create(value: string): FilePath {
     if (!value || !value.startsWith('/')) {
@@ -32,17 +33,16 @@ export class FilePath {
     return new FilePath(value);
   }
 
-  /**
-   * Returns the raw file path string.
-   */
+  /** @returns The raw file path string. */
   get value(): string {
     return this._value;
   }
 
   /**
    * Compares this FilePath with another value for equality.
-   * @param other - The value to compare against
-   * @returns true if both are FilePath instances with the same value
+   * 
+   * @param other - The value to compare against.
+   * @returns True if both are FilePath instances with the same value.
    */
   equals(other: unknown): boolean {
     return other instanceof FilePath && this._value === other._value;

@@ -20,6 +20,9 @@ import { randomUUID } from 'crypto';
  * The project owner's role cannot be changed, and the last administrator cannot be demoted.
  */
 export class ChangeMemberRoleUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
@@ -27,15 +30,17 @@ export class ChangeMemberRoleUseCase {
   ) {}
 
   /**
+   * Changes the role of a member in a project.
+   *
    * @param actorId - The administrator requesting the role change.
    * @param projectId - The project containing the member.
    * @param targetUserId - The member whose role will change.
    * @param newRole - The new role to assign.
-   * @returns void on success.
-   * @throws PermissionDeniedError if the caller is not an administrator.
-   * @throws ProjectNotFoundError if the project does not exist.
-   * @throws CannotChangeOwnerRoleError if the target is the project owner.
-   * @throws CannotRemoveLastAdminError if the target is the last administrator and the new role is not administrator.
+   * @returns Void on success.
+   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
+   * `ProjectNotFoundError` if the project does not exist,
+   * `CannotChangeOwnerRoleError` if the target is the project owner, or
+   * `CannotRemoveLastAdminError` if the target is the last administrator being demoted.
    */
   async execute(
     actorId: UserId,

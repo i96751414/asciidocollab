@@ -58,6 +58,58 @@ Phase 1 (Monorepo scaffold + domain layer) is **complete and merged to master**.
 - **In-memory fakes** — all 9 repos tested with Map-backed fakes, no mocking libraries
 - **Architecture** — fresh-onion validates domain never imports outside its package
 
+### Documentation conventions
+
+All **public** classes, methods, interfaces, exported functions, and type definitions MUST have JSDoc following the existing domain-layer pattern:
+
+```typescript
+/**
+ * One-line purpose. If non-obvious, a second sentence explains *why*,
+ * not *what* (the code structure makes *what* self-evident).
+ *
+ * @invariant Invariant condition enforced by the class (entities only).
+ */
+export class SomeEntity {
+  /**
+   * @param id - Unique identifier for this entity.
+   * @param name - Display name shown in the UI.
+   */
+  constructor(
+    /** Unique identifier for this entity. */
+    public readonly id: SomeId,
+    /** Display name shown in the UI. */
+    public readonly name: string,
+  ) {}
+
+  /**
+   * Brief description of what this method accomplishes when the method name
+   * alone is insufficient. Omit the description sentence for trivial CRUD
+   * methods where name + @param + @returns already communicate intent.
+   *
+   * @param paramName - Description of the parameter.
+   * @returns Description of the return value.
+   * @throws {ErrorType} When/why this error occurs.
+   */
+  method(paramName: string): SomeType { ... }
+}
+```
+
+Rules:
+- **Every public class, interface, type alias, and exported function** gets a JSDoc block. DTOs and simple type aliases need only a one-line purpose.
+- **Every public method** gets `@param` + `@returns` + `@throws` tags. Add a leading description sentence only when the method's behavior isn't fully captured by its name plus its tags.
+- **`@param`** uses dash-separator: `@param name - Description.` No type annotation (TypeScript handles that).
+- **`@returns`** and **`@throws`** are always included for public methods. Use `@returns A promise that resolves when the operation completes.` for `Promise<void>` returns. Omit `@returns` only for plain `void` methods.
+- **`@invariant`** on entity classes listing constructor-enforced invariants.
+- **Inline `/** doc *\/`** comments on constructor `public readonly` parameters are preferred over separate `@param` tags for simple field descriptions.
+- **Constructor `@param`** tags are used when the parameter needs contextual explanation beyond what fits inline.
+- **File-level**: Use `@packageDocumentation` in package barrel `index.ts` files. Use `@file` in non-barrel index files that re-export.
+- **Tag ordering**: `@param` (in argument order), then `@returns`, then `@throws`.
+- **Blank line before tags**: Always insert an empty line (a bare ` *`) between the description paragraph and the first `@param`/`@returns`/`@throws` tag. Do NOT put tags on the line immediately after description text. Tags-only blocks (no description) need no blank line.
+- Use backticks for code references, end sentences with periods.
+- **Infrastructure layer** (repository implementations, persistence helpers) must be documented same as domain — no exceptions.
+- Private/internal helpers with obvious behavior need no JSDoc. Add one when the implementation has non-obvious side effects or safety invariants (e.g., `extractMetadata`).
+- Follow the "why, not what" principle: if the code already makes the behavior obvious, the comment explains the rationale or non-obvious side effects.
+
 ### Key design decisions
 
 - `CreateProjectUseCase` does NOT verify actor exists — API layer responsibility

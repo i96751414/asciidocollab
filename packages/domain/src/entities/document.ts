@@ -15,19 +15,28 @@ import { Timestamps } from '../value-objects/timestamps';
  * @invariant `contentId` and `yjsStateId` must not point to the same UUID.
  */
 export class Document {
+  /**
+   * @throws {Error} If `contentId` and `yjsStateId` point to the same UUID.
+   */
   constructor(
     /** Unique identifier for this document. */
     public readonly id: DocumentId,
     /** The file-tree node that this document is attached to. */
     public readonly fileNodeId: FileNodeId,
-    /** Identifier of the immutable content resource. Must differ from
-     *  `yjsStateId`. */
+    /**
+     * Identifier of the immutable content resource. Must differ from
+     *  `yjsStateId`.
+     */
     public readonly contentId: ContentId,
-    /** Identifier of the mutable Yjs collaborative-editing state. Must differ
-     *  from `contentId`. */
+    /**
+     * Identifier of the mutable Yjs collaborative-editing state. Must differ
+     *  from `contentId`.
+     */
     public readonly yjsStateId: YjsStateId,
-    /** The MIME type of the document content (e.g.
-     *  `text/asciidoc`). */
+    /**
+     * The MIME type of the document content (e.g.
+     *  `text/asciidoc`).
+     */
     public readonly mimeType: MimeType,
     /** Creation and last-update timestamps. Defaults to the current time. */
     public readonly timestamps: Timestamps = new Timestamps(),
@@ -37,10 +46,12 @@ export class Document {
     }
   }
 
+  /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
     return this.timestamps.createdAt;
   }
 
+  /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
     return this.timestamps.updatedAt;
   }

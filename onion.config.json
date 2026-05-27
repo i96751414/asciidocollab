@@ -1,7 +1,9 @@
 {
   "layers": {
     "domain": "./packages/domain/src",
-    "shared": "./packages/shared/src"
+    "shared": "./packages/shared/src",
+    "db": "./packages/db/src",
+    "infrastructure": "./packages/infrastructure/src"
   },
   "rules": [
     {
@@ -11,6 +13,14 @@
     {
       "from": "shared",
       "allowedImports": []
+    },
+    {
+      "from": "db",
+      "allowedImports": []
+    },
+    {
+      "from": "infrastructure",
+      "allowedImports": ["domain", "shared", "db"]
     }
   ]
 }

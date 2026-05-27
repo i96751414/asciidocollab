@@ -1,6 +1,6 @@
 /**
  * Abstract base class for all domain-level errors.
- * Extends Error and ensures proper prototype chain inheritance.
+ * Extends `Error` and ensures proper prototype chain inheritance.
  */
 export abstract class DomainError extends Error {
   /** The concrete error name, set by each subclass. */

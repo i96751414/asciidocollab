@@ -11,6 +11,9 @@ import { MimeType } from '../value-objects/mime-type';
  * @invariant `sizeBytes` must be greater than 0.
  */
 export class Image {
+  /**
+   * @throws {Error} If `sizeBytes` is not greater than 0.
+   */
   constructor(
     /** Unique identifier for this image. */
     public readonly id: ImageId,
@@ -24,8 +27,10 @@ export class Image {
     public readonly mimeType: MimeType,
     /** File size in bytes. Must be > 0. */
     public readonly sizeBytes: number,
-    /** Identifier of the parent image in a hierarchy, or null if this is a
-     *  top-level image. */
+    /**
+     * Identifier of the parent image in a hierarchy, or null if this is a
+     *  top-level image.
+     */
     public readonly parentId: ImageId | null,
     /** Timestamp of upload. Defaults to the current time. */
     public readonly uploadedAt: Date = new Date(),

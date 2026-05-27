@@ -1,3 +1,4 @@
+/** @file Barrel re-exports for use-cases. */
 export { CreateProjectUseCase } from './create-project';
 export { RenameFileUseCase } from './rename-file';
 export { DeleteFileUseCase } from './delete-file';

@@ -11,12 +11,31 @@ import { ProjectNotFoundError } from '../errors/project-not-found';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '@asciidocollab/shared';
 
+/** A single node in the project file tree, with nested children for folders. */
 export interface FileTreeNode {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   type: string;
+  /**
+   *
+   */
   path: string;
+  /**
+   *
+   */
   mimeType?: string;
+  /**
+   *
+   */
   children: FileTreeNode[];
 }
 
@@ -42,6 +61,9 @@ function buildTree(
  * Requires the actorId to be a member of the project.
  */
 export class GetProjectTreeUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -50,11 +72,13 @@ export class GetProjectTreeUseCase {
   ) {}
 
   /**
+   * Retrieves the full file tree of a project, including documents and their MIME types.
+   *
    * @param actorId - The user requesting the file tree.
    * @param projectId - The project whose file tree to retrieve.
    * @returns The root folder and its nested children.
-   * @throws ProjectNotFoundError if the project does not exist.
-   * @throws PermissionDeniedError if the actorId is not a project member.
+   * On failure returns `ProjectNotFoundError` if the project does not exist,
+   * or `PermissionDeniedError` if `actorId` is not a project member.
    */
   async execute(
     actorId: UserId,

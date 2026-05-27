@@ -9,9 +9,10 @@ export class MimeType {
 
   /**
    * Creates a new MimeType instance after validating the input.
-   * @param value - The MIME type string; must contain '/' (type/subtype format)
-   * @returns A new MimeType instance
-   * @throws {ValidationError} If the value does not contain '/'
+   * 
+   * @param value - The MIME type string; must contain '/' (type/subtype format).
+   * @returns A new MimeType instance.
+   * @throws {ValidationError} If the value does not contain '/'.
    */
   static create(value: string): MimeType {
     if (!value || !value.includes('/')) {
@@ -20,17 +21,16 @@ export class MimeType {
     return new MimeType(value);
   }
 
-  /**
-   * Returns the raw MIME type string.
-   */
+  /** @returns The raw MIME type string. */
   get value(): string {
     return this._value;
   }
 
   /**
    * Compares this MimeType with another value for equality.
-   * @param other - The value to compare against
-   * @returns true if both are MimeType instances with the same value
+   * 
+   * @param other - The value to compare against.
+   * @returns True if both are MimeType instances with the same value.
    */
   equals(other: unknown): boolean {
     return other instanceof MimeType && this._value === other._value;

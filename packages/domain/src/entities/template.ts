@@ -9,6 +9,9 @@ import { ProjectId } from '../value-objects/project-id';
  * it was derived, or it may be a built-in template with no associated project.
  */
 export class Template {
+  /**
+   *
+   */
   constructor(
     /** Unique identifier for this template. */
     public readonly id: TemplateId,
@@ -16,8 +19,10 @@ export class Template {
     public readonly name: string,
     /** Optional description of the template's purpose and content. */
     public readonly description: string | null,
-    /** Category that groups this template (e.g. 'documentation',
-     *  'tutorial'). */
+    /**
+     * Category that groups this template (e.g. 'documentation',
+     *  'tutorial').
+     */
     public readonly category: TemplateCategory,
     /**
      * The project from which this template was derived, or null for built-in

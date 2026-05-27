@@ -9,9 +9,10 @@ export class TemplateCategory {
 
   /**
    * Creates a new TemplateCategory instance after validating the input.
-   * @param value - The template category string; must be non-empty and at most 50 characters
-   * @returns A new TemplateCategory instance
-   * @throws {ValidationError} If the value is empty or exceeds 50 characters
+   * 
+   * @param value - The template category string; must be non-empty and at most 50 characters.
+   * @returns A new TemplateCategory instance.
+   * @throws {ValidationError} If the value is empty or exceeds 50 characters.
    */
   static create(value: string): TemplateCategory {
     if (!value) {
@@ -23,17 +24,16 @@ export class TemplateCategory {
     return new TemplateCategory(value);
   }
 
-  /**
-   * Returns the raw template category string.
-   */
+  /** @returns The raw template category string. */
   get value(): string {
     return this._value;
   }
 
   /**
    * Compares this TemplateCategory with another value for equality.
-   * @param other - The value to compare against
-   * @returns true if both are TemplateCategory instances with the same value
+   * 
+   * @param other - The value to compare against.
+   * @returns True if both are TemplateCategory instances with the same value.
    */
   equals(other: unknown): boolean {
     return other instanceof TemplateCategory && this._value === other._value;

@@ -9,6 +9,9 @@ import { GitProvider } from '../value-objects/git-provider';
  * can be connected to at most one remote repository.
  */
 export class GitRepository {
+  /**
+   *
+   */
   constructor(
     /** Unique identifier for this repository link. */
     public readonly id: GitRepositoryId,
@@ -22,11 +25,15 @@ export class GitRepository {
     public readonly credentialRef: string,
     /** The currently active branch. Defaults to `'main'`. */
     public readonly currentBranch: string = 'main',
-    /** Timestamp of the last successful synchronisation, or null if never
-     *  synced. */
+    /**
+     * Timestamp of the last successful synchronisation, or null if never
+     *  synced.
+     */
     public readonly lastSyncAt: Date | null = null,
-    /** Timestamp when the repository link was created. Defaults to the current
-     *  time. */
+    /**
+     * Timestamp when the repository link was created. Defaults to the current
+     *  time.
+     */
     public readonly createdAt: Date = new Date(),
   ) {}
 }

@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/validation-error';
+
 /**
  * Immutable value object representing creation and last-update timestamps.
  * Encapsulates the createdAt / updatedAt pair and validates their ordering.
@@ -5,16 +7,21 @@
  *
  * @invariant `createdAt` must be less than or equal to `updatedAt`.
  */
-import { ValidationError } from '../errors/validation-error';
 
+/**
+ *
+ */
 export class Timestamps {
   private readonly _createdAt: Date;
   private readonly _updatedAt: Date;
 
+  /**
+   * @param createdAt - The date and time when the entity was created. Defaults to now.
+   * @param updatedAt - The date and time when the entity was last updated. Defaults to now.
+   * @throws {ValidationError} If `createdAt` is later than `updatedAt`.
+   */
   constructor(
-    /** The date and time when the entity was created. Defaults to now. */
     createdAt: Date = new Date(),
-    /** The date and time when the entity was last updated. Defaults to now. */
     updatedAt: Date = new Date(),
   ) {
     if (createdAt > updatedAt) {
@@ -24,10 +31,12 @@ export class Timestamps {
     this._updatedAt = new Date(updatedAt.getTime());
   }
 
+  /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
     return new Date(this._createdAt.getTime());
   }
 
+  /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
     return new Date(this._updatedAt.getTime());
   }

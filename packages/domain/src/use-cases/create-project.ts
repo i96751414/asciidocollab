@@ -18,10 +18,23 @@ import { DomainError } from '../errors/domain-error';
 import { Result } from '@asciidocollab/shared';
 import { randomUUID } from 'crypto';
 
+/** Result returned on successful project creation. */
 export interface CreateProjectResult {
+  /**
+   *
+   */
   projectId: ProjectId;
+  /**
+   *
+   */
   rootFolderId: FileNodeId;
+  /**
+   *
+   */
   ownerId: UserId;
+  /**
+   *
+   */
   ownerRole: string;
 }
 
@@ -31,6 +44,9 @@ export interface CreateProjectResult {
  * Requires the actorId to exist as a registered user.
  */
 export class CreateProjectUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -39,6 +55,9 @@ export class CreateProjectUseCase {
   ) {}
 
   /**
+   * Creates a new project with a root folder, adds the creator as an administrator,
+   * and records an audit log entry.
+   *
    * @param actorId - The user who is creating the project.
    * @param name - The validated project name.
    * @param description - An optional project description.

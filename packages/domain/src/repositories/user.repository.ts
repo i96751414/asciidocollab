@@ -9,21 +9,25 @@ import { Email } from '../value-objects/email';
 export interface UserRepository {
   /**
    * Finds a user by their unique identifier.
-   * @param id - The unique identifier of the user
-   * @returns The user if found, null otherwise
+   * 
+   * @param id - The unique identifier of the user.
+   * @returns The user if found, null otherwise.
    */
   findById(id: UserId): Promise<User | null>;
 
   /**
    * Finds a user by their email address.
-   * @param email - The email address to search for
-   * @returns The user if found, null otherwise
+   * 
+   * @param email - The email address to search for.
+   * @returns The user if found, null otherwise.
    */
   findByEmail(email: Email): Promise<User | null>;
 
   /**
    * Persists a user entity (create or update).
-   * @param user - The user entity to save
+   * 
+   * @param user - The user entity to save.
+   * @returns A promise that resolves when the operation completes.
    */
   save(user: User): Promise<void>;
 }

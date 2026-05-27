@@ -20,6 +20,9 @@ import { randomUUID } from 'crypto';
  * Requires the caller to be an administrator of the project.
  */
 export class InviteUserUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
@@ -27,14 +30,16 @@ export class InviteUserUseCase {
   ) {}
 
   /**
+   * Invites a user to a project by email, assigning them a role.
+   *
    * @param actorId - The administrator performing the invitation.
    * @param projectId - The project to invite the user into.
    * @param email - The email of the user to invite.
    * @param role - The role to assign to the invited user.
-   * @returns void on success.
-   * @throws PermissionDeniedError if the caller is not an administrator.
-   * @throws UserNotFoundError if no user is found for the given email.
-   * @throws ProjectMemberAlreadyExistsError if the user is already a member.
+   * @returns Void on success.
+   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
+   * `UserNotFoundError` if no user is found for the given email, or
+   * `ProjectMemberAlreadyExistsError` if the user is already a member.
    */
   async execute(
     actorId: UserId,

@@ -58,18 +58,17 @@ As a developer implementing access control, I want ProjectMember repository meth
 
 ---
 
-### User Story 4 - Document and Git repository lookups work correctly (Priority: P2)
+### User Story 4 - Git repository lookups work correctly (Priority: P2)
 
-As a developer implementing the editor, I want Document and GitRepository repositories to support one-to-one lookups from FileNode and Project respectively.
+As a developer implementing git integration, I want the GitRepository repository to support one-to-one lookups from Project.
 
-**Why this priority**: Document and Git repositories support editor and git integration features but aren't blocking for basic CRUD.
+**Why this priority**: Git integration supports collaboration features but isn't blocking for basic CRUD.
 
-**Independent Test**: Can be fully tested by creating and querying documents by fileNodeId and git repos by projectId.
+**Independent Test**: Can be fully tested by creating and querying git repos by projectId.
 
 **Acceptance Scenarios**:
 
-1. **Given** a document linked to a file node, **When** queried by that file node, **Then** the correct document is returned.
-2. **Given** a git repository linked to a project, **When** queried by that project, **Then** the correct repository is returned.
+1. **Given** a git repository linked to a project, **When** queried by that project, **Then** the correct repository is returned.
 
 ---
 
@@ -93,15 +92,15 @@ As a developer implementing audit and media features, I want AuditLog and Image 
 - What happens when saving an entity with an ID that already exists? (upsert behavior — should update)
 - What happens when querying for a non-existent ID? (should return null, not throw)
 - What happens when deleting a non-existent entity? (repository should handle gracefully or let the error propagate)
-- What happens with very long strings for path, remoteUrl, or metadata fields? (database should handle large text values)
+- What happens with very long strings for path, remoteUrl, or metadata fields? (database should handle large text values — repository tests should verify at least one large text field per entity)
 - What happens when metadata is empty? (saved as null or empty value)
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: System MUST persist all 9 domain entity types to PostgreSQL.
-- **FR-002**: System MUST support CRUD operations (create, read, update, delete) for all entities.
+- **FR-001**: System MUST support full CRUD (create, read, update, delete) for all 9 domain entity types in PostgreSQL.
+- ~~**FR-002**: System MUST support CRUD operations (create, read, update, delete) for all entities.~~ *(Merged into FR-001)*
 - **FR-003**: The User repository MUST support lookup by ID and email, and persist user data.
 - **FR-004**: The Project repository MUST support lookup by ID and owner, and persist and delete project data.
 - **FR-005**: The ProjectMember repository MUST support lookup by project, user, and composite key; add, remove, and update role for members.
@@ -112,7 +111,7 @@ As a developer implementing audit and media features, I want AuditLog and Image 
 - **FR-010**: The GitRepository repository MUST support lookup by ID and project, and persist and delete git repository configurations.
 - **FR-011**: The AuditLog repository MUST support saving entries, lookup by project and user, and listing all entries.
 - **FR-012**: Entity-to-database mapping MUST preserve all field types: identifiers, date values, enum fields, and structured metadata.
-- **FR-013**: The database schema MUST define indexes on foreign key columns and commonly queried fields (projectId, userId, parentId) for query performance.
+- **FR-013**: The database schema MUST define indexes on foreign key columns for query performance: FileNode(projectId, parentId), Image(projectId), AuditLog(projectId, userId). (GitRepository.projectId and Document.fileNodeId are covered by @unique constraints.)
 - **FR-014**: Each repository implementation MUST be independently testable against a real database instance.
 
 ### Key Entities

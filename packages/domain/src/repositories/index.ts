@@ -1,3 +1,4 @@
+/** @file Barrel re-exports for repositories. */
 export { ProjectRepository } from './project.repository';
 export { UserRepository } from './user.repository';
 export { FileNodeRepository } from './file-node.repository';

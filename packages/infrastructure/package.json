@@ -1,1 +1,23 @@
-{}
+{
+  "name": "@asciidocollab/infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@asciidocollab/domain": "workspace:*",
+    "@asciidocollab/shared": "workspace:*",
+    "@asciidocollab/db": "workspace:*",
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "testcontainers": "^10.0.0"
+  }
+}

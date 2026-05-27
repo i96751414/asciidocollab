@@ -20,6 +20,9 @@ import { randomUUID } from 'crypto';
  * The project owner cannot be removed, and the last administrator cannot be removed.
  */
 export class RemoveMemberUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
@@ -27,15 +30,17 @@ export class RemoveMemberUseCase {
   ) {}
 
   /**
+   * Removes a member from a project.
+   *
    * @param actorId - The administrator requesting the removal.
    * @param projectId - The project from which to remove the member.
    * @param targetUserId - The user to remove.
-   * @returns void on success.
-   * @throws PermissionDeniedError if the caller is not an administrator.
-   * @throws ProjectNotFoundError if the project does not exist.
-   * @throws CannotRemoveOwnerError if the target is the project owner.
-   * @throws MemberNotFoundError if the target is not a member.
-   * @throws CannotRemoveLastAdminError if the target is the last administrator.
+   * @returns Void on success.
+   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
+   * `ProjectNotFoundError` if the project does not exist,
+   * `CannotRemoveOwnerError` if the target is the project owner,
+   * `MemberNotFoundError` if the target is not a member, or
+   * `CannotRemoveLastAdminError` if the target is the last administrator.
    */
   async execute(
     actorId: UserId,

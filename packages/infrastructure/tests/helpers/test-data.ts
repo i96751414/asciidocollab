@@ -1,0 +1,120 @@
+import { randomUUID } from 'crypto';
+import { User, UserId, Email, Project, ProjectId, ProjectName, ProjectMember, Role, FileNode, FileNodeId, FileNodeType, FilePath, Document, DocumentId, ContentId, YjsStateId, MimeType, Image, ImageId, Template, TemplateId, TemplateCategory, GitRepository, GitRepositoryId, GitProvider, AuditLog, AuditLogId, Timestamps } from '@asciidocollab/domain';
+
+type UserOverrides = Partial<ConstructorParameters<typeof User>[0] & { id?: UserId; email?: Email; displayName?: string; passwordHash?: string | null; samlSubject?: string | null; mfaSecret?: string | null; timestamps?: Timestamps }>;
+
+function val<T>(overrides: UserOverrides | undefined, key: string, def: T): T {
+  if (overrides && key in overrides) return (overrides as Record<string, unknown>)[key] as T;
+  return def;
+}
+
+export function createTestUser(overrides?: UserOverrides): User {
+  const id = overrides?.id ?? UserId.create(randomUUID());
+  const email = overrides?.email ?? Email.create(`test-${Date.now()}@example.com`);
+  return new User(
+    id,
+    email,
+    val(overrides, 'displayName', 'Test User'),
+    val<string | null>(overrides, 'passwordHash', 'hashed_password'),
+    val<string | null>(overrides, 'samlSubject', null),
+    val<string | null>(overrides, 'mfaSecret', null),
+    overrides?.timestamps ?? new Timestamps(),
+  );
+}
+
+export function createTestProject(ownerId: UserId, overrides?: { id?: ProjectId; name?: ProjectName; description?: string | null; tags?: string[]; rootFolderId?: FileNodeId | null; timestamps?: Timestamps }): Project {
+  return new Project(
+    overrides?.id ?? ProjectId.create(randomUUID()),
+    overrides?.name ?? ProjectName.create('Test Project'),
+    overrides?.description ?? null,
+    ownerId,
+    overrides?.tags ?? [],
+    overrides?.rootFolderId ?? null,
+    overrides?.timestamps ?? new Timestamps(),
+  );
+}
+
+export function createTestProjectMember(projectId: ProjectId, userId: UserId, overrides?: { role?: Role; joinedAt?: Date }): ProjectMember {
+  return new ProjectMember(
+    projectId,
+    userId,
+    overrides?.role ?? Role.create('viewer'),
+    overrides?.joinedAt ?? new Date(),
+  );
+}
+
+export function createTestFileNode(projectId: ProjectId, overrides?: { id?: FileNodeId; parentId?: FileNodeId | null; name?: string; type?: FileNodeType; path?: FilePath; timestamps?: Timestamps }): FileNode {
+  return new FileNode(
+    overrides?.id ?? FileNodeId.create(randomUUID()),
+    projectId,
+    overrides?.parentId ?? null,
+    overrides?.name ?? 'test-file.adoc',
+    overrides?.type ?? FileNodeType.create('file'),
+    overrides?.path ?? FilePath.create('/test-file.adoc'),
+    overrides?.timestamps ?? new Timestamps(),
+  );
+}
+
+export function createTestDocument(fileNodeId: FileNodeId, overrides?: { id?: DocumentId; contentId?: ContentId; yjsStateId?: YjsStateId; mimeType?: MimeType; timestamps?: Timestamps }): Document {
+  const contentId = overrides?.contentId ?? ContentId.create(randomUUID());
+  const yjsStateId = overrides?.yjsStateId ?? YjsStateId.create(randomUUID());
+  return new Document(
+    overrides?.id ?? DocumentId.create(randomUUID()),
+    fileNodeId,
+    contentId,
+    yjsStateId,
+    overrides?.mimeType ?? MimeType.create('text/asciidoc'),
+    overrides?.timestamps ?? new Timestamps(),
+  );
+}
+
+export function createTestImage(projectId: ProjectId, overrides?: { id?: ImageId; filename?: string; storagePath?: string; mimeType?: MimeType; sizeBytes?: number; parentId?: ImageId | null; uploadedAt?: Date; updatedAt?: Date | null }): Image {
+  return new Image(
+    overrides?.id ?? ImageId.create(randomUUID()),
+    projectId,
+    overrides?.filename ?? 'test-image.png',
+    overrides?.storagePath ?? '/images/test-image.png',
+    overrides?.mimeType ?? MimeType.create('image/png'),
+    overrides?.sizeBytes ?? 1024,
+    overrides?.parentId ?? null,
+    overrides?.uploadedAt ?? new Date(),
+    overrides?.updatedAt ?? null,
+  );
+}
+
+export function createTestTemplate(overrides?: { id?: TemplateId; name?: string; description?: string | null; category?: TemplateCategory; sourceProjectId?: ProjectId | null; createdAt?: Date }): Template {
+  return new Template(
+    overrides?.id ?? TemplateId.create(randomUUID()),
+    overrides?.name ?? 'Test Template',
+    overrides?.description ?? null,
+    overrides?.category ?? TemplateCategory.create('documentation'),
+    overrides?.sourceProjectId ?? null,
+    overrides?.createdAt ?? new Date(),
+  );
+}
+
+export function createTestGitRepository(projectId: ProjectId, overrides?: { id?: GitRepositoryId; provider?: GitProvider; remoteUrl?: string; credentialRef?: string; currentBranch?: string; lastSyncAt?: Date | null; createdAt?: Date }): GitRepository {
+  return new GitRepository(
+    overrides?.id ?? GitRepositoryId.create(randomUUID()),
+    projectId,
+    overrides?.provider ?? GitProvider.create('github'),
+    overrides?.remoteUrl ?? 'https://github.com/test/repo.git',
+    overrides?.credentialRef ?? 'cred-123',
+    overrides?.currentBranch ?? 'main',
+    overrides?.lastSyncAt ?? null,
+    overrides?.createdAt ?? new Date(),
+  );
+}
+
+export function createTestAuditLog(userId: UserId, overrides?: { id?: AuditLogId; projectId?: ProjectId | null; action?: string; resourceType?: string; resourceId?: string; timestamp?: Date; metadata?: Record<string, unknown> }): AuditLog {
+  return new AuditLog(
+    overrides?.id ?? AuditLogId.create(randomUUID()),
+    userId,
+    overrides?.projectId ?? null,
+    overrides?.action ?? 'test.action',
+    overrides?.resourceType ?? 'test',
+    overrides?.resourceId ?? 'res-123',
+    overrides?.timestamp ?? new Date(),
+    overrides?.metadata ?? {},
+  );
+}

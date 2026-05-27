@@ -1,3 +1,4 @@
+/** @file Barrel re-exports for errors. */
 export { DomainError } from './domain-error';
 export { ProjectNotFoundError } from './project-not-found';
 export { UserNotFoundError } from './user-not-found';

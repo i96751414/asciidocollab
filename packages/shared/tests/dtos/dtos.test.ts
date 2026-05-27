@@ -9,12 +9,12 @@ import { GetProjectTreeDto, FileTreeNodeDto, GetProjectTreeResultDto } from '../
 describe('CreateProject DTOs', () => {
   test('CreateProjectDto shape', () => {
     const dto: CreateProjectDto = {
-      actor: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       name: 'My Project',
       description: 'A test project',
       initialTags: ['docs', 'frontend'],
     };
-    expect(dto.actor).toBeDefined();
+    expect(dto.actorId).toBeDefined();
     expect(dto.name).toBe('My Project');
     expect(dto.initialTags).toHaveLength(2);
   });
@@ -33,7 +33,7 @@ describe('CreateProject DTOs', () => {
 describe('RenameFile DTOs', () => {
   test('RenameFileDto shape', () => {
     const dto: RenameFileDto = {
-      actor: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       fileNodeId: '550e8400-e29b-41d4-a716-446655440001',
       newName: 'new-name.txt',
       projectId: '550e8400-e29b-41d4-a716-446655440002',
@@ -54,7 +54,7 @@ describe('RenameFile DTOs', () => {
 describe('DeleteFile DTO', () => {
   test('DeleteFileDto shape', () => {
     const dto: DeleteFileDto = {
-      actor: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       fileNodeId: '550e8400-e29b-41d4-a716-446655440001',
       projectId: '550e8400-e29b-41d4-a716-446655440002',
     };
@@ -65,7 +65,7 @@ describe('DeleteFile DTO', () => {
 describe('InviteUser DTO', () => {
   test('InviteUserDto shape', () => {
     const dto: InviteUserDto = {
-      callerId: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       projectId: '550e8400-e29b-41d4-a716-446655440001',
       email: 'user@example.com',
       role: 'editor',
@@ -78,7 +78,7 @@ describe('InviteUser DTO', () => {
 describe('RemoveMember DTO', () => {
   test('RemoveMemberDto shape', () => {
     const dto: RemoveMemberDto = {
-      callerId: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       projectId: '550e8400-e29b-41d4-a716-446655440001',
       targetUserId: '550e8400-e29b-41d4-a716-446655440002',
     };
@@ -89,7 +89,7 @@ describe('RemoveMember DTO', () => {
 describe('ChangeMemberRole DTO', () => {
   test('ChangeMemberRoleDto shape', () => {
     const dto: ChangeMemberRoleDto = {
-      callerId: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       projectId: '550e8400-e29b-41d4-a716-446655440001',
       targetUserId: '550e8400-e29b-41d4-a716-446655440002',
       newRole: 'administrator',
@@ -101,7 +101,7 @@ describe('ChangeMemberRole DTO', () => {
 describe('GetProjectTree DTOs', () => {
   test('GetProjectTreeDto shape', () => {
     const dto: GetProjectTreeDto = {
-      actor: '550e8400-e29b-41d4-a716-446655440000',
+      actorId: '550e8400-e29b-41d4-a716-446655440000',
       projectId: '550e8400-e29b-41d4-a716-446655440001',
     };
     expect(dto.projectId).toBeDefined();

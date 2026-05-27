@@ -9,9 +9,10 @@ export class Role {
 
   /**
    * Creates a new Role instance after validating the input.
-   * @param value - The role string; must be 'viewer', 'editor', or 'administrator'
-   * @returns A new Role instance
-   * @throws {ValidationError} If the value is not a valid role
+   * 
+   * @param value - The role string; must be 'viewer', 'editor', or 'administrator'.
+   * @returns A new Role instance.
+   * @throws {ValidationError} If the value is not a valid role.
    */
   static create(value: string): Role {
     if (value !== 'viewer' && value !== 'editor' && value !== 'administrator') {
@@ -20,17 +21,16 @@ export class Role {
     return new Role(value);
   }
 
-  /**
-   * Returns the raw role string.
-   */
+  /** @returns The raw role string. */
   get value(): string {
     return this._value;
   }
 
   /**
    * Compares this Role with another value for equality.
-   * @param other - The value to compare against
-   * @returns true if both are Role instances with the same value
+   * 
+   * @param other - The value to compare against.
+   * @returns True if both are Role instances with the same value.
    */
   equals(other: unknown): boolean {
     return other instanceof Role && this._value === other._value;

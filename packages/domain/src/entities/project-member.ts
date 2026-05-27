@@ -9,16 +9,23 @@ import { Role } from '../value-objects/role';
  * that uniquely identifies a membership record.
  */
 export class ProjectMember {
+  /**
+   *
+   */
   constructor(
     /** The project the user belongs to. */
     public readonly projectId: ProjectId,
     /** The user who is a member of the project. */
     public readonly userId: UserId,
-    /** The role assigned to the user within the project (e.g. owner, editor,
-     *  viewer). */
+    /**
+     * The role assigned to the user within the project (e.g. Owner, editor,
+     *  viewer).
+     */
     public readonly role: Role,
-    /** Timestamp when the user joined the project. Defaults to the current
-     *  time. */
+    /**
+     * Timestamp when the user joined the project. Defaults to the current
+     *  time.
+     */
     public readonly joinedAt: Date = new Date(),
   ) {}
 }

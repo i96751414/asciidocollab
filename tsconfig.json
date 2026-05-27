@@ -14,7 +14,9 @@
   },
   "references": [
     { "path": "packages/domain" },
-    { "path": "packages/shared" }
+    { "path": "packages/shared" },
+    { "path": "packages/db" },
+    { "path": "packages/infrastructure" }
   ],
   "files": []
 }

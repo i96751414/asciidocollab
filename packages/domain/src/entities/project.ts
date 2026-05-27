@@ -20,6 +20,9 @@ export class Project {
   private _timestamps: Timestamps;
   private readonly _tags: readonly string[];
 
+  /**
+   * @throws {Error} If tags exceed 10 items, or `initialArchivedAt` precedes `createdAt`.
+   */
   constructor(
     /** Unique identifier for the project. */
     public readonly id: ProjectId,
@@ -34,13 +37,17 @@ export class Project {
      * resulting array must not exceed 10 items.
      */
     tags: string[],
-    /** Identifier of the root tree node, or null if no file tree has been
-     *  initialised yet. */
+    /**
+     * Identifier of the root tree node, or null if no file tree has been
+     *  initialised yet.
+     */
     initialRootFolderId: FileNodeId | null,
     /** Creation and last-update timestamps. Defaults to the current time. */
     timestamps: Timestamps = new Timestamps(),
-    /** Timestamp of archiving, or null if the project is active. Must be >=
-     *  `createdAt`. */
+    /**
+     * Timestamp of archiving, or null if the project is active. Must be >=
+     *  `createdAt`.
+     */
     initialArchivedAt: Date | null = null,
   ) {
     this._tags = [...new Set(tags)];
@@ -57,28 +64,36 @@ export class Project {
     this._timestamps = timestamps;
   }
 
+  /** @returns The root folder identifier, or null if not initialised. */
   get rootFolderId(): FileNodeId | null {
     return this._rootFolderId;
   }
 
+  /** @returns The deduplicated tags array. */
   get tags(): readonly string[] {
     return this._tags;
   }
 
+  /** @returns The archive timestamp, or null if active. */
   get archivedAt(): Date | null {
     return this._archivedAt;
   }
 
+  /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
     return this._timestamps.createdAt;
   }
 
+  /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
     return this._timestamps.updatedAt;
   }
 
-  /** Assigns the root folder node for the project's file tree.
-   *  @param folderId - The file-node identifier of the root folder. */
+  /**
+   * Assigns the root folder node for the project's file tree.
+   * 
+   * @param folderId - The file-node identifier of the root folder.
+   */
   setRootFolderId(folderId: FileNodeId): void {
     this._rootFolderId = folderId;
   }
@@ -86,6 +101,7 @@ export class Project {
   /**
    * Marks the project as archived at the current time and bumps the update
    * timestamp.
+   * 
    * @throws {Error} If the project is already archived.
    */
   archive(): void {

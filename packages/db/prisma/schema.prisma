@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VIEWER
+  EDITOR
+  ADMINISTRATOR
+}
+
+enum FileNodeType {
+  FILE
+  FOLDER
+}
+
+enum GitProvider {
+  GITHUB
+  GITLAB
+  BITBUCKET
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  displayName  String
+  passwordHash String?
+  samlSubject  String?
+  mfaSecret    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  projects    Project[]        @relation("ProjectOwner")
+  memberships ProjectMember[]
+  auditLogs   AuditLog[]
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  ownerId     String   @db.Uuid
+  tags        Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner         User             @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members       ProjectMember[]
+  fileNodes     FileNode[]
+  images        Image[]
+  gitRepository GitRepository?
+  auditLogs     AuditLog[]
+  templates     Template[]       @relation("TemplateSourceProject")
+}
+
+model ProjectMember {
+  projectId String   @db.Uuid
+  userId    String   @db.Uuid
+  role      Role
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+
+model FileNode {
+  id        String       @id @default(uuid()) @db.Uuid
+  projectId String       @db.Uuid
+  parentId  String?      @db.Uuid
+  name      String
+  type      FileNodeType
+  path      String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   FileNode?  @relation("FileNodeHierarchy", fields: [parentId], references: [id])
+  children FileNode[] @relation("FileNodeHierarchy")
+  document Document?
+
+  @@index([projectId])
+  @@index([parentId])
+}
+
+model Document {
+  id         String   @id @default(uuid()) @db.Uuid
+  fileNodeId String   @unique @db.Uuid
+  contentId  String   @db.Uuid
+  yjsStateId String   @db.Uuid
+  mimeType   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  fileNode FileNode @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
+}
+
+model Image {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  filename    String
+  storagePath String
+  mimeType    String
+  sizeBytes   Int
+  parentId    String?   @db.Uuid
+  uploadedAt  DateTime  @default(now())
+  updatedAt   DateTime?
+
+  project  Project  @relation(fields: [projectId], references: [id])
+  parent   Image?   @relation("ImageVersion", fields: [parentId], references: [id])
+  versions Image[]  @relation("ImageVersion")
+
+  @@index([projectId])
+}
+
+model Template {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  description     String?
+  category        String
+  sourceProjectId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  sourceProject Project? @relation("TemplateSourceProject", fields: [sourceProjectId], references: [id])
+}
+
+model GitRepository {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectId     String      @unique @db.Uuid
+  provider      GitProvider
+  remoteUrl     String
+  credentialRef String
+  currentBranch String      @default("main")
+  lastSyncAt    DateTime?
+  createdAt     DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  projectId    String?  @db.Uuid
+  action       String
+  resourceType String
+  resourceId   String
+  timestamp    DateTime @default(now())
+  metadata     Json?
+
+  user    User?    @relation(fields: [userId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([userId])
+}

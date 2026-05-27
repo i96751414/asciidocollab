@@ -1,3 +1,4 @@
+/** @file Barrel re-exports for entities. */
 export { User } from './user';
 export { Project } from './project';
 export { ProjectMember } from './project-member';

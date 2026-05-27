@@ -14,6 +14,9 @@ import { Timestamps } from '../value-objects/timestamps';
  * @invariant Root-level nodes (parentId === null) must have type === 'folder'.
  */
 export class FileNode {
+  /**
+   * @throws {Error} If the node is a `file` placed at root level (`parentId` is null).
+   */
   constructor(
     /** Unique identifier for this node. */
     public readonly id: FileNodeId,
@@ -35,10 +38,12 @@ export class FileNode {
     }
   }
 
+  /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
     return this.timestamps.createdAt;
   }
 
+  /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
     return this.timestamps.updatedAt;
   }

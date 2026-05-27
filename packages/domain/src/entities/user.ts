@@ -11,6 +11,9 @@ import { Timestamps } from '../value-objects/timestamps';
  * @invariant At least one of `passwordHash` or `samlSubject` must be non-null.
  */
 export class User {
+  /**
+   * @throws {Error} If both `passwordHash` and `samlSubject` are null.
+   */
   constructor(
     /** Unique identifier for the user. */
     public readonly id: UserId,
@@ -30,8 +33,10 @@ export class User {
      * provided.
      */
     public readonly samlSubject: string | null,
-    /** Secret used for TOTP multi-factor authentication, or null if MFA is not
-     *  enabled. */
+    /**
+     * Secret used for TOTP multi-factor authentication, or null if MFA is not
+     *  enabled.
+     */
     public readonly mfaSecret: string | null,
     /** Creation and last-update timestamps. Defaults to the current time. */
     public readonly timestamps: Timestamps = new Timestamps(),
@@ -41,10 +46,12 @@ export class User {
     }
   }
 
+  /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
     return this.timestamps.createdAt;
   }
 
+  /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
     return this.timestamps.updatedAt;
   }

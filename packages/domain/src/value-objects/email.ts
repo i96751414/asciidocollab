@@ -13,9 +13,10 @@ export class Email {
   /**
    * Creates a new Email instance after validating and normalizing the input.
    * The value is normalized to lowercase for consistent comparison.
-   * @param value - The email address string to validate and wrap
-   * @returns A new Email instance
-   * @throws {ValidationError} If the value is not a valid email format
+   * 
+   * @param value - The email address string to validate and wrap.
+   * @returns A new Email instance.
+   * @throws {ValidationError} If the value is not a valid email format.
    */
   static create(value: string): Email {
     if (!value || !RFC_5322_BASIC.test(value)) {
@@ -24,17 +25,16 @@ export class Email {
     return new Email(value.toLowerCase());
   }
 
-  /**
-   * Returns the normalized (lowercase) email address.
-   */
+  /** @returns The normalized (lowercase) email address. */
   get value(): string {
     return this._value;
   }
 
   /**
    * Compares this Email with another value for equality.
-   * @param other - The value to compare against
-   * @returns true if both are Email instances with the same value
+   * 
+   * @param other - The value to compare against.
+   * @returns True if both are Email instances with the same value.
    */
   equals(other: unknown): boolean {
     return other instanceof Email && this._value === other._value;

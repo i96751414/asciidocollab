@@ -1,3 +1,4 @@
+/** @file Barrel re-exports for value-objects. */
 export { Uuid } from './uuid';
 export { UserId } from './user-id';
 export { ProjectId } from './project-id';
@@ -17,3 +18,4 @@ export { GitProvider } from './git-provider';
 export { MimeType } from './mime-type';
 export { FileNodeType } from './file-node-type';
 export { TemplateCategory } from './template-category';
+export { Timestamps } from './timestamps';

@@ -20,6 +20,9 @@ import { Result } from '@asciidocollab/shared';
  * Requires the actorId to be a member of the project.
  */
 export class RenameFileUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -27,13 +30,15 @@ export class RenameFileUseCase {
   ) {}
 
   /**
+   * Renames a file or folder within a project and records an audit log entry.
+   *
    * @param actorId - The user performing the rename.
    * @param fileNodeId - The file or folder to rename.
    * @param newName - The new name for the file or folder.
    * @param projectId - The project containing the file or folder.
    * @returns The updated file node ID, new name, and new path.
-   * @throws PermissionDeniedError if the actorId is not a project member.
-   * @throws FileNodeNotFoundError if the file node does not exist.
+   * On failure returns `PermissionDeniedError` if `actorId` is not a project member,
+   * or `FileNodeNotFoundError` if the file node does not exist.
    */
   async execute(
     actorId: UserId,

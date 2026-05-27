@@ -20,6 +20,9 @@ import { randomUUID } from 'crypto';
  * The root folder cannot be deleted.
  */
 export class DeleteFileUseCase {
+  /**
+   *
+   */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -28,13 +31,15 @@ export class DeleteFileUseCase {
   ) {}
 
   /**
+   * Deletes a file or folder (and its descendants) from a project.
+   *
    * @param actorId - The user requesting the deletion.
    * @param fileNodeId - The file or folder to delete.
    * @param projectId - The project containing the file or folder.
-   * @returns void on success.
-   * @throws PermissionDeniedError if the actorId is not a project member.
-   * @throws FileNodeNotFoundError if the file node does not exist.
-   * @throws CannotDeleteRootFolderError if the target is the project root folder.
+   * @returns Void on success.
+   * On failure returns `PermissionDeniedError` if `actorId` is not a project member,
+   * `FileNodeNotFoundError` if the file node does not exist, or
+   * `CannotDeleteRootFolderError` if the target is the project root folder.
    */
   async execute(
     actorId: UserId,
