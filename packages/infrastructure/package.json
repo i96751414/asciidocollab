@@ -10,14 +10,16 @@
     "test": "jest"
   },
   "dependencies": {
+    "@asciidocollab/db": "workspace:*",
     "@asciidocollab/domain": "workspace:*",
     "@asciidocollab/shared": "workspace:*",
-    "@asciidocollab/db": "workspace:*",
-    "@prisma/client": "^6.0.0"
+    "@prisma/client": "^7.0.0"
   },
   "devDependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@types/pg": "^8.20.0",
     "jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "testcontainers": "^10.0.0"
+    "testcontainers": "^10.0.0",
+    "ts-jest": "^29.0.0"
   }
 }

@@ -1,5 +1,6 @@
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -36,7 +37,8 @@ export async function startTestContainer(): Promise<TestContainer> {
     stdio: 'pipe',
   });
 
-  const client = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const adapter = new PrismaPg(databaseUrl);
+  const client = new PrismaClient({ adapter });
 
   return { container, client };
 }
