@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/002-database-layer/plan.md
+specs/003-api-local-auth/plan.md
 <!-- SPECKIT END -->
 
 ## Build & Test Commands
@@ -83,6 +83,8 @@ Phase 2 (Database layer) is **complete and merged to master**.
 - **Entity invariants** — validated in constructor, errors thrown (programmer errors, not control flow)
 - **In-memory fakes** — all 9 repos tested with Map-backed fakes, no mocking libraries
 - **Architecture** — fresh-onion validates domain never imports outside its package
+- **Env var naming** — all environment variables follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (e.g., `ASCIIDOCOLLAB_DATABASE_URL`, `ASCIIDOCOLLAB_AUTH_SESSION_SECRET`). The `ASCIIDOCOLLAB_` prefix is the application name; category prefixes (`AUTH_`, `API_`, `DB_`) further group related vars.
+- **Logging** — Fastify uses Pino (built-in). Use `request.log` in route handlers and hooks. Never use `console.log/error/warn` in production code. Services without request context use a module-level `pino()` instance. Error handlers should NOT duplicate Fastify's auto-logging — add structured context fields only. All log fields containing passwords/tokens must be added to the `redact` array in logger config.
 
 ### Documentation conventions
 

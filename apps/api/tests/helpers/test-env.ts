@@ -1,0 +1,18 @@
+/**
+ * Sets up common environment variables for API tests.
+ * Call this in beforeAll() to avoid repeating env setup across test files.
+ */
+export function setupTestEnv(): void {
+  process.env.ASCIIDOCOLLAB_AUTH_SESSION_SECRET = 'test-secret-32-chars-minimum-for-hs256';
+  process.env.ASCIIDOCOLLAB_AUTH_EMAIL_FROM = 'test@example.com';
+  process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  process.env.ASCIIDOCOLLAB_AUTH_COOKIE_SECURE = 'false';
+  process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_MAX = '100';
+  process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_WINDOW = '60000';
+  process.env.ASCIIDOCOLLAB_AUTH_LOGIN_RATE_LIMIT_MAX = '100';
+  process.env.ASCIIDOCOLLAB_AUTH_LOGIN_RATE_LIMIT_WINDOW = '60000';
+  process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_MAX = '100';
+  process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW = '60000';
+  process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_MAX = '100';
+  process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_WINDOW = '60000';
+}

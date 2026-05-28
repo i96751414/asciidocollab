@@ -22,11 +22,16 @@ export class User {
     /** Human-readable display name shown in the UI. */
     public readonly displayName: string,
     /**
-     * Bcrypt hash of the user's password, or null if the user authenticates
+     * Argon2id hash of the user's password, or null if the user authenticates
      * exclusively via SAML. At least one of `passwordHash` or `samlSubject`
      * must be provided.
      */
     public readonly passwordHash: string | null,
+    /**
+     * Argon2id hashes of the last N passwords for history enforcement (FR-027).
+     * Oldest first. Empty array when no history exists.
+     */
+    public readonly passwordHistory: string[],
     /**
      * SAML subject identifier, or null if the user authenticates exclusively
      * via password. At least one of `passwordHash` or `samlSubject` must be
