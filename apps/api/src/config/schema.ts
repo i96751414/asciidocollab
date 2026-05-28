@@ -67,7 +67,8 @@ export function createConfig() {
       secret: {
         doc: 'Secret for signing session cookies. Must be set via environment variable.',
         format: 'required-string',
-        default: '',
+        default: null,
+        nullable: true,
         sensitive: true,
         env: 'ASCIIDOCOLLAB_AUTH_SESSION_SECRET',
       },
@@ -303,7 +304,8 @@ export function createConfig() {
       from: {
         doc: 'From address for transactional emails.',
         format: 'required-string',
-        default: '',
+        default: null,
+        nullable: true,
         env: 'ASCIIDOCOLLAB_AUTH_EMAIL_FROM',
       },
       templates: {
@@ -376,7 +378,7 @@ export interface Config {
     /** Session configuration. */
     session: {
       /** Secret for signing session cookies. */
-      secret: string;
+      secret: string | null;
       /** Session inactivity timeout in milliseconds. */
       maxAge: number;
       /** Absolute maximum session lifetime in milliseconds. */
@@ -474,7 +476,7 @@ export interface Config {
       /** AWS SES region. */
       sesRegion: string;
       /** From address for transactional emails. */
-      from: string;
+      from: string | null;
       /** Email templates. */
       templates: {
         /** Password reset request email template. */

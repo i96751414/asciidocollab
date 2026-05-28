@@ -17,6 +17,11 @@ async function authPlugin(app: FastifyInstance): Promise<void> {
   const store = app.prisma ? new PrismaSessionStore(app.prisma) : undefined;
 
   const sessionSecret = app.config.auth.session.secret;
+  if (!sessionSecret) {
+    throw new Error(
+      'ASCIIDOCOLLAB_AUTH_SESSION_SECRET must be set via environment variable.',
+    );
+  }
 
   await app.register(fastifySession, {
     store,
