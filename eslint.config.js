@@ -22,7 +22,7 @@ module.exports = tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'warn',
 
-      'unicorn/filename-case': 'off',
+      'unicorn/filename-case': 'error',
       'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-null': 'off',
       'unicorn/no-useless-undefined': 'off',
