@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { ResetPasswordUseCase } from '@asciidocollab/domain';
-import { Argon2PasswordHasher, CryptoTokenGenerator } from '@asciidocollab/infrastructure';
 import { buildPasswordPolicy } from '../services/password-policy';
 import type { ResetPasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -32,22 +31,11 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
 
     const historyDepth = app.config.auth.password.historyDepth;
 
-    const passwordHasher = new Argon2PasswordHasher({
-      memoryCost: app.config.auth.password.hashMemory,
-      timeCost: app.config.auth.password.hashTime,
-      parallelism: app.config.auth.password.hashParallelism,
-    });
-
-    const tokenGenerator = new CryptoTokenGenerator({
-      tokenByteLength: app.config.auth.passwordReset.tokenByteLength,
-      tokenExpiry: app.config.auth.passwordReset.tokenExpiry,
-    });
-
     const useCase = new ResetPasswordUseCase(
       request.server.repos.user,
       request.server.repos.passwordResetToken,
-      passwordHasher,
-      tokenGenerator,
+      request.server.services.passwordHasher,
+      request.server.services.tokenGenerator,
       buildPasswordPolicy(),
     );
 

@@ -79,7 +79,7 @@ export class ResetPasswordUseCase {
     const newPasswordHash = await this.passwordHasher.hash(newPassword);
 
     const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => this.passwordHasher.verify(hash, newPasswordHash)),
+      user.passwordHistory.map((hash) => this.passwordHasher.verify(hash, newPassword)),
     );
     if (isReused.some(Boolean)) {
       return {

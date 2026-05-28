@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, RequestPasswordResetUseCase } from '@asciidocollab/domain';
-import { CryptoTokenGenerator, StubEmailSender } from '@asciidocollab/infrastructure';
 import type { RequestPasswordResetDto, AuthSuccessResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -28,17 +27,10 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
   }, async (request, reply) => {
     const { email } = request.body as RequestPasswordResetDto;
 
-    const tokenGenerator = new CryptoTokenGenerator({
-      tokenByteLength: app.config.auth.passwordReset.tokenByteLength,
-      tokenExpiry: app.config.auth.passwordReset.tokenExpiry,
-    });
-
-    const emailSender = new StubEmailSender();
-
     const useCase = new RequestPasswordResetUseCase(
       request.server.repos.user,
       request.server.repos.passwordResetToken,
-      tokenGenerator,
+      request.server.services.tokenGenerator,
     );
 
     const result = await useCase.execute(Email.create(email));
@@ -46,7 +38,7 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
     if (result.success) {
       const frontendUrl = app.config.api.frontendUrl;
       const template = app.config.auth.email.templates.resetRequest;
-      await emailSender.send(
+      await request.server.services.emailSender.send(
         result.value.email,
         template.subject,
         template.html.replace('{frontendUrl}', frontendUrl).replace('{token}', result.value.rawToken),

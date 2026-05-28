@@ -1,7 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import path from 'node:path';
 import { Email, RegisterUserUseCase } from '@asciidocollab/domain';
-import { Argon2PasswordHasher, HIBPBreachChecker, CommonPasswordFileChecker, StubEmailSender } from '@asciidocollab/infrastructure';
 import { buildPasswordPolicy } from '../services/password-policy';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -58,28 +56,12 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { email, password, displayName } = request.body as RegisterDto;
 
-    const passwordHasher = new Argon2PasswordHasher({
-      memoryCost: app.config.auth.password.hashMemory,
-      timeCost: app.config.auth.password.hashTime,
-      parallelism: app.config.auth.password.hashParallelism,
-    });
-
-    const breachChecker = new HIBPBreachChecker({
-      hibpApiUrl: app.config.auth.breachCheck.hibpApiUrl,
-    });
-
-    const commonPasswordChecker = new CommonPasswordFileChecker(
-      path.join(__dirname, '..', '..', 'data', 'common-passwords.txt'),
-    );
-
-    const emailSender = new StubEmailSender();
-
     const useCase = new RegisterUserUseCase(
       request.server.repos.user,
       buildPasswordPolicy(),
-      commonPasswordChecker,
-      breachChecker,
-      passwordHasher,
+      request.server.services.commonPasswordChecker,
+      request.server.services.breachChecker,
+      request.server.services.passwordHasher,
     );
 
     const result = await useCase.execute(Email.create(email), displayName, password);
@@ -91,7 +73,7 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
     }
 
     if (result.value.breached) {
-      await emailSender.send(
+      await request.server.services.emailSender.send(
         email,
         app.config.auth.email.templates.breachAlert.subject,
         app.config.auth.email.templates.breachAlert.html,

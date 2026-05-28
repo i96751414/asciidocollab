@@ -2,7 +2,6 @@ import fp from 'fastify-plugin';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
 import type { FastifyInstance } from 'fastify';
-import { PrismaSessionStore, SessionEncryption } from '@asciidocollab/infrastructure';
 
 function isValidSameSite(value: string): 'strict' | 'lax' | 'none' {
   if (value === 'strict' || value === 'lax' || value === 'none') {
@@ -14,13 +13,7 @@ function isValidSameSite(value: string): 'strict' | 'lax' | 'none' {
 async function authPlugin(app: FastifyInstance): Promise<void> {
   await app.register(fastifyCookie);
 
-  let store;
-  if (app.prisma) {
-    const encryption = new SessionEncryption({
-      encryptionKey: app.config.auth.session.encryptionKey,
-    });
-    store = new PrismaSessionStore(app.prisma, encryption);
-  }
+  const store = app.services?.prismaSessionStore;
 
   const sessionSecret = app.config.auth.session.secret;
   if (!sessionSecret) {

@@ -12,6 +12,13 @@ import {
   PrismaImageRepository,
   PrismaAuditLogRepository,
   PrismaPasswordResetTokenRepository,
+  Argon2PasswordHasher,
+  HIBPBreachChecker,
+  CommonPasswordFileChecker,
+  StubEmailSender,
+  CryptoTokenGenerator,
+  SessionEncryption,
+  PrismaSessionStore,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -24,6 +31,11 @@ import {
   ImageRepository,
   AuditLogRepository,
   PasswordResetTokenRepository,
+  PasswordHasher,
+  BreachChecker,
+  CommonPasswordChecker,
+  EmailSender,
+  TokenGenerator,
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
@@ -49,6 +61,16 @@ export interface AppContainer {
     image: ImageRepository;
     auditLog: AuditLogRepository;
     passwordResetToken: PasswordResetTokenRepository;
+  };
+  /** Infrastructure service instances. */
+  services: {
+    passwordHasher: PasswordHasher;
+    breachChecker: BreachChecker;
+    commonPasswordChecker: CommonPasswordChecker;
+    emailSender: EmailSender;
+    tokenGenerator: TokenGenerator;
+    sessionEncryption: SessionEncryption;
+    prismaSessionStore: PrismaSessionStore;
   };
 }
 
@@ -88,6 +110,49 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       image: new PrismaImageRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
+    });
+  }
+
+  if (overrides?.services) {
+    app.decorate('services', overrides.services);
+  } else {
+    const passwordHasher = new Argon2PasswordHasher({
+      memoryCost: appConfig.auth.password.hashMemory,
+      timeCost: appConfig.auth.password.hashTime,
+      parallelism: appConfig.auth.password.hashParallelism,
+    });
+
+    const breachChecker = new HIBPBreachChecker({
+      hibpApiUrl: appConfig.auth.breachCheck.hibpApiUrl,
+    });
+
+    const commonPasswordChecker = new CommonPasswordFileChecker(
+      path.join(__dirname, '..', 'data', 'common-passwords.txt'),
+    );
+
+    const emailSender = new StubEmailSender();
+
+    const tokenGenerator = new CryptoTokenGenerator({
+      tokenByteLength: appConfig.auth.passwordReset.tokenByteLength,
+      tokenExpiry: appConfig.auth.passwordReset.tokenExpiry,
+    });
+
+    const sessionEncryption = new SessionEncryption({
+      encryptionKey: appConfig.auth.session.encryptionKey,
+    });
+
+    const prismaSessionStore = app.prisma
+      ? new PrismaSessionStore(app.prisma, sessionEncryption)
+      : undefined;
+
+    app.decorate('services', {
+      passwordHasher,
+      breachChecker,
+      commonPasswordChecker,
+      emailSender,
+      tokenGenerator,
+      sessionEncryption,
+      prismaSessionStore,
     });
   }
 
@@ -136,6 +201,15 @@ declare module 'fastify' {
       image: ImageRepository;
       auditLog: AuditLogRepository;
       passwordResetToken: PasswordResetTokenRepository;
+    };
+    services: {
+      passwordHasher: PasswordHasher;
+      breachChecker: BreachChecker;
+      commonPasswordChecker: CommonPasswordChecker;
+      emailSender: EmailSender;
+      tokenGenerator: TokenGenerator;
+      sessionEncryption: SessionEncryption;
+      prismaSessionStore: PrismaSessionStore | undefined;
     };
   }
 }
