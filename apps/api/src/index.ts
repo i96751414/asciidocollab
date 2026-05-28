@@ -61,6 +61,12 @@ export interface AppContainer {
 export async function buildServer(overrides?: Partial<AppContainer>) {
   const appConfig = getConfig();
 
+  if (!appConfig.auth.session.secret || appConfig.auth.session.secret.length < 32) {
+    throw new Error(
+      'ASCIIDOCOLLAB_AUTH_SESSION_SECRET must be set to a string of at least 32 characters.',
+    );
+  }
+
   const app = Fastify({
     logger: {
       level: 'info',
