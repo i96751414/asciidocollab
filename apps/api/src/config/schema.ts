@@ -8,8 +8,17 @@ import './formats';
  * Each field maps to an environment variable for override.
  * Fields marked `sensitive: true` are redacted in logs/output.
  */
-const config = convict({
-  env: {
+/**
+ * Creates a new convict configuration instance.
+ *
+ * Must be called after environment variables are set, because convict
+ * reads env vars at construction time.
+ *
+ * @returns A new convict configuration instance.
+ */
+export function createConfig() {
+  return convict({
+    env: {
     doc: 'The application environment.',
     format: ['production', 'development', 'test'],
     default: 'development',
@@ -58,6 +67,7 @@ const config = convict({
       secret: {
         doc: 'Secret for signing session cookies. Must be set via environment variable.',
         format: 'required-string',
+        default: '',
         sensitive: true,
         env: 'ASCIIDOCOLLAB_AUTH_SESSION_SECRET',
       },
@@ -82,6 +92,7 @@ const config = convict({
       encryptionKey: {
         doc: 'AES-256 key for session data encryption at rest. Must be set via environment variable.',
         format: 'required-string',
+        default: '',
         sensitive: true,
         env: 'ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY',
       },
@@ -292,6 +303,7 @@ const config = convict({
       from: {
         doc: 'From address for transactional emails.',
         format: 'required-string',
+        default: '',
         env: 'ASCIIDOCOLLAB_AUTH_EMAIL_FROM',
       },
       templates: {
@@ -334,7 +346,8 @@ const config = convict({
       },
     },
   },
-});
+  });
+}
 
 /**
  * The validated configuration type.
@@ -474,5 +487,3 @@ export interface Config {
     };
   };
 }
-
-export { config };

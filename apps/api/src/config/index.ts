@@ -1,8 +1,17 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
-import { config } from './schema';
+import { createConfig } from './schema';
 import type { Config } from './schema';
+
+let config: ReturnType<typeof createConfig> | null = null;
+
+function ensureConfig(): ReturnType<typeof createConfig> {
+  if (!config) {
+    config = createConfig();
+  }
+  return config;
+}
 
 /**
  * Loads configuration from YAML files and environment variables.
@@ -15,11 +24,12 @@ import type { Config } from './schema';
  * @param configDir - Path to the config directory containing YAML files.
  */
 export function loadConfig(configDir: string): void {
+  const cfg = ensureConfig();
   const defaultPath = join(configDir, 'default.yaml');
   if (existsSync(defaultPath)) {
     const defaultContent = readFileSync(defaultPath, 'utf-8');
     const defaultConfig = parseYaml(defaultContent);
-    config.load(defaultConfig);
+    cfg.load(defaultConfig);
   }
 
   const env = process.env.NODE_ENV || 'development';
@@ -27,10 +37,10 @@ export function loadConfig(configDir: string): void {
   if (existsSync(envPath)) {
     const envContent = readFileSync(envPath, 'utf-8');
     const envConfig = parseYaml(envContent);
-    config.load(envConfig);
+    cfg.load(envConfig);
   }
 
-  config.validate({ allowed: 'strict' });
+  cfg.validate({ allowed: 'strict' });
 }
 
 /**
@@ -42,7 +52,7 @@ export function loadConfig(configDir: string): void {
  * @returns The configuration object with all fields typed.
  */
 export function getConfig(): Config {
-  return JSON.parse(JSON.stringify(config.getProperties())) as Config;
+  return JSON.parse(JSON.stringify(ensureConfig().getProperties())) as Config;
 }
 
-export { config };
+export { ensureConfig as config };
