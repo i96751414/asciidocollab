@@ -1,4 +1,5 @@
 import * as argon2 from 'argon2';
+import { getConfig } from '../config';
 
 /**
  * Hashes a password using argon2id.
@@ -7,11 +8,12 @@ import * as argon2 from 'argon2';
  * @returns The argon2id hash of the password.
  */
 export async function hashPassword(password: string): Promise<string> {
+  const config = getConfig();
   return argon2.hash(password, {
     type: argon2.argon2id,
-    memoryCost: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HASH_MEMORY ?? '65536', 10),
-    timeCost: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HASH_TIME ?? '3', 10),
-    parallelism: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HASH_PARALLELISM ?? '1', 10),
+    memoryCost: config.auth.password.hashMemory,
+    timeCost: config.auth.password.hashTime,
+    parallelism: config.auth.password.hashParallelism,
   });
 }
 

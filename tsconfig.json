@@ -16,7 +16,8 @@
     { "path": "packages/domain" },
     { "path": "packages/shared" },
     { "path": "packages/db" },
-    { "path": "packages/infrastructure" }
+    { "path": "packages/infrastructure" },
+    { "path": "apps/api" }
   ],
   "files": []
 }

@@ -1,0 +1,16 @@
+# Development environment overrides
+
+env: development
+
+api:
+  port: 4000
+  host: 0.0.0.0
+  trustProxy: false
+  httpsRedirect: false
+  frontendUrl: "http://localhost:3000"
+
+auth:
+  session:
+    secure: false
+    cookie:
+      sameSite: lax

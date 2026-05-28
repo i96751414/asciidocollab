@@ -2,11 +2,11 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 async function httpsRedirectPlugin(app: FastifyInstance): Promise<void> {
-  if (process.env.ASCIIDOCOLLAB_API_HTTPS_REDIRECT !== 'true') {
+  if (!app.config.api.httpsRedirect) {
     return;
   }
 
-  const trustProxy = process.env.ASCIIDOCOLLAB_API_TRUST_PROXY === 'true';
+  const trustProxy = app.config.api.trustProxy;
 
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const forwardedProto = request.headers['x-forwarded-proto'];

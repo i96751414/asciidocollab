@@ -1,3 +1,5 @@
+import { getConfig } from '../config';
+
 /**
  * Password policy configuration.
  */
@@ -15,17 +17,18 @@ export interface PasswordPolicy {
 }
 
 /**
- * Gets the password policy from environment variables.
+ * Gets the password policy from configuration.
  *
  * @returns The password policy configuration.
  */
 export function getPasswordPolicy(): PasswordPolicy {
+  const config = getConfig();
   return {
-    minLength: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_MIN_LENGTH ?? '12', 10),
-    requireUppercase: process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_REQUIRE_UPPERCASE !== 'false',
-    requireLowercase: process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_REQUIRE_LOWERCASE !== 'false',
-    requireDigits: process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_REQUIRE_DIGITS !== 'false',
-    requireSymbols: process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_REQUIRE_SYMBOLS !== 'false',
+    minLength: config.auth.password.minLength,
+    requireUppercase: config.auth.password.requireUppercase,
+    requireLowercase: config.auth.password.requireLowercase,
+    requireDigits: config.auth.password.requireDigits,
+    requireSymbols: config.auth.password.requireSymbols,
   };
 }
 

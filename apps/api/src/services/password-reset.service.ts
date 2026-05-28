@@ -1,4 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto';
+import { getConfig } from '../config';
 
 /**
  * Password reset token data with raw and hashed versions.
@@ -8,7 +9,7 @@ export interface PasswordResetToken {
   token: string;
   /** SHA-256 hash of the token for database storage. */
   hashedToken: string;
-  /** Expiration timestamp (1 hour from creation). */
+  /** Expiration timestamp. */
   expiresAt: Date;
 }
 
@@ -18,9 +19,10 @@ export interface PasswordResetToken {
  * @returns A new password reset token with raw and hashed versions.
  */
 export function generatePasswordResetToken(): PasswordResetToken {
-  const token = randomBytes(32).toString('hex');
+  const config = getConfig();
+  const token = randomBytes(config.auth.passwordReset.tokenByteLength).toString('hex');
   const hashedToken = createHash('sha256').update(token).digest('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // TODO: remove hardcoded expiration duration, make it configurable
+  const expiresAt = new Date(Date.now() + config.auth.passwordReset.tokenExpiry);
 
   return { token, hashedToken, expiresAt };
 }
