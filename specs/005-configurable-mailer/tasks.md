@@ -73,14 +73,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T014 [P] [US2] Unit test for NodemailerEmailSender SMTP connection in packages/infrastructure/tests/services/nodemailer-email-sender.test.ts
+- [x] T014 [P] [US2] Unit test for NodemailerEmailSender SMTP connection in packages/infrastructure/tests/services/nodemailer-email-sender.test.ts
 - [ ] T015 [P] [US2] Integration test for SMTP configuration in apps/api/tests/email-config.test.ts
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Add SMTP connection validation in NodemailerEmailSender in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T017 [US2] Add graceful error handling for SMTP failures in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T018 [US2] Log SMTP connection events in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T016 [US2] Add SMTP connection validation in NodemailerEmailSender in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T017 [US2] Add graceful error handling for SMTP failures in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T018 [US2] Log SMTP connection events in packages/infrastructure/src/services/nodemailer-email-sender.ts
 
 **Checkpoint**: User Story 2 complete - SMTP configuration works with proper error handling
 
@@ -96,13 +96,13 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T019 [P] [US3] Unit test for email logging in packages/infrastructure/tests/services/nodemailer-email-sender.test.ts
+- [x] T019 [P] [US3] Unit test for email logging in packages/infrastructure/tests/services/nodemailer-email-sender.test.ts
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add logging to NodemailerEmailSender send method in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T021 [US3] Log recipient, subject, and status on success in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T022 [US3] Log error details on failure in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T020 [US3] Add logging to NodemailerEmailSender send method in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T021 [US3] Log recipient, subject, and status on success in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T022 [US3] Log error details on failure in packages/infrastructure/src/services/nodemailer-email-sender.ts
 
 **Checkpoint**: User Story 3 complete - all email operations are logged
 
@@ -118,18 +118,18 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [P] [US4] Integration test for registration without email in apps/api/tests/register.test.ts
-- [ ] T024 [P] [US4] Integration test for password reset without email in apps/api/tests/password-reset.test.ts
-- [ ] T025 [P] [US4] Integration test for password change without email in apps/api/tests/password-change.test.ts
+- [x] T023 [P] [US4] Integration test for registration without email in apps/api/tests/register.test.ts
+- [x] T024 [P] [US4] Integration test for password reset without email in apps/api/tests/password-reset.test.ts
+- [x] T025 [P] [US4] Integration test for password change without email in apps/api/tests/password-change.test.ts
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] Add email enabled check in NodemailerEmailSender send method in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T027 [US4] Skip SMTP connection when email disabled in apps/api/src/index.ts
-- [ ] T028 [US4] Validate FR-007: StubEmailSender works for testing/development in packages/infrastructure/tests/services/stub-email-sender.test.ts
-- [ ] T029 [US4] Verify registration works without email in apps/api/src/routes/register.ts
-- [ ] T030 [US4] Verify password reset works without email (token generated, no send) in apps/api/src/routes/password-reset-request.ts
-- [ ] T031 [US4] Verify password change works without email in apps/api/src/routes/password-change.ts
+- [x] T026 [US4] Add email enabled check in NodemailerEmailSender send method in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T027 [US4] Skip SMTP connection when email disabled in apps/api/src/index.ts
+- [x] T028 [US4] Validate FR-007: StubEmailSender works for testing/development in packages/infrastructure/tests/services/stub-email-sender.test.ts
+- [x] T029 [US4] Verify registration works without email in apps/api/src/routes/register.ts
+- [x] T030 [US4] Verify password reset works without email (token generated, no send) in apps/api/src/routes/password-reset-request.ts
+- [x] T031 [US4] Verify password change works without email in apps/api/src/routes/password-change.ts
 
 **Checkpoint**: User Story 4 complete - system fully functional when email disabled
 
