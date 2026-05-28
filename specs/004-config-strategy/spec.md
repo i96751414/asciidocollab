@@ -98,6 +98,16 @@ As a developer, I want the application to validate all configuration values on s
 - What happens when two environment-specific YAML files define conflicting values for the same setting?
 - What happens when a secret field has a default value in the schema?
 
+## Clarifications
+
+### Session 2026-05-28
+
+- Q: Should the configuration system include additional hard-coded values as configurable fields (frontendUrl, httpsRedirect, hibpApiUrl, cookie settings, token byte length)? → A: All of them
+- Q: Should email subjects and HTML templates be configurable? → A: Config fields
+- Q: Should CORS methods and allowed headers be configurable? → A: Hard-coded (standard REST patterns)
+- Q: Should security parameters (login delay, crypto algorithms, key lengths) be configurable? → A: Hard-coded (best practices)
+- Q: Should password reset token expiry remain as planned? → A: Already covered as auth.passwordReset.tokenExpiry
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -109,9 +119,16 @@ As a developer, I want the application to validate all configuration values on s
 - **FR-005**: System MUST support environment-specific YAML files (default.yaml, development.yaml, production.yaml, test.yaml)
 - **FR-006**: System MUST mark sensitive fields (secrets, API keys) and redact them in logs and output
 - **FR-007**: System MUST fail fast with clear error messages when required configuration is missing or invalid
-- **FR-008**: System MUST support all current configuration fields (30+ settings across api, auth, email categories)
+- **FR-008**: System MUST support all current and newly identified configuration fields (40+ settings across api, auth, email, session categories)
 - **FR-009**: System MUST maintain backward compatibility with existing environment variable names
 - **FR-010**: System MUST NOT store secrets in YAML files — secret fields MUST be env-var-only in production
+- **FR-011**: System MUST include `api.frontendUrl` for password reset link base URL (default: 'https://asciidocollab.example.com')
+- **FR-012**: System MUST include `api.httpsRedirect` to enable/disable HTTPS redirect
+- **FR-013**: System MUST include `auth.breachCheck.hibpApiUrl` for HIBP API endpoint (default: 'https://api.pwnedpasswords.com/range')
+- **FR-014**: System MUST include `auth.session.cookie` settings: `httpOnly` (default: true), `sameSite` (default: 'lax'), `saveUninitialized` (default: false), `rolling` (default: true)
+- **FR-015**: System MUST include `auth.passwordReset.tokenByteLength` for token generation (default: 32)
+- **FR-016**: System MUST include configurable email templates: subjects and HTML bodies for password reset, password change, and breach alert notifications
+- **FR-017**: Security parameters (login delay, crypto algorithms, key lengths) MUST remain hard-coded as they follow best practices
 
 ### Key Entities
 
@@ -119,6 +136,7 @@ As a developer, I want the application to validate all configuration values on s
 - **Configuration Source**: YAML file or environment variable providing configuration values
 - **Sensitive Field**: A configuration field containing secrets that must be redacted in output
 - **Environment Profile**: A named configuration layer (development, production, test) that overrides defaults
+- **Email Template**: Configurable email subject and HTML body for transactional notifications
 
 ## Success Criteria *(mandatory)*
 
@@ -127,8 +145,9 @@ As a developer, I want the application to validate all configuration values on s
 - **SC-001**: Developers can change any non-secret application setting by editing a single YAML file
 - **SC-002**: Zero `process.env` or `parseInt` calls in application code — all config access goes through the typed config object
 - **SC-003**: Application fails within 100ms of startup if required configuration is missing
-- **SC-004**: All 30+ current configuration settings are migrated to the new system without breaking existing behavior
+- **SC-004**: All 40+ current and newly identified configuration settings are migrated to the new system without breaking existing behavior
 - **SC-005**: Secrets never appear in YAML files, logs, or error messages
+- **SC-006**: Email templates are customizable via config without code changes
 
 ## Assumptions
 
