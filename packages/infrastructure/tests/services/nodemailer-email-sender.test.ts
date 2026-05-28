@@ -1,7 +1,7 @@
 import { NodemailerEmailSender, NodemailerEmailSenderConfig } from '../../src/services/nodemailer-email-sender';
 
-describe('NodemailerEmailSender', () => {
-  const createConfig = (overrides: Partial<NodemailerEmailSenderConfig> = {}): NodemailerEmailSenderConfig => ({
+function createConfig(overrides: Partial<NodemailerEmailSenderConfig> = {}): NodemailerEmailSenderConfig {
+  return {
     enabled: true,
     host: 'smtp.example.com',
     port: 587,
@@ -9,7 +9,10 @@ describe('NodemailerEmailSender', () => {
     password: 'password',
     from: 'sender@example.com',
     ...overrides,
-  });
+  };
+}
+
+describe('NodemailerEmailSender', () => {
 
   describe('SMTP connection', () => {
     test('creates transporter when enabled', () => {

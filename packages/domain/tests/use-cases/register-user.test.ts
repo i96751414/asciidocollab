@@ -1,14 +1,11 @@
-import { RegisterUserUseCase, RegisterUserResult } from '../../src/use-cases/register-user';
+import { RegisterUserUseCase } from '../../src/use-cases/register-user';
 import { UserRepository } from '../../src/repositories/user.repository';
 import { User } from '../../src/entities/user';
-import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';
-import { Timestamps } from '../../src/value-objects/timestamps';
 import { PasswordPolicy } from '../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../src/services/password-hasher';
 import { BreachChecker } from '../../src/services/breach-checker';
 import { CommonPasswordChecker } from '../../src/services/common-password-checker';
-import { Result } from '@asciidocollab/shared';
 
 describe('RegisterUserUseCase', () => {
   let useCase: RegisterUserUseCase;

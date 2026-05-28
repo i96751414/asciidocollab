@@ -1,4 +1,4 @@
-import { ChangePasswordUseCase, ChangePasswordResult } from '../../src/use-cases/change-password';
+import { ChangePasswordUseCase } from '../../src/use-cases/change-password';
 import { UserRepository } from '../../src/repositories/user.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
@@ -7,7 +7,19 @@ import { Timestamps } from '../../src/value-objects/timestamps';
 import { PasswordPolicy } from '../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../src/services/password-hasher';
 import { BreachChecker } from '../../src/services/breach-checker';
-import { Result } from '@asciidocollab/shared';
+
+function createTestUser(passwordHash: string = 'current-hash'): User {
+  return new User(
+    UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+    Email.create('test@example.com'),
+    'Test User',
+    passwordHash,
+    [],
+    null,
+    null,
+    new Timestamps(),
+  );
+}
 
 describe('ChangePasswordUseCase', () => {
   let useCase: ChangePasswordUseCase;
@@ -21,19 +33,6 @@ describe('ChangePasswordUseCase', () => {
     requireLowercase: true,
     requireDigits: true,
     requireSymbols: false,
-  };
-
-  const createTestUser = (passwordHash: string = 'current-hash'): User => {
-    return new User(
-      UserId.create('550e8400-e29b-41d4-a716-446655440000'),
-      Email.create('test@example.com'),
-      'Test User',
-      passwordHash,
-      [],
-      null,
-      null,
-      new Timestamps(),
-    );
   };
 
   beforeEach(() => {

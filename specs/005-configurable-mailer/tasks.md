@@ -139,9 +139,9 @@
 
 **Purpose**: Final cleanup and validation
 
-- [ ] T032 Run quickstart.md validation steps
-- [ ] T033 Verify all lint, typecheck, and build pass
-- [ ] T034 Run full test suite
+- [x] T032 Run quickstart.md validation steps
+- [x] T033 Verify all lint, typecheck, and build pass
+- [x] T034 Run full test suite
 - [ ] T035 Validate SC-001: Email sending completes in under 5 seconds in apps/api/tests/email-performance.test.ts
 - [ ] T036 Validate SC-006: Registration with breached password rejected in under 2 seconds in apps/api/tests/register.test.ts
 
