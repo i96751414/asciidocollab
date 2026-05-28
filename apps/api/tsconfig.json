@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/infrastructure" }
+  ]
+}

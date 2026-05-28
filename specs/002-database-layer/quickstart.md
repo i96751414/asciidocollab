@@ -37,7 +37,7 @@ pnpm -F db prisma generate
 
 ```bash
 cd packages/db
-DATABASE_URL="postgresql://localhost:5432/asciidocollab" npx prisma migrate dev
+ASCIIDOCOLLAB_DATABASE_URL="postgresql://localhost:5432/asciidocollab" npx prisma migrate dev
 ```
 
 ### Run Tests

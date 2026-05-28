@@ -50,13 +50,15 @@ export class PrismaUserRepository implements UserRepository {
 
 function toDomainUser(record: {
   id: string; email: string; displayName: string; passwordHash: string | null;
-  samlSubject: string | null; mfaSecret: string | null; createdAt: Date; updatedAt: Date;
+  passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
+  createdAt: Date; updatedAt: Date;
 }): User {
   return new User(
     UserId.create(record.id),
     Email.create(record.email),
     record.displayName,
     record.passwordHash,
+    record.passwordHistory,
     record.samlSubject,
     record.mfaSecret,
     new Timestamps(record.createdAt, record.updatedAt),
@@ -65,13 +67,15 @@ function toDomainUser(record: {
 
 function toPersistenceUser(user: User): {
   id: string; email: string; displayName: string; passwordHash: string | null;
-  samlSubject: string | null; mfaSecret: string | null; createdAt: Date; updatedAt: Date;
+  passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
+  createdAt: Date; updatedAt: Date;
 } {
   return {
     id: user.id.value,
     email: user.email.value,
     displayName: user.displayName,
     passwordHash: user.passwordHash,
+    passwordHistory: user.passwordHistory,
     samlSubject: user.samlSubject,
     mfaSecret: user.mfaSecret,
     createdAt: user.createdAt,

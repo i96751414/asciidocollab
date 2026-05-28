@@ -6,3 +6,13 @@ export { InviteUserDto } from './invite-user.dto';
 export { RemoveMemberDto } from './remove-member.dto';
 export { ChangeMemberRoleDto } from './change-member-role.dto';
 export { GetProjectTreeDto, FileTreeNodeDto, GetProjectTreeResultDto } from './get-project-tree.dto';
+export {
+  RegisterDto,
+  LoginDto,
+  ChangePasswordDto,
+  ResetPasswordDto,
+  RequestPasswordResetDto,
+  AuthSuccessResponseDto,
+  AuthErrorResponseDto,
+  UserProfileDto,
+} from './auth.dto';

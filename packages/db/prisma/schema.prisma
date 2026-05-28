@@ -24,18 +24,21 @@ enum GitProvider {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
-  displayName  String
-  passwordHash String?
-  samlSubject  String?
-  mfaSecret    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique
+  displayName     String
+  passwordHash    String?
+  passwordHistory String[]
+  samlSubject     String?
+  mfaSecret       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  projects    Project[]        @relation("ProjectOwner")
-  memberships ProjectMember[]
-  auditLogs   AuditLog[]
+  projects         Project[]        @relation("ProjectOwner")
+  memberships      ProjectMember[]
+  auditLogs        AuditLog[]
+  sessions         Session[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Project {
@@ -156,4 +159,33 @@ model AuditLog {
 
   @@index([projectId])
   @@index([userId])
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String?   @db.Uuid
+  sid       String    @unique
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

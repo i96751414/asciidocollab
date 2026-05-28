@@ -10,7 +10,8 @@
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test -- --coverage",
     "typecheck": "tsc --noEmit",
-    "fresh-onion": "fresh-onion"
+    "fresh-onion": "fresh-onion",
+    "audit": "pnpm audit --audit-level=high"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

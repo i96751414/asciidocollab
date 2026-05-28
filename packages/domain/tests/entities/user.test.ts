@@ -8,7 +8,7 @@ describe('User entity', () => {
   const email = Email.create('user@example.com');
 
   test('creates with password hash', () => {
-    const user = new User(userId, email, 'Test User', 'hashed_password', null, null);
+    const user = new User(userId, email, 'Test User', 'hashed_password', [], null, null);
     expect(user.id).toBe(userId);
     expect(user.email).toBe(email);
     expect(user.displayName).toBe('Test User');
@@ -20,18 +20,18 @@ describe('User entity', () => {
   });
 
   test('creates with SAML subject', () => {
-    const user = new User(userId, email, 'Test User', null, 'saml|idp|user123', null);
+    const user = new User(userId, email, 'Test User', null, [], 'saml|idp|user123', null);
     expect(user.passwordHash).toBeNull();
     expect(user.samlSubject).toBe('saml|idp|user123');
   });
 
   test('rejects when both passwordHash and samlSubject are null', () => {
-    expect(() => new User(userId, email, 'Test User', null, null, null)).toThrow();
+    expect(() => new User(userId, email, 'Test User', null, [], null, null)).toThrow();
   });
 
   test('rejects when createdAt > updatedAt', () => {
     const future = new Date('2025-01-02');
     const past = new Date('2025-01-01');
-    expect(() => new User(userId, email, 'Test User', 'hash', null, null, new Timestamps(future, past))).toThrow();
+    expect(() => new User(userId, email, 'Test User', 'hash', [], null, null, new Timestamps(future, past))).toThrow();
   });
 });

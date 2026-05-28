@@ -37,9 +37,11 @@ describe('InviteUserUseCase', () => {
       auditLogRepo,
     );
 
-    await userRepo.save(new User(adminId, adminEmail, 'Admin', 'hashed', null, null));
-    await userRepo.save(new User(viewerId, viewerEmail, 'Viewer', 'hashed', null, null));
-    await userRepo.save(new User(inviteeId, inviteEmail, 'Invitee', 'hashed', null, null));
+    await userRepo.save(new User(adminId, adminEmail, 'Admin', 'hashed', [], null, null));
+
+    await userRepo.save(new User(viewerId, viewerEmail, 'Viewer', 'hashed', [], null, null));
+
+    await userRepo.save(new User(inviteeId, inviteEmail, 'Invitee', 'hashed', [], null, null));
 
     await projectMemberRepo.addMember(
       new ProjectMember(projectId, adminId, Role.create('administrator')),

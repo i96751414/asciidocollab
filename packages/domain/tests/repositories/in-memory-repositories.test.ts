@@ -88,7 +88,7 @@ describe('In-Memory Repository Fakes', () => {
   describe('InMemoryUserRepository', () => {
     it('saves and retrieves by id', async () => {
       const repo = new InMemoryUserRepository();
-      const user = new User(userId, Email.create('test@example.com'), 'Test', 'hash', null, null);
+      const user = new User(userId, Email.create('test@example.com'), 'Test', 'hash', [], null, null);
       await repo.save(user);
       const found = await repo.findById(userId);
       expect(found).not.toBeNull();
@@ -97,7 +97,7 @@ describe('In-Memory Repository Fakes', () => {
 
     it('finds by email case-insensitively', async () => {
       const repo = new InMemoryUserRepository();
-      const user = new User(userId, Email.create('Test@Example.COM'), 'Test', 'hash', null, null);
+      const user = new User(userId, Email.create('Test@Example.COM'), 'Test', 'hash', [], null, null);
       await repo.save(user);
       const found = await repo.findByEmail(Email.create('test@example.com'));
       expect(found).not.toBeNull();
