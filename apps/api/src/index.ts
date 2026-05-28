@@ -16,6 +16,7 @@ import {
   HIBPBreachChecker,
   CommonPasswordFileChecker,
   StubEmailSender,
+  NodemailerEmailSender,
   CryptoTokenGenerator,
   SessionEncryption,
   PrismaSessionStore,
@@ -130,7 +131,16 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       path.join(__dirname, '..', 'data', 'common-passwords.txt'),
     );
 
-    const emailSender = new StubEmailSender();
+    const emailSender = appConfig.auth.email.enabled
+      ? new NodemailerEmailSender({
+          enabled: appConfig.auth.email.enabled,
+          host: appConfig.auth.email.smtpHost,
+          port: appConfig.auth.email.smtpPort,
+          user: appConfig.auth.email.smtpUser,
+          password: appConfig.auth.email.smtpPassword,
+          from: appConfig.auth.email.from ?? '',
+        })
+      : new StubEmailSender();
 
     const tokenGenerator = new CryptoTokenGenerator({
       tokenByteLength: appConfig.auth.passwordReset.tokenByteLength,

@@ -257,6 +257,12 @@ export function createConfig() {
       },
     },
     email: {
+      enabled: {
+        doc: 'Enable or disable email sending. When disabled, no emails are sent but breach checks still run.',
+        format: Boolean,
+        default: true,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED',
+      },
       provider: {
         doc: 'Email provider type (smtp, sendgrid, ses).',
         format: ['smtp', 'sendgrid', 'ses'],
@@ -461,6 +467,8 @@ export interface Config {
     };
     /** Email configuration. */
     email: {
+      /** Enable or disable email sending. */
+      enabled: boolean;
       /** Email provider type. */
       provider: string;
       /** SMTP server host. */

@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/004-config-strategy/plan.md
+specs/005-configurable-mailer/plan.md
 <!-- SPECKIT END -->
 
 ## Build & Test Commands

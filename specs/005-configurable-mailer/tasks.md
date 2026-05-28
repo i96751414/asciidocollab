@@ -18,7 +18,7 @@
 
 **Purpose**: Add email enabled configuration flag
 
-- [ ] T001 Add `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` config field in apps/api/src/config/schema.ts
+- [x] T001 Add `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` config field in apps/api/src/config/schema.ts
 
 ---
 
@@ -28,9 +28,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 [P] Create NodemailerEmailSender class in packages/infrastructure/src/services/nodemailer-email-sender.ts
-- [ ] T003 [P] Export NodemailerEmailSender from packages/infrastructure/src/services/index.ts
-- [ ] T004 Wire NodemailerEmailSender at composition root in apps/api/src/index.ts (conditionally based on email enabled config)
+- [x] T002 [P] Create NodemailerEmailSender class in packages/infrastructure/src/services/nodemailer-email-sender.ts
+- [x] T003 [P] Export NodemailerEmailSender from packages/infrastructure/src/services/index.ts
+- [x] T004 Wire NodemailerEmailSender at composition root in apps/api/src/index.ts (conditionally based on email enabled config)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
