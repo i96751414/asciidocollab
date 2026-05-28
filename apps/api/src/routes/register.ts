@@ -1,9 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import path from 'node:path';
 import { Email, RegisterUserUseCase } from '@asciidocollab/domain';
-import { hashPassword } from '../services/auth.service';
-import { isCommonPassword } from '../services/blocklist';
-import { isPasswordBreached } from '../services/breach-check.service';
-import { sendEmail } from '../services/email.service';
+import { Argon2PasswordHasher, HIBPBreachChecker, CommonPasswordFileChecker, StubEmailSender } from '@asciidocollab/infrastructure';
 import { buildPasswordPolicy } from '../services/password-policy';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -60,12 +58,28 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { email, password, displayName } = request.body as RegisterDto;
 
+    const passwordHasher = new Argon2PasswordHasher({
+      memoryCost: app.config.auth.password.hashMemory,
+      timeCost: app.config.auth.password.hashTime,
+      parallelism: app.config.auth.password.hashParallelism,
+    });
+
+    const breachChecker = new HIBPBreachChecker({
+      hibpApiUrl: app.config.auth.breachCheck.hibpApiUrl,
+    });
+
+    const commonPasswordChecker = new CommonPasswordFileChecker(
+      path.join(__dirname, '..', '..', 'data', 'common-passwords.txt'),
+    );
+
+    const emailSender = new StubEmailSender();
+
     const useCase = new RegisterUserUseCase(
       request.server.repos.user,
       buildPasswordPolicy(),
-      isCommonPassword,
-      isPasswordBreached,
-      hashPassword,
+      commonPasswordChecker,
+      breachChecker,
+      passwordHasher,
     );
 
     const result = await useCase.execute(Email.create(email), displayName, password);
@@ -77,11 +91,11 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
     }
 
     if (result.value.breached) {
-      await sendEmail({
-        to: email,
-        subject: app.config.auth.email.templates.breachAlert.subject,
-        html: app.config.auth.email.templates.breachAlert.html,
-      });
+      await emailSender.send(
+        email,
+        app.config.auth.email.templates.breachAlert.subject,
+        app.config.auth.email.templates.breachAlert.html,
+      );
     }
 
     const status = result.value.existing ? 200 : 201;

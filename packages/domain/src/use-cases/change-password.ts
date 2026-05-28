@@ -7,6 +7,7 @@ import { PasswordReuseError } from '../errors/password-reuse';
 import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
+import { PasswordHasher } from '../services/password-hasher';
 
 /** Result returned on successful password change. */
 export interface ChangePasswordResult {
@@ -23,14 +24,12 @@ export interface ChangePasswordResult {
 export class ChangePasswordUseCase {
   /**
    * @param userRepo - Repository for user persistence.
-   * @param verifyPassword - Function to verify a password against a hash.
-   * @param hashPassword - Function to hash a plaintext password.
+   * @param passwordHasher - Service for password hashing and verification.
    * @param passwordPolicy - Password policy to validate the new password against.
    */
   constructor(
     private readonly userRepo: UserRepository,
-    private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
-    private readonly hashPassword: (plain: string) => Promise<string>,
+    private readonly passwordHasher: PasswordHasher,
     private readonly passwordPolicy: PasswordPolicy,
   ) {}
 
@@ -63,7 +62,7 @@ export class ChangePasswordUseCase {
       };
     }
 
-    const currentPasswordValid = await this.verifyPassword(user.passwordHash, currentPassword);
+    const currentPasswordValid = await this.passwordHasher.verify(user.passwordHash, currentPassword);
     if (!currentPasswordValid) {
       return {
         success: false,
@@ -72,7 +71,7 @@ export class ChangePasswordUseCase {
     }
 
     const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => this.verifyPassword(hash, newPassword)),
+      user.passwordHistory.map((hash) => this.passwordHasher.verify(hash, newPassword)),
     );
     if (isReused.some(Boolean)) {
       return {
@@ -81,7 +80,7 @@ export class ChangePasswordUseCase {
       };
     }
 
-    const newPasswordHash = await this.hashPassword(newPassword);
+    const newPasswordHash = await this.passwordHasher.hash(newPassword);
     const updatedHistory = [...user.passwordHistory, user.passwordHash].slice(-historyDepth);
 
     const updatedUser = new User(

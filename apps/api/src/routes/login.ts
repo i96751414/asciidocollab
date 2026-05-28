@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, LoginUseCase } from '@asciidocollab/domain';
-import { verifyPassword } from '../services/auth.service';
+import { Argon2PasswordHasher } from '@asciidocollab/infrastructure';
 import '../types/session';
 import type { LoginDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -30,7 +30,13 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { email, password } = request.body as LoginDto;
 
-    const useCase = new LoginUseCase(request.server.repos.user, verifyPassword);
+    const passwordHasher = new Argon2PasswordHasher({
+      memoryCost: app.config.auth.password.hashMemory,
+      timeCost: app.config.auth.password.hashTime,
+      parallelism: app.config.auth.password.hashParallelism,
+    });
+
+    const useCase = new LoginUseCase(request.server.repos.user, passwordHasher);
     const result = await useCase.execute(Email.create(email), password);
 
     if (!result.success) {

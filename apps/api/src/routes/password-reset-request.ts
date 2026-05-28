@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, RequestPasswordResetUseCase } from '@asciidocollab/domain';
-import { generatePasswordResetToken } from '../services/password-reset.service';
-import { sendEmail } from '../services/email.service';
+import { CryptoTokenGenerator, StubEmailSender } from '@asciidocollab/infrastructure';
 import type { RequestPasswordResetDto, AuthSuccessResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -29,10 +28,17 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
   }, async (request, reply) => {
     const { email } = request.body as RequestPasswordResetDto;
 
+    const tokenGenerator = new CryptoTokenGenerator({
+      tokenByteLength: app.config.auth.passwordReset.tokenByteLength,
+      tokenExpiry: app.config.auth.passwordReset.tokenExpiry,
+    });
+
+    const emailSender = new StubEmailSender();
+
     const useCase = new RequestPasswordResetUseCase(
       request.server.repos.user,
       request.server.repos.passwordResetToken,
-      generatePasswordResetToken,
+      tokenGenerator,
     );
 
     const result = await useCase.execute(Email.create(email));
@@ -40,11 +46,11 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
     if (result.success) {
       const frontendUrl = app.config.api.frontendUrl;
       const template = app.config.auth.email.templates.resetRequest;
-      await sendEmail({
-        to: result.value.email,
-        subject: template.subject,
-        html: template.html.replace('{frontendUrl}', frontendUrl).replace('{token}', result.value.rawToken),
-      });
+      await emailSender.send(
+        result.value.email,
+        template.subject,
+        template.html.replace('{frontendUrl}', frontendUrl).replace('{token}', result.value.rawToken),
+      );
     }
 
     return reply.status(200).send({ message: 'If the email exists, a reset link has been sent' } satisfies AuthSuccessResponseDto);

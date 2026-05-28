@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { UserId, ChangePasswordUseCase } from '@asciidocollab/domain';
-import { hashPassword, verifyPassword } from '../services/auth.service';
-import { sendEmail } from '../services/email.service';
+import { Argon2PasswordHasher, StubEmailSender } from '@asciidocollab/infrastructure';
 import { buildPasswordPolicy } from '../services/password-policy';
 import '../types/session';
 import type { ChangePasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
@@ -40,10 +39,15 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
 
     const historyDepth = app.config.auth.password.historyDepth;
 
+    const passwordHasher = new Argon2PasswordHasher({
+      memoryCost: app.config.auth.password.hashMemory,
+      timeCost: app.config.auth.password.hashTime,
+      parallelism: app.config.auth.password.hashParallelism,
+    });
+
     const useCase = new ChangePasswordUseCase(
       request.server.repos.user,
-      verifyPassword,
-      hashPassword,
+      passwordHasher,
       buildPasswordPolicy(),
     );
 
@@ -70,11 +74,12 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
 
     const user = await request.server.repos.user.findById(UserId.create(request.session.userId));
     if (user) {
-      await sendEmail({
-        to: user.email.value,
-        subject: request.server.config.auth.email.templates.passwordChanged.subject,
-        html: request.server.config.auth.email.templates.passwordChanged.html,
-      });
+      const emailSender = new StubEmailSender();
+      await emailSender.send(
+        user.email.value,
+        request.server.config.auth.email.templates.passwordChanged.subject,
+        request.server.config.auth.email.templates.passwordChanged.html,
+      );
     }
 
     return reply.status(200).send({ message: 'Password changed' } satisfies AuthSuccessResponseDto);

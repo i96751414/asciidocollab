@@ -5,6 +5,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
 import { Result } from '@asciidocollab/shared';
 import { randomUUID } from 'crypto';
+import { TokenGenerator } from '../services/token-generator';
 
 /** Result returned on successful password reset request. */
 export interface RequestPasswordResetResult {
@@ -24,12 +25,12 @@ export class RequestPasswordResetUseCase {
   /**
    * @param userRepo - Repository for user persistence.
    * @param tokenRepo - Repository for password reset token persistence.
-   * @param generateToken - Function to generate a raw + hashed token pair.
+   * @param tokenGenerator - Service for token generation.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: PasswordResetTokenRepository,
-    private readonly generateToken: () => { token: string; hashedToken: string; expiresAt: Date },
+    private readonly tokenGenerator: TokenGenerator,
   ) {}
 
   /**
@@ -42,14 +43,14 @@ export class RequestPasswordResetUseCase {
     const user = await this.userRepo.findByEmail(email);
 
     if (!user) {
-      const dummy = this.generateToken();
+      const dummy = this.tokenGenerator.generatePasswordResetToken();
       return {
         success: true,
         value: { rawToken: dummy.token, email: email.value },
       };
     }
 
-    const resetToken = this.generateToken();
+    const resetToken = this.tokenGenerator.generatePasswordResetToken();
     const tokenEntity = new PasswordResetToken(
       PasswordResetTokenId.create(randomUUID()),
       user.id,

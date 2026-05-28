@@ -8,6 +8,8 @@ import { PasswordReuseError } from '../errors/password-reuse';
 import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
+import { PasswordHasher } from '../services/password-hasher';
+import { TokenGenerator } from '../services/token-generator';
 
 /** Result returned on successful password reset. */
 export interface ResetPasswordResult {
@@ -25,17 +27,15 @@ export class ResetPasswordUseCase {
   /**
    * @param userRepo - Repository for user persistence.
    * @param tokenRepo - Repository for password reset token persistence.
-   * @param verifyPassword - Function to verify a password against a hash.
-   * @param hashPassword - Function to hash a plaintext password.
-   * @param hashToken - Function to hash a raw token for lookup.
+   * @param passwordHasher - Service for password hashing and verification.
+   * @param tokenGenerator - Service for token generation and hashing.
    * @param passwordPolicy - Password policy to validate the new password against.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: PasswordResetTokenRepository,
-    private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
-    private readonly hashPassword: (plain: string) => Promise<string>,
-    private readonly hashToken: (token: string) => string,
+    private readonly passwordHasher: PasswordHasher,
+    private readonly tokenGenerator: TokenGenerator,
     private readonly passwordPolicy: PasswordPolicy,
   ) {}
 
@@ -57,7 +57,7 @@ export class ResetPasswordUseCase {
       return { success: false, error: new ValidationError(validationError) };
     }
 
-    const tokenHash = this.hashToken(rawToken);
+    const tokenHash = this.tokenGenerator.hashToken(rawToken);
     const resetToken = await this.tokenRepo.findByTokenHash(tokenHash);
 
     if (!resetToken) {
@@ -76,10 +76,10 @@ export class ResetPasswordUseCase {
       };
     }
 
-    const newPasswordHash = await this.hashPassword(newPassword);
+    const newPasswordHash = await this.passwordHasher.hash(newPassword);
 
     const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => this.verifyPassword(hash, newPasswordHash)),
+      user.passwordHistory.map((hash) => this.passwordHasher.verify(hash, newPasswordHash)),
     );
     if (isReused.some(Boolean)) {
       return {

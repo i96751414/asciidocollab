@@ -1,6 +1,7 @@
 import { Email } from '../value-objects/email';
 import { UserRepository } from '../repositories/user.repository';
 import { Result } from '@asciidocollab/shared';
+import { PasswordHasher } from '../services/password-hasher';
 
 /** Result returned on successful login. */
 export interface LoginResult {
@@ -18,11 +19,11 @@ export interface LoginResult {
 export class LoginUseCase {
   /**
    * @param userRepo - Repository for user persistence.
-   * @param verifyPassword - Function to verify a password against a hash.
+   * @param passwordHasher - Service for password verification.
    */
   constructor(
     private readonly userRepo: UserRepository,
-    private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
+    private readonly passwordHasher: PasswordHasher,
   ) {}
 
   /**
@@ -46,7 +47,7 @@ export class LoginUseCase {
       };
     }
 
-    const passwordValid = await this.verifyPassword(user.passwordHash, password);
+    const passwordValid = await this.passwordHasher.verify(user.passwordHash, password);
     if (!passwordValid) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       return {

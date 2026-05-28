@@ -1,16 +1,21 @@
 import type { PrismaClient } from '@prisma/client';
 import type { SessionStore } from '@fastify/session';
-import { encrypt, decrypt } from './session-encryption';
+import { SessionEncryption } from './session-encryption';
 
 /**
- * Prisma-backed session store for \@fastify/session.
- * Encrypts session data using AES-256-GCM before storing.
+ * Prisma-backed session store for the fastify session plugin.
+ *
+ * Encrypts session data using AES-256-GCM before storing in the database.
  */
 export class PrismaSessionStore implements SessionStore {
   /**
    * @param prisma - The Prisma client instance.
+   * @param encryption - The session encryption service.
    */
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly encryption: SessionEncryption,
+  ) {}
 
   /**
    * Stores a session in the database.
@@ -25,7 +30,7 @@ export class PrismaSessionStore implements SessionStore {
       const expiresAt = session.cookie?.expires ?? new Date(Date.now() + 86_400_000);
 
       const rawData = JSON.stringify(session);
-      const encryptedData = encrypt(rawData);
+      const encryptedData = this.encryption.encrypt(rawData);
 
       const data = {
         sid: sessionId,
@@ -64,8 +69,8 @@ export class PrismaSessionStore implements SessionStore {
         return;
       }
       const rawData = typeof record.data === 'string' ? record.data : JSON.stringify(record.data);
-      const decryptedData = decrypt(rawData);
-      const session = JSON.parse(decryptedData) as import('fastify').Session;
+      const decryptedData = this.encryption.decrypt(rawData);
+      const session: import('fastify').Session = JSON.parse(decryptedData);
       callback(null, session);
     } catch (error) {
       callback(error, null);

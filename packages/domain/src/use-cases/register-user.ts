@@ -8,6 +8,9 @@ import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
 import { randomUUID } from 'crypto';
+import { PasswordHasher } from '../services/password-hasher';
+import { BreachChecker } from '../services/breach-checker';
+import { CommonPasswordChecker } from '../services/common-password-checker';
 
 /** Result returned on successful registration. */
 export interface RegisterUserResult {
@@ -30,16 +33,16 @@ export class RegisterUserUseCase {
   /**
    * @param userRepo - Repository for user persistence.
    * @param passwordPolicy - Password policy to validate against.
-   * @param isCommonPassword - Function to check if a password is common.
-   * @param isPasswordBreached - Function to check if a password appears in breach databases.
-   * @param hashPassword - Function to hash a plaintext password.
+   * @param commonPasswordChecker - Service to check if a password is common.
+   * @param breachChecker - Service to check if a password appears in breach databases.
+   * @param passwordHasher - Service to hash passwords.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly passwordPolicy: PasswordPolicy,
-    private readonly isCommonPassword: (password: string) => boolean,
-    private readonly isPasswordBreached: (password: string) => Promise<boolean>,
-    private readonly hashPassword: (plain: string) => Promise<string>,
+    private readonly commonPasswordChecker: CommonPasswordChecker,
+    private readonly breachChecker: BreachChecker,
+    private readonly passwordHasher: PasswordHasher,
   ) {}
 
   /**
@@ -60,7 +63,7 @@ export class RegisterUserUseCase {
       return { success: false, error: new ValidationError(validationError) };
     }
 
-    if (this.isCommonPassword(password)) {
+    if (this.commonPasswordChecker.isCommon(password)) {
       return { success: false, error: new ValidationError('Password is too common') };
     }
 
@@ -73,8 +76,8 @@ export class RegisterUserUseCase {
       };
     }
 
-    const breached = await this.isPasswordBreached(password);
-    const passwordHash = await this.hashPassword(password);
+    const breached = await this.breachChecker.isBreached(password);
+    const passwordHash = await this.passwordHasher.hash(password);
 
     const userId = UserId.create(randomUUID());
     const user = new User(
