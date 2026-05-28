@@ -11,6 +11,7 @@ Thumbs.db
 *.tmp
 .vscode/
 .idea/
+.cache/
 *.tsbuildinfo
 packages/shared/tests/**/*.d.ts
 packages/shared/tests/**/*.js
