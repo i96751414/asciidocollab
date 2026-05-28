@@ -16,8 +16,6 @@ import { CommonPasswordChecker } from '../services/common-password-checker';
 export interface RegisterUserResult {
   /** The newly created user's ID. */
   userId: UserId;
-  /** Whether the password was found in a breach database. */
-  breached: boolean;
   /** Whether the email was already registered. */
   existing: boolean;
 }
@@ -72,11 +70,18 @@ export class RegisterUserUseCase {
     if (existingUser) {
       return {
         success: true,
-        value: { userId: existingUser.id, breached: false, existing: true },
+        value: { userId: existingUser.id, existing: true },
       };
     }
 
     const breached = await this.breachChecker.isBreached(password);
+    if (breached) {
+      return {
+        success: false,
+        error: new ValidationError('Password has been found in a data breach'),
+      };
+    }
+
     const passwordHash = await this.passwordHasher.hash(password);
 
     const userId = UserId.create(randomUUID());
@@ -95,7 +100,7 @@ export class RegisterUserUseCase {
 
     return {
       success: true,
-      value: { userId, breached, existing: false },
+      value: { userId, existing: false },
     };
   }
 }

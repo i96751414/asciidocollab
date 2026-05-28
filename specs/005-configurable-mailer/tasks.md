@@ -46,15 +46,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T005 [P] [US1] Unit test for RegisterUserUseCase breach blocking in packages/domain/tests/use-cases/register-user.test.ts
-- [ ] T006 [P] [US1] Unit test for ChangePasswordUseCase breach check in packages/domain/tests/use-cases/change-password.test.ts
+- [x] T005 [P] [US1] Unit test for RegisterUserUseCase breach blocking in packages/domain/tests/use-cases/register-user.test.ts
+- [x] T006 [P] [US1] Unit test for ChangePasswordUseCase breach check in packages/domain/tests/use-cases/change-password.test.ts
 - [ ] T007 [P] [US1] Integration test for register route breach rejection in apps/api/tests/register.test.ts
 - [ ] T008 [P] [US1] Integration test for password-change route breach rejection in apps/api/tests/password-change.test.ts
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Update RegisterUserUseCase to reject registration when password is breached in packages/domain/src/use-cases/register-user.ts
-- [ ] T010 [US1] Remove breached field from RegisterUserResult interface in packages/domain/src/use-cases/register-user.ts
+- [x] T009 [US1] Update RegisterUserUseCase to reject registration when password is breached in packages/domain/src/use-cases/register-user.ts
+- [x] T010 [US1] Remove breached field from RegisterUserResult interface in packages/domain/src/use-cases/register-user.ts
 - [ ] T011 [US1] Update register route to remove breach alert email logic in apps/api/src/routes/register.ts
 - [ ] T012 [US1] Add breach check to ChangePasswordUseCase in packages/domain/src/use-cases/change-password.ts
 - [ ] T013 [US1] Update password-change route to handle breach rejection in apps/api/src/routes/password-change.ts

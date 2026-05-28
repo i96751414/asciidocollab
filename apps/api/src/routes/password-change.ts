@@ -42,6 +42,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       request.server.repos.user,
       request.server.services.passwordHasher,
       buildPasswordPolicy(),
+      request.server.services.breachChecker,
     );
 
     const result = await useCase.execute(
