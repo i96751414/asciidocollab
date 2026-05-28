@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { UserId, ChangePasswordUseCase } from '@asciidocollab/domain';
 import { hashPassword, verifyPassword } from '../services/auth.service';
-import { validatePassword, getPasswordPolicy } from '../services/validation';
 import { sendEmail } from '../services/email.service';
+import { buildPasswordPolicy } from '../services/password-policy';
 import '../types/session';
 import type { ChangePasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -38,19 +38,13 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
 
     const { currentPassword, newPassword } = request.body as ChangePasswordDto;
 
-    const validationError = validatePassword(newPassword, getPasswordPolicy());
-    if (validationError) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: validationError },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const historyDepth = request.server.config.auth.password.historyDepth;
+    const historyDepth = app.config.auth.password.historyDepth;
 
     const useCase = new ChangePasswordUseCase(
       request.server.repos.user,
       verifyPassword,
       hashPassword,
+      buildPasswordPolicy(),
     );
 
     const result = await useCase.execute(
@@ -61,7 +55,9 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
     );
 
     if (!result.success) {
-      const code = result.error.name === 'InvalidPasswordError' ? 'INVALID_PASSWORD' : 'PASSWORD_REUSE';
+      const code = result.error.name === 'ValidationError' ? 'VALIDATION_ERROR'
+        : result.error.name === 'InvalidPasswordError' ? 'INVALID_PASSWORD'
+        : 'PASSWORD_REUSE';
       return reply.status(400).send({
         error: { code, message: result.error.message },
       } satisfies AuthErrorResponseDto);

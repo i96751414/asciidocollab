@@ -20,3 +20,5 @@ export { FileNodeType } from './file-node-type';
 export { TemplateCategory } from './template-category';
 export { Timestamps } from './timestamps';
 export { PasswordResetTokenId } from './password-reset-token-id';
+export { validatePassword } from './password-policy';
+export type { PasswordPolicy } from './password-policy';

@@ -1,8 +1,11 @@
 import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
 import { UserRepository } from '../repositories/user.repository';
+import { DomainError } from '../errors/domain-error';
 import { InvalidPasswordError } from '../errors/invalid-password';
 import { PasswordReuseError } from '../errors/password-reuse';
+import { ValidationError } from '../errors/validation-error';
+import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
 
 /** Result returned on successful password change. */
@@ -14,20 +17,21 @@ export interface ChangePasswordResult {
 /**
  * Changes a user's password after verifying the current password.
  *
- * Validates current password, checks password history, updates the hash,
- * and rotates history. The caller is responsible for new password validation
- * before calling this use case.
+ * Validates current password, validates new password against policy,
+ * checks password history, updates the hash, and rotates history.
  */
 export class ChangePasswordUseCase {
   /**
    * @param userRepo - Repository for user persistence.
    * @param verifyPassword - Function to verify a password against a hash.
    * @param hashPassword - Function to hash a plaintext password.
+   * @param passwordPolicy - Password policy to validate the new password against.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
     private readonly hashPassword: (plain: string) => Promise<string>,
+    private readonly passwordPolicy: PasswordPolicy,
   ) {}
 
   /**
@@ -37,14 +41,19 @@ export class ChangePasswordUseCase {
    * @param currentPassword - The user's current plaintext password.
    * @param newPassword - The new plaintext password to set.
    * @param historyDepth - Maximum number of previous passwords to retain.
-   * @returns Success with userId, or a DomainError for invalid current password or reuse.
+   * @returns Success with userId, or a DomainError for validation failure, invalid password, or reuse.
    */
   async execute(
     userId: UserId,
     currentPassword: string,
     newPassword: string,
     historyDepth: number,
-  ): Promise<Result<ChangePasswordResult, InvalidPasswordError | PasswordReuseError>> {
+  ): Promise<Result<ChangePasswordResult, DomainError>> {
+    const validationError = validatePassword(newPassword, this.passwordPolicy);
+    if (validationError) {
+      return { success: false, error: new ValidationError(validationError) };
+    }
+
     const user = await this.userRepo.findById(userId);
 
     if (!user || !user.passwordHash) {

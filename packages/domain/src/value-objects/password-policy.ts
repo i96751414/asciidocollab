@@ -1,5 +1,3 @@
-import { getConfig } from '../config';
-
 /**
  * Password policy configuration.
  */
@@ -17,23 +15,7 @@ export interface PasswordPolicy {
 }
 
 /**
- * Gets the password policy from configuration.
- *
- * @returns The password policy configuration.
- */
-export function getPasswordPolicy(): PasswordPolicy {
-  const config = getConfig();
-  return {
-    minLength: config.auth.password.minLength,
-    requireUppercase: config.auth.password.requireUppercase,
-    requireLowercase: config.auth.password.requireLowercase,
-    requireDigits: config.auth.password.requireDigits,
-    requireSymbols: config.auth.password.requireSymbols,
-  };
-}
-
-/**
- * Validates a password against the policy.
+ * Validates a password against the given policy.
  *
  * @param password - The password to validate.
  * @param policy - The password policy to validate against.
@@ -54,20 +36,6 @@ export function validatePassword(password: string, policy: PasswordPolicy): stri
   }
   if (policy.requireSymbols && !/[^A-Za-z0-9]/.test(password)) {
     return 'Password must contain at least one symbol';
-  }
-  return null;
-}
-
-/**
- * Validates an email address format.
- *
- * @param email - The email address to validate.
- * @returns An error message if validation fails, null otherwise.
- */
-export function validateEmail(email: string): string | null {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return 'Invalid email format';
   }
   return null;
 }

@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { ResetPasswordUseCase } from '@asciidocollab/domain';
 import { hashPassword, verifyPassword } from '../services/auth.service';
-import { validatePassword, getPasswordPolicy } from '../services/validation';
 import { hashToken } from '../services/password-reset.service';
+import { buildPasswordPolicy } from '../services/password-policy';
 import type { ResetPasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -31,28 +31,23 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { token, newPassword } = request.body as ResetPasswordDto;
 
-    const validationError = validatePassword(newPassword, getPasswordPolicy());
-    if (validationError) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: validationError },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const hashedToken = hashToken(token);
-    const historyDepth = request.server.config.auth.password.historyDepth;
-    const newPasswordHash = await hashPassword(newPassword);
+    const historyDepth = app.config.auth.password.historyDepth;
 
     const useCase = new ResetPasswordUseCase(
       request.server.repos.user,
       request.server.repos.passwordResetToken,
       verifyPassword,
       hashPassword,
+      hashToken,
+      buildPasswordPolicy(),
     );
 
-    const result = await useCase.execute(hashedToken, newPasswordHash, historyDepth);
+    const result = await useCase.execute(token, newPassword, historyDepth);
 
     if (!result.success) {
-      const code = result.error.name === 'InvalidTokenError' ? 'INVALID_TOKEN' : 'PASSWORD_REUSE';
+      const code = result.error.name === 'ValidationError' ? 'VALIDATION_ERROR'
+        : result.error.name === 'InvalidTokenError' ? 'INVALID_TOKEN'
+        : 'PASSWORD_REUSE';
       return reply.status(400).send({
         error: { code, message: result.error.message },
       } satisfies AuthErrorResponseDto);

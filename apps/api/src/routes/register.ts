@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, RegisterUserUseCase } from '@asciidocollab/domain';
 import { hashPassword } from '../services/auth.service';
-import { validatePassword, validateEmail, getPasswordPolicy } from '../services/validation';
 import { isCommonPassword } from '../services/blocklist';
 import { isPasswordBreached } from '../services/breach-check.service';
 import { sendEmail } from '../services/email.service';
+import { buildPasswordPolicy } from '../services/password-policy';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -60,45 +60,23 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { email, password, displayName } = request.body as RegisterDto;
 
-    const emailError = validateEmail(email);
-    if (emailError) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: emailError },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const policy = getPasswordPolicy();
-    const passwordError = validatePassword(password, policy);
-    if (passwordError) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: passwordError },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    if (isCommonPassword(password)) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: 'Password is too common' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const breached = await isPasswordBreached(password);
-    const passwordHash = await hashPassword(password);
-
-    const useCase = new RegisterUserUseCase(request.server.repos.user);
-    const result = await useCase.execute(
-      Email.create(email),
-      displayName,
-      passwordHash,
-      breached,
+    const useCase = new RegisterUserUseCase(
+      request.server.repos.user,
+      buildPasswordPolicy(),
+      isCommonPassword,
+      isPasswordBreached,
+      hashPassword,
     );
+
+    const result = await useCase.execute(Email.create(email), displayName, password);
 
     if (!result.success) {
       return reply.status(400).send({
-        error: { code: 'REGISTRATION_FAILED', message: result.error.message },
+        error: { code: 'VALIDATION_ERROR', message: result.error.message },
       } satisfies AuthErrorResponseDto);
     }
 
-    if (breached) {
+    if (result.value.breached) {
       await sendEmail({
         to: email,
         subject: app.config.auth.email.templates.breachAlert.subject,

@@ -2,8 +2,11 @@ import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
 import { UserRepository } from '../repositories/user.repository';
 import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
+import { DomainError } from '../errors/domain-error';
 import { InvalidTokenError } from '../errors/invalid-token';
 import { PasswordReuseError } from '../errors/password-reuse';
+import { ValidationError } from '../errors/validation-error';
+import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
 
 /** Result returned on successful password reset. */
@@ -15,9 +18,8 @@ export interface ResetPasswordResult {
 /**
  * Resets a user's password using a valid reset token.
  *
- * Validates the token, checks password history, updates the password,
- * and marks the token as used. The caller is responsible for password
- * validation before calling this use case.
+ * Validates the token, validates the new password against policy,
+ * checks password history, updates the password, and marks the token as used.
  */
 export class ResetPasswordUseCase {
   /**
@@ -25,27 +27,37 @@ export class ResetPasswordUseCase {
    * @param tokenRepo - Repository for password reset token persistence.
    * @param verifyPassword - Function to verify a password against a hash.
    * @param hashPassword - Function to hash a plaintext password.
+   * @param hashToken - Function to hash a raw token for lookup.
+   * @param passwordPolicy - Password policy to validate the new password against.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: PasswordResetTokenRepository,
     private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
     private readonly hashPassword: (plain: string) => Promise<string>,
+    private readonly hashToken: (token: string) => string,
+    private readonly passwordPolicy: PasswordPolicy,
   ) {}
 
   /**
    * Resets the user's password using the provided token.
    *
-   * @param tokenHash - The SHA-256 hash of the raw reset token.
-   * @param newPasswordHash - The argon2id hash of the new password.
+   * @param rawToken - The raw reset token from the user.
+   * @param newPassword - The new plaintext password to set.
    * @param historyDepth - Maximum number of previous passwords to retain.
-   * @returns Success with userId, or a DomainError for invalid/expired tokens.
+   * @returns Success with userId, or a DomainError for validation failure or invalid/expired tokens.
    */
   async execute(
-    tokenHash: string,
-    newPasswordHash: string,
+    rawToken: string,
+    newPassword: string,
     historyDepth: number,
-  ): Promise<Result<ResetPasswordResult, InvalidTokenError | PasswordReuseError>> {
+  ): Promise<Result<ResetPasswordResult, DomainError>> {
+    const validationError = validatePassword(newPassword, this.passwordPolicy);
+    if (validationError) {
+      return { success: false, error: new ValidationError(validationError) };
+    }
+
+    const tokenHash = this.hashToken(rawToken);
     const resetToken = await this.tokenRepo.findByTokenHash(tokenHash);
 
     if (!resetToken) {
@@ -63,6 +75,8 @@ export class ResetPasswordUseCase {
         error: new InvalidTokenError('Invalid or expired reset token'),
       };
     }
+
+    const newPasswordHash = await this.hashPassword(newPassword);
 
     const isReused = await Promise.all(
       user.passwordHistory.map((hash) => this.verifyPassword(hash, newPasswordHash)),

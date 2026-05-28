@@ -34,7 +34,6 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
     const result = await useCase.execute(Email.create(email), password);
 
     if (!result.success) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
       return reply.status(401).send({
         error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
       } satisfies AuthErrorResponseDto);

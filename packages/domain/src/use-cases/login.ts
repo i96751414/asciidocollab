@@ -12,7 +12,8 @@ export interface LoginResult {
  * Authenticates a user with email and password.
  *
  * Handles user lookup, password verification, and returns the user ID
- * on success. The caller is responsible for session creation.
+ * on success. Applies a constant-time delay on failure to prevent timing attacks.
+ * The caller is responsible for session creation.
  */
 export class LoginUseCase {
   /**
@@ -38,6 +39,7 @@ export class LoginUseCase {
     const user = await this.userRepo.findByEmail(email);
 
     if (!user || !user.passwordHash) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
       return {
         success: false,
         error: new Error('Invalid email or password'),
@@ -46,6 +48,7 @@ export class LoginUseCase {
 
     const passwordValid = await this.verifyPassword(user.passwordHash, password);
     if (!passwordValid) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
       return {
         success: false,
         error: new Error('Invalid email or password'),

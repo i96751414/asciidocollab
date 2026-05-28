@@ -4,6 +4,8 @@ import { Email } from '../value-objects/email';
 import { Timestamps } from '../value-objects/timestamps';
 import { UserRepository } from '../repositories/user.repository';
 import { DomainError } from '../errors/domain-error';
+import { ValidationError } from '../errors/validation-error';
+import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
 import { randomUUID } from 'crypto';
 
@@ -21,16 +23,23 @@ export interface RegisterUserResult {
  * Registers a new user with email and password.
  *
  * Handles duplicate detection (returns success for existing email),
- * password hashing delegation, and breach notification flagging.
- * The caller is responsible for password validation, common-password check,
- * and breach detection before calling this use case.
+ * password validation, common-password check, breach detection,
+ * and password hashing delegation.
  */
 export class RegisterUserUseCase {
   /**
    * @param userRepo - Repository for user persistence.
+   * @param passwordPolicy - Password policy to validate against.
+   * @param isCommonPassword - Function to check if a password is common.
+   * @param isPasswordBreached - Function to check if a password appears in breach databases.
+   * @param hashPassword - Function to hash a plaintext password.
    */
   constructor(
     private readonly userRepo: UserRepository,
+    private readonly passwordPolicy: PasswordPolicy,
+    private readonly isCommonPassword: (password: string) => boolean,
+    private readonly isPasswordBreached: (password: string) => Promise<boolean>,
+    private readonly hashPassword: (plain: string) => Promise<string>,
   ) {}
 
   /**
@@ -38,24 +47,34 @@ export class RegisterUserUseCase {
    *
    * @param email - The validated email address.
    * @param displayName - The user's chosen display name.
-   * @param passwordHash - The argon2id hash of the validated password.
-   * @param breached - Whether the password was found in a breach database.
+   * @param password - The plaintext password to validate, check, and hash.
    * @returns Success with userId and breach flag, or a DomainError.
    */
   async execute(
     email: Email,
     displayName: string,
-    passwordHash: string,
-    breached: boolean,
+    password: string,
   ): Promise<Result<RegisterUserResult, DomainError>> {
+    const validationError = validatePassword(password, this.passwordPolicy);
+    if (validationError) {
+      return { success: false, error: new ValidationError(validationError) };
+    }
+
+    if (this.isCommonPassword(password)) {
+      return { success: false, error: new ValidationError('Password is too common') };
+    }
+
     const existingUser = await this.userRepo.findByEmail(email);
 
     if (existingUser) {
       return {
         success: true,
-        value: { userId: existingUser.id, breached, existing: true },
+        value: { userId: existingUser.id, breached: false, existing: true },
       };
     }
+
+    const breached = await this.isPasswordBreached(password);
+    const passwordHash = await this.hashPassword(password);
 
     const userId = UserId.create(randomUUID());
     const user = new User(
