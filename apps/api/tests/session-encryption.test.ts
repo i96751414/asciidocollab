@@ -1,15 +1,15 @@
 describe('Session Encryption', () => {
-  const originalEnv = process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY;
+  const originalEnvironment = process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY;
 
   beforeEach(() => {
     jest.resetModules();
   });
 
   afterEach(() => {
-    if (originalEnv === undefined) {
+    if (originalEnvironment === undefined) {
       delete process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY;
     } else {
-      process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY = originalEnv;
+      process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY = originalEnvironment;
     }
   });
 
@@ -145,7 +145,7 @@ describe('Session Encryption', () => {
   test('encrypts long text', async () => {
     process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     const { encrypt, decrypt } = await import('../src/services/session-encryption');
-    const text = 'a'.repeat(10000);
+    const text = 'a'.repeat(10_000);
     const encrypted = encrypt(text);
     const decrypted = decrypt(encrypted);
     expect(decrypted).toBe(text);

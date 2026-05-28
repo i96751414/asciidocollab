@@ -56,9 +56,9 @@ export class RenameFileUseCase {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
-    const pathStr = fileNode.path.value;
-    const lastSlash = pathStr.lastIndexOf('/');
-    const parentPath = pathStr.slice(0, lastSlash + 1);
+    const pathString = fileNode.path.value;
+    const lastSlash = pathString.lastIndexOf('/');
+    const parentPath = pathString.slice(0, lastSlash + 1);
     const newPath = FilePath.create(parentPath + newName);
 
     const updatedFileNode = new FileNode(

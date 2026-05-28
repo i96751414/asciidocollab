@@ -2,7 +2,7 @@
  * Sets up common environment variables for API tests.
  * Call this in beforeAll() to avoid repeating env setup across test files.
  */
-export function setupTestEnv(): void {
+export function setupTestEnvironment(): void {
   process.env.ASCIIDOCOLLAB_AUTH_SESSION_SECRET = 'test-secret-32-chars-minimum-for-hs256';
   process.env.ASCIIDOCOLLAB_AUTH_EMAIL_FROM = 'test@example.com';
   process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';

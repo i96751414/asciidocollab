@@ -1,9 +1,9 @@
 import { buildServer } from '../src/index';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Health endpoint', () => {
   beforeAll(() => {
-    setupTestEnv();
+    setupTestEnvironment();
   });
 
   test('GET /health returns 200 with status ok', async () => {
@@ -19,7 +19,7 @@ describe('Health endpoint', () => {
 
 describe('Error handling', () => {
   beforeAll(() => {
-    setupTestEnv();
+    setupTestEnvironment();
   });
 
   test('GET /nonexistent returns structured JSON 404', async () => {

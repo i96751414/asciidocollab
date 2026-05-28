@@ -21,23 +21,23 @@ function ensureConfig(): ReturnType<typeof createConfig> {
  * 2. Load {NODE_ENV}.yaml (environment override).
  * 3. Apply environment variable overrides (highest priority).
  *
- * @param configDir - Path to the config directory containing YAML files.
+ * @param configDirectory - Path to the config directory containing YAML files.
  */
-export function loadConfig(configDir: string): void {
+export function loadConfig(configDirectory: string): void {
   const cfg = ensureConfig();
-  const defaultPath = path.join(configDir, 'default.yaml');
+  const defaultPath = path.join(configDirectory, 'default.yaml');
   if (existsSync(defaultPath)) {
     const defaultContent = readFileSync(defaultPath, 'utf8');
     const defaultConfig = parseYaml(defaultContent);
     cfg.load(defaultConfig);
   }
 
-  const env = process.env.NODE_ENV || 'development';
-  const envPath = path.join(configDir, `${env}.yaml`);
-  if (existsSync(envPath)) {
-    const envContent = readFileSync(envPath, 'utf8');
-    const envConfig = parseYaml(envContent);
-    cfg.load(envConfig);
+  const environment = process.env.NODE_ENV || 'development';
+  const environmentPath = path.join(configDirectory, `${environment}.yaml`);
+  if (existsSync(environmentPath)) {
+    const environmentContent = readFileSync(environmentPath, 'utf8');
+    const environmentConfig = parseYaml(environmentContent);
+    cfg.load(environmentConfig);
   }
 
   cfg.validate({ allowed: 'strict' });

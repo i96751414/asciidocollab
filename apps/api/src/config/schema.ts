@@ -75,13 +75,13 @@ export function createConfig() {
       maxAge: {
         doc: 'Session inactivity timeout in milliseconds.',
         format: 'integer',
-        default: 1800000,
+        default: 1_800_000,
         env: 'ASCIIDOCOLLAB_AUTH_SESSION_MAX_AGE',
       },
       absoluteMaxAge: {
         doc: 'Absolute maximum session lifetime in milliseconds.',
         format: 'integer',
-        default: 86400000,
+        default: 86_400_000,
         env: 'ASCIIDOCOLLAB_AUTH_SESSION_ABSOLUTE_MAX_AGE',
       },
       secure: {
@@ -160,7 +160,7 @@ export function createConfig() {
       hashMemory: {
         doc: 'Argon2id memory cost in KiB.',
         format: 'integer',
-        default: 65536,
+        default: 65_536,
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_HASH_MEMORY',
       },
       hashTime: {
@@ -186,13 +186,13 @@ export function createConfig() {
       rateLimitWindow: {
         doc: 'Login rate limit window in milliseconds.',
         format: 'integer',
-        default: 900000,
+        default: 900_000,
         env: 'ASCIIDOCOLLAB_AUTH_LOGIN_RATE_LIMIT_WINDOW',
       },
       lockoutDuration: {
         doc: 'Account lockout duration in milliseconds.',
         format: 'integer',
-        default: 900000,
+        default: 900_000,
         env: 'ASCIIDOCOLLAB_AUTH_LOGIN_LOCKOUT_DURATION',
       },
     },
@@ -206,7 +206,7 @@ export function createConfig() {
       rateLimitWindow: {
         doc: 'Registration rate limit window in milliseconds.',
         format: 'integer',
-        default: 3600000,
+        default: 3_600_000,
         env: 'ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_WINDOW',
       },
     },
@@ -214,7 +214,7 @@ export function createConfig() {
       tokenExpiry: {
         doc: 'Password reset token expiration in milliseconds.',
         format: 'integer',
-        default: 3600000,
+        default: 3_600_000,
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_TOKEN_EXPIRY',
       },
       tokenByteLength: {
@@ -231,7 +231,7 @@ export function createConfig() {
       rateLimitWindow: {
         doc: 'Password reset rate limit window in milliseconds.',
         format: 'integer',
-        default: 3600000,
+        default: 3_600_000,
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW',
       },
     },
@@ -245,7 +245,7 @@ export function createConfig() {
       rateLimitWindow: {
         doc: 'Password change rate limit window in milliseconds.',
         format: 'integer',
-        default: 900000,
+        default: 900_000,
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_WINDOW',
       },
     },

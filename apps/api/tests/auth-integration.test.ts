@@ -7,14 +7,14 @@ import { passwordChangeRoute } from '../src/routes/password-change';
 import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
 import { passwordResetRoute } from '../src/routes/password-reset';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Auth Integration Tests', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
     await app.register(registerRoute);
@@ -201,21 +201,21 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
       expect(cookie).toBeDefined();
 
-      const meRes = await app.inject({
+      const meResponse = await app.inject({
         method: 'GET',
         url: '/auth/me',
         headers: { cookie: `${cookie!.name}=${cookie!.value}` },
       });
-      expect(meRes.statusCode).toBe(200);
-      expect(meRes.json()).toHaveProperty('userId');
+      expect(meResponse.statusCode).toBe(200);
+      expect(meResponse.json()).toHaveProperty('userId');
     });
 
     test('unauthenticated user gets 401 on /auth/me', async () => {
@@ -243,27 +243,27 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
       expect(cookie).toBeDefined();
 
-      const logoutRes = await app.inject({
+      const logoutResponse = await app.inject({
         method: 'POST',
         url: '/auth/logout',
         headers: { cookie: `${cookie!.name}=${cookie!.value}` },
       });
-      expect(logoutRes.statusCode).toBe(200);
+      expect(logoutResponse.statusCode).toBe(200);
 
-      const meRes = await app.inject({
+      const meResponse = await app.inject({
         method: 'GET',
         url: '/auth/me',
         headers: { cookie: `${cookie!.name}=${cookie!.value}` },
       });
-      expect(meRes.statusCode).toBe(401);
+      expect(meResponse.statusCode).toBe(401);
     });
 
     test('logout without session returns 200', async () => {
@@ -283,12 +283,12 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
 
       const response = await app.inject({
         method: 'POST',
@@ -320,12 +320,12 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
 
       const response = await app.inject({
         method: 'POST',
@@ -344,12 +344,12 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
 
       await app.inject({
         method: 'POST',
@@ -384,12 +384,12 @@ describe('Auth Integration Tests', () => {
         url: '/auth/register',
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
-      const loginRes = await app.inject({
+      const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
         payload: { email, password: 'ValidP@ssw0rd123!' },
       });
-      const cookie = loginRes.cookies[0];
+      const cookie = loginResponse.cookies[0];
       expect(cookie).toBeDefined();
 
       const response = await app.inject({

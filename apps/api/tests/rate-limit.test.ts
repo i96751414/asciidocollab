@@ -1,14 +1,14 @@
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/register';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Registration Rate Limiting', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
     process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_MAX = '3';
     process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_WINDOW = '60000';
 
@@ -24,12 +24,12 @@ describe('Registration Rate Limiting', () => {
   });
 
   test('allows up to 3 registrations per IP', async () => {
-    for (let i = 0; i < 3; i++) {
+    for (let index = 0; index < 3; index++) {
       const response = await app.inject({
         method: 'POST',
         url: '/auth/register',
         payload: {
-          email: `rate-${i}-${Date.now()}@example.com`,
+          email: `rate-${index}-${Date.now()}@example.com`,
           password: 'ValidP@ssw0rd123!',
           displayName: 'Test User',
         },
@@ -39,12 +39,12 @@ describe('Registration Rate Limiting', () => {
   });
 
   test('rejects 4th registration with 429', async () => {
-    for (let i = 0; i < 3; i++) {
+    for (let index = 0; index < 3; index++) {
       await app.inject({
         method: 'POST',
         url: '/auth/register',
         payload: {
-          email: `rate-block-${i}-${Date.now()}@example.com`,
+          email: `rate-block-${index}-${Date.now()}@example.com`,
           password: 'ValidP@ssw0rd123!',
           displayName: 'Test User',
         },

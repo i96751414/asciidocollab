@@ -22,7 +22,7 @@ export class GitRepository {
     /** The full remote URL of the Git repository. */
     public readonly remoteUrl: string,
     /** Reference to stored credentials used for authentication. */
-    public readonly credentialRef: string,
+    public readonly credentialReference: string,
     /** The currently active branch. Defaults to `'main'`. */
     public readonly currentBranch: string = 'main',
     /**

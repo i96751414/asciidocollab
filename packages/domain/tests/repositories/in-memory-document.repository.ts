@@ -20,9 +20,9 @@ export class InMemoryDocumentRepository implements DocumentRepository {
    *
    */
   async findByFileNodeId(fileNodeId: FileNodeId): Promise<Document | null> {
-    for (const doc of this.storage.values()) {
-      if (doc.fileNodeId.value === fileNodeId.value) {
-        return doc;
+    for (const document of this.storage.values()) {
+      if (document.fileNodeId.value === fileNodeId.value) {
+        return document;
       }
     }
     return null;
@@ -33,8 +33,8 @@ export class InMemoryDocumentRepository implements DocumentRepository {
    */
   async findByFileNodeIds(fileNodeIds: FileNodeId[]): Promise<Document[]> {
     const ids = new Set(fileNodeIds.map((id) => id.value));
-    return [...this.storage.values()].filter((doc) =>
-      ids.has(doc.fileNodeId.value),
+    return [...this.storage.values()].filter((document) =>
+      ids.has(document.fileNodeId.value),
     );
   }
 

@@ -125,8 +125,8 @@ describe('DeleteFileUseCase', () => {
     const deletedNode = await fileNodeRepo.findById(fileNodeId);
     expect(deletedNode).toBeNull();
 
-    const deletedDoc = await documentRepo.findByFileNodeId(fileNodeId);
-    expect(deletedDoc).toBeNull();
+    const deletedDocument = await documentRepo.findByFileNodeId(fileNodeId);
+    expect(deletedDocument).toBeNull();
 
     const logs = await auditLogRepo.findByProjectId(projectId);
     expect(logs).toHaveLength(1);
@@ -136,7 +136,7 @@ describe('DeleteFileUseCase', () => {
 
   test('deletes a folder cascading to children and their documents', async () => {
     const grandchildFileId = FileNodeId.create('ee0e8400-e29b-41d4-a716-44665544000a');
-    const grandchildDocId = DocumentId.create('ff0e8400-e29b-41d4-a716-44665544000b');
+    const grandchildDocumentId = DocumentId.create('ff0e8400-e29b-41d4-a716-44665544000b');
 
     const grandchildFile = new FileNode(
       grandchildFileId,
@@ -148,14 +148,14 @@ describe('DeleteFileUseCase', () => {
     );
     await fileNodeRepo.save(grandchildFile);
 
-    const grandchildDoc = new Document(
-      grandchildDocId,
+    const grandchildDocument = new Document(
+      grandchildDocumentId,
       grandchildFileId,
       ContentId.create('aa0e8400-e29b-41d4-a716-44665544000c'),
       YjsStateId.create('bb0e8400-e29b-41d4-a716-44665544000d'),
       MimeType.create('text/plain'),
     );
-    await documentRepo.save(grandchildDoc);
+    await documentRepo.save(grandchildDocument);
 
     const result = await useCase.execute(actorId, childFolderId, projectId);
 
@@ -167,8 +167,8 @@ describe('DeleteFileUseCase', () => {
     const deletedGrandchild = await fileNodeRepo.findById(grandchildFileId);
     expect(deletedGrandchild).toBeNull();
 
-    const deletedGrandchildDoc = await documentRepo.findById(grandchildDocId);
-    expect(deletedGrandchildDoc).toBeNull();
+    const deletedGrandchildDocument = await documentRepo.findById(grandchildDocumentId);
+    expect(deletedGrandchildDocument).toBeNull();
 
     const rootNode = await fileNodeRepo.findById(rootFolderId);
     expect(rootNode).not.toBeNull();

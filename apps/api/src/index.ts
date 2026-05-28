@@ -105,8 +105,8 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
 }
 
 async function start() {
-  const configDir = path.join(__dirname, '..', 'config');
-  loadConfig(configDir);
+  const configDirectory = path.join(__dirname, '..', 'config');
+  loadConfig(configDirectory);
 
   const appConfig = getConfig();
   const prisma = new PrismaClient();

@@ -167,26 +167,26 @@ describe('In-Memory Repository Fakes', () => {
   describe('InMemoryDocumentRepository', () => {
     it('saves and retrieves by id', async () => {
       const repo = new InMemoryDocumentRepository();
-      const doc = new Document(
+      const document = new Document(
         documentId, fileNodeId,
         ContentId.create('550e8400-e29b-41d4-a716-446655440080'),
         YjsStateId.create('550e8400-e29b-41d4-a716-446655440081'),
         MimeType.create('text/asciidoc'),
       );
-      await repo.save(doc);
+      await repo.save(document);
       const found = await repo.findById(documentId);
       expect(found).not.toBeNull();
     });
 
     it('finds by file node id', async () => {
       const repo = new InMemoryDocumentRepository();
-      const doc = new Document(
+      const document = new Document(
         documentId, fileNodeId,
         ContentId.create('550e8400-e29b-41d4-a716-446655440080'),
         YjsStateId.create('550e8400-e29b-41d4-a716-446655440081'),
         MimeType.create('text/asciidoc'),
       );
-      await repo.save(doc);
+      await repo.save(document);
       const found = await repo.findByFileNodeId(fileNodeId);
       expect(found).not.toBeNull();
     });

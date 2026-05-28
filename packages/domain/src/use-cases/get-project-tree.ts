@@ -96,16 +96,16 @@ export class GetProjectTreeUseCase {
 
     const nodes = await this.fileNodeRepo.findByProjectId(projectId);
 
-    const docs = await this.documentRepo.findByFileNodeIds(
+    const documents = await this.documentRepo.findByFileNodeIds(
       nodes.map((n) => n.id),
     );
-    const documents = new Map<string, Document>();
-    for (const doc of docs) {
-      documents.set(doc.fileNodeId.value, doc);
+    const documentsMap = new Map<string, Document>();
+    for (const document of documents) {
+      documentsMap.set(document.fileNodeId.value, document);
     }
 
     const rootNode = nodes.find(n => (n.parentId?.value ?? null) === null);
-    const rootChildren = rootNode ? buildTree(nodes, rootNode.id.value, documents) : [];
+    const rootChildren = rootNode ? buildTree(nodes, rootNode.id.value, documentsMap) : [];
 
     const root: FileTreeNode = {
       id: project.rootFolderId!.value,

@@ -22,7 +22,7 @@ describe('GitRepository entity', () => {
     expect(repo.projectId).toBe(projectId);
     expect(repo.provider.value).toBe('github');
     expect(repo.remoteUrl).toBe('https://github.com/user/repo.git');
-    expect(repo.credentialRef).toBe('cred-encrypted-abc123');
+    expect(repo.credentialReference).toBe('cred-encrypted-abc123');
     expect(repo.currentBranch).toBe('main');
     expect(repo.lastSyncAt).toBeNull();
     expect(repo.createdAt).toBeInstanceOf(Date);

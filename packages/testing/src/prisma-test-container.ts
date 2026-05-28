@@ -15,12 +15,12 @@ export interface TestContainer {
   client: PrismaClient;
 }
 
-function findRootDir(dir: string): string {
-  const marker = path.join(dir, 'pnpm-workspace.yaml');
-  if (fs.existsSync(marker)) return dir;
-  const parent = path.dirname(dir);
-  if (parent === dir) return dir;
-  return findRootDir(parent);
+function findRootDirectory(directory: string): string {
+  const marker = path.join(directory, 'pnpm-workspace.yaml');
+  if (fs.existsSync(marker)) return directory;
+  const parent = path.dirname(directory);
+  if (parent === directory) return directory;
+  return findRootDirectory(parent);
 }
 
 /**
@@ -38,12 +38,12 @@ export async function startTestContainer(): Promise<TestContainer> {
   const host = container.getHost();
   const databaseUrl = `postgresql://test:test@${host}:${port}/test`;
 
-  const rootDir = findRootDir(__dirname);
-  const schemaPath = path.join(rootDir, 'packages', 'db', 'prisma', 'schema.prisma');
+  const rootDirectory = findRootDirectory(__dirname);
+  const schemaPath = path.join(rootDirectory, 'packages', 'db', 'prisma', 'schema.prisma');
 
   execSync(`npx prisma db push --schema="${schemaPath}" --accept-data-loss`, {
     env: { ...process.env, ASCIIDOCOLLAB_DATABASE_URL: databaseUrl },
-    cwd: path.join(rootDir, 'packages', 'db'),
+    cwd: path.join(rootDirectory, 'packages', 'db'),
     stdio: 'pipe',
   });
 

@@ -1,14 +1,14 @@
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/register';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Registration', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
     process.env.ASCIIDOCOLLAB_AUTH_REGISTER_RATE_MAX = '100';
     process.env.ASCIIDOCOLLAB_AUTH_REGISTER_RATE_WINDOW = '60000';
 

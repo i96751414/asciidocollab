@@ -87,7 +87,7 @@ function toPersistenceGitRepository(gitRepository: GitRepository): Prisma.GitRep
     projectId: gitRepository.projectId.value,
     provider: toPrismaProvider(gitRepository.provider.value),
     remoteUrl: gitRepository.remoteUrl,
-    credentialRef: gitRepository.credentialRef,
+    credentialRef: gitRepository.credentialReference,
     currentBranch: gitRepository.currentBranch,
     lastSyncAt: gitRepository.lastSyncAt,
     createdAt: gitRepository.createdAt,

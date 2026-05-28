@@ -200,9 +200,9 @@ describe('Type mapping round-trip', () => {
       await fileNodeRepo.save(folder);
       const file = createTestFileNode(project.id, { parentId: folder.id, type: FileNodeType.create('file'), name: 'doc.adoc', path: FilePath.create('/docs/doc.adoc') });
       await fileNodeRepo.save(file);
-      const doc = createTestDocument(file.id);
-      await documentRepo.save(doc);
-      const found = await documentRepo.findById(doc.id);
+      const document = createTestDocument(file.id);
+      await documentRepo.save(document);
+      const found = await documentRepo.findById(document.id);
       expect(found).not.toBeNull();
       expect(found!.fileNodeId.value).toBe(file.id.value);
       expect(found!.mimeType.value).toBe('text/asciidoc');
@@ -256,7 +256,7 @@ describe('Type mapping round-trip', () => {
         const repo = createTestGitRepository(project.id, {
           provider: GitProvider.create(p),
           remoteUrl: `https://${p}.com/test/repo`,
-          credentialRef: 'cred-1',
+          credentialReference: 'cred-1',
           currentBranch: 'main',
           lastSyncAt: null,
         });

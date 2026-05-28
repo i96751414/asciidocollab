@@ -9,8 +9,8 @@ import type { AuthSuccessResponseDto } from '@asciidocollab/shared';
 export async function logoutRoute(app: FastifyInstance): Promise<void> {
   app.post('/auth/logout', async (request, reply) => {
     await new Promise<void>((resolve, reject) => {
-      request.session.destroy((err?: unknown) => {
-        if (err) reject(err);
+      request.session.destroy((error?: unknown) => {
+        if (error) reject(error);
         else resolve();
       });
     });

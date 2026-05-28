@@ -23,16 +23,13 @@ module.exports = tseslint.config(
       'no-console': 'warn',
 
       'unicorn/filename-case': 'error',
-      'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-null': 'off',
       'unicorn/no-useless-undefined': 'off',
       'unicorn/prefer-module': 'off',
       'unicorn/prefer-node-protocol': 'off',
       'unicorn/prefer-top-level-await': 'off',
-      'unicorn/no-array-for-each': 'off',
       'unicorn/no-array-callback-reference': 'off',
       'unicorn/no-process-exit': 'off',
-      'unicorn/numeric-separators-style': 'off',
 
       'jsdoc/require-jsdoc': ['error', {
         publicOnly: true,

@@ -37,12 +37,12 @@ describe('PrismaDocumentRepository', () => {
 
   it('should save and find a document by id', async () => {
     const fileNode = await setupFileNode();
-    const doc = createTestDocument(fileNode.id);
-    await repo.save(doc);
+    const document = createTestDocument(fileNode.id);
+    await repo.save(document);
 
-    const found = await repo.findById(doc.id);
+    const found = await repo.findById(document.id);
     expect(found).not.toBeNull();
-    expect(found!.id.value).toBe(doc.id.value);
+    expect(found!.id.value).toBe(document.id.value);
   });
 
   it('should return null when finding by non-existent id', async () => {
@@ -52,32 +52,32 @@ describe('PrismaDocumentRepository', () => {
 
   it('should find a document by file node id', async () => {
     const fileNode = await setupFileNode();
-    const doc = createTestDocument(fileNode.id);
-    await repo.save(doc);
+    const document = createTestDocument(fileNode.id);
+    await repo.save(document);
 
     const found = await repo.findByFileNodeId(fileNode.id);
     expect(found).not.toBeNull();
-    expect(found!.id.value).toBe(doc.id.value);
+    expect(found!.id.value).toBe(document.id.value);
   });
 
   it('should find documents by multiple file node ids', async () => {
-    const fn1 = await setupFileNode('doc1.adoc');
-    const fn2 = await setupFileNode('doc2.adoc');
-    const doc1 = createTestDocument(fn1.id);
-    const doc2 = createTestDocument(fn2.id);
-    await repo.save(doc1);
-    await repo.save(doc2);
+    const function1 = await setupFileNode('doc1.adoc');
+    const function2 = await setupFileNode('doc2.adoc');
+    const document1 = createTestDocument(function1.id);
+    const document2 = createTestDocument(function2.id);
+    await repo.save(document1);
+    await repo.save(document2);
 
-    const found = await repo.findByFileNodeIds([fn1.id, fn2.id]);
+    const found = await repo.findByFileNodeIds([function1.id, function2.id]);
     expect(found).toHaveLength(2);
   });
 
   it('should delete a document', async () => {
     const fileNode = await setupFileNode();
-    const doc = createTestDocument(fileNode.id);
-    await repo.save(doc);
-    await repo.delete(doc.id);
-    const found = await repo.findById(doc.id);
+    const document = createTestDocument(fileNode.id);
+    await repo.save(document);
+    await repo.delete(document.id);
+    const found = await repo.findById(document.id);
     expect(found).toBeNull();
   });
 

@@ -44,7 +44,7 @@ describe('Project entity', () => {
   });
 
   test('enforces maximum of 10 tags', () => {
-    const tags = Array.from({ length: 11 }, (_, i) => `tag-${i}`);
+    const tags = Array.from({ length: 11 }, (_, index) => `tag-${index}`);
     expect(
       () => new Project(projectId, projectName, null, ownerId, tags, null),
     ).toThrow();

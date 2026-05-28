@@ -19,10 +19,10 @@ export class PrismaSessionStore implements SessionStore {
    * @param session - The session data to store.
    * @param callback - Callback to invoke when done.
    */
-  async set(sessionId: string, session: { cookie?: { expires?: Date | null }; userId?: string }, callback: (err?: unknown) => void): Promise<void> {
+  async set(sessionId: string, session: { cookie?: { expires?: Date | null }; userId?: string }, callback: (error?: unknown) => void): Promise<void> {
     try {
       const userId = session.userId;
-      const expiresAt = session.cookie?.expires ?? new Date(Date.now() + 86400000);
+      const expiresAt = session.cookie?.expires ?? new Date(Date.now() + 86_400_000);
 
       const rawData = JSON.stringify(session);
       const encryptedData = encrypt(rawData);
@@ -51,7 +51,7 @@ export class PrismaSessionStore implements SessionStore {
    * @param sessionId - The session identifier.
    * @param callback - Callback to invoke with the session data.
    */
-  async get(sessionId: string, callback: (err: unknown, result?: import('fastify').Session | null) => void): Promise<void> {
+  async get(sessionId: string, callback: (error: unknown, result?: import('fastify').Session | null) => void): Promise<void> {
     try {
       const record = await this.prisma.session.findUnique({ where: { sid: sessionId } });
       if (!record) {
@@ -78,7 +78,7 @@ export class PrismaSessionStore implements SessionStore {
    * @param sessionId - The session identifier to destroy.
    * @param callback - Callback to invoke when done.
    */
-  async destroy(sessionId: string, callback: (err?: unknown) => void): Promise<void> {
+  async destroy(sessionId: string, callback: (error?: unknown) => void): Promise<void> {
     try {
       await this.prisma.session.deleteMany({ where: { sid: sessionId } });
       callback();

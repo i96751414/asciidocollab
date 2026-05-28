@@ -2,14 +2,14 @@ import { buildServer } from '../src/index';
 import { loginRoute } from '../src/routes/login';
 import { registerRoute } from '../src/routes/register';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Login', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });

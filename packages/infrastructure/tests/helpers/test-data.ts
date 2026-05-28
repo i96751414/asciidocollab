@@ -3,9 +3,9 @@ import { User, UserId, Email, Project, ProjectId, ProjectName, ProjectMember, Ro
 
 type UserOverrides = Partial<{ id?: UserId; email?: Email; displayName?: string; passwordHash?: string | null; passwordHistory?: string[]; samlSubject?: string | null; mfaSecret?: string | null; timestamps?: Timestamps }>;
 
-function val<T>(overrides: UserOverrides | undefined, key: string, def: T): T {
+function value<T>(overrides: UserOverrides | undefined, key: string, definition: T): T {
   if (overrides && key in overrides) return (overrides as Record<string, unknown>)[key] as T;
-  return def;
+  return definition;
 }
 
 export function createTestUser(overrides?: UserOverrides): User {
@@ -14,11 +14,11 @@ export function createTestUser(overrides?: UserOverrides): User {
   return new User(
     id,
     email,
-    val(overrides, 'displayName', 'Test User'),
-    val<string | null>(overrides, 'passwordHash', 'hashed_password'),
-    val<string[]>(overrides, 'passwordHistory', []),
-    val<string | null>(overrides, 'samlSubject', null),
-    val<string | null>(overrides, 'mfaSecret', null),
+    value(overrides, 'displayName', 'Test User'),
+    value<string | null>(overrides, 'passwordHash', 'hashed_password'),
+    value<string[]>(overrides, 'passwordHistory', []),
+    value<string | null>(overrides, 'samlSubject', null),
+    value<string | null>(overrides, 'mfaSecret', null),
     overrides?.timestamps ?? new Timestamps(),
   );
 }
@@ -94,13 +94,13 @@ export function createTestTemplate(overrides?: { id?: TemplateId; name?: string;
   );
 }
 
-export function createTestGitRepository(projectId: ProjectId, overrides?: { id?: GitRepositoryId; provider?: GitProvider; remoteUrl?: string; credentialRef?: string; currentBranch?: string; lastSyncAt?: Date | null; createdAt?: Date }): GitRepository {
+export function createTestGitRepository(projectId: ProjectId, overrides?: { id?: GitRepositoryId; provider?: GitProvider; remoteUrl?: string; credentialReference?: string; currentBranch?: string; lastSyncAt?: Date | null; createdAt?: Date }): GitRepository {
   return new GitRepository(
     overrides?.id ?? GitRepositoryId.create(randomUUID()),
     projectId,
     overrides?.provider ?? GitProvider.create('github'),
     overrides?.remoteUrl ?? 'https://github.com/test/repo.git',
-    overrides?.credentialRef ?? 'cred-123',
+    overrides?.credentialReference ?? 'cred-123',
     overrides?.currentBranch ?? 'main',
     overrides?.lastSyncAt ?? null,
     overrides?.createdAt ?? new Date(),

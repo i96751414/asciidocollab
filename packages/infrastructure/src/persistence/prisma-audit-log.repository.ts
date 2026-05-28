@@ -126,8 +126,8 @@ function unknownToInputJsonValue(value: unknown): Prisma.InputJsonValue | null {
   }
   if (typeof value === 'object') {
     const result: Record<string, Prisma.InputJsonValue | null> = {};
-    for (const [key, val] of Object.entries(value)) {
-      result[key] = unknownToInputJsonValue(val);
+    for (const [key, value_] of Object.entries(value)) {
+      result[key] = unknownToInputJsonValue(value_);
     }
     return result;
   }

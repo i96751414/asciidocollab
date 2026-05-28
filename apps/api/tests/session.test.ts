@@ -4,14 +4,14 @@ import { registerRoute } from '../src/routes/register';
 import { logoutRoute } from '../src/routes/logout';
 import { meRoute } from '../src/routes/me';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Session', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
@@ -35,22 +35,22 @@ describe('Session', () => {
       payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
     });
 
-    const loginRes = await app.inject({
+    const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
       payload: { email, password: 'ValidP@ssw0rd123!' },
     });
-    expect(loginRes.statusCode).toBe(200);
+    expect(loginResponse.statusCode).toBe(200);
 
-    const sessionCookie = loginRes.cookies[0]?.name + '=' + loginRes.cookies[0]?.value;
+    const sessionCookie = loginResponse.cookies[0]?.name + '=' + loginResponse.cookies[0]?.value;
 
-    const meRes = await app.inject({
+    const meResponse = await app.inject({
       method: 'GET',
       url: '/auth/me',
       headers: { cookie: sessionCookie },
     });
-    expect(meRes.statusCode).toBe(200);
-    expect(meRes.json()).toHaveProperty('userId');
+    expect(meResponse.statusCode).toBe(200);
+    expect(meResponse.json()).toHaveProperty('userId');
   });
 
   test('unauthenticated user gets 401 on protected route', async () => {
@@ -80,21 +80,21 @@ describe('Session', () => {
       payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
     });
 
-    const loginRes = await app.inject({
+    const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
       payload: { email, password: 'ValidP@ssw0rd123!' },
     });
-    expect(loginRes.statusCode).toBe(200);
+    expect(loginResponse.statusCode).toBe(200);
 
-    const sessionCookie = loginRes.cookies[0]?.name + '=' + loginRes.cookies[0]?.value;
+    const sessionCookie = loginResponse.cookies[0]?.name + '=' + loginResponse.cookies[0]?.value;
 
-    const meRes = await app.inject({
+    const meResponse = await app.inject({
       method: 'GET',
       url: '/auth/me',
       headers: { cookie: sessionCookie },
     });
-    expect(meRes.statusCode).toBe(200);
+    expect(meResponse.statusCode).toBe(200);
 
     await app.inject({
       method: 'POST',

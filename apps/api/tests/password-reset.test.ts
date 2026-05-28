@@ -5,14 +5,14 @@ import { registerRoute } from '../src/routes/register';
 import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
 import { passwordResetRoute } from '../src/routes/password-reset';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Password Reset', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
@@ -63,12 +63,12 @@ describe('Password Reset', () => {
       payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
     });
 
-    const requestRes = await app.inject({
+    const requestResponse = await app.inject({
       method: 'POST',
       url: '/auth/password/reset/request',
       payload: { email },
     });
-    expect(requestRes.statusCode).toBe(200);
+    expect(requestResponse.statusCode).toBe(200);
 
     const resetTokenRecord = await app.prisma.passwordResetToken.findFirst({
       where: { userId: (await app.prisma.user.findUnique({ where: { email } }))!.id },

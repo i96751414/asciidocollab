@@ -5,14 +5,14 @@ import { logoutRoute } from '../src/routes/logout';
 import { meRoute } from '../src/routes/me';
 import { passwordChangeRoute } from '../src/routes/password-change';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Password Change', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
@@ -30,12 +30,12 @@ describe('Password Change', () => {
   });
 
   async function loginAndGetCookie(email: string, password: string): Promise<string> {
-    const loginRes = await app.inject({
+    const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
       payload: { email, password },
     });
-    const cookie = loginRes.cookies[0];
+    const cookie = loginResponse.cookies[0];
     return cookie ? `${cookie.name}=${cookie.value}` : '';
   }
 

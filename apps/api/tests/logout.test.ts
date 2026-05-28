@@ -3,14 +3,14 @@ import { loginRoute } from '../src/routes/login';
 import { registerRoute } from '../src/routes/register';
 import { logoutRoute } from '../src/routes/logout';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
-import { setupTestEnv } from './helpers/test-env';
+import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Logout', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
 
   beforeAll(async () => {
-    setupTestEnv();
+    setupTestEnvironment();
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
@@ -33,22 +33,22 @@ describe('Logout', () => {
       payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
     });
 
-    const loginRes = await app.inject({
+    const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
       payload: { email, password: 'ValidP@ssw0rd123!' },
     });
-    expect(loginRes.statusCode).toBe(200);
+    expect(loginResponse.statusCode).toBe(200);
 
-    const sessionCookie = loginRes.cookies[0]?.name + '=' + loginRes.cookies[0]?.value;
+    const sessionCookie = loginResponse.cookies[0]?.name + '=' + loginResponse.cookies[0]?.value;
 
-    const logoutRes = await app.inject({
+    const logoutResponse = await app.inject({
       method: 'POST',
       url: '/auth/logout',
       headers: { cookie: sessionCookie },
     });
-    expect(logoutRes.statusCode).toBe(200);
-    expect(logoutRes.json()).toEqual({ message: 'Logged out' });
+    expect(logoutResponse.statusCode).toBe(200);
+    expect(logoutResponse.json()).toEqual({ message: 'Logged out' });
   });
 
   test('logout without session returns 200', async () => {
