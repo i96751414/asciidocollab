@@ -114,12 +114,11 @@ As a developer, I want the application to validate all configuration values on s
 
 - **FR-001**: System MUST load configuration from YAML files with nested category structure
 - **FR-002**: System MUST allow environment variables to override any YAML value
-- **FR-003**: System MUST validate all configuration values against a schema on startup
+- **FR-003**: System MUST validate all configuration values against a schema on startup and fail fast with clear error messages when required configuration is missing or invalid
 - **FR-004**: System MUST provide type-safe access to configuration values (no `as` casts or `parseInt` in application code)
 - **FR-005**: System MUST support environment-specific YAML files (default.yaml, development.yaml, production.yaml, test.yaml)
 - **FR-006**: System MUST mark sensitive fields (secrets, API keys) and redact them in logs and output
-- **FR-007**: System MUST fail fast with clear error messages when required configuration is missing or invalid
-- **FR-008**: System MUST support all current and newly identified configuration fields (40+ settings across api, auth, email, session categories)
+- **FR-007**: System MUST support all current and newly identified configuration fields (45 settings across 8 categories: api, auth.session, auth.password, auth.login, auth.registration, auth.passwordReset, auth.passwordChange, auth.email)
 - **FR-009**: System MUST maintain backward compatibility with existing environment variable names
 - **FR-010**: System MUST NOT store secrets in YAML files — secret fields MUST be env-var-only in production
 - **FR-011**: System MUST include `api.frontendUrl` for password reset link base URL (default: 'https://asciidocollab.example.com')
@@ -144,8 +143,8 @@ As a developer, I want the application to validate all configuration values on s
 
 - **SC-001**: Developers can change any non-secret application setting by editing a single YAML file
 - **SC-002**: Zero `process.env` or `parseInt` calls in application code — all config access goes through the typed config object
-- **SC-003**: Application fails within 100ms of startup if required configuration is missing
-- **SC-004**: All 40+ current and newly identified configuration settings are migrated to the new system without breaking existing behavior
+- **SC-003**: Configuration validation fails within 100ms of schema evaluation if required configuration is missing (YAML I/O time excluded)
+- **SC-004**: All 45 current and newly identified configuration settings are migrated to the new system without breaking existing behavior
 - **SC-005**: Secrets never appear in YAML files, logs, or error messages
 - **SC-006**: Email templates are customizable via config without code changes
 

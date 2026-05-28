@@ -7,7 +7,7 @@
 ## Summary
 
 Replace the current `@fastify/env` configuration system with `convict` + `yaml` to provide readable YAML configuration
-files with environment variable overrides. All 30+ settings will be defined in a single schema, loaded from layered YAML
+files with environment variable overrides. All 45 settings will be defined in a single schema, loaded from layered YAML
 files (default → environment-specific → env var overrides), with type-safe access and sensitive field redaction.
 
 ## Technical Context
@@ -37,7 +37,7 @@ var override behavior.
 - Domain/infrastructure packages MUST remain config-free (receive values via DI)
 - Must pass `fresh-onion` architecture validation
 
-**Scale/Scope**: Single Fastify server. ~35 configuration fields across 4 categories (api, auth, email, session).
+**Scale/Scope**: Single Fastify server. ~45 configuration fields across 8 categories (api, auth.session, auth.password, auth.login, auth.registration, auth.passwordReset, auth.passwordChange, auth.email).
 
 ## Constitution Check
 

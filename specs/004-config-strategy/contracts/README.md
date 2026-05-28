@@ -15,6 +15,8 @@ interface Config {
     host: string;
     trustProxy: boolean;
     corsOrigins: string;
+    frontendUrl: string;
+    httpsRedirect: boolean;
   };
   auth: {
     session: {
@@ -23,6 +25,12 @@ interface Config {
       absoluteMaxAge: number;
       secure: boolean;
       encryptionKey: string; // sensitive
+      cookie: {
+        httpOnly: boolean;
+        sameSite: string;
+        saveUninitialized: boolean;
+        rolling: boolean;
+      };
     };
     password: {
       minLength: number;
@@ -46,12 +54,16 @@ interface Config {
     };
     passwordReset: {
       tokenExpiry: number;
+      tokenByteLength: number;
       rateLimitMax: number;
       rateLimitWindow: number;
     };
     passwordChange: {
       rateLimitMax: number;
       rateLimitWindow: number;
+    };
+    breachCheck: {
+      hibpApiUrl: string;
     };
     email: {
       provider: string;
@@ -62,6 +74,11 @@ interface Config {
       sendgridApiKey: string; // sensitive
       sesRegion: string;
       from: string;
+      templates: {
+        resetRequest: { subject: string; html: string; };
+        passwordChanged: { subject: string; html: string; };
+        breachAlert: { subject: string; html: string; };
+      };
     };
   };
 }
