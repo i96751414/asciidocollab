@@ -35,14 +35,14 @@ export class ChangePasswordUseCase {
    *
    * @param userId - The ID of the user changing their password.
    * @param currentPassword - The user's current plaintext password.
-   * @param newPasswordHash - The argon2id hash of the new password.
+   * @param newPassword - The new plaintext password to set.
    * @param historyDepth - Maximum number of previous passwords to retain.
    * @returns Success with userId, or a DomainError for invalid current password or reuse.
    */
   async execute(
     userId: UserId,
     currentPassword: string,
-    newPasswordHash: string,
+    newPassword: string,
     historyDepth: number,
   ): Promise<Result<ChangePasswordResult, InvalidPasswordError | PasswordReuseError>> {
     const user = await this.userRepo.findById(userId);
@@ -63,7 +63,7 @@ export class ChangePasswordUseCase {
     }
 
     const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => this.verifyPassword(hash, newPasswordHash)),
+      user.passwordHistory.map((hash) => this.verifyPassword(hash, newPassword)),
     );
     if (isReused.some(Boolean)) {
       return {
@@ -72,6 +72,7 @@ export class ChangePasswordUseCase {
       };
     }
 
+    const newPasswordHash = await this.hashPassword(newPassword);
     const updatedHistory = [...user.passwordHistory, user.passwordHash].slice(-historyDepth);
 
     const updatedUser = new User(

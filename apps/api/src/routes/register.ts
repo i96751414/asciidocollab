@@ -106,6 +106,7 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
       });
     }
 
-    return reply.status(201).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
+    const status = result.value.existing ? 200 : 201;
+    return reply.status(status).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
   });
 }

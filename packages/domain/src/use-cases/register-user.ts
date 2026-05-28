@@ -13,6 +13,8 @@ export interface RegisterUserResult {
   userId: UserId;
   /** Whether the password was found in a breach database. */
   breached: boolean;
+  /** Whether the email was already registered. */
+  existing: boolean;
 }
 
 /**
@@ -51,7 +53,7 @@ export class RegisterUserUseCase {
     if (existingUser) {
       return {
         success: true,
-        value: { userId: existingUser.id, breached },
+        value: { userId: existingUser.id, breached, existing: true },
       };
     }
 
@@ -71,7 +73,7 @@ export class RegisterUserUseCase {
 
     return {
       success: true,
-      value: { userId, breached },
+      value: { userId, breached, existing: false },
     };
   }
 }

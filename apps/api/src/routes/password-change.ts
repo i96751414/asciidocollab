@@ -46,7 +46,6 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
     }
 
     const historyDepth = parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HISTORY_DEPTH ?? '5', 10);
-    const newPasswordHash = await hashPassword(newPassword);
 
     const useCase = new ChangePasswordUseCase(
       request.server.repos.user,
@@ -57,7 +56,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
     const result = await useCase.execute(
       UserId.create(request.session.userId),
       currentPassword,
-      newPasswordHash,
+      newPassword,
       historyDepth,
     );
 
