@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import path from 'path';
 import { parse as parseYaml } from 'yaml';
 import { createConfig } from './schema';
 import type { Config } from './schema';
@@ -25,17 +25,17 @@ function ensureConfig(): ReturnType<typeof createConfig> {
  */
 export function loadConfig(configDir: string): void {
   const cfg = ensureConfig();
-  const defaultPath = join(configDir, 'default.yaml');
+  const defaultPath = path.join(configDir, 'default.yaml');
   if (existsSync(defaultPath)) {
-    const defaultContent = readFileSync(defaultPath, 'utf-8');
+    const defaultContent = readFileSync(defaultPath, 'utf8');
     const defaultConfig = parseYaml(defaultContent);
     cfg.load(defaultConfig);
   }
 
   const env = process.env.NODE_ENV || 'development';
-  const envPath = join(configDir, `${env}.yaml`);
+  const envPath = path.join(configDir, `${env}.yaml`);
   if (existsSync(envPath)) {
-    const envContent = readFileSync(envPath, 'utf-8');
+    const envContent = readFileSync(envPath, 'utf8');
     const envConfig = parseYaml(envContent);
     cfg.load(envConfig);
   }
@@ -52,7 +52,7 @@ export function loadConfig(configDir: string): void {
  * @returns The configuration object with all fields typed.
  */
 export function getConfig(): Config {
-  return JSON.parse(JSON.stringify(ensureConfig().getProperties())) as Config;
+  return structuredClone(ensureConfig().getProperties()) as Config;
 }
 
 export { ensureConfig as config };

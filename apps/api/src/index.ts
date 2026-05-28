@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { join } from 'path';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import {
   PrismaUserRepository,
@@ -105,7 +105,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
 }
 
 async function start() {
-  const configDir = join(__dirname, '..', 'config');
+  const configDir = path.join(__dirname, '..', 'config');
   loadConfig(configDir);
 
   const appConfig = getConfig();
@@ -115,8 +115,8 @@ async function start() {
 }
 
 if (require.main === module) {
-  start().catch((err) => {
-    process.stderr.write(`Fatal: ${err instanceof Error ? err.message : String(err)}\n`);
+  start().catch((error) => {
+    process.stderr.write(`Fatal: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   });
 }

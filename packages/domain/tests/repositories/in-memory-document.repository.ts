@@ -33,7 +33,7 @@ export class InMemoryDocumentRepository implements DocumentRepository {
    */
   async findByFileNodeIds(fileNodeIds: FileNodeId[]): Promise<Document[]> {
     const ids = new Set(fileNodeIds.map((id) => id.value));
-    return Array.from(this.storage.values()).filter((doc) =>
+    return [...this.storage.values()].filter((doc) =>
       ids.has(doc.fileNodeId.value),
     );
   }

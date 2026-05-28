@@ -45,9 +45,14 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
     const result = await useCase.execute(token, newPassword, historyDepth);
 
     if (!result.success) {
-      const code = result.error.name === 'ValidationError' ? 'VALIDATION_ERROR'
-        : result.error.name === 'InvalidTokenError' ? 'INVALID_TOKEN'
-        : 'PASSWORD_REUSE';
+      let code: string;
+      if (result.error.name === 'ValidationError') {
+        code = 'VALIDATION_ERROR';
+      } else if (result.error.name === 'InvalidTokenError') {
+        code = 'INVALID_TOKEN';
+      } else {
+        code = 'PASSWORD_REUSE';
+      }
       return reply.status(400).send({
         error: { code, message: result.error.message },
       } satisfies AuthErrorResponseDto);

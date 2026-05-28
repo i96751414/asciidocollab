@@ -40,8 +40,8 @@ export class PrismaSessionStore implements SessionStore {
         update: data,
       });
       callback();
-    } catch (err) {
-      callback(err);
+    } catch (error) {
+      callback(error);
     }
   }
 
@@ -67,8 +67,8 @@ export class PrismaSessionStore implements SessionStore {
       const decryptedData = decrypt(rawData);
       const session = JSON.parse(decryptedData) as import('fastify').Session;
       callback(null, session);
-    } catch (err) {
-      callback(err, null);
+    } catch (error) {
+      callback(error, null);
     }
   }
 
@@ -82,8 +82,8 @@ export class PrismaSessionStore implements SessionStore {
     try {
       await this.prisma.session.deleteMany({ where: { sid: sessionId } });
       callback();
-    } catch (err) {
-      callback(err);
+    } catch (error) {
+      callback(error);
     }
   }
 }

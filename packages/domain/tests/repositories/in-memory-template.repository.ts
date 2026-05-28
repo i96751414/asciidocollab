@@ -33,6 +33,6 @@ export class InMemoryTemplateRepository implements TemplateRepository {
    *
    */
   async findAll(): Promise<Template[]> {
-    return Array.from(this.storage.values());
+    return [...this.storage.values()];
   }
 }

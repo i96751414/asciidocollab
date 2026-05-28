@@ -7,7 +7,7 @@ convict.addFormat({
   name: 'hostname',
   validate: (value: unknown) => {
     if (typeof value !== 'string') {
-      throw new Error('must be a string');
+      throw new TypeError('must be a string');
     }
     if (value.length === 0) {
       return; // empty string is valid (means bind to all interfaces)
@@ -29,13 +29,13 @@ convict.addFormat({
   name: 'required-string',
   validate: (value: unknown) => {
     if (value === null || value === undefined) {
-      throw new Error('must be set via environment variable');
+      throw new TypeError('must be set via environment variable');
     }
     if (typeof value !== 'string') {
-      throw new Error('must be a string');
+      throw new TypeError('must be a string');
     }
     if (value.length === 0) {
-      throw new Error('must not be empty');
+      throw new TypeError('must not be empty');
     }
   },
 });

@@ -94,6 +94,42 @@ function toPersistenceAuditLog(auditLog: AuditLog): Prisma.AuditLogCreateInput {
     resourceType: auditLog.resourceType,
     resourceId: auditLog.resourceId,
     timestamp: auditLog.timestamp,
-    metadata: JSON.parse(JSON.stringify(auditLog.metadata)),
+    metadata: deepCloneAsJsonValue(auditLog.metadata),
   };
+}
+
+/**
+ * Deep-clones a `Record<string, unknown>` into a `Prisma.InputJsonValue`.
+ * Uses round-trip JSON serialization to ensure a fully frozen, JSON-safe copy.
+ */
+function deepCloneAsJsonValue(value: Record<string, unknown>): Prisma.InputJsonValue {
+  return metadataToInputJsonValue(structuredClone(value));
+}
+
+function metadataToInputJsonValue(record: Record<string, unknown>): Prisma.InputJsonValue {
+  const result: Record<string, Prisma.InputJsonValue | null> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = unknownToInputJsonValue(value);
+  }
+  return result;
+}
+
+function unknownToInputJsonValue(value: unknown): Prisma.InputJsonValue | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(unknownToInputJsonValue);
+  }
+  if (typeof value === 'object') {
+    const result: Record<string, Prisma.InputJsonValue | null> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = unknownToInputJsonValue(val);
+    }
+    return result;
+  }
+  return null;
 }

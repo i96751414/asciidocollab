@@ -21,7 +21,7 @@ export class InMemoryFileNodeRepository implements FileNodeRepository {
    *
    */
   async findByParentId(parentId: FileNodeId): Promise<FileNode[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (node) => node.parentId?.value === parentId.value,
     );
   }
@@ -30,7 +30,7 @@ export class InMemoryFileNodeRepository implements FileNodeRepository {
    *
    */
   async findByProjectId(projectId: ProjectId): Promise<FileNode[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (node) => node.projectId.value === projectId.value,
     );
   }

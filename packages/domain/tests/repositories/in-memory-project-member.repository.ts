@@ -18,7 +18,7 @@ export class InMemoryProjectMemberRepository implements ProjectMemberRepository 
    *
    */
   async findByProjectId(projectId: ProjectId): Promise<ProjectMember[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (m) => m.projectId.value === projectId.value,
     );
   }
@@ -27,7 +27,7 @@ export class InMemoryProjectMemberRepository implements ProjectMemberRepository 
    *
    */
   async findByUserId(userId: UserId): Promise<ProjectMember[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (m) => m.userId.value === userId.value,
     );
   }

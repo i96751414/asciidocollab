@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import path from 'node:path';
 
 function loadCommonPasswords(): Set<string> {
-  const filePath = join(__dirname, '..', '..', 'data', 'common-passwords.txt');
-  const content = readFileSync(filePath, 'utf-8');
+  const filePath = path.join(__dirname, '..', '..', 'data', 'common-passwords.txt');
+  const content = readFileSync(filePath, 'utf8');
   return new Set(
     content
       .split('\n')

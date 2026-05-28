@@ -27,17 +27,17 @@ export class Timestamps {
     if (createdAt > updatedAt) {
       throw new ValidationError('createdAt must be <= updatedAt');
     }
-    this._createdAt = new Date(createdAt.getTime());
-    this._updatedAt = new Date(updatedAt.getTime());
+    this._createdAt = new Date(createdAt);
+    this._updatedAt = new Date(updatedAt);
   }
 
   /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
-    return new Date(this._createdAt.getTime());
+    return new Date(this._createdAt);
   }
 
   /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
-    return new Date(this._updatedAt.getTime());
+    return new Date(this._updatedAt);
   }
 }

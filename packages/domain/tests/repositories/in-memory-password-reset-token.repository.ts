@@ -33,9 +33,9 @@ export class InMemoryPasswordResetTokenRepository implements PasswordResetTokenR
    * @returns A list of tokens for the user, ordered by creation date descending.
    */
   async findByUserId(userId: UserId): Promise<PasswordResetToken[]> {
-    return Array.from(this.storage.values())
+    return [...this.storage.values()]
       .filter((t) => t.userId.value === userId.value)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   /**

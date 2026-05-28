@@ -20,7 +20,7 @@ export class InMemoryProjectRepository implements ProjectRepository {
    *
    */
   async findByOwnerId(ownerId: UserId): Promise<Project[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (p) => p.ownerId.value === ownerId.value,
     );
   }

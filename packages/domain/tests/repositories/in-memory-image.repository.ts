@@ -20,7 +20,7 @@ export class InMemoryImageRepository implements ImageRepository {
    *
    */
   async findByProjectId(projectId: ProjectId): Promise<Image[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (img) => img.projectId.value === projectId.value,
     );
   }

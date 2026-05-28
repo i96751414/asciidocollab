@@ -58,7 +58,7 @@ export class RenameFileUseCase {
 
     const pathStr = fileNode.path.value;
     const lastSlash = pathStr.lastIndexOf('/');
-    const parentPath = pathStr.substring(0, lastSlash + 1);
+    const parentPath = pathStr.slice(0, lastSlash + 1);
     const newPath = FilePath.create(parentPath + newName);
 
     const updatedFileNode = new FileNode(

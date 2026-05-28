@@ -1,6 +1,7 @@
 const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
 const jsdoc = require('eslint-plugin-jsdoc');
+const unicorn = require('eslint-plugin-unicorn').default;
 const globals = require('globals');
 
 module.exports = tseslint.config(
@@ -12,12 +13,26 @@ module.exports = tseslint.config(
 
   jsdoc.configs['flat/recommended-typescript'],
 
+  unicorn.configs['flat/recommended'],
+
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'warn',
+
+      'unicorn/filename-case': 'off',
+      'unicorn/prevent-abbreviations': 'off',
+      'unicorn/no-null': 'off',
+      'unicorn/no-useless-undefined': 'off',
+      'unicorn/prefer-module': 'off',
+      'unicorn/prefer-node-protocol': 'off',
+      'unicorn/prefer-top-level-await': 'off',
+      'unicorn/no-array-for-each': 'off',
+      'unicorn/no-array-callback-reference': 'off',
+      'unicorn/no-process-exit': 'off',
+      'unicorn/numeric-separators-style': 'off',
 
       'jsdoc/require-jsdoc': ['error', {
         publicOnly: true,

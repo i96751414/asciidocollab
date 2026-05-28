@@ -5,5 +5,3 @@ declare module 'fastify' {
     userId?: string;
   }
 }
-
-export {};

@@ -20,7 +20,7 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
    *
    */
   async findByProjectId(projectId: ProjectId): Promise<AuditLog[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (log) => log.projectId?.value === projectId.value,
     );
   }
@@ -29,7 +29,7 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
    *
    */
   async findByUserId(userId: UserId): Promise<AuditLog[]> {
-    return Array.from(this.storage.values()).filter(
+    return [...this.storage.values()].filter(
       (log) => log.userId.value === userId.value,
     );
   }
@@ -38,6 +38,6 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
    *
    */
   async findAll(): Promise<AuditLog[]> {
-    return Array.from(this.storage.values());
+    return [...this.storage.values()];
   }
 }

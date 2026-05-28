@@ -75,13 +75,13 @@ function toDomainGitRepository(record: GitRepositoryRecord): GitRepository {
   );
 }
 
-function toPersistenceGitRepository(gitRepository: GitRepository): Prisma.GitRepositoryUncheckedCreateInput {
-  function toPrismaProvider(value: string): 'GITHUB' | 'GITLAB' | 'BITBUCKET' {
-    if (value === 'github') return 'GITHUB';
-    if (value === 'gitlab') return 'GITLAB';
-    return 'BITBUCKET';
-  }
+function toPrismaProvider(value: string): 'GITHUB' | 'GITLAB' | 'BITBUCKET' {
+  if (value === 'github') return 'GITHUB';
+  if (value === 'gitlab') return 'GITLAB';
+  return 'BITBUCKET';
+}
 
+function toPersistenceGitRepository(gitRepository: GitRepository): Prisma.GitRepositoryUncheckedCreateInput {
   return {
     id: gitRepository.id.value,
     projectId: gitRepository.projectId.value,
