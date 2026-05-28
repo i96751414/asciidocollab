@@ -19,13 +19,10 @@ export class PrismaSessionStore implements SessionStore {
    * @param session - The session data to store.
    * @param callback - Callback to invoke when done.
    */
-  async set(sessionId: string, session: { cookie?: Record<string, unknown> }, callback: (err?: unknown) => void): Promise<void> {
+  async set(sessionId: string, session: { cookie?: { expires?: Date | null }; userId?: string }, callback: (err?: unknown) => void): Promise<void> {
     try {
-      const userId = (session as Record<string, unknown>).userId as string | undefined;
-      const cookieExpires = session.cookie?.expires;
-      const expiresAt = cookieExpires
-        ? new Date(cookieExpires as string | number)
-        : new Date(Date.now() + 86400000);
+      const userId = session.userId;
+      const expiresAt = session.cookie?.expires ?? new Date(Date.now() + 86400000);
 
       const rawData = JSON.stringify(session);
       const encryptedData = encrypt(rawData);
@@ -66,7 +63,8 @@ export class PrismaSessionStore implements SessionStore {
         callback(null, null);
         return;
       }
-      const decryptedData = decrypt(record.data as string);
+      const rawData = typeof record.data === 'string' ? record.data : JSON.stringify(record.data);
+      const decryptedData = decrypt(rawData);
       const session = JSON.parse(decryptedData) as import('fastify').Session;
       callback(null, session);
     } catch (err) {

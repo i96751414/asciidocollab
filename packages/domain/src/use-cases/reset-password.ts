@@ -1,0 +1,98 @@
+import { User } from '../entities/user';
+import { UserId } from '../value-objects/user-id';
+import { UserRepository } from '../repositories/user.repository';
+import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
+import { InvalidTokenError } from '../errors/invalid-token';
+import { PasswordReuseError } from '../errors/password-reuse';
+import { Result } from '@asciidocollab/shared';
+
+/** Result returned on successful password reset. */
+export interface ResetPasswordResult {
+  /** The user whose password was reset. */
+  userId: UserId;
+}
+
+/**
+ * Resets a user's password using a valid reset token.
+ *
+ * Validates the token, checks password history, updates the password,
+ * and marks the token as used. The caller is responsible for password
+ * validation before calling this use case.
+ */
+export class ResetPasswordUseCase {
+  /**
+   * @param userRepo - Repository for user persistence.
+   * @param tokenRepo - Repository for password reset token persistence.
+   * @param verifyPassword - Function to verify a password against a hash.
+   * @param hashPassword - Function to hash a plaintext password.
+   */
+  constructor(
+    private readonly userRepo: UserRepository,
+    private readonly tokenRepo: PasswordResetTokenRepository,
+    private readonly verifyPassword: (hash: string, plain: string) => Promise<boolean>,
+    private readonly hashPassword: (plain: string) => Promise<string>,
+  ) {}
+
+  /**
+   * Resets the user's password using the provided token.
+   *
+   * @param tokenHash - The SHA-256 hash of the raw reset token.
+   * @param newPasswordHash - The argon2id hash of the new password.
+   * @param historyDepth - Maximum number of previous passwords to retain.
+   * @returns Success with userId, or a DomainError for invalid/expired tokens.
+   */
+  async execute(
+    tokenHash: string,
+    newPasswordHash: string,
+    historyDepth: number,
+  ): Promise<Result<ResetPasswordResult, InvalidTokenError | PasswordReuseError>> {
+    const resetToken = await this.tokenRepo.findByTokenHash(tokenHash);
+
+    if (!resetToken) {
+      return {
+        success: false,
+        error: new InvalidTokenError('Invalid or expired reset token'),
+      };
+    }
+
+    const user = await this.userRepo.findById(UserId.create(resetToken.userId.value));
+
+    if (!user || !user.passwordHash) {
+      return {
+        success: false,
+        error: new InvalidTokenError('Invalid or expired reset token'),
+      };
+    }
+
+    const isReused = await Promise.all(
+      user.passwordHistory.map((hash) => this.verifyPassword(hash, newPasswordHash)),
+    );
+    if (isReused.some(Boolean)) {
+      return {
+        success: false,
+        error: new PasswordReuseError('Cannot reuse recent passwords'),
+      };
+    }
+
+    const updatedHistory = [...user.passwordHistory, user.passwordHash].slice(-historyDepth);
+
+    const updatedUser = new User(
+      user.id,
+      user.email,
+      user.displayName,
+      newPasswordHash,
+      updatedHistory,
+      user.samlSubject,
+      user.mfaSecret,
+      user.timestamps,
+    );
+    await this.userRepo.save(updatedUser);
+
+    await this.tokenRepo.markAsUsed(resetToken.id.value, new Date());
+
+    return {
+      success: true,
+      value: { userId: user.id },
+    };
+  }
+}

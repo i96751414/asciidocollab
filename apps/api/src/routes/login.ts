@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { PrismaUserRepository } from '@asciidocollab/infrastructure';
-import { Email } from '@asciidocollab/domain';
+import { Email, LoginUseCase } from '@asciidocollab/domain';
 import { verifyPassword } from '../services/auth.service';
 import '../types/session';
 import type { LoginDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
@@ -31,25 +30,17 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { email, password } = request.body as LoginDto;
 
-    const userRepo = new PrismaUserRepository(app.prisma);
-    const user = await userRepo.findByEmail(Email.create(email));
+    const useCase = new LoginUseCase(request.server.repos.user, verifyPassword);
+    const result = await useCase.execute(Email.create(email), password);
 
-    if (!user || !user.passwordHash) {
+    if (!result.success) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       return reply.status(401).send({
         error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
       } satisfies AuthErrorResponseDto);
     }
 
-    const passwordValid = await verifyPassword(user.passwordHash, password);
-    if (!passwordValid) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return reply.status(401).send({
-        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    request.session.userId = user.id.value;
+    request.session.userId = result.value.userId;
 
     return reply.status(200).send({ message: 'Authenticated' } satisfies AuthSuccessResponseDto);
   });

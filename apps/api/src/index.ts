@@ -1,5 +1,29 @@
 import Fastify from 'fastify';
 import { PrismaClient } from '@prisma/client';
+import {
+  PrismaUserRepository,
+  PrismaProjectRepository,
+  PrismaFileNodeRepository,
+  PrismaDocumentRepository,
+  PrismaProjectMemberRepository,
+  PrismaGitRepositoryRepository,
+  PrismaTemplateRepository,
+  PrismaImageRepository,
+  PrismaAuditLogRepository,
+  PrismaPasswordResetTokenRepository,
+} from '@asciidocollab/infrastructure';
+import {
+  UserRepository,
+  ProjectRepository,
+  FileNodeRepository,
+  DocumentRepository,
+  ProjectMemberRepository,
+  GitRepositoryRepository,
+  TemplateRepository,
+  ImageRepository,
+  AuditLogRepository,
+  PasswordResetTokenRepository,
+} from '@asciidocollab/domain';
 import { envConfig } from './config/env';
 import { authPluginWrapped } from './plugins/auth';
 import { rateLimitPluginWrapped } from './plugins/rate-limit';
@@ -12,6 +36,19 @@ import { healthRoute } from './routes/health';
 export interface AppContainer {
   /** Prisma client instance for database access. */
   prisma: PrismaClient;
+  /** Repository instances wired to domain interfaces. */
+  repos: {
+    user: UserRepository;
+    project: ProjectRepository;
+    fileNode: FileNodeRepository;
+    document: DocumentRepository;
+    projectMember: ProjectMemberRepository;
+    gitRepository: GitRepositoryRepository;
+    template: TemplateRepository;
+    image: ImageRepository;
+    auditLog: AuditLogRepository;
+    passwordResetToken: PasswordResetTokenRepository;
+  };
 }
 
 /**
@@ -32,6 +69,23 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
 
   if (overrides?.prisma) {
     app.decorate('prisma', overrides.prisma);
+  }
+
+  if (overrides?.repos) {
+    app.decorate('repos', overrides.repos);
+  } else if (app.prisma) {
+    app.decorate('repos', {
+      user: new PrismaUserRepository(app.prisma),
+      project: new PrismaProjectRepository(app.prisma),
+      fileNode: new PrismaFileNodeRepository(app.prisma),
+      document: new PrismaDocumentRepository(app.prisma),
+      projectMember: new PrismaProjectMemberRepository(app.prisma),
+      gitRepository: new PrismaGitRepositoryRepository(app.prisma),
+      template: new PrismaTemplateRepository(app.prisma),
+      image: new PrismaImageRepository(app.prisma),
+      auditLog: new PrismaAuditLogRepository(app.prisma),
+      passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
+    });
   }
 
   app.setErrorHandler(errorHandler);
@@ -65,5 +119,17 @@ if (require.main === module) {
 declare module 'fastify' {
   interface FastifyInstance {
     prisma: PrismaClient;
+    repos: {
+      user: UserRepository;
+      project: ProjectRepository;
+      fileNode: FileNodeRepository;
+      document: DocumentRepository;
+      projectMember: ProjectMemberRepository;
+      gitRepository: GitRepositoryRepository;
+      template: TemplateRepository;
+      image: ImageRepository;
+      auditLog: AuditLogRepository;
+      passwordResetToken: PasswordResetTokenRepository;
+    };
   }
 }

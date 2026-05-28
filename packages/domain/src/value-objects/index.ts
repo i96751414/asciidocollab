@@ -19,3 +19,4 @@ export { MimeType } from './mime-type';
 export { FileNodeType } from './file-node-type';
 export { TemplateCategory } from './template-category';
 export { Timestamps } from './timestamps';
+export { PasswordResetTokenId } from './password-reset-token-id';

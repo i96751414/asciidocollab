@@ -15,3 +15,6 @@ export { CannotAttachDocumentToFolderError } from './cannot-attach-document-to-f
 export { CannotDeleteRootFolderError } from './cannot-delete-root-folder';
 export { MemberNotFoundError } from './member-not-found';
 export { ValidationError } from './validation-error';
+export { InvalidTokenError } from './invalid-token';
+export { PasswordReuseError } from './password-reuse';
+export { InvalidPasswordError } from './invalid-password';

@@ -20,7 +20,7 @@ export interface PasswordResetToken {
 export function generatePasswordResetToken(): PasswordResetToken {
   const token = randomBytes(32).toString('hex');
   const hashedToken = createHash('sha256').update(token).digest('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // TODO: remove hardcoded expiration duration, make it configurable
 
   return { token, hashedToken, expiresAt };
 }

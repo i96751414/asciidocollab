@@ -1,12 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { PrismaUserRepository } from '@asciidocollab/infrastructure';
-import { User, UserId, Email, Timestamps } from '@asciidocollab/domain';
+import { Email, RegisterUserUseCase } from '@asciidocollab/domain';
 import { hashPassword } from '../services/auth.service';
 import { validatePassword, validateEmail, getPasswordPolicy } from '../services/validation';
 import { isCommonPassword } from '../services/blocklist';
 import { isPasswordBreached } from '../services/breach-check.service';
 import { sendEmail } from '../services/email.service';
-import { randomUUID } from 'crypto';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -83,30 +81,22 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    const breachCheckPromise = isPasswordBreached(password);
-    const userRepo = new PrismaUserRepository(app.prisma);
-
-    const existingUser = await userRepo.findByEmail(Email.create(email));
-    const breached = await breachCheckPromise;
-
-    if (existingUser) {
-      await hashPassword(password);
-      return reply.status(200).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
-    }
-
+    const breached = await isPasswordBreached(password);
     const passwordHash = await hashPassword(password);
-    const userId = UserId.create(randomUUID());
-    const user = new User(
-      userId,
+
+    const useCase = new RegisterUserUseCase(request.server.repos.user);
+    const result = await useCase.execute(
       Email.create(email),
       displayName,
       passwordHash,
-      [],
-      null,
-      null,
-      new Timestamps(),
+      breached,
     );
-    await userRepo.save(user);
+
+    if (!result.success) {
+      return reply.status(400).send({
+        error: { code: 'REGISTRATION_FAILED', message: result.error.message },
+      } satisfies AuthErrorResponseDto);
+    }
 
     if (breached) {
       await sendEmail({

@@ -27,7 +27,8 @@ no custom cryptography or protocol implementations.
 - `@fastify/env` or `env-schema` — environment variable validation
 - `nodemailer` (or transactional email SDK) — password reset email dispatch
 - `@fastify/swagger` / `@fastify/swagger-ui` — OpenAPI docs for development
-- `node:crypto` — built-in for token generation (`randomBytes`), timing-safe comparison (`timingSafeEqual`), and AES-256-GCM encryption
+- `node:crypto` — built-in for token generation (`randomBytes`), timing-safe comparison (`timingSafeEqual`), and
+  AES-256-GCM encryption
 
 **Storage**: PostgreSQL via Prisma (existing `packages/db`). Sessions stored in `prisma.session` table. No new packages
 required — new code lives in `apps/api/`.
@@ -54,7 +55,8 @@ Route-level tests with `fastify.inject()`. No mocking libraries for domain fakes
   magic numbers
 - Domain layer MUST NOT import from `apps/api` (constitution Principle I)
 - Existing Phase 1-2 tests MUST continue to pass (SC-006)
-- Session data encrypted at rest with AES-256-GCM (FR-014) — implemented via Prisma middleware on session `data` column per research.md
+- Session data encrypted at rest with AES-256-GCM (FR-014) — implemented via Prisma middleware on session `data` column
+  per research.md
 - All environment variables follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (`ASCIIDOCOLLAB_AUTH_` for auth params,
   `ASCIIDOCOLLAB_API_` for server config)
 - No `any` type in production code, no `as` casts (constitution Principle IV)
@@ -66,17 +68,17 @@ Route-level tests with `fastify.inject()`. No mocking libraries for domain fakes
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle                     | Compliance | Notes                                                                                                                                                                                                      |
-|-------------------------------|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **I. Clean Architecture**     | ✅ PASS     | Domain gains `passwordHistory` field on User entity; fresh-onion still enforced. |
-| **II. Clean Code**            | ✅ PASS     | Constants via env vars (FR-037). All error paths typed. Side effects explicit.                                                                                                                             |
-| **III. TDD (NON-NEGOTIABLE)** | ✅ PASS     | `fastify.inject()` enables route-level tests without HTTP. Integration tests via testcontainers. Red-green-refactor per endpoint.                                                                          |
-| **IV. Type Safety**           | ✅ PASS     | `strict: true`. Fastify schemas for request validation (FR-016). No `any` or `as`. Prisma generated types for DB.                                                                                          |
+| Principle                     | Compliance | Notes                                                                                                                                                                                                                                                                                                               |
+|-------------------------------|------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **I. Clean Architecture**     | ✅ PASS     | Domain gains `passwordHistory` field on User entity; fresh-onion still enforced.                                                                                                                                                                                                                                    |
+| **II. Clean Code**            | ✅ PASS     | Constants via env vars (FR-037). All error paths typed. Side effects explicit.                                                                                                                                                                                                                                      |
+| **III. TDD (NON-NEGOTIABLE)** | ✅ PASS     | `fastify.inject()` enables route-level tests without HTTP. Integration tests via testcontainers. Red-green-refactor per endpoint.                                                                                                                                                                                   |
+| **IV. Type Safety**           | ✅ PASS     | `strict: true`. Fastify schemas for request validation (FR-016). No `any` or `as`. Prisma generated types for DB.                                                                                                                                                                                                   |
 | **V. Security by Design**     | ✅ PASS     | 43 FRs covering password policy, hashing, session management, CSRF, rate limiting, enumeration prevention, secrets-in-logs, dependency scanning, token encryption at rest, timing-safe comparison, HTTPS enforcement, breach check remediation, password change notification, CORS. All auth via trusted libraries. |
-| **VI. Seam Testing**          | ✅ PASS     | Route handlers tested via `fastify.inject()`. Domain use cases still tested with in-memory fakes from Phase 1.                                                                                             |
-| **Phased Delivery**           | ✅ PASS     | Phase 3 produces independently testable API with auth. No forward deps to Phase 4+.                                                                                                                        |
-| **Quality Gates**             | ✅ PASS     | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm fresh-onion` all pass pre-commit.                                                                                                                        |
-| **Commit Discipline**         | ✅ PASS     | Conventional Commits. Granular per-endpoint commits.                                                                                                                                                       |
+| **VI. Seam Testing**          | ✅ PASS     | Route handlers tested via `fastify.inject()`. Domain use cases still tested with in-memory fakes from Phase 1.                                                                                                                                                                                                      |
+| **Phased Delivery**           | ✅ PASS     | Phase 3 produces independently testable API with auth. No forward deps to Phase 4+.                                                                                                                                                                                                                                 |
+| **Quality Gates**             | ✅ PASS     | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm fresh-onion` all pass pre-commit.                                                                                                                                                                                                                                 |
+| **Commit Discipline**         | ✅ PASS     | Conventional Commits. Granular per-endpoint commits.                                                                                                                                                                                                                                                                |
 
 All gates pass. No violations requiring complexity justification.
 
@@ -137,10 +139,29 @@ packages/
 ```
 
 **Structure Decision**: All Phase 3 code lives in `apps/api/` (which was scaffolded as a shell in Phase 1). The existing
-`packages/domain` gains a `passwordHistory` field on the `User` entity and corresponding updates to `UserRepository` and its in-memory fake. `packages/db` adds `Session` and `PasswordResetToken` models plus the `User.passwordHistory` column. `packages/shared` and `packages/infrastructure` remain unchanged.
+`packages/domain` gains a `passwordHistory` field on the `User` entity and corresponding updates to `UserRepository` and
+its in-memory fake. `packages/db` adds `Session` and `PasswordResetToken` models plus the `User.passwordHistory` column.
+`packages/shared` and `packages/infrastructure` remain unchanged.
+
+## Architecture Refactors (Post-Implementation)
+
+**Source**: Architecture Guard review (2026-05-28) against `architecture_constitution.md`
+
+| Refactor                                   | Priority | Constitution Rule                                 | Status |
+|--------------------------------------------|----------|---------------------------------------------------|--------|
+| Extract auth use cases from route handlers | P1       | "Controllers/handlers MUST delegate to use cases" | Open   |
+| Add PasswordResetToken to domain model     | P1       | "Domain MUST define repository interfaces"        | Open   |
+| Complete infrastructure barrel export      | P2       | "Each package owns its internal structure"        | Open   |
+| Add runtime validation to session-store    | P3       | "No `as` casts in production code"                | Open   |
+
+**Accepted Deviation**: Route handlers currently use `as` casts for Fastify `request.body` typing. ESLint override
+suppresses this at `apps/api/src/routes/*.ts`. This is a pragmatic trade-off for Fastify's untyped body — fix deferred
+to Phase 4+ when route-level DTO validation schemas are standardized.
+
+---
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|--------------------------------------|
+| Violation                                                                                  | Why Needed                                                                                                  | Simpler Alternative Rejected Because                                                                                             |
+|--------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | Constitution V §session storage: custom Prisma-backed store instead of `connect-pg-simple` | Type safety, encryption middleware (AES-256-GCM via Prisma hooks), consistent with existing Prisma patterns | `connect-pg-simple` is untyped, doesn't support encryption middleware, and introduces a different query pattern alongside Prisma |

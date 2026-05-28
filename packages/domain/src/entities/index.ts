@@ -8,3 +8,4 @@ export { GitRepository } from './git-repository';
 export { Image } from './image';
 export { Template } from './template';
 export { AuditLog } from './audit-log';
+export { PasswordResetToken } from './password-reset-token';

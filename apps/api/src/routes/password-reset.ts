@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { PrismaUserRepository } from '@asciidocollab/infrastructure';
-import { UserId, User } from '@asciidocollab/domain';
+import { ResetPasswordUseCase } from '@asciidocollab/domain';
 import { hashPassword, verifyPassword } from '../services/auth.service';
 import { validatePassword, getPasswordPolicy } from '../services/validation';
 import { hashToken } from '../services/password-reset.service';
@@ -40,59 +39,24 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
     }
 
     const hashedToken = hashToken(token);
-
-    const resetToken = await app.prisma.passwordResetToken.findFirst({
-      where: {
-        tokenHash: hashedToken,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-    });
-
-    if (!resetToken) {
-      return reply.status(400).send({
-        error: { code: 'INVALID_TOKEN', message: 'Invalid or expired reset token' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const userRepo = new PrismaUserRepository(app.prisma);
-    const user = await userRepo.findById(UserId.create(resetToken.userId));
-
-    if (!user || !user.passwordHash) {
-      return reply.status(400).send({
-        error: { code: 'INVALID_TOKEN', message: 'Invalid or expired reset token' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => verifyPassword(hash, newPassword))
-    );
-    if (isReused.some(Boolean)) {
-      return reply.status(400).send({
-        error: { code: 'PASSWORD_REUSE', message: 'Cannot reuse recent passwords' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const newHash = await hashPassword(newPassword);
     const historyDepth = parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HISTORY_DEPTH ?? '5', 10);
-    const updatedHistory = [...user.passwordHistory, user.passwordHash].slice(-historyDepth);
+    const newPasswordHash = await hashPassword(newPassword);
 
-    const updatedUser = new User(
-      user.id,
-      user.email,
-      user.displayName,
-      newHash,
-      updatedHistory,
-      user.samlSubject,
-      user.mfaSecret,
-      user.timestamps,
+    const useCase = new ResetPasswordUseCase(
+      request.server.repos.user,
+      request.server.repos.passwordResetToken,
+      verifyPassword,
+      hashPassword,
     );
-    await userRepo.save(updatedUser);
 
-    await app.prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { usedAt: new Date() },
-    });
+    const result = await useCase.execute(hashedToken, newPasswordHash, historyDepth);
+
+    if (!result.success) {
+      const code = result.error.name === 'InvalidTokenError' ? 'INVALID_TOKEN' : 'PASSWORD_REUSE';
+      return reply.status(400).send({
+        error: { code, message: result.error.message },
+      } satisfies AuthErrorResponseDto);
+    }
 
     return reply.status(200).send({ message: 'Password reset successfully' } satisfies AuthSuccessResponseDto);
   });

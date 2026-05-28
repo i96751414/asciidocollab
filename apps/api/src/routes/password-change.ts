@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { PrismaUserRepository } from '@asciidocollab/infrastructure';
-import { UserId, User } from '@asciidocollab/domain';
+import { UserId, ChangePasswordUseCase } from '@asciidocollab/domain';
 import { hashPassword, verifyPassword } from '../services/auth.service';
 import { validatePassword, getPasswordPolicy } from '../services/validation';
 import { sendEmail } from '../services/email.service';
@@ -46,51 +45,37 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    const userRepo = new PrismaUserRepository(app.prisma);
-    const user = await userRepo.findById(UserId.create(request.session.userId));
-    if (!user || !user.passwordHash) {
-      return reply.status(400).send({
-        error: { code: 'INVALID_PASSWORD', message: 'Current password is incorrect' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const currentPasswordValid = await verifyPassword(user.passwordHash, currentPassword);
-    if (!currentPasswordValid) {
-      return reply.status(400).send({
-        error: { code: 'INVALID_PASSWORD', message: 'Current password is incorrect' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const isReused = await Promise.all(
-      user.passwordHistory.map((hash) => verifyPassword(hash, newPassword))
-    );
-    if (isReused.some(Boolean)) {
-      return reply.status(400).send({
-        error: { code: 'PASSWORD_REUSE', message: 'Cannot reuse recent passwords' },
-      } satisfies AuthErrorResponseDto);
-    }
-
-    const newHash = await hashPassword(newPassword);
     const historyDepth = parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HISTORY_DEPTH ?? '5', 10);
-    const updatedHistory = [...user.passwordHistory, user.passwordHash].slice(-historyDepth);
+    const newPasswordHash = await hashPassword(newPassword);
 
-    const updatedUser = new User(
-      user.id,
-      user.email,
-      user.displayName,
-      newHash,
-      updatedHistory,
-      user.samlSubject,
-      user.mfaSecret,
-      user.timestamps,
+    const useCase = new ChangePasswordUseCase(
+      request.server.repos.user,
+      verifyPassword,
+      hashPassword,
     );
-    await userRepo.save(updatedUser);
 
-    await sendEmail({
-      to: user.email.value,
-      subject: 'Password Changed',
-      html: `<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>`,
-    });
+    const result = await useCase.execute(
+      UserId.create(request.session.userId),
+      currentPassword,
+      newPasswordHash,
+      historyDepth,
+    );
+
+    if (!result.success) {
+      const code = result.error.name === 'InvalidPasswordError' ? 'INVALID_PASSWORD' : 'PASSWORD_REUSE';
+      return reply.status(400).send({
+        error: { code, message: result.error.message },
+      } satisfies AuthErrorResponseDto);
+    }
+
+    const user = await request.server.repos.user.findById(UserId.create(request.session.userId));
+    if (user) {
+      await sendEmail({
+        to: user.email.value,
+        subject: 'Password Changed',
+        html: `<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>`,
+      });
+    }
 
     return reply.status(200).send({ message: 'Password changed' } satisfies AuthSuccessResponseDto);
   });

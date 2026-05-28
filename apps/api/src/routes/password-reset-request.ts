@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { PrismaUserRepository } from '@asciidocollab/infrastructure';
-import { Email } from '@asciidocollab/domain';
+import { Email, RequestPasswordResetUseCase } from '@asciidocollab/domain';
 import { generatePasswordResetToken } from '../services/password-reset.service';
 import { sendEmail } from '../services/email.service';
 import type { RequestPasswordResetDto, AuthSuccessResponseDto } from '@asciidocollab/shared';
@@ -30,25 +29,20 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
   }, async (request, reply) => {
     const { email } = request.body as RequestPasswordResetDto;
 
-    const userRepo = new PrismaUserRepository(app.prisma);
-    const user = await userRepo.findByEmail(Email.create(email));
+    const useCase = new RequestPasswordResetUseCase(
+      request.server.repos.user,
+      request.server.repos.passwordResetToken,
+      generatePasswordResetToken,
+    );
 
-    if (user) {
-      const resetToken = generatePasswordResetToken();
+    const result = await useCase.execute(Email.create(email));
 
-      await app.prisma.passwordResetToken.create({
-        data: {
-          userId: user.id.value,
-          tokenHash: resetToken.hashedToken,
-          expiresAt: resetToken.expiresAt,
-        },
-      });
-
-      // TODO: fix URL in email
+    if (result.success) {
+      const frontendUrl = process.env.ASCIIDOCOLLAB_API_FRONTEND_URL ?? 'https://asciidocollab.example.com';
       await sendEmail({
-        to: email,
+        to: result.value.email,
         subject: 'Password Reset Request',
-        html: `Click <a href="${process.env.ASCIIDOCOLLAB_API_FRONTEND_URL ?? 'https://asciidocollab.example.com'}/reset?token=${resetToken.token}">here</a> to reset your password.`,
+        html: `Click <a href="${frontendUrl}/reset?token=${result.value.rawToken}">here</a> to reset your password.`,
       });
     }
 

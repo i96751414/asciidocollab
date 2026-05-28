@@ -182,7 +182,26 @@ description: "Task list for API Server + Local Authentication (Phase 3)"
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 8: Architecture Refactors (Post-Implementation)
+
+**Purpose**: Address architecture review findings (V1–V4) to restore Clean Architecture boundaries
+
+- [X] T059 [ARCH] Create `PasswordResetToken` entity in `packages/domain/src/entities/password-reset-token.ts` with `id`, `userId`, `tokenHash`, `expiresAt`, `usedAt`, `createdAt` fields per architecture_constitution.md
+- [X] T060 [ARCH] Create `PasswordResetTokenRepository` interface in `packages/domain/src/repositories/password-reset-token.repository.ts` with `save`, `findByTokenHash`, `findByUserId`, `deleteExpired` methods
+- [X] T061 [ARCH] Implement `PrismaPasswordResetTokenRepository` in `packages/infrastructure/src/persistence/prisma-password-reset-token.repository.ts` with `toDomain`/`toPersistence` mapping
+- [X] T062 [ARCH] Implement `InMemoryPasswordResetTokenRepository` fake in `packages/domain/tests/repositories/` with Map-backed storage
+- [X] T063 [ARCH] Create `RegisterUserUseCase` in `packages/domain/src/use-cases/register-user.ts` — extract entity construction + password history management from `apps/api/src/routes/register.ts`
+- [X] T064 [ARCH] Create `ResetPasswordUseCase` in `packages/domain/src/use-cases/reset-password.ts` — extract token verification + password update + session invalidation from `apps/api/src/routes/password-reset.ts`
+- [X] T065 [ARCH] Create `ChangePasswordUseCase` in `packages/domain/src/use-cases/change-password.ts` — extract current password verification + history check + hash update from `apps/api/src/routes/password-change.ts`
+- [X] T066 [ARCH] Refactor `apps/api/src/routes/register.ts` to delegate to `RegisterUserUseCase` — route should only validate input and map Result to HTTP response
+- [X] T067 [ARCH] Refactor `apps/api/src/routes/password-reset.ts` and `password-reset-request.ts` to use `PasswordResetTokenRepository` instead of direct `app.prisma` access
+- [X] T068 [ARCH] Refactor `apps/api/src/routes/password-change.ts` to delegate to `ChangePasswordUseCase`
+- [X] T069 [ARCH] Add all 9 repository implementations to barrel export in `packages/infrastructure/src/index.ts`
+- [X] T070 [ARCH] Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fresh-onion` — all must pass after refactors
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
 
 **Purpose**: Security hardening, CORS, HTTPS enforcement, dependency scanning
 
@@ -206,7 +225,8 @@ description: "Task list for API Server + Local Authentication (Phase 3)"
 - **US3 - Login (Phase 5)**: Depends on Foundational + US1 + US2 (needs registered users)
 - **US4 - Password Change (Phase 6)**: Depends on US3 (needs active session)
 - **US5 - Password Reset (Phase 7)**: Depends on US3 (login) but can be parallelized with US4
-- **Polish (Phase 8)**: Depends on all user stories being complete
+- **Architecture Refactors (Phase 8)**: Depends on all user stories being complete
+- **Polish (Phase 9)**: Depends on architecture refactors being complete
 
 ### User Story Dependencies
 
