@@ -1,0 +1,7 @@
+# Production environment overrides
+
+env: production
+
+api:
+  trustProxy: true
+  httpsRedirect: true

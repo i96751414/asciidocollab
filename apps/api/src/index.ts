@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
 import {
   PrismaUserRepository,
@@ -24,7 +25,7 @@ import {
   AuditLogRepository,
   PasswordResetTokenRepository,
 } from '@asciidocollab/domain';
-import { envConfig } from './config/env';
+import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
 import { rateLimitPluginWrapped } from './plugins/rate-limit';
 import { corsPluginWrapped } from './plugins/cors';
@@ -58,6 +59,8 @@ export interface AppContainer {
  * @returns A configured Fastify instance ready to listen.
  */
 export async function buildServer(overrides?: Partial<AppContainer>) {
+  const appConfig = getConfig();
+
   const app = Fastify({
     logger: {
       level: 'info',
@@ -65,7 +68,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
     },
   });
 
-  await app.register(envConfig);
+  app.decorate('config', appConfig);
 
   if (overrides?.prisma) {
     app.decorate('prisma', overrides.prisma);
@@ -102,11 +105,13 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
 }
 
 async function start() {
+  const configDir = join(__dirname, '..', 'config');
+  loadConfig(configDir);
+
+  const appConfig = getConfig();
   const prisma = new PrismaClient();
   const app = await buildServer({ prisma });
-  const port = parseInt(process.env.ASCIIDOCOLLAB_API_PORT ?? '4000', 10);
-  const host = process.env.ASCIIDOCOLLAB_API_HOST ?? '0.0.0.0';
-  await app.listen({ port, host });
+  await app.listen({ port: appConfig.api.port, host: appConfig.api.host });
 }
 
 if (require.main === module) {
@@ -118,6 +123,7 @@ if (require.main === module) {
 
 declare module 'fastify' {
   interface FastifyInstance {
+    config: ReturnType<typeof getConfig>;
     prisma: PrismaClient;
     repos: {
       user: UserRepository;

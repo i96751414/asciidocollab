@@ -76,7 +76,7 @@ module.exports = tseslint.config(
   },
 
   {
-    files: ['**/*.test.ts', '**/tests/helpers/*.ts', '**/src/routes/*.ts', '**/src/services/session-store.ts'],
+    files: ['**/*.test.ts', '**/tests/helpers/*.ts', '**/src/routes/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       'jsdoc/require-jsdoc': 'off',

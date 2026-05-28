@@ -4,27 +4,31 @@ import fastifySession from '@fastify/session';
 import type { FastifyInstance } from 'fastify';
 import { PrismaSessionStore } from '../services/session-store';
 
+function isValidSameSite(value: string): 'strict' | 'lax' | 'none' {
+  if (value === 'strict' || value === 'lax' || value === 'none') {
+    return value;
+  }
+  return 'lax';
+}
+
 async function authPlugin(app: FastifyInstance): Promise<void> {
   await app.register(fastifyCookie);
 
   const store = app.prisma ? new PrismaSessionStore(app.prisma) : undefined;
 
-  const sessionSecret = process.env.ASCIIDOCOLLAB_AUTH_SESSION_SECRET;
-  if (!sessionSecret) {
-    throw new Error('ASCIIDOCOLLAB_AUTH_SESSION_SECRET is required');
-  }
+  const sessionSecret = app.config.auth.session.secret;
 
   await app.register(fastifySession, {
     store,
     secret: sessionSecret,
     cookie: {
-      secure: process.env.ASCIIDOCOLLAB_AUTH_COOKIE_SECURE !== 'false',
-      maxAge: parseInt(process.env.ASCIIDOCOLLAB_AUTH_SESSION_MAX_AGE ?? '1800000', 10),
-      httpOnly: true,
-      sameSite: 'lax',
+      secure: app.config.auth.session.secure,
+      maxAge: app.config.auth.session.maxAge,
+      httpOnly: app.config.auth.session.cookie.httpOnly,
+      sameSite: isValidSameSite(app.config.auth.session.cookie.sameSite),
     },
-    saveUninitialized: false,
-    rolling: true,
+    saveUninitialized: app.config.auth.session.cookie.saveUninitialized,
+    rolling: app.config.auth.session.cookie.rolling,
   });
 }
 

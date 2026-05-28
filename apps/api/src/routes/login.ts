@@ -13,8 +13,8 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
   app.post('/auth/login', {
     config: {
       rateLimit: {
-        max: parseInt(process.env.ASCIIDOCOLLAB_AUTH_LOGIN_RATE_LIMIT_MAX ?? '5', 10),
-        timeWindow: parseInt(process.env.ASCIIDOCOLLAB_AUTH_LOGIN_RATE_LIMIT_WINDOW ?? '900000', 10),
+        max: app.config.auth.login.rateLimitMax,
+        timeWindow: app.config.auth.login.rateLimitWindow,
       },
     },
     schema: {

@@ -1,0 +1,74 @@
+# Default configuration for AsciiDocCollab API server
+# All non-secret values are defined here.
+# Environment variables override these values.
+
+env: development
+
+api:
+  port: 4000
+  host: 0.0.0.0
+  trustProxy: false
+  corsOrigins: ""
+  frontendUrl: "https://asciidocollab.example.com"
+  httpsRedirect: false
+
+auth:
+  session:
+    maxAge: 1800000          # 30 minutes
+    absoluteMaxAge: 86400000  # 24 hours
+    secure: true
+    cookie:
+      httpOnly: true
+      sameSite: lax
+      saveUninitialized: false
+      rolling: true
+
+  password:
+    minLength: 12
+    requireUppercase: true
+    requireLowercase: true
+    requireDigits: true
+    requireSymbols: true
+    historyDepth: 5
+    hashMemory: 65536
+    hashTime: 3
+    hashParallelism: 1
+
+  login:
+    rateLimitMax: 5
+    rateLimitWindow: 900000     # 15 minutes
+    lockoutDuration: 900000     # 15 minutes
+
+  registration:
+    rateLimitMax: 3
+    rateLimitWindow: 3600000    # 1 hour
+
+  passwordReset:
+    tokenExpiry: 3600000        # 1 hour
+    tokenByteLength: 32
+    rateLimitMax: 3
+    rateLimitWindow: 3600000    # 1 hour
+
+  passwordChange:
+    rateLimitMax: 5
+    rateLimitWindow: 900000     # 15 minutes
+
+  breachCheck:
+    hibpApiUrl: "https://api.pwnedpasswords.com/range"
+
+  email:
+    provider: smtp
+    smtpHost: ""
+    smtpPort: 587
+    smtpUser: ""
+    sesRegion: ""
+    templates:
+      resetRequest:
+        subject: "Password Reset Request"
+        html: "<p>Click <a href=\"{frontendUrl}/reset?token={token}\">here</a> to reset your password.</p>"
+      passwordChanged:
+        subject: "Password Changed"
+        html: "<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>"
+      breachAlert:
+        subject: "Security Alert: Password Breach Detected"
+        html: "<p>Your password has been found in a data breach. Please change your password immediately.</p>"

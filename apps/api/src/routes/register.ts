@@ -16,8 +16,8 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', {
     config: {
       rateLimit: {
-        max: parseInt(process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_MAX ?? '3', 10),
-        timeWindow: parseInt(process.env.ASCIIDOCOLLAB_AUTH_REGISTRATION_RATE_LIMIT_WINDOW ?? '3600000', 10),
+        max: app.config.auth.registration.rateLimitMax,
+        timeWindow: app.config.auth.registration.rateLimitWindow,
       },
     },
     schema: {
@@ -101,8 +101,8 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
     if (breached) {
       await sendEmail({
         to: email,
-        subject: 'Security Alert: Password Breach Detected',
-        html: `<p>Your password has been found in a data breach. Please change your password immediately.</p>`,
+        subject: app.config.auth.email.templates.breachAlert.subject,
+        html: app.config.auth.email.templates.breachAlert.html,
       });
     }
 

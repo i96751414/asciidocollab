@@ -1,0 +1,14 @@
+# Test environment overrides
+
+env: test
+
+api:
+  port: 0  # Random available port
+  host: 127.0.0.1
+  trustProxy: false
+  httpsRedirect: false
+
+auth:
+  session:
+    secure: false
+    maxAge: 300000  # 5 minutes for faster test expiry

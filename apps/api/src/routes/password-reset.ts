@@ -14,8 +14,8 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
   app.post('/auth/password/reset', {
     config: {
       rateLimit: {
-        max: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_MAX ?? '3', 10),
-        timeWindow: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW ?? '3600000', 10),
+        max: app.config.auth.passwordReset.rateLimitMax,
+        timeWindow: app.config.auth.passwordReset.rateLimitWindow,
       },
     },
     schema: {
@@ -39,7 +39,7 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
     }
 
     const hashedToken = hashToken(token);
-    const historyDepth = parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HISTORY_DEPTH ?? '5', 10);
+    const historyDepth = request.server.config.auth.password.historyDepth;
     const newPasswordHash = await hashPassword(newPassword);
 
     const useCase = new ResetPasswordUseCase(

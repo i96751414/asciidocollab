@@ -32,9 +32,9 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 **Purpose**: Install dependencies and create config directory structure
 
-- [ ] T001 Install `convict` and `yaml` dependencies in `apps/api/package.json`
-- [ ] T002 Remove `@fastify/env` dependency from `apps/api/package.json`
-- [ ] T003 Create `apps/api/config/` directory structure
+- [X] T001 Install `convict` and `yaml` dependencies in `apps/api/package.json`
+- [X] T002 Remove `@fastify/env` dependency from `apps/api/package.json`
+- [X] T003 Create `apps/api/config/` directory structure
 
 ---
 
@@ -44,12 +44,12 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create convict schema definition in `apps/api/src/config/schema.ts` with all 45 fields from data-model.md
-- [ ] T005 Create config loader in `apps/api/src/config/index.ts` — loads YAML, applies env var overrides, exports typed config
-- [ ] T006 [P] Create `apps/api/config/default.yaml` with all non-secret defaults from data-model.md
-- [ ] T007 [P] Create `apps/api/config/development.yaml` with dev-specific overrides
-- [ ] T008 [P] Create `apps/api/config/production.yaml` with production overrides
-- [ ] T009 [P] Create `apps/api/config/test.yaml` with test overrides
+- [X] T004 Create convict schema definition in `apps/api/src/config/schema.ts` with all 45 fields from data-model.md
+- [X] T005 Create config loader in `apps/api/src/config/index.ts` — loads YAML, applies env var overrides, exports typed config
+- [X] T006 [P] Create `apps/api/config/default.yaml` with all non-secret defaults from data-model.md
+- [X] T007 [P] Create `apps/api/config/development.yaml` with dev-specific overrides
+- [X] T008 [P] Create `apps/api/config/production.yaml` with production overrides
+- [X] T009 [P] Create `apps/api/config/test.yaml` with test overrides
 
 **Checkpoint**: Foundation ready — config schema, loader, and YAML files exist
 
@@ -63,24 +63,24 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Tests for User Story 1
 
-- [ ] T010a [P] [US1] Test YAML loading — create custom YAML, verify values load correctly in `apps/api/tests/config/yaml-loading.test.ts`
-- [ ] T010b [P] [US1] Test nested category access — verify `app.config.auth.password.minLength` returns YAML value in `apps/api/tests/config/nested-access.test.ts`
+- [X] T010a [P] [US1] Test YAML loading — create custom YAML, verify values load correctly in `apps/api/tests/config/yaml-loading.test.ts`
+- [X] T010b [P] [US1] Test nested category access — verify `app.config.auth.password.minLength` returns YAML value in `apps/api/tests/config/nested-access.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Replace `apps/api/src/config/env.ts` with new config loader import in `apps/api/src/index.ts`
-- [ ] T012 [US1] Update `apps/api/src/routes/register.ts` — replace `process.env` with `app.config.*`
-- [ ] T013 [US1] Update `apps/api/src/routes/login.ts` — replace `process.env` with `app.config.*`
-- [ ] T014 [US1] Update `apps/api/src/routes/password-change.ts` — replace `process.env` with `app.config.*`
-- [ ] T015 [US1] Update `apps/api/src/routes/password-reset.ts` — replace `process.env` with `app.config.*`
-- [ ] T016 [US1] Update `apps/api/src/routes/password-reset-request.ts` — replace `process.env` with `app.config.*`
-- [ ] T017 [US1] Update `apps/api/src/services/auth.service.ts` — replace `process.env` with `app.config.*`
-- [ ] T018 [US1] Update `apps/api/src/services/validation.ts` — replace `process.env` with `app.config.*`
-- [ ] T019 [US1] Update `apps/api/src/plugins/auth.ts` — replace `process.env` with `app.config.*`
-- [ ] T020 [US1] Update `apps/api/src/plugins/cors.ts` — replace `process.env` with `app.config.*`
-- [ ] T021 [US1] Update `apps/api/src/plugins/https-redirect.ts` — replace `process.env` with `app.config.*`
-- [ ] T022 [US1] Update `apps/api/src/services/session-encryption.ts` — replace `process.env` with `app.config.*`
-- [ ] T023 [US1] Update `apps/api/src/services/breach-check.service.ts` — replace `process.env` with `app.config.*`
+- [X] T011 [US1] Replace `apps/api/src/config/env.ts` with new config loader import in `apps/api/src/index.ts`
+- [X] T012 [US1] Update `apps/api/src/routes/register.ts` — replace `process.env` with `app.config.*`
+- [X] T013 [US1] Update `apps/api/src/routes/login.ts` — replace `process.env` with `app.config.*`
+- [X] T014 [US1] Update `apps/api/src/routes/password-change.ts` — replace `process.env` with `app.config.*`
+- [X] T015 [US1] Update `apps/api/src/routes/password-reset.ts` — replace `process.env` with `app.config.*`
+- [X] T016 [US1] Update `apps/api/src/routes/password-reset-request.ts` — replace `process.env` with `app.config.*`
+- [X] T017 [US1] Update `apps/api/src/services/auth.service.ts` — replace `process.env` with `app.config.*`
+- [X] T018 [US1] Update `apps/api/src/services/validation.ts` — replace `process.env` with `app.config.*`
+- [X] T019 [US1] Update `apps/api/src/plugins/auth.ts` — replace `process.env` with `app.config.*`
+- [X] T020 [US1] Update `apps/api/src/plugins/cors.ts` — replace `process.env` with `app.config.*`
+- [X] T021 [US1] Update `apps/api/src/plugins/https-redirect.ts` — replace `process.env` with `app.config.*`
+- [X] T022 [US1] Update `apps/api/src/services/session-encryption.ts` — replace `process.env` with `app.config.*`
+- [X] T023 [US1] Update `apps/api/src/services/breach-check.service.ts` — replace `process.env` with `app.config.*`
 
 **Checkpoint**: All routes and services use typed config, zero `process.env` calls remain
 
@@ -94,12 +94,12 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Tests for User Story 2
 
-- [ ] T024a [P] [US2] Test env var override — set YAML value + env var, verify env var wins in `apps/api/tests/config/env-override.test.ts`
+- [X] T024a [P] [US2] Test env var override — set YAML value + env var, verify env var wins in `apps/api/tests/config/env-override.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Verify env var override behavior — convict handles this natively via `env` property on schema fields
-- [ ] T026 [US2] Update `apps/api/src/index.ts` — use `app.config.api.port` and `app.config.api.host` for server listen
+- [X] T025 [US2] Verify env var override behavior — convict handles this natively via `env` property on schema fields
+- [X] T026 [US2] Update `apps/api/src/index.ts` — use `app.config.api.port` and `app.config.api.host` for server listen
 
 **Checkpoint**: Env vars correctly override YAML values
 
@@ -113,13 +113,13 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Tests for User Story 3
 
-- [ ] T028a [P] [US3] Test secret redaction — verify `convict.toString()` redacts sensitive fields in `apps/api/tests/config/redaction.test.ts`
-- [ ] T028b [P] [US3] Test required secrets — verify app fails when `auth.session.secret` is missing in `apps/api/tests/config/required-secrets.test.ts`
+- [X] T028a [P] [US3] Test secret redaction — verify `convict.toString()` redacts sensitive fields in `apps/api/tests/config/redaction.test.ts`
+- [X] T028b [P] [US3] Test required secrets — verify app fails when `auth.session.secret` is missing in `apps/api/tests/config/required-secrets.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Mark sensitive fields in schema: `auth.session.secret`, `auth.session.encryptionKey`, `auth.email.smtpPassword`, `auth.email.sendgridApiKey`
-- [ ] T030 [US3] Ensure sensitive fields have no default values in YAML files
+- [X] T029 [US3] Mark sensitive fields in schema: `auth.session.secret`, `auth.session.encryptionKey`, `auth.email.smtpPassword`, `auth.email.sendgridApiKey`
+- [X] T030 [US3] Ensure sensitive fields have no default values in YAML files
 
 **Checkpoint**: Secrets never appear in YAML files, logs, or error messages
 
@@ -133,14 +133,14 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Tests for User Story 4
 
-- [ ] T031a [P] [US4] Test env-specific loading — set NODE_ENV=development, verify dev.yaml overrides default in `apps/api/tests/config/env-specific.test.ts`
-- [ ] T031b [P] [US4] Test fallback — unset NODE_ENV, verify default.yaml loads in `apps/api/tests/config/env-fallback.test.ts`
+- [X] T031a [P] [US4] Test env-specific loading — set NODE_ENV=development, verify dev.yaml overrides default in `apps/api/tests/config/env-specific.test.ts`
+- [X] T031b [P] [US4] Test fallback — unset NODE_ENV, verify default.yaml loads in `apps/api/tests/config/env-fallback.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T032 [US4] Update config loader to load `apps/api/config/{NODE_ENV}.yaml` based on NODE_ENV
-- [ ] T033 [US4] Ensure fallback to `apps/api/config/default.yaml` when NODE_ENV is unset
-- [ ] T034 [US4] Verify layered loading: default.yaml → {NODE_ENV}.yaml → env vars
+- [X] T032 [US4] Update config loader to load `apps/api/config/{NODE_ENV}.yaml` based on NODE_ENV
+- [X] T033 [US4] Ensure fallback to `apps/api/config/default.yaml` when NODE_ENV is unset
+- [X] T034 [US4] Verify layered loading: default.yaml → {NODE_ENV}.yaml → env vars
 
 **Checkpoint**: Environment-specific configs load correctly with proper precedence
 
@@ -154,15 +154,15 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Tests for User Story 5
 
-- [ ] T035a [P] [US5] Test type mismatch — set `api.port: "not-a-number"`, verify validation error in `apps/api/tests/config/validation.test.ts`
-- [ ] T035b [P] [US5] Test out-of-range — set `api.port: 99999`, verify validation error in `apps/api/tests/config/validation.test.ts`
-- [ ] T035c [P] [US5] Test missing required field — omit `auth.session.secret`, verify clear error message in `apps/api/tests/config/validation.test.ts`
+- [X] T035a [P] [US5] Test type mismatch — set `api.port: "not-a-number"`, verify validation error in `apps/api/tests/config/validation.test.ts`
+- [X] T035b [P] [US5] Test out-of-range — set `api.port: 99999`, verify validation error in `apps/api/tests/config/validation.test.ts`
+- [X] T035c [P] [US5] Test missing required field — omit `auth.session.secret`, verify clear error message in `apps/api/tests/config/validation.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] Verify convict validation catches type mismatches (e.g., string for integer field)
-- [ ] T037 [US5] Verify convict validation catches missing required fields
-- [ ] T038 [US5] Verify convict validation catches out-of-range values (e.g., port > 65535)
+- [X] T036 [US5] Verify convict validation catches type mismatches (e.g., string for integer field)
+- [X] T037 [US5] Verify convict validation catches missing required fields
+- [X] T038 [US5] Verify convict validation catches out-of-range values (e.g., port > 65535)
 
 **Checkpoint**: Config validation fails fast with clear error messages
 
@@ -174,20 +174,20 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 ### Implementation for New Fields
 
-- [ ] T039 [P] Add `api.frontendUrl` field to schema in `apps/api/src/config/schema.ts`
-- [ ] T040 [P] Add `api.httpsRedirect` field to schema in `apps/api/src/config/schema.ts`
-- [ ] T041 [P] Add `auth.breachCheck.hibpApiUrl` field to schema in `apps/api/src/config/schema.ts`
-- [ ] T042 [P] Add `auth.session.cookie` fields (httpOnly, sameSite, saveUninitialized, rolling) to schema
-- [ ] T043 [P] Add `auth.passwordReset.tokenByteLength` field to schema
-- [ ] T044 [P] Add email template fields (subjects + HTML bodies) to schema
-- [ ] T045 Update `apps/api/src/services/breach-check.service.ts` to use `app.config.auth.breachCheck.hibpApiUrl`
-- [ ] T046 Update `apps/api/src/routes/password-reset-request.ts` to use `app.config.api.frontendUrl`
-- [ ] T047 Update `apps/api/src/plugins/https-redirect.ts` to use `app.config.api.httpsRedirect`
-- [ ] T048 Update `apps/api/src/plugins/auth.ts` to use `app.config.auth.session.cookie.*`
-- [ ] T049 Update `apps/api/src/services/password-reset.service.ts` to use `app.config.auth.passwordReset.tokenByteLength`
-- [ ] T050 Update email sending calls to use `app.config.auth.email.templates.*`
-- [ ] T051 Update `apps/api/config/default.yaml` with new field defaults
-- [ ] T052 Update `apps/api/config/development.yaml` with new field dev values
+- [X] T039 [P] Add `api.frontendUrl` field to schema in `apps/api/src/config/schema.ts`
+- [X] T040 [P] Add `api.httpsRedirect` field to schema in `apps/api/src/config/schema.ts`
+- [X] T041 [P] Add `auth.breachCheck.hibpApiUrl` field to schema in `apps/api/src/config/schema.ts`
+- [X] T042 [P] Add `auth.session.cookie` fields (httpOnly, sameSite, saveUninitialized, rolling) to schema
+- [X] T043 [P] Add `auth.passwordReset.tokenByteLength` field to schema
+- [X] T044 [P] Add email template fields (subjects + HTML bodies) to schema
+- [X] T045 Update `apps/api/src/services/breach-check.service.ts` to use `app.config.auth.breachCheck.hibpApiUrl`
+- [X] T046 Update `apps/api/src/routes/password-reset-request.ts` to use `app.config.api.frontendUrl`
+- [X] T047 Update `apps/api/src/plugins/https-redirect.ts` to use `app.config.api.httpsRedirect`
+- [X] T048 Update `apps/api/src/plugins/auth.ts` to use `app.config.auth.session.cookie.*`
+- [X] T049 Update `apps/api/src/services/password-reset.service.ts` to use `app.config.auth.passwordReset.tokenByteLength`
+- [X] T050 Update email sending calls to use `app.config.auth.email.templates.*`
+- [X] T051 Update `apps/api/config/default.yaml` with new field defaults
+- [X] T052 Update `apps/api/config/development.yaml` with new field dev values
 
 **Checkpoint**: All hard-coded values are now configurable
 
@@ -197,11 +197,11 @@ description: "Task list for Configuration Strategy (004-config-strategy)"
 
 **Purpose**: Cleanup, tests, and quality gates
 
-- [ ] T053 Run `pnpm typecheck` — verify zero type errors
-- [ ] T054 Run `pnpm lint` — verify zero lint errors
-- [ ] T055 Run `pnpm --filter=domain test` — verify all domain tests pass
-- [ ] T056 Run `pnpm fresh-onion` — verify architecture boundaries intact
-- [ ] T057 Verify zero `process.env` calls remain in `apps/api/src/` production code
+- [X] T053 Run `pnpm typecheck` — verify zero type errors
+- [X] T054 Run `pnpm lint` — verify zero lint errors
+- [X] T055 Run `pnpm --filter=domain test` — verify all domain tests pass
+- [X] T056 Run `pnpm fresh-onion` — verify architecture boundaries intact
+- [X] T057 Verify zero `process.env` calls remain in `apps/api/src/` production code
 
 ---
 

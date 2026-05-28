@@ -15,8 +15,8 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
   app.post('/auth/password/change', {
     config: {
       rateLimit: {
-        max: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_MAX ?? '5', 10),
-        timeWindow: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_WINDOW ?? '900000', 10),
+        max: app.config.auth.passwordChange.rateLimitMax,
+        timeWindow: app.config.auth.passwordChange.rateLimitWindow,
       },
     },
     schema: {
@@ -45,7 +45,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    const historyDepth = parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_HISTORY_DEPTH ?? '5', 10);
+    const historyDepth = request.server.config.auth.password.historyDepth;
 
     const useCase = new ChangePasswordUseCase(
       request.server.repos.user,
@@ -71,8 +71,8 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
     if (user) {
       await sendEmail({
         to: user.email.value,
-        subject: 'Password Changed',
-        html: `<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>`,
+        subject: request.server.config.auth.email.templates.passwordChanged.subject,
+        html: request.server.config.auth.email.templates.passwordChanged.html,
       });
     }
 

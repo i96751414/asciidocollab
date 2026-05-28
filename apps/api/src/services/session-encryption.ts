@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { getConfig } from '../config';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -18,7 +19,8 @@ function getEncryptionKey(): Buffer {
   if (cachedKey) {
     return cachedKey;
   }
-  const raw = process.env.ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY;
+  const config = getConfig();
+  const raw = config.auth.session.encryptionKey;
   if (raw) {
     if (!/^[0-9a-f]{64}$/i.test(raw)) {
       throw new Error('ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY must be a 64-character hexadecimal string');

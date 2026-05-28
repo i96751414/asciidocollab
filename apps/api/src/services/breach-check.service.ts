@@ -1,6 +1,5 @@
 import { createHash } from 'crypto';
-
-const HIBP_API_URL = 'https://api.pwnedpasswords.com/range';
+import { getConfig } from '../config';
 
 /**
  * Checks if a password has been exposed in a data breach using HIBP k-anonymity.
@@ -9,12 +8,14 @@ const HIBP_API_URL = 'https://api.pwnedpasswords.com/range';
  * @returns True if the password has been breached, false otherwise.
  */
 export async function isPasswordBreached(password: string): Promise<boolean> {
+  const config = getConfig();
+  const hibpApiUrl = config.auth.breachCheck.hibpApiUrl;
   const hash = createHash('sha1').update(password).digest('hex').toUpperCase();
   const prefix = hash.slice(0, 5);
   const suffix = hash.slice(5);
 
   try {
-    const response = await fetch(`${HIBP_API_URL}/${prefix}`);
+    const response = await fetch(`${hibpApiUrl}/${prefix}`);
     if (!response.ok) {
       return false;
     }

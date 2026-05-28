@@ -13,8 +13,8 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
   app.post('/auth/password/reset/request', {
     config: {
       rateLimit: {
-        max: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_MAX ?? '3', 10),
-        timeWindow: parseInt(process.env.ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW ?? '3600000', 10),
+        max: app.config.auth.passwordReset.rateLimitMax,
+        timeWindow: app.config.auth.passwordReset.rateLimitWindow,
       },
     },
     schema: {
@@ -38,11 +38,12 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
     const result = await useCase.execute(Email.create(email));
 
     if (result.success) {
-      const frontendUrl = process.env.ASCIIDOCOLLAB_API_FRONTEND_URL ?? 'https://asciidocollab.example.com';
+      const frontendUrl = app.config.api.frontendUrl;
+      const template = app.config.auth.email.templates.resetRequest;
       await sendEmail({
         to: result.value.email,
-        subject: 'Password Reset Request',
-        html: `Click <a href="${frontendUrl}/reset?token=${result.value.rawToken}">here</a> to reset your password.`,
+        subject: template.subject,
+        html: template.html.replace('{frontendUrl}', frontendUrl).replace('{token}', result.value.rawToken),
       });
     }
 
