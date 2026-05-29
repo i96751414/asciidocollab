@@ -36,31 +36,33 @@ export class RequestPasswordResetUseCase {
   /**
    * Creates a password reset token for the given email.
    *
+   * Always returns success to prevent email enumeration.
+   * The caller should always send the same response regardless of whether
+   * the email exists.
+   *
    * @param email - The email address to reset.
-   * @returns Success with raw token and email, or error if user not found.
+   * @returns Always returns success with a token.
    */
   async execute(email: Email): Promise<Result<RequestPasswordResetResult, Error>> {
     const user = await this.userRepo.findByEmail(email);
 
-    if (!user) {
-      const dummy = this.tokenGenerator.generatePasswordResetToken();
-      return {
-        success: true,
-        value: { rawToken: dummy.token, email: email.value },
-      };
+    // Always generate a token to ensure constant-time behavior
+    const resetToken = this.tokenGenerator.generatePasswordResetToken();
+
+    if (user) {
+      // Only save token if user exists (database write is the timing differentiator)
+      const tokenEntity = new PasswordResetToken(
+        PasswordResetTokenId.create(randomUUID()),
+        user.id,
+        resetToken.hashedToken,
+        resetToken.expiresAt,
+        null,
+      );
+      await this.tokenRepo.save(tokenEntity);
     }
 
-    const resetToken = this.tokenGenerator.generatePasswordResetToken();
-    const tokenEntity = new PasswordResetToken(
-      PasswordResetTokenId.create(randomUUID()),
-      user.id,
-      resetToken.hashedToken,
-      resetToken.expiresAt,
-      null,
-    );
-
-    await this.tokenRepo.save(tokenEntity);
-
+    // Always return success with a token
+    // If user doesn't exist, the token won't match any stored token
     return {
       success: true,
       value: { rawToken: resetToken.token, email: email.value },
