@@ -146,3 +146,46 @@ Rules:
 - Actor validation for admin-only operations uses `callerMembership.role.value !== 'administrator'` check
 - Owner cannot be removed, owner's role cannot be changed, last admin cannot be removed/demoted
 - `docs/superpowers/specs/2026-05-26-asciidocollab-architecture-design.md` has the full architecture spec
+
+## Phase 3 Implementation Summary
+
+Phase 3 (Configurable Email Sender + Security) is **complete and merged to master**.
+
+### What was built
+
+- **NodemailerEmailSender**: SMTP-based email implementation in `packages/infrastructure/src/services/`
+- **Configurable email**: `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` env var to enable/disable email sending
+- **Breach blocking**: Registration and password change rejected when password is in breach database (FR-008, FR-010)
+- **Constant-time login**: Prevents timing attacks that could enumerate valid emails
+- **Constant-time password reset**: Prevents timing attacks that could enumerate valid emails
+- **Graceful degradation**: All auth flows work without email when disabled
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `packages/infrastructure/src/services/nodemailer-email-sender.ts` | SMTP email sender implementation |
+| `packages/domain/src/use-cases/login.ts` | Constant-time login with `LOGIN_DELAY_MS` |
+| `packages/domain/src/use-cases/request-password-reset.ts` | Constant-time password reset with `PASSWORD_RESET_DELAY_MS` |
+| `packages/domain/src/use-cases/register-user.ts` | Breach blocking for registration |
+| `packages/domain/src/use-cases/change-password.ts` | Breach blocking for password change |
+| `packages/domain/src/constants.ts` | Timing constants (`LOGIN_DELAY_MS`, `PASSWORD_RESET_DELAY_MS`) |
+| `apps/api/src/index.ts` | Wires NodemailerEmailSender based on config |
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` | `true` | Enable/disable email sending |
+| `ASCIIDOCOLLAB_AUTH_EMAIL_FROM` | required | Sender email address (required when enabled) |
+| `ASCIIDOCOLLAB_AUTH_SMTP_HOST` | - | SMTP server host |
+| `ASCIIDOCOLLAB_AUTH_SMTP_PORT` | `587` | SMTP server port |
+| `ASCIIDOCOLLAB_AUTH_SMTP_USER` | - | SMTP authentication user |
+| `ASCIIDOCOLLAB_AUTH_SMTP_PASSWORD` | - | SMTP authentication password |
+
+### Security considerations
+
+- **Timing attacks**: Login and password reset use constant-time responses (500ms delay)
+- **Breach check**: Non-blocking — failures don't prevent registration/password change
+- **Email disabled**: Breach check still runs even when email is disabled
+- **Config validation**: App fails fast at startup if email enabled but `FROM` not set
