@@ -6,6 +6,7 @@ import { PasswordResetTokenRepository } from '../repositories/password-reset-tok
 import { Result } from '@asciidocollab/shared';
 import { randomUUID } from 'crypto';
 import { TokenGenerator } from '../services/token-generator';
+import { PASSWORD_RESET_DELAY_MS } from '../constants';
 
 /** Result returned on successful password reset request. */
 export interface RequestPasswordResetResult {
@@ -37,13 +38,14 @@ export class RequestPasswordResetUseCase {
    * Creates a password reset token for the given email.
    *
    * Always returns success to prevent email enumeration.
-   * The caller should always send the same response regardless of whether
-   * the email exists.
+   * Applies constant-time delay to prevent timing attacks.
    *
    * @param email - The email address to reset.
    * @returns Always returns success with a token.
    */
   async execute(email: Email): Promise<Result<RequestPasswordResetResult, Error>> {
+    const startTime = Date.now();
+
     const user = await this.userRepo.findByEmail(email);
 
     // Always generate a token to ensure constant-time behavior
@@ -59,6 +61,13 @@ export class RequestPasswordResetUseCase {
         null,
       );
       await this.tokenRepo.save(tokenEntity);
+    }
+
+    // Ensure constant-time response by waiting at least PASSWORD_RESET_DELAY_MS
+    const elapsed = Date.now() - startTime;
+    const remaining = PASSWORD_RESET_DELAY_MS - elapsed;
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
     }
 
     // Always return success with a token
