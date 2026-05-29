@@ -8,10 +8,8 @@ AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 2 complete — database layer (Prisma schema + 9 repository implementations) built on top of Phase 1.
-See `docs/superpowers/specs/2026-05-27-database-layer-design.md` for the design and `specs/002-database-layer/plan.md`
-for the implementation plan. Architecture spec at
-`docs/superpowers/specs/2026-05-26-asciidocollab-architecture-design.md`.
+**Status:** Phase 3 complete — configurable email sender, breach blocking, and timing attack prevention built on top of Phases 1-2.
+See `specs/005-configurable-mailer/plan.md` for the implementation plan.
 
 ## Tech Stack
 
@@ -26,6 +24,7 @@ for the implementation plan. Architecture spec at
 | PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                  |
 | Database                | PostgreSQL via Prisma ORM                                 |
 | Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID) |
+| Email                   | Nodemailer (SMTP)                                        |
 | Monorepo                | pnpm workspaces                                           |
 | Tests                   | Jest + Testing Library + Playwright (E2E)                 |
 | Architecture validation | fresh-onion                                               |
@@ -36,15 +35,15 @@ for the implementation plan. Architecture spec at
 asciidocollab/
 ├── apps/
 │   ├── web/          # Next.js 14 — delivery layer only (shell for Phase 4+)
-│   └── api/          # Fastify — delivery layer only (shell for Phase 3+)
+│   └── api/          # Fastify — delivery layer only
 ├── packages/
 │   ├── domain/            # Entities, use cases, repository interfaces — zero external deps ✅ DONE
-│   ├── infrastructure/    # Prisma repos, filesystem, Docker adapters ✅ Phase 2 repos DONE
+│   ├── infrastructure/    # Prisma repos, filesystem, Docker adapters, email sender ✅ DONE
 │   ├── collaboration/     # Hocuspocus standalone server (shell for Phase 9+)
 │   ├── shared/            # Result<T,E> type, DTOs ✅ DONE
 │   └── db/                # Prisma schema, migrations ✅ DONE
 ├── specs/
-│   └── 001-domain-layer-scaffold/  # Phase 1 plan, spec, data model, tasks
+│   └── 005-configurable-mailer/  # Email sender + security feature
 └── pnpm-workspace.yaml
 ```
 
@@ -136,7 +135,9 @@ packages/domain/src/
 ├── value-objects/   # 19 VO classes + barrel index
 ├── errors/          # 16 error classes + barrel index
 ├── repositories/    # 9 repository interfaces + barrel index
-├── use-cases/       # 7 use cases + barrel index
+├── use-cases/       # 12 use cases + barrel index
+├── services/        # Service interfaces (PasswordHasher, BreachChecker, etc.)
+├── constants.ts     # Application constants (LOGIN_DELAY_MS, PASSWORD_RESET_DELAY_MS)
 └── index.ts         # barrel export
 ```
 
@@ -168,7 +169,7 @@ layer (e.g. session middleware), not to the domain use case itself.
 |-------|---------------------------------------------------------------------------------------------------|----------------|
 | 1     | Monorepo scaffold + domain layer (entities, value objects, use cases — pure TS, in-memory-tested) | ✅ **Complete** |
 | 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
-| 3     | API server + local authentication (Fastify, sessions, login/logout/register)                      | ⬜ Pending      |
+| 3     | Configurable email sender, breach blocking, timing attack prevention                              | ✅ **Complete** |
 | 4     | Project management (CRUD + member management — API + dashboard UI)                                | ⬜ Pending      |
 | 5     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
 | 6     | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
@@ -185,5 +186,5 @@ layer (e.g. session middleware), not to the domain use case itself.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/002-database-layer/plan.md
+specs/005-configurable-mailer/plan.md
 <!-- SPECKIT END -->
