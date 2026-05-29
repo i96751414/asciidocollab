@@ -2,6 +2,7 @@ import { Email } from '../value-objects/email';
 import { UserRepository } from '../repositories/user.repository';
 import { Result } from '@asciidocollab/shared';
 import { PasswordHasher } from '../services/password-hasher';
+import { LOGIN_DELAY_MS } from '../constants';
 
 /** Result returned on successful login. */
 export interface LoginResult {
@@ -37,19 +38,23 @@ export class LoginUseCase {
     email: Email,
     password: string,
   ): Promise<Result<LoginResult, Error>> {
+    const startTime = Date.now();
+
     const user = await this.userRepo.findByEmail(email);
 
-    if (!user || !user.passwordHash) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return {
-        success: false,
-        error: new Error('Invalid email or password'),
-      };
+    let passwordValid = false;
+    if (user && user.passwordHash) {
+      passwordValid = await this.passwordHasher.verify(user.passwordHash, password);
     }
 
-    const passwordValid = await this.passwordHasher.verify(user.passwordHash, password);
-    if (!passwordValid) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    // Ensure constant-time response by waiting at least LOGIN_DELAY_MS
+    const elapsed = Date.now() - startTime;
+    const remaining = LOGIN_DELAY_MS - elapsed;
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+
+    if (!user || !user.passwordHash || !passwordValid) {
       return {
         success: false,
         error: new Error('Invalid email or password'),

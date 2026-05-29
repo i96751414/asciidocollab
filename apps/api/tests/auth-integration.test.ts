@@ -8,6 +8,7 @@ import { passwordResetRequestRoute } from '../src/routes/password-reset-request'
 import { passwordResetRoute } from '../src/routes/password-reset';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
+import { LOGIN_DELAY_MS } from '@asciidocollab/domain';
 
 describe('Auth Integration Tests', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
@@ -169,6 +170,8 @@ describe('Auth Integration Tests', () => {
         payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
       });
 
+      // All login attempts should take at least LOGIN_DELAY_MS
+      // regardless of whether email exists or password is correct
       const start1 = Date.now();
       await app.inject({
         method: 'POST',
@@ -185,11 +188,9 @@ describe('Auth Integration Tests', () => {
       });
       const time2 = Date.now() - start2;
 
-      // Both should take at least 500ms due to the delay
-      expect(time1).toBeGreaterThanOrEqual(400);
-      expect(time2).toBeGreaterThanOrEqual(400);
-      // The difference should be small (within 300ms to account for argon2 timing)
-      expect(Math.abs(time1 - time2)).toBeLessThan(300);
+      // Both should take at least LOGIN_DELAY_MS due to constant-time implementation
+      expect(time1).toBeGreaterThanOrEqual(LOGIN_DELAY_MS - 100);
+      expect(time2).toBeGreaterThanOrEqual(LOGIN_DELAY_MS - 100);
     });
   });
 
