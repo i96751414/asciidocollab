@@ -49,7 +49,7 @@ export class RegisterUserUseCase {
    * @param email - The validated email address.
    * @param displayName - The user's chosen display name.
    * @param password - The plaintext password to validate, check, and hash.
-   * @returns Success with userId and breach flag, or a DomainError.
+   * @returns Success with userId and existing flag, or a DomainError.
    */
   async execute(
     email: Email,

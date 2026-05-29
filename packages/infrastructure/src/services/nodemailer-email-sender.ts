@@ -31,7 +31,6 @@ export interface NodemailerEmailSenderConfig {
  */
 export class NodemailerEmailSender implements EmailSender {
   private transporter: Transporter | null = null;
-  private initializationError: Error | null = null;
   private readonly config: NodemailerEmailSenderConfig;
 
   /**
@@ -54,6 +53,8 @@ export class NodemailerEmailSender implements EmailSender {
 
   /**
    * Initializes the nodemailer transporter.
+   *
+   * @throws {Error} If transporter creation fails.
    */
   private initializeTransporter(): void {
     if (!this.config.enabled) {
@@ -61,21 +62,16 @@ export class NodemailerEmailSender implements EmailSender {
       return;
     }
 
-    try {
-      this.transporter = nodemailer.createTransport({
-        host: this.config.host,
-        port: this.config.port,
-        secure: this.config.port === 465,
-        auth: {
-          user: this.config.user,
-          pass: this.config.password,
-        },
-      });
-      logger.info({ host: this.config.host, port: this.config.port }, 'SMTP transporter initialized');
-    } catch (error) {
-      this.initializationError = error instanceof Error ? error : new Error(String(error));
-      logger.error({ error }, 'Failed to initialize SMTP transporter');
-    }
+    this.transporter = nodemailer.createTransport({
+      host: this.config.host,
+      port: this.config.port,
+      secure: this.config.port === 465,
+      auth: {
+        user: this.config.user,
+        pass: this.config.password,
+      },
+    });
+    logger.info({ host: this.config.host, port: this.config.port }, 'SMTP transporter initialized');
   }
 
   /**
@@ -94,10 +90,7 @@ export class NodemailerEmailSender implements EmailSender {
     }
 
     if (!this.transporter) {
-      const message = this.initializationError
-        ? `SMTP transporter not initialized: ${this.initializationError.message}`
-        : 'SMTP transporter not initialized';
-      throw new Error(message);
+      throw new Error('SMTP transporter not initialized');
     }
 
     try {

@@ -131,16 +131,22 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       path.join(__dirname, '..', 'data', 'common-passwords.txt'),
     );
 
-    const emailSender = appConfig.auth.email.enabled
-      ? new NodemailerEmailSender({
-          enabled: appConfig.auth.email.enabled,
-          host: appConfig.auth.email.smtpHost,
-          port: appConfig.auth.email.smtpPort,
-          user: appConfig.auth.email.smtpUser,
-          password: appConfig.auth.email.smtpPassword,
-          from: appConfig.auth.email.from ?? '',
-        })
-      : new StubEmailSender();
+    let emailSender;
+    if (appConfig.auth.email.enabled) {
+      if (!appConfig.auth.email.from) {
+        throw new Error('ASCIIDOCOLLAB_AUTH_EMAIL_FROM is required when email is enabled');
+      }
+      emailSender = new NodemailerEmailSender({
+        enabled: appConfig.auth.email.enabled,
+        host: appConfig.auth.email.smtpHost,
+        port: appConfig.auth.email.smtpPort,
+        user: appConfig.auth.email.smtpUser,
+        password: appConfig.auth.email.smtpPassword,
+        from: appConfig.auth.email.from,
+      });
+    } else {
+      emailSender = new StubEmailSender();
+    }
 
     const tokenGenerator = new CryptoTokenGenerator({
       tokenByteLength: appConfig.auth.passwordReset.tokenByteLength,
