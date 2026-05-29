@@ -84,7 +84,13 @@ export class ChangePasswordUseCase {
       };
     }
 
-    const breached = await this.breachChecker.isBreached(newPassword);
+    let breached = false;
+    try {
+      breached = await this.breachChecker.isBreached(newPassword);
+    } catch {
+      // Breach check failure is non-blocking - allow password change to proceed
+    }
+
     if (breached) {
       return {
         success: false,

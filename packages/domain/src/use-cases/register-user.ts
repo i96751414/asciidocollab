@@ -74,7 +74,13 @@ export class RegisterUserUseCase {
       };
     }
 
-    const breached = await this.breachChecker.isBreached(password);
+    let breached = false;
+    try {
+      breached = await this.breachChecker.isBreached(password);
+    } catch {
+      // Breach check failure is non-blocking - allow registration to proceed
+    }
+
     if (breached) {
       return {
         success: false,

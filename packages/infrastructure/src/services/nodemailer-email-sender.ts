@@ -31,6 +31,7 @@ export interface NodemailerEmailSenderConfig {
  */
 export class NodemailerEmailSender implements EmailSender {
   private transporter: Transporter | null = null;
+  private initializationError: Error | null = null;
   private readonly config: NodemailerEmailSenderConfig;
 
   /**
@@ -62,6 +63,7 @@ export class NodemailerEmailSender implements EmailSender {
       });
       logger.info({ host: this.config.host, port: this.config.port }, 'SMTP transporter initialized');
     } catch (error) {
+      this.initializationError = error instanceof Error ? error : new Error(String(error));
       logger.error({ error }, 'Failed to initialize SMTP transporter');
     }
   }
@@ -82,7 +84,10 @@ export class NodemailerEmailSender implements EmailSender {
     }
 
     if (!this.transporter) {
-      throw new Error('SMTP transporter not initialized');
+      const message = this.initializationError
+        ? `SMTP transporter not initialized: ${this.initializationError.message}`
+        : 'SMTP transporter not initialized';
+      throw new Error(message);
     }
 
     try {
