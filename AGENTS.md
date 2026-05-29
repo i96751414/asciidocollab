@@ -4,91 +4,148 @@ shell commands, and other important information, read the current plan at
 specs/005-configurable-mailer/plan.md
 <!-- SPECKIT END -->
 
-## Build & Test Commands
+## Project
 
-```bash
-# Install all dependencies
-pnpm install
+AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
+file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
+deployments.
 
-# Build all packages
-pnpm build
+**Status:** Phase 3 complete — configurable email sender, breach blocking, and timing attack prevention built on top of Phases 1-2.
+See `specs/005-configurable-mailer/plan.md` for the implementation plan.
 
-# Run all tests
-pnpm test
+## Tech Stack
 
-# Run domain-specific tests
-pnpm --filter=domain test
+| Layer                   | Technology                                                |
+|-------------------------|-----------------------------------------------------------|
+| Frontend                | Next.js 14 (App Router) + TypeScript                      |
+| Code editor             | CodeMirror 6 + `y-codemirror.next`                        |
+| HTML preview            | Asciidoctor.js (Web Worker, client-side)                  |
+| API server              | Fastify + TypeScript                                      |
+| Real-time CRDT          | Yjs                                                       |
+| Collaboration server    | Hocuspocus (standalone process)                           |
+| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                  |
+| Database                | PostgreSQL via Prisma ORM                                 |
+| Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID) |
+| Email                   | Nodemailer (SMTP)                                        |
+| Monorepo                | pnpm workspaces                                           |
+| Tests                   | Jest + Testing Library + Playwright (E2E)                 |
+| Architecture validation | fresh-onion                                               |
 
-# Run tests with coverage
-pnpm test:coverage
+## Monorepo Structure
 
-# Type-check
-pnpm typecheck
-
-# Lint
-pnpm lint
-
-# Validate architecture boundaries
-pnpm fresh-onion
+```
+asciidocollab/
+├── apps/
+│   ├── web/          # Next.js 14 — delivery layer only (shell for Phase 4+)
+│   └── api/          # Fastify — delivery layer only
+├── packages/
+│   ├── domain/            # Entities, use cases, repository interfaces — zero external deps ✅ DONE
+│   ├── infrastructure/    # Prisma repos, filesystem, Docker adapters, email sender ✅ DONE
+│   ├── collaboration/     # Hocuspocus standalone server (shell for Phase 9+)
+│   ├── shared/            # Result<T,E> type, DTOs ✅ DONE
+│   └── db/                # Prisma schema, migrations ✅ DONE
+├── specs/
+│   └── 005-configurable-mailer/  # Email sender + security feature
+└── pnpm-workspace.yaml
 ```
 
-## Phase 1 Implementation Summary
+## Development Commands
 
-Phase 1 (Monorepo scaffold + domain layer) is **complete and merged to master**.
+```bash
+pnpm install              # install all workspace dependencies
+pnpm build                # build all packages
+pnpm test                 # run all tests
+pnpm test --filter=domain # run tests for a specific package
+pnpm test:coverage        # run tests with coverage
+pnpm typecheck            # TypeScript type-checking
+pnpm lint                 # lint all packages
+pnpm fresh-onion          # validate architecture boundaries
+```
 
-### What was built
+## Architecture Principles
 
-- **9 entities**: User, Project, ProjectMember, FileNode, Document, Image, Template, GitRepository, AuditLog
-- **19 value objects**: Uuid (base), 9 ID subclasses, Email, FilePath, Role, ProjectName, GitProvider, MimeType, FileNodeType, ContentId, YjsStateId, TemplateCategory, Timestamps
-- **7 use cases**: create-project, rename-file, delete-file, invite-user, remove-member, change-member-role, get-project-tree
-- **16 error classes**: DomainError (base), ProjectNotFoundError, UserNotFoundError, FileNodeNotFoundError, PermissionDeniedError, DuplicateEmailError, InvalidProjectNameError, FileConflictError, ProjectMemberAlreadyExistsError, CannotRemoveOwnerError, CannotChangeOwnerRoleError, CannotRemoveLastAdminError, CannotAttachDocumentToFolderError, CannotDeleteRootFolderError, MemberNotFoundError, ValidationError
-- **9 repository interfaces** with in-memory fakes
-- **Shared package**: Result<T,E> discriminated union + 7 DTOs
-- **164 tests** across 18 test suites
+### Clean Architecture — strict dependency rule
 
-## Phase 2 Implementation Summary
+Dependencies flow strictly inward: `domain` ← `infrastructure` ← `apps/*`.
 
-Phase 2 (Database layer) is **complete and merged to master**.
+- `packages/domain` has **zero external dependencies** — no Prisma, no Fastify, no filesystem imports.
+- `packages/infrastructure` implements domain interfaces; domain never imports infrastructure.
+- Cross-boundary communication uses DTOs from `packages/shared`.
+- Dependency injection wires concrete implementations to domain interfaces at startup in `apps/`.
+- Architectural boundaries are enforced by fresh-onion in CI.
 
-### What was built
+### Error handling
 
-- **2 new packages**: `packages/db` (Prisma schema + client) and `packages/infrastructure` (Prisma repository implementations)
-- **Prisma schema**: 9 tables (User, Project, ProjectMember, FileNode, Document, Image, Template, GitRepository, AuditLog) with 3 enums (Role, FileNodeType, GitProvider), FK relationships with cascade rules, indexes, and `@db.Uuid` on all UUID columns
-- **9 Prisma repository implementations**: PrismaUserRepository, PrismaProjectRepository, PrismaProjectMemberRepository, PrismaFileNodeRepository, PrismaDocumentRepository, PrismaImageRepository, PrismaTemplateRepository, PrismaGitRepositoryRepository, PrismaAuditLogRepository
-- **Mapping layer**: `toDomain()` / `toPersistence()` helpers for all 9 entities, handling UUID string ↔ VO, Prisma enum ↔ domain VO, Date ↔ Timestamps, JSON ↔ AuditLog metadata
-- **Integration test suite**: 9 test files covering all repositories against real PostgreSQL via testcontainers (postgres:16-alpine)
-- **Test infrastructure**: Shared testcontainers helper and test data factories for all 9 entity types
-- **Cross-cutting**: ESLint type assertion rules (`no-explicit-any: error`, `no-as-type-cast`), type mapping round-trip verification (13 tests)
-- **All quality gates pass**: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fresh-onion`
+- Domain errors are typed value objects extending `DomainError` (e.g. `ProjectNotFoundError`, `PermissionDeniedError`).
+  Never throw raw strings or generic `Error` in domain or application layers.
+- Value objects throw `ValidationError extends DomainError` on bad input (programmer errors, not control flow).
+- Use cases return `Result<T, DomainError>` (discriminated union) — no exception-driven control flow.
+- Infrastructure adapters catch external errors at the adapter boundary and map them to domain error types.
+- Fastify's error handler maps domain errors to HTTP status codes and structured JSON.
 
-### Key design decisions
+### Testing
 
-- **Two-package separation**: `packages/db` owns schema + client generation; `packages/infrastructure` owns repository implementations using PrismaClient. Keeps schema concerns isolated from implementation concerns.
-- **`PrismaEnum` mapping**: Domain VOs (Role, FileNodeType, GitProvider) map to Prisma enums via `.value` ↔ string constant — no Zod or runtime parsing needed.
-- **`toDomain`/`toPersistence` pattern**: Each repository has two static/idempotent mapping functions that convert between Prisma records and domain entities. UUID VOs, Timestamps, and enums all handled uniformly.
-- **`@db.Uuid` on all UUID columns**: Native PostgreSQL `uuid` type for all primary and foreign keys — avoids implicit `text` casting.
-- **Recursive cascade delete**: FileNode hierarchy uses Prisma `onDelete: Cascade` on `parentId` self-FK — DB handles recursive deletion, not application code.
-- **Composite PK for ProjectMember**: Prisma `@@id([projectId, userId])` — mirrors the domain's composite identity.
-- **AuditLog JSON metadata**: Stored as Prisma `Json` type → mapped to/from `Record<string, unknown>` with `JSON.parse`/`JSON.stringify` round-trip.
-- **No `as` casts in production code**: All type narrowing done via typed helper functions, ternary expressions, and `JSON.parse` with explicit `Record<string, unknown>` typing. 2 test helper violations exempted via ESLint overrides.
+- Domain use cases are tested with **in-memory fakes** (not mocks) of repository interfaces.
+- Infrastructure adapters use integration tests against real DB/filesystem via `testcontainers`.
+- E2E via Playwright.
 
-### Code conventions established
+## Code Conventions
 
-- **Zero runtime deps in domain** — enforced by fresh-onion
-- **Value objects** — `static create()` + private constructor, throw `ValidationError` on bad input
-- **UUID IDs** — extend `Uuid` abstract base, cross-type `equals()` via `instanceof` + constructor check
-- **Timestamps** — `Timestamps` value object with defensive `Date` copies, used by User, Project, FileNode, Document
-- **ID naming** — all ID params/fields use `Id` suffix (`actorId`, `fileNodeId`, `projectId`)
-- **Use cases** — return `Result<T, DomainError>`, never throw
-- **Entity invariants** — validated in constructor, errors thrown (programmer errors, not control flow)
-- **In-memory fakes** — all 9 repos tested with Map-backed fakes, no mocking libraries
-- **Architecture** — fresh-onion validates domain never imports outside its package
-- **Env var naming** — all environment variables follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (e.g., `ASCIIDOCOLLAB_DATABASE_URL`, `ASCIIDOCOLLAB_AUTH_SESSION_SECRET`). The `ASCIIDOCOLLAB_` prefix is the application name; category prefixes (`AUTH_`, `API_`, `DB_`) further group related vars.
-- **Logging** — Fastify uses Pino (built-in). Use `request.log` in route handlers and hooks. Never use `console.log/error/warn` in production code. Services without request context use a module-level `pino()` instance. Error handlers should NOT duplicate Fastify's auto-logging — add structured context fields only. All log fields containing passwords/tokens must be added to the `redact` array in logger config.
+### Value Objects
 
-### Documentation conventions
+- Use `static create()` factory method with a `private constructor`.
+- Validate input in `create()`, throw `ValidationError` on failure.
+- Expose `.value` getter for the wrapped primitive.
+- Implement `.equals(other: unknown): boolean` via `instanceof`.
+- **UUID IDs**: Extend the `Uuid` abstract base class. `Uuid.equals()` uses constructor comparison to prevent cross-type
+  equality (e.g. `UserId` !== `AuditLogId` even with same UUID string).
 
-All **public** classes, methods, interfaces, exported functions, and type definitions MUST have JSDoc following the existing domain-layer pattern:
+### Timestamps
+
+- Use the `Timestamps` value object for `createdAt`/`updatedAt` pairs.
+- Timestamps stores private `Date` fields and returns defensive copies from getters.
+- Entity getters delegate to `this.timestamps.createdAt` / `this.timestamps.updatedAt`.
+
+### Entities
+
+- Validate invariants in the constructor. Throw `Error` for programmer errors (not returned as Result).
+- Accept `Timestamps` as a single constructor parameter (defaults to `new Timestamps()`).
+- Provide `.createdAt` and `.updatedAt` getters that delegate to timestamps.
+
+### Use Cases
+
+- Every `execute()` method returns `Promise<Result<T, DomainError>>`.
+- Never throw exceptions for control flow.
+- Use `actorId` as the parameter name for the acting user (all ID params use `Id` suffix).
+- Permission checks use `role.value !== 'administrator'` pattern.
+- Create `AuditLog` entries for all state-changing operations.
+- Inject repository dependencies via constructor (no DI framework).
+
+### In-Memory Fakes
+
+- Stored in `packages/domain/tests/repositories/`.
+- Backed by `Map<string, Entity>` keyed by `.value` of the ID.
+- No mocking libraries — fakes are hand-written implementations.
+- `save()` upserts into the map.
+- Move/create patterns return new immutable entity instances.
+
+### Environment Variables
+
+All environment variables follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (e.g.,
+`ASCIIDOCOLLAB_DATABASE_URL`, `ASCIIDOCOLLAB_AUTH_SESSION_SECRET`). The `ASCIIDOCOLLAB_` prefix is the application
+name; category prefixes (`AUTH_`, `API_`, `DB_`) further group related vars.
+
+### Logging
+
+Fastify uses Pino (built-in). Use `request.log` in route handlers and hooks. Never use
+`console.log/error/warn` in production code. Services without request context use a module-level `pino()` instance.
+Error handlers should NOT duplicate Fastify's auto-logging — add structured context fields only. All log fields
+containing passwords/tokens must be added to the `redact` array in logger config.
+
+### Documentation
+
+All **public** classes, methods, interfaces, exported functions, and type definitions MUST have JSDoc following the
+existing domain-layer pattern:
 
 ```typescript
 /**
@@ -123,29 +180,96 @@ export class SomeEntity {
 ```
 
 Rules:
-- **Every public class, interface, type alias, and exported function** gets a JSDoc block. DTOs and simple type aliases need only a one-line purpose.
-- **Every public method** gets `@param` + `@returns` + `@throws` tags. Add a leading description sentence only when the method's behavior isn't fully captured by its name plus its tags.
+
+- **Every public class, interface, type alias, and exported function** gets a JSDoc block. DTOs and simple type aliases
+  need only a one-line purpose.
+- **Every public method** gets `@param` + `@returns` + `@throws` tags. Add a leading description sentence only when the
+  method's behavior isn't fully captured by its name plus its tags.
 - **`@param`** uses dash-separator: `@param name - Description.` No type annotation (TypeScript handles that).
-- **`@returns`** and **`@throws`** are always included for public methods. Use `@returns A promise that resolves when the operation completes.` for `Promise<void>` returns. Omit `@returns` only for plain `void` methods.
+- **`@returns`** and **`@throws`** are always included for public methods. Use
+  `@returns A promise that resolves when the operation completes.` for `Promise<void>` returns. Omit `@returns` only for
+  plain `void` methods.
 - **`@invariant`** on entity classes listing constructor-enforced invariants.
-- **Inline `/** doc *\/`** comments on constructor `public readonly` parameters are preferred over separate `@param` tags for simple field descriptions.
+- **Inline `/** doc *\/`** comments on constructor `public readonly` parameters are preferred over separate `@param`
+  tags for simple field descriptions.
 - **Constructor `@param`** tags are used when the parameter needs contextual explanation beyond what fits inline.
-- **File-level**: Use `@packageDocumentation` in package barrel `index.ts` files. Use `@file` in non-barrel index files that re-export.
+- **File-level**: Use `@packageDocumentation` in package barrel `index.ts` files. Use `@file` in non-barrel index files
+  that re-export.
 - **Tag ordering**: `@param` (in argument order), then `@returns`, then `@throws`.
-- **Blank line before tags**: Always insert an empty line (a bare ` *`) between the description paragraph and the first `@param`/`@returns`/`@throws` tag. Do NOT put tags on the line immediately after description text. Tags-only blocks (no description) need no blank line.
+- **Blank line before tags**: Always insert an empty line (a bare ` *`) between the description paragraph and the first
+  `@param`/`@returns`/`@throws` tag. Do NOT put tags on the line immediately after description text. Tags-only blocks (
+  no description) need no blank line.
 - Use backticks for code references, end sentences with periods.
-- **Infrastructure layer** (repository implementations, persistence helpers) must be documented same as domain — no exceptions.
-- Private/internal helpers with obvious behavior need no JSDoc. Add one when the implementation has non-obvious side effects or safety invariants (e.g., `extractMetadata`).
-- Follow the "why, not what" principle: if the code already makes the behavior obvious, the comment explains the rationale or non-obvious side effects.
+- **Infrastructure layer** (repository implementations, persistence helpers) must be documented same as domain — no
+  exceptions.
+- Private/internal helpers with obvious behavior need no JSDoc. Add one when the implementation has non-obvious side
+  effects or safety invariants (e.g., `extractMetadata`).
+- Follow the "why, not what" principle: if the code already makes the behavior obvious, the comment explains the
+  rationale or non-obvious side effects.
 
-### Key design decisions
+## Key Architectural Decisions
 
-- `CreateProjectUseCase` does NOT verify actor exists — API layer responsibility
-- `FileNode.move()` creates new node (immutable) — old node replaced in storage
-- Recursive folder deletion uses iterative DFS with explicit stack — no stack overflow risk
-- Actor validation for admin-only operations uses `callerMembership.role.value !== 'administrator'` check
-- Owner cannot be removed, owner's role cannot be changed, last admin cannot be removed/demoted
-- `docs/superpowers/specs/2026-05-26-asciidocollab-architecture-design.md` has the full architecture spec
+**Git sandboxing (FR-011):** Each git operation spawns a short-lived Docker container from `docker/git-sandbox`. The
+container mounts only the requesting project's directory. Credentials are injected as environment variables — never
+written to disk.
+
+**HTML preview:** Asciidoctor.js runs in a dedicated Web Worker. Preview does not auto-render on every keystroke; user
+explicitly clicks Refresh. This avoids blocking the editor thread.
+
+**Collaboration:** Hocuspocus maps each open document to a room keyed by `documentId`. On WebSocket connect, Hocuspocus
+calls the Fastify API to verify the user has at least `viewer` access before accepting the connection. Yjs state is
+persisted to filesystem as `.yjs` binary files.
+
+**Project creation invariant:** Creating a project always runs a single DB transaction: insert Project (
+rootFolderId=null) → insert root FileNode → update Project.rootFolderId. Every project always has a root folder.
+
+**RBAC:** Roles (viewer/editor/administrator) are assigned per project via `ProjectMember`. Global admins are a separate
+flag on `User`. Role checks happen in use cases, not in route handlers.
+
+**Actor validation:** Use cases that require the actor to exist as a registered user delegate that check to the API
+layer (e.g. session middleware), not to the domain use case itself.
+
+## Phase 1 Implementation Summary
+
+Phase 1 (Monorepo scaffold + domain layer) is **complete and merged to master**.
+
+### What was built
+
+- **9 entities**: User, Project, ProjectMember, FileNode, Document, Image, Template, GitRepository, AuditLog
+- **19 value objects**: Uuid (base), 9 ID subclasses, Email, FilePath, Role, ProjectName, GitProvider, MimeType,
+  FileNodeType, ContentId, YjsStateId, TemplateCategory, Timestamps
+- **7 use cases**: create-project, rename-file, delete-file, invite-user, remove-member, change-member-role,
+  get-project-tree
+- **16 error classes**: DomainError (base), ProjectNotFoundError, UserNotFoundError, FileNodeNotFoundError,
+  PermissionDeniedError, DuplicateEmailError, InvalidProjectNameError, FileConflictError,
+  ProjectMemberAlreadyExistsError, CannotRemoveOwnerError, CannotChangeOwnerRoleError, CannotRemoveLastAdminError,
+  CannotAttachDocumentToFolderError, CannotDeleteRootFolderError, MemberNotFoundError, ValidationError
+- **9 repository interfaces** with in-memory fakes
+- **Shared package**: Result<T,E> discriminated union + 7 DTOs
+- **164 tests** across 18 test suites
+
+## Phase 2 Implementation Summary
+
+Phase 2 (Database layer) is **complete and merged to master**.
+
+### What was built
+
+- **2 new packages**: `packages/db` (Prisma schema + client) and `packages/infrastructure` (Prisma repository
+  implementations)
+- **Prisma schema**: 9 tables (User, Project, ProjectMember, FileNode, Document, Image, Template, GitRepository,
+  AuditLog) with 3 enums (Role, FileNodeType, GitProvider), FK relationships with cascade rules, indexes, and `@db.Uuid`
+  on all UUID columns
+- **9 Prisma repository implementations**: PrismaUserRepository, PrismaProjectRepository, PrismaProjectMemberRepository,
+  PrismaFileNodeRepository, PrismaDocumentRepository, PrismaImageRepository, PrismaTemplateRepository,
+  PrismaGitRepositoryRepository, PrismaAuditLogRepository
+- **Mapping layer**: `toDomain()` / `toPersistence()` helpers for all 9 entities, handling UUID string ↔ VO, Prisma
+  enum ↔ domain VO, Date ↔ Timestamps, JSON ↔ AuditLog metadata
+- **Integration test suite**: 9 test files covering all repositories against real PostgreSQL via testcontainers (
+  postgres:16-alpine)
+- **Test infrastructure**: Shared testcontainers helper and test data factories for all 9 entity types
+- **Cross-cutting**: ESLint type assertion rules (`no-explicit-any: error`, `no-as-type-cast`), type mapping round-trip
+  verification (13 tests)
+- **All quality gates pass**: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fresh-onion`
 
 ## Phase 3 Implementation Summary
 
@@ -162,26 +286,26 @@ Phase 3 (Configurable Email Sender + Security) is **complete and merged to maste
 
 ### Key files
 
-| File | Purpose |
-|------|---------|
-| `packages/infrastructure/src/services/nodemailer-email-sender.ts` | SMTP email sender implementation |
-| `packages/domain/src/use-cases/login.ts` | Constant-time login with `LOGIN_DELAY_MS` |
-| `packages/domain/src/use-cases/request-password-reset.ts` | Constant-time password reset with `PASSWORD_RESET_DELAY_MS` |
-| `packages/domain/src/use-cases/register-user.ts` | Breach blocking for registration |
-| `packages/domain/src/use-cases/change-password.ts` | Breach blocking for password change |
-| `packages/domain/src/constants.ts` | Timing constants (`LOGIN_DELAY_MS`, `PASSWORD_RESET_DELAY_MS`) |
-| `apps/api/src/index.ts` | Wires NodemailerEmailSender based on config |
+| File                                                              | Purpose                                                        |
+|-------------------------------------------------------------------|----------------------------------------------------------------|
+| `packages/infrastructure/src/services/nodemailer-email-sender.ts` | SMTP email sender implementation                               |
+| `packages/domain/src/use-cases/login.ts`                          | Constant-time login with `LOGIN_DELAY_MS`                      |
+| `packages/domain/src/use-cases/request-password-reset.ts`         | Constant-time password reset with `PASSWORD_RESET_DELAY_MS`    |
+| `packages/domain/src/use-cases/register-user.ts`                  | Breach blocking for registration                               |
+| `packages/domain/src/use-cases/change-password.ts`                | Breach blocking for password change                            |
+| `packages/domain/src/constants.ts`                                | Timing constants (`LOGIN_DELAY_MS`, `PASSWORD_RESET_DELAY_MS`) |
+| `apps/api/src/index.ts`                                           | Wires NodemailerEmailSender based on config                    |
 
 ### Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` | `true` | Enable/disable email sending |
-| `ASCIIDOCOLLAB_AUTH_EMAIL_FROM` | required | Sender email address (required when enabled) |
-| `ASCIIDOCOLLAB_AUTH_SMTP_HOST` | - | SMTP server host |
-| `ASCIIDOCOLLAB_AUTH_SMTP_PORT` | `587` | SMTP server port |
-| `ASCIIDOCOLLAB_AUTH_SMTP_USER` | - | SMTP authentication user |
-| `ASCIIDOCOLLAB_AUTH_SMTP_PASSWORD` | - | SMTP authentication password |
+| Variable                           | Default  | Description                                  |
+|------------------------------------|----------|----------------------------------------------|
+| `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` | `true`   | Enable/disable email sending                 |
+| `ASCIIDOCOLLAB_AUTH_EMAIL_FROM`    | required | Sender email address (required when enabled) |
+| `ASCIIDOCOLLAB_AUTH_SMTP_HOST`     | -        | SMTP server host                             |
+| `ASCIIDOCOLLAB_AUTH_SMTP_PORT`     | `587`    | SMTP server port                             |
+| `ASCIIDOCOLLAB_AUTH_SMTP_USER`     | -        | SMTP authentication user                     |
+| `ASCIIDOCOLLAB_AUTH_SMTP_PASSWORD` | -        | SMTP authentication password                 |
 
 ### Security considerations
 
@@ -189,3 +313,23 @@ Phase 3 (Configurable Email Sender + Security) is **complete and merged to maste
 - **Breach check**: Non-blocking — failures don't prevent registration/password change
 - **Email disabled**: Breach check still runs even when email is disabled
 - **Config validation**: App fails fast at startup if email enabled but `FROM` not set
+
+## Phased Delivery
+
+| Phase | Scope                                                                                             | Status         |
+|-------|---------------------------------------------------------------------------------------------------|----------------|
+| 1     | Monorepo scaffold + domain layer (entities, value objects, use cases — pure TS, in-memory-tested) | ✅ **Complete** |
+| 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
+| 3     | Configurable email sender, breach blocking, timing attack prevention                              | ✅ **Complete** |
+| 4     | Project management (CRUD + member management — API + dashboard UI)                                | ⬜ Pending      |
+| 5     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
+| 6     | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
+| 7     | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome)                                 | ⬜ Pending      |
+| 8     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
+| 9     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
+| 10    | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |
+| 11    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)              | ⬜ Pending      |
+| 12    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                            | ⬜ Pending      |
+| 13    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)                       | ⬜ Pending      |
+| 14    | Templates + image management (built-in templates, custom templates, image upload/versions)        | ⬜ Pending      |
+| 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)                 | ⬜ Pending      |
