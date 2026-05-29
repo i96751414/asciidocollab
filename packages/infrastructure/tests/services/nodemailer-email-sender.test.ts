@@ -14,6 +14,23 @@ function createConfig(overrides: Partial<NodemailerEmailSenderConfig> = {}): Nod
 
 describe('NodemailerEmailSender', () => {
 
+  describe('configuration validation', () => {
+    test('throws when enabled but from is empty', () => {
+      const config = createConfig({ enabled: true, from: '' });
+      expect(() => new NodemailerEmailSender(config)).toThrow('Email sender "from" address is required when email is enabled');
+    });
+
+    test('throws when enabled but from is null', () => {
+      const config = createConfig({ enabled: true, from: null });
+      expect(() => new NodemailerEmailSender(config)).toThrow('Email sender "from" address is required when email is enabled');
+    });
+
+    test('does not throw when disabled and from is empty', () => {
+      const config = createConfig({ enabled: false, from: '' });
+      expect(() => new NodemailerEmailSender(config)).not.toThrow();
+    });
+  });
+
   describe('SMTP connection', () => {
     test('creates transporter when enabled', () => {
       const config = createConfig();

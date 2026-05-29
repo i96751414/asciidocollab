@@ -20,7 +20,7 @@ export interface NodemailerEmailSenderConfig {
   /** SMTP authentication password. */
   password: string;
   /** Sender email address. */
-  from: string;
+  from: string | null;
 }
 
 /**
@@ -102,7 +102,7 @@ export class NodemailerEmailSender implements EmailSender {
 
     try {
       await this.transporter.sendMail({
-        from: this.config.from,
+        from: this.config.from ?? '',
         to,
         subject,
         html,
