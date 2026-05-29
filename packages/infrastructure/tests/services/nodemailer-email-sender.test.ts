@@ -1,5 +1,18 @@
 import { NodemailerEmailSender, NodemailerEmailSenderConfig } from '../../src/services/nodemailer-email-sender';
 
+// Mock nodemailer to verify transporter creation and send calls
+jest.mock('nodemailer', () => {
+  const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-message-id' });
+  const mockCreateTransport = jest.fn().mockReturnValue({ sendMail: mockSendMail });
+  return {
+    __esModule: true,
+    default: {
+      createTransport: mockCreateTransport,
+    },
+    createTransport: mockCreateTransport,
+  };
+});
+
 function createConfig(overrides: Partial<NodemailerEmailSenderConfig> = {}): NodemailerEmailSenderConfig {
   return {
     enabled: true,
@@ -13,6 +26,9 @@ function createConfig(overrides: Partial<NodemailerEmailSenderConfig> = {}): Nod
 }
 
 describe('NodemailerEmailSender', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe('configuration validation', () => {
     test('throws when enabled but from is empty', () => {
@@ -37,53 +53,91 @@ describe('NodemailerEmailSender', () => {
   });
 
   describe('SMTP connection', () => {
-    test('creates transporter when enabled', () => {
+    test('creates transporter with correct options when enabled', () => {
+      const nodemailer = jest.requireMock('nodemailer');
       const config = createConfig();
-      const sender = new NodemailerEmailSender(config);
-      expect(sender).toBeDefined();
+      new NodemailerEmailSender(config);
+
+      expect(nodemailer.createTransport).toHaveBeenCalledWith({
+        host: 'smtp.example.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'test@example.com',
+          pass: 'password',
+        },
+      });
     });
 
     test('does not create transporter when disabled', () => {
+      const nodemailer = jest.requireMock('nodemailer');
       const config = createConfig({ enabled: false });
-      const sender = new NodemailerEmailSender(config);
-      expect(sender).toBeDefined();
+      new NodemailerEmailSender(config);
+
+      expect(nodemailer.createTransport).not.toHaveBeenCalled();
     });
 
-    test('uses correct port configuration', () => {
+    test('uses secure connection for port 465', () => {
+      const nodemailer = jest.requireMock('nodemailer');
       const config = createConfig({ port: 465 });
-      const sender = new NodemailerEmailSender(config);
-      expect(sender).toBeDefined();
+      new NodemailerEmailSender(config);
+
+      expect(nodemailer.createTransport).toHaveBeenCalledWith(
+        expect.objectContaining({ secure: true }),
+      );
+    });
+
+    test('uses non-secure connection for port 587', () => {
+      const nodemailer = jest.requireMock('nodemailer');
+      const config = createConfig({ port: 587 });
+      new NodemailerEmailSender(config);
+
+      expect(nodemailer.createTransport).toHaveBeenCalledWith(
+        expect.objectContaining({ secure: false }),
+      );
     });
   });
 
   describe('email sending', () => {
-    test('skips sending when disabled', async () => {
+    test('skips sending without calling transporter when disabled', async () => {
+      const nodemailer = jest.requireMock('nodemailer');
       const config = createConfig({ enabled: false });
       const sender = new NodemailerEmailSender(config);
-      
-      await expect(sender.send('test@example.com', 'Subject', '<p>Body</p>')).resolves.not.toThrow();
-    });
 
-    test('throws when transporter not initialized', async () => {
-      const config = createConfig({ enabled: true, host: 'invalid.host' });
-      const sender = new NodemailerEmailSender(config);
-      
-      await expect(sender.send('test@example.com', 'Subject', '<p>Body</p>')).rejects.toThrow();
-    });
-
-    test('logs successful email sending', async () => {
-      const config = createConfig({ enabled: false });
-      const sender = new NodemailerEmailSender(config);
-      
-      // When disabled, it should log and skip
       await sender.send('test@example.com', 'Subject', '<p>Body</p>');
+
+      // Transporter was never created, so sendMail should not exist
+      expect(nodemailer.createTransport).not.toHaveBeenCalled();
     });
 
-    test('logs email sending failure', async () => {
-      const config = createConfig({ enabled: true, host: 'invalid.host' });
+    test('calls sendMail with correct parameters', async () => {
+      const nodemailer = jest.requireMock('nodemailer');
+      const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
+      nodemailer.createTransport.mockReturnValue({ sendMail: mockSendMail });
+
+      const config = createConfig();
       const sender = new NodemailerEmailSender(config);
-      
-      await expect(sender.send('test@example.com', 'Subject', '<p>Body</p>')).rejects.toThrow();
+
+      await sender.send('recipient@example.com', 'Test Subject', '<p>Test Body</p>');
+
+      expect(mockSendMail).toHaveBeenCalledWith({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        html: '<p>Test Body</p>',
+      });
+    });
+
+    test('propagates sendMail errors', async () => {
+      const nodemailer = jest.requireMock('nodemailer');
+      const mockSendMail = jest.fn().mockRejectedValue(new Error('SMTP connection failed'));
+      nodemailer.createTransport.mockReturnValue({ sendMail: mockSendMail });
+
+      const config = createConfig();
+      const sender = new NodemailerEmailSender(config);
+
+      await expect(sender.send('test@example.com', 'Subject', '<p>Body</p>'))
+        .rejects.toThrow('SMTP connection failed');
     });
   });
 });
