@@ -102,7 +102,7 @@ export class NodemailerEmailSender implements EmailSender {
 
     try {
       await this.transporter.sendMail({
-        from: this.config.from ?? '',
+        from: this.config.from as string,
         to,
         subject,
         html,

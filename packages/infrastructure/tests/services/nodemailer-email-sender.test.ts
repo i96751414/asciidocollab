@@ -29,6 +29,11 @@ describe('NodemailerEmailSender', () => {
       const config = createConfig({ enabled: false, from: '' });
       expect(() => new NodemailerEmailSender(config)).not.toThrow();
     });
+
+    test('does not throw when disabled and from is null', () => {
+      const config = createConfig({ enabled: false, from: null });
+      expect(() => new NodemailerEmailSender(config)).not.toThrow();
+    });
   });
 
   describe('SMTP connection', () => {
