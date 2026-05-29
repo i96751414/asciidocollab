@@ -118,4 +118,32 @@ describe('RegisterUserUseCase', () => {
       }
     });
   });
+
+  describe('breach checker failure resilience', () => {
+    test('allows registration when breach checker throws', async () => {
+      (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('HIBP API unavailable'));
+
+      const result = await useCase.execute(
+        Email.create('test@example.com'),
+        'Test User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(true);
+      expect(userRepo.save).toHaveBeenCalled();
+    });
+
+    test('allows registration when breach checker times out', async () => {
+      (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('Request timeout'));
+
+      const result = await useCase.execute(
+        Email.create('test@example.com'),
+        'Test User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(true);
+      expect(userRepo.save).toHaveBeenCalled();
+    });
+  });
 });

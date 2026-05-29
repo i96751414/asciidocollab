@@ -39,7 +39,17 @@ export class NodemailerEmailSender implements EmailSender {
    */
   constructor(config: NodemailerEmailSenderConfig) {
     this.config = config;
+    this.validateConfig();
     this.initializeTransporter();
+  }
+
+  /**
+   * Validates the configuration.
+   */
+  private validateConfig(): void {
+    if (this.config.enabled && !this.config.from) {
+      throw new Error('Email sender "from" address is required when email is enabled');
+    }
   }
 
   /**

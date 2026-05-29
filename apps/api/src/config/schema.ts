@@ -339,18 +339,6 @@ export function createConfig() {
             default: '<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>',
           },
         },
-        breachAlert: {
-          subject: {
-            doc: 'Subject line for password breach alert email.',
-            format: String,
-            default: 'Security Alert: Password Breach Detected',
-          },
-          html: {
-            doc: 'HTML body for password breach alert email.',
-            format: String,
-            default: '<p>Your password has been found in a data breach. Please change your password immediately.</p>',
-          },
-        },
       },
     },
   },
@@ -491,8 +479,6 @@ export interface Config {
         resetRequest: { subject: string; html: string };
         /** Password changed notification email template. */
         passwordChanged: { subject: string; html: string };
-        /** Password breach alert email template. */
-        breachAlert: { subject: string; html: string };
       };
     };
   };

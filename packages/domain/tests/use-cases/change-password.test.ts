@@ -122,4 +122,34 @@ describe('ChangePasswordUseCase', () => {
       expect(userRepo.save).toHaveBeenCalled();
     });
   });
+
+  describe('breach checker failure resilience', () => {
+    test('allows password change when breach checker throws', async () => {
+      (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('HIBP API unavailable'));
+
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(true);
+      expect(userRepo.save).toHaveBeenCalled();
+    });
+
+    test('allows password change when breach checker times out', async () => {
+      (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('Request timeout'));
+
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(true);
+      expect(userRepo.save).toHaveBeenCalled();
+    });
+  });
 });
