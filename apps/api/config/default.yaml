@@ -69,6 +69,3 @@ auth:
       passwordChanged:
         subject: "Password Changed"
         html: "<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>"
-      breachAlert:
-        subject: "Security Alert: Password Breach Detected"
-        html: "<p>Your password has been found in a data breach. Please change your password immediately.</p>"

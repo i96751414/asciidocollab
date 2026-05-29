@@ -257,6 +257,12 @@ export function createConfig() {
       },
     },
     email: {
+      enabled: {
+        doc: 'Enable or disable email sending. When disabled, no emails are sent but breach checks still run.',
+        format: Boolean,
+        default: true,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED',
+      },
       provider: {
         doc: 'Email provider type (smtp, sendgrid, ses).',
         format: ['smtp', 'sendgrid', 'ses'],
@@ -331,18 +337,6 @@ export function createConfig() {
             doc: 'HTML body for password changed notification email.',
             format: String,
             default: '<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>',
-          },
-        },
-        breachAlert: {
-          subject: {
-            doc: 'Subject line for password breach alert email.',
-            format: String,
-            default: 'Security Alert: Password Breach Detected',
-          },
-          html: {
-            doc: 'HTML body for password breach alert email.',
-            format: String,
-            default: '<p>Your password has been found in a data breach. Please change your password immediately.</p>',
           },
         },
       },
@@ -461,6 +455,8 @@ export interface Config {
     };
     /** Email configuration. */
     email: {
+      /** Enable or disable email sending. */
+      enabled: boolean;
       /** Email provider type. */
       provider: string;
       /** SMTP server host. */
@@ -483,8 +479,6 @@ export interface Config {
         resetRequest: { subject: string; html: string };
         /** Password changed notification email template. */
         passwordChanged: { subject: string; html: string };
-        /** Password breach alert email template. */
-        breachAlert: { subject: string; html: string };
       };
     };
   };

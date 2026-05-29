@@ -42,6 +42,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       request.server.repos.user,
       request.server.services.passwordHasher,
       buildPasswordPolicy(),
+      request.server.services.breachChecker,
     );
 
     const result = await useCase.execute(
@@ -57,8 +58,10 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
         code = 'VALIDATION_ERROR';
       } else if (result.error.name === 'InvalidPasswordError') {
         code = 'INVALID_PASSWORD';
-      } else {
+      } else if (result.error.name === 'PasswordReuseError') {
         code = 'PASSWORD_REUSE';
+      } else {
+        code = 'VALIDATION_ERROR';
       }
       return reply.status(400).send({
         error: { code, message: result.error.message },

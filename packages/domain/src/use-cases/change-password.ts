@@ -8,6 +8,7 @@ import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '@asciidocollab/shared';
 import { PasswordHasher } from '../services/password-hasher';
+import { BreachChecker } from '../services/breach-checker';
 
 /** Result returned on successful password change. */
 export interface ChangePasswordResult {
@@ -19,18 +20,21 @@ export interface ChangePasswordResult {
  * Changes a user's password after verifying the current password.
  *
  * Validates current password, validates new password against policy,
- * checks password history, updates the hash, and rotates history.
+ * checks password history, checks for breached passwords, updates the hash,
+ * and rotates history.
  */
 export class ChangePasswordUseCase {
   /**
    * @param userRepo - Repository for user persistence.
    * @param passwordHasher - Service for password hashing and verification.
    * @param passwordPolicy - Password policy to validate the new password against.
+   * @param breachChecker - Service to check if a password appears in breach databases.
    */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly passwordPolicy: PasswordPolicy,
+    private readonly breachChecker: BreachChecker,
   ) {}
 
   /**
@@ -77,6 +81,20 @@ export class ChangePasswordUseCase {
       return {
         success: false,
         error: new PasswordReuseError('Cannot reuse recent passwords'),
+      };
+    }
+
+    let breached = false;
+    try {
+      breached = await this.breachChecker.isBreached(newPassword);
+    } catch {
+      // Breach check failure is non-blocking - allow password change to proceed
+    }
+
+    if (breached) {
+      return {
+        success: false,
+        error: new ValidationError('New password has been found in a data breach'),
       };
     }
 

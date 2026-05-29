@@ -72,14 +72,6 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    if (result.value.breached) {
-      await request.server.services.emailSender.send(
-        email,
-        app.config.auth.email.templates.breachAlert.subject,
-        app.config.auth.email.templates.breachAlert.html,
-      );
-    }
-
     const status = result.value.existing ? 200 : 201;
     return reply.status(status).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
   });
