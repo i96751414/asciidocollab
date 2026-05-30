@@ -17,7 +17,7 @@ See `specs/004-project-management/plan.md` for the implementation plan.
 
 | Layer                   | Technology                                                |
 |-------------------------|-----------------------------------------------------------|
-| Frontend                | Next.js 16 (App Router) + TypeScript 6                      |
+| Frontend                | Next.js 16 (App Router) + TypeScript 6                    |
 | Code editor             | CodeMirror 6 + `y-codemirror.next`                        |
 | HTML preview            | Asciidoctor.js (Web Worker, client-side)                  |
 | API server              | Fastify + TypeScript 6                                    |
@@ -325,8 +325,8 @@ Phase 3 (Configurable Email Sender + Security) is **complete and merged to maste
 | 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
 | 3     | Configurable email sender, breach blocking, timing attack prevention                              | ✅ **Complete** |
 | 4     | Project management (CRUD + member management — API + dashboard UI)                                | ✅ **Complete** |
-| 5     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
-| 6     | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
+| 5     | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
+| 6     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
 | 7     | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome)                                 | ⬜ Pending      |
 | 8     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
 | 9     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |

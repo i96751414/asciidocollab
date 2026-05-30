@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import {
   PrismaUserRepository,
   PrismaProjectRepository,
@@ -190,7 +191,8 @@ async function start() {
   loadConfig(configDirectory);
 
   const appConfig = getConfig();
-  const prisma = new PrismaClient();
+  const databaseUrl = process.env.ASCIIDOCOLLAB_DATABASE_URL ?? 'postgresql://localhost:5432/dev';
+  const prisma = new PrismaClient({ adapter: new PrismaPg(databaseUrl) });
   const app = await buildServer({ prisma });
   await app.listen({ port: appConfig.api.port, host: appConfig.api.host });
 }

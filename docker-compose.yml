@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Development / trial environment
+#
+# This file is intended for local development and testing only.
+# It is NOT hardened for production use:
+#   - Credentials are hard-coded and world-readable
+#   - No TLS, no resource limits, no restart policies
+#   - Postgres data is stored in a named Docker volume (easy to wipe)
+#
+# Usage:
+#   Start:   docker compose up -d --wait
+#   Stop:    docker compose down
+#   Wipe DB: docker compose down -v
+#
+# The recommended way to start everything (DB + app) is:
+#   ./scripts/dev.sh
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # Primary database — credentials match .env.example defaults
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: asciidocollab
+      POSTGRES_PASSWORD: asciidocollab
+      POSTGRES_DB: asciidocollab
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      # pg_isready only returns 0 after the POSTGRES_DB init script completes,
+      # so --wait on `docker compose up` is safe to use as a readiness gate.
+      test: ["CMD-SHELL", "pg_isready -U asciidocollab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Local SMTP trap — captures all outbound email, sends nothing real.
+  # Web UI: http://localhost:8025
+  # SMTP endpoint for the app: localhost:1025 (no auth, no TLS)
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    environment:
+      MP_MAX_MESSAGES: 500
+
+volumes:
+  postgres_data:
