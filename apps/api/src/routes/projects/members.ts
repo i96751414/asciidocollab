@@ -34,12 +34,20 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         ProjectId.create(id)
       );
 
+      const users = await Promise.all(
+        members.map((member) => request.server.repos.user.findById(member.userId))
+      );
+
+      const membersWithUsers = members
+        .map((member, i) => ({ member, user: users[i] }))
+        .filter((entry): entry is { member: typeof entry.member; user: NonNullable<typeof entry.user> } => entry.user !== null);
+
       return reply.status(200).send({
         data: {
-          members: members.map((member) => ({
+          members: membersWithUsers.map(({ member, user }) => ({
             userId: member.userId.value,
-            email: "user@example.com", // TODO: Fetch from user repository
-            displayName: "User", // TODO: Fetch from user repository
+            email: user.email.value,
+            displayName: user.displayName,
             role: member.role.value,
             joinedAt: member.joinedAt.toISOString(),
           })),
@@ -105,11 +113,18 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
+    const invitedUser = await request.server.repos.user.findByEmail(Email.create(email));
+    if (!invitedUser) {
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "Failed to retrieve invited user" },
+      });
+    }
+
     return reply.status(201).send({
       data: {
-        userId: "new-user-id", // TODO: Return actual user ID
-        email: email,
-        displayName: "User", // TODO: Fetch from user repository
+        userId: invitedUser.id.value,
+        email: invitedUser.email.value,
+        displayName: invitedUser.displayName,
         role: role,
         joinedAt: new Date().toISOString(),
       },
