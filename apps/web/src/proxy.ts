@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Middleware to protect routes that require authentication.
+ * Proxy to protect routes that require authentication.
  * Checks for session cookie and redirects to login if not authenticated.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const session = request.cookies.get("session");
 
   // Protected routes that require authentication

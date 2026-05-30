@@ -17,7 +17,7 @@ See `specs/004-project-management/plan.md` for the implementation plan.
 
 | Layer                   | Technology                                                |
 |-------------------------|-----------------------------------------------------------|
-| Frontend                | Next.js 15 (App Router) + TypeScript 6                      |
+| Frontend                | Next.js 16 (App Router) + TypeScript 6                      |
 | Code editor             | CodeMirror 6 + `y-codemirror.next`                        |
 | HTML preview            | Asciidoctor.js (Web Worker, client-side)                  |
 | API server              | Fastify + TypeScript 6                                    |
@@ -36,7 +36,7 @@ See `specs/004-project-management/plan.md` for the implementation plan.
 ```
 asciidocollab/
 ├── apps/
-│   ├── web/          # Next.js 15 — delivery layer only (shell for Phase 4+)
+│   ├── web/          # Next.js 16 — delivery layer only (shell for Phase 4+)
 │   └── api/          # Fastify — delivery layer only
 ├── packages/
 │   ├── domain/            # Entities, use cases, repository interfaces — zero external deps ✅ DONE
