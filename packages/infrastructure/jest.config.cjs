@@ -4,6 +4,11 @@ const config = {
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
   testTimeout: 120_000,
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: 'tsconfig.eslint.json',
+    }],
+  },
 };
 
 module.exports = config;

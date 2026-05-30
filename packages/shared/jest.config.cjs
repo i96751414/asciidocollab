@@ -12,6 +12,11 @@ const config = {
       statements: 90,
     },
   },
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: 'tsconfig.eslint.json',
+    }],
+  },
 };
 
 module.exports = config;

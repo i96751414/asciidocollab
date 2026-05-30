@@ -2,6 +2,7 @@ const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
 const jsdoc = require('eslint-plugin-jsdoc');
 const unicorn = require('eslint-plugin-unicorn').default;
+const nextPlugin = require('@next/eslint-plugin-next');
 const globals = require('globals');
 
 module.exports = tseslint.config(
@@ -10,6 +11,17 @@ module.exports = tseslint.config(
   eslint.configs.recommended,
 
   ...tseslint.configs.recommended,
+
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      '@next/next/no-html-link-for-pages': 'off',
+    },
+  },
 
   jsdoc.configs['flat/recommended-typescript'],
 

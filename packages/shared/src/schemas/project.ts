@@ -44,7 +44,7 @@ export const updateProjectSchema = z.object({
  * Schema for validating member invitation requests.
  */
 export const inviteMemberSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   role: z.enum(["viewer", "editor", "administrator"]),
 });
 
