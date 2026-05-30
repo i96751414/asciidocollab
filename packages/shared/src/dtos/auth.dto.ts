@@ -60,3 +60,9 @@ export interface UserProfileDto {
   /** User's unique identifier. */
   userId: string;
 }
+
+/** System setup status response. */
+export interface SetupStatusDto {
+  /** Whether at least one user account exists. */
+  configured: boolean;
+}

@@ -6,6 +6,7 @@ import { PasswordPolicy } from '../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../src/services/password-hasher';
 import { BreachChecker } from '../../src/services/breach-checker';
 import { CommonPasswordChecker } from '../../src/services/common-password-checker';
+import { RegistrationClosedError } from '../../src/errors/registration-closed';
 
 describe('RegisterUserUseCase', () => {
   let useCase: RegisterUserUseCase;
@@ -32,6 +33,7 @@ describe('RegisterUserUseCase', () => {
         return user;
       }),
       findById: jest.fn().mockResolvedValue(null),
+      hasAny: jest.fn().mockResolvedValue(false),
     } as unknown as UserRepository;
 
     passwordHasher = {
@@ -54,6 +56,69 @@ describe('RegisterUserUseCase', () => {
       breachChecker,
       passwordHasher,
     );
+  });
+
+  describe('registration closed (FR-008)', () => {
+    test('returns RegistrationClosedError when users already exist', async () => {
+      (userRepo.hasAny as jest.Mock).mockResolvedValue(true);
+
+      const result = await useCase.execute(
+        Email.create('new@example.com'),
+        'New User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(RegistrationClosedError);
+      }
+      expect(userRepo.save).not.toHaveBeenCalled();
+    });
+
+    test('returns RegistrationClosedError when concurrent insert causes constraint violation', async () => {
+      (userRepo.hasAny as jest.Mock)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      (userRepo.save as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('unique constraint'), { code: '23505' }),
+      );
+
+      const result = await useCase.execute(
+        Email.create('race@example.com'),
+        'Race User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(RegistrationClosedError);
+      }
+    });
+
+    test('propagates the original save error when hasAny() also fails in the catch block', async () => {
+      const saveError = new Error('DB connection timeout');
+      const hasAnyError = new Error('DB still unreachable');
+      (userRepo.hasAny as jest.Mock)
+        .mockResolvedValueOnce(false)
+        .mockRejectedValueOnce(hasAnyError);
+      (userRepo.save as jest.Mock).mockRejectedValue(saveError);
+
+      await expect(
+        useCase.execute(Email.create('user@example.com'), 'User', 'SecureP@ssw0rd123!'),
+      ).rejects.toThrow('DB connection timeout');
+    });
+
+    test('rethrows save error when no concurrent user was inserted', async () => {
+      const saveError = new Error('unexpected DB error');
+      (userRepo.hasAny as jest.Mock)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+      (userRepo.save as jest.Mock).mockRejectedValue(saveError);
+
+      await expect(
+        useCase.execute(Email.create('user@example.com'), 'User', 'SecureP@ssw0rd123!'),
+      ).rejects.toThrow('unexpected DB error');
+    });
   });
 
   describe('breach blocking (FR-008)', () => {
@@ -114,7 +179,6 @@ describe('RegisterUserUseCase', () => {
       if (result.success) {
         expect(result.value).not.toHaveProperty('breached');
         expect(result.value).toHaveProperty('userId');
-        expect(result.value).toHaveProperty('existing');
       }
     });
   });

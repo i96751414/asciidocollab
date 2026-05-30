@@ -5,6 +5,9 @@ import { logoutRoute } from '../src/routes/logout';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 
+const TEST_EMAIL = 'logout-user@example.com';
+const TEST_PASSWORD = 'ValidP@ssw0rd123!';
+
 describe('Logout', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
@@ -18,6 +21,13 @@ describe('Logout', () => {
     await app.register(loginRoute);
     await app.register(logoutRoute);
     await app.ready();
+
+    // Register the single test user
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: TEST_EMAIL, password: TEST_PASSWORD, displayName: 'Test User' },
+    });
   });
 
   afterAll(async () => {
@@ -26,17 +36,10 @@ describe('Logout', () => {
   });
 
   test('logout destroys session', async () => {
-    const email = `logout-${Date.now()}@example.com`;
-    await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
-    });
-
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
-      payload: { email, password: 'ValidP@ssw0rd123!' },
+      payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
     });
     expect(loginResponse.statusCode).toBe(200);
 

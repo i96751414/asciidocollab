@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { Email, RegisterUserUseCase } from '@asciidocollab/domain';
+import { Email, RegisterUserUseCase, RegistrationClosedError } from '@asciidocollab/domain';
 import { buildPasswordPolicy } from '../services/password-policy';
+import '../types/session';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -33,13 +34,19 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
             message: { type: 'string' },
           },
         },
-        200: {
+        400: {
           type: 'object',
           properties: {
-            message: { type: 'string' },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
           },
         },
-        400: {
+        403: {
           type: 'object',
           properties: {
             error: {
@@ -67,12 +74,17 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
     const result = await useCase.execute(Email.create(email), displayName, password);
 
     if (!result.success) {
+      if (result.error instanceof RegistrationClosedError) {
+        return reply.status(403).send({
+          error: { code: 'REGISTRATION_CLOSED', message: 'Registration is closed' },
+        } satisfies AuthErrorResponseDto);
+      }
       return reply.status(400).send({
         error: { code: 'VALIDATION_ERROR', message: result.error.message },
       } satisfies AuthErrorResponseDto);
     }
 
-    const status = result.value.existing ? 200 : 201;
-    return reply.status(status).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
+    request.session.userId = result.value.userId.value;
+    return reply.status(201).send({ message: 'Account created' } satisfies AuthSuccessResponseDto);
   });
 }

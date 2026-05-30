@@ -1,23 +1,30 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cn } from "@/lib/utilities";
 import { Button } from "@/components/ui/button";
+import { getSession } from "@/lib/auth";
+import { SignOutButton } from "./sign-out-button";
 
 const navigation = [
   { name: "Projects", href: "/dashboard" },
   { name: "Archived", href: "/dashboard/archived" },
 ];
 
-/**
- * Dashboard layout with sidebar navigation.
- *
- * @param properties - The component properties.
- * @param properties.children - The child components to render.
- */
-export default function DashboardLayout({
-  children,
-}: {
+/** Properties for the dashboard layout. */
+interface DashboardLayoutProperties {
+  /** Page content rendered in the main area. */
   children: React.ReactNode;
-}) {
+}
+
+/**
+ * Dashboard layout with sidebar navigation and session validation.
+ */
+export default async function DashboardLayout({ children }: DashboardLayoutProperties) {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login?reason=expired");
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
@@ -48,9 +55,12 @@ export default function DashboardLayout({
         <div className="flex-1">
           <div className="flex h-16 items-center justify-between border-b px-6">
             <h1 className="text-lg font-semibold">Dashboard</h1>
-            <Button asChild>
-              <Link href="/dashboard/projects/new">Create Project</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild>
+                <Link href="/dashboard/projects/new">Create Project</Link>
+              </Button>
+              <SignOutButton />
+            </div>
           </div>
           <main className="p-6">{children}</main>
         </div>

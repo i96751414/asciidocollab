@@ -38,7 +38,7 @@ module.exports = tseslint.config(
           './packages/infrastructure/tsconfig.eslint.json',
           './packages/testing/tsconfig.json',
           './apps/api/tsconfig.eslint.json',
-          './apps/web/tsconfig.json',
+          './apps/web/tsconfig.eslint.json',
         ],
         tsconfigRootDir: __dirname,
       },
@@ -136,9 +136,10 @@ module.exports = tseslint.config(
   },
 
   {
-    files: ['**/*.test.ts', '**/tests/helpers/*.ts', '**/src/routes/**/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/tests/helpers/*.ts', '**/src/routes/**/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-description-complete-sentence': 'off',
       'jsdoc/informative-docs': 'off',

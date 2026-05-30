@@ -7,7 +7,7 @@ function isValidSameSite(value: string): 'strict' | 'lax' | 'none' {
   if (value === 'strict' || value === 'lax' || value === 'none') {
     return value;
   }
-  return 'lax';
+  return 'strict';
 }
 
 async function authPlugin(app: FastifyInstance): Promise<void> {

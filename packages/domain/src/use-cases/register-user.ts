@@ -5,6 +5,7 @@ import { Timestamps } from '../value-objects/timestamps';
 import { UserRepository } from '../repositories/user.repository';
 import { DomainError } from '../errors/domain-error';
 import { ValidationError } from '../errors/validation-error';
+import { RegistrationClosedError } from '../errors/registration-closed';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
 import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
@@ -16,17 +17,9 @@ import { CommonPasswordChecker } from '../services/common-password-checker';
 export interface RegisterUserResult {
   /** The newly created user's ID. */
   userId: UserId;
-  /** Whether the email was already registered. */
-  existing: boolean;
 }
 
-/**
- * Registers a new user with email and password.
- *
- * Handles duplicate detection (returns success for existing email),
- * password validation, common-password check, breach detection,
- * and password hashing delegation.
- */
+/** Registers the first and only user account. Returns RegistrationClosedError when any user already exists. */
 export class RegisterUserUseCase {
   /**
    * @param userRepo - Repository for user persistence.
@@ -44,18 +37,22 @@ export class RegisterUserUseCase {
   ) {}
 
   /**
-   * Registers a new user or detects an existing account.
+   * Registers the first user, or returns RegistrationClosedError if any user already exists.
    *
    * @param email - The validated email address.
    * @param displayName - The user's chosen display name.
    * @param password - The plaintext password to validate, check, and hash.
-   * @returns Success with userId and existing flag, or a DomainError.
+   * @returns Success with userId, or a domain error.
    */
   async execute(
     email: Email,
     displayName: string,
     password: string,
   ): Promise<Result<RegisterUserResult, DomainError>> {
+    if (await this.userRepo.hasAny()) {
+      return { success: false, error: new RegistrationClosedError() };
+    }
+
     const validationError = validatePassword(password, this.passwordPolicy);
     if (validationError) {
       return { success: false, error: new ValidationError(validationError) };
@@ -63,15 +60,6 @@ export class RegisterUserUseCase {
 
     if (this.commonPasswordChecker.isCommon(password)) {
       return { success: false, error: new ValidationError('Password is too common') };
-    }
-
-    const existingUser = await this.userRepo.findByEmail(email);
-
-    if (existingUser) {
-      return {
-        success: true,
-        value: { userId: existingUser.id, existing: true },
-      };
     }
 
     let breached = false;
@@ -102,11 +90,19 @@ export class RegisterUserUseCase {
       new Timestamps(),
     );
 
-    await this.userRepo.save(user);
+    try {
+      await this.userRepo.save(user);
+    } catch (saveError) {
+      try {
+        if (await this.userRepo.hasAny()) {
+          return { success: false, error: new RegistrationClosedError() };
+        }
+      } catch {
+        // hasAny() failed — propagate the original save error, not this one
+      }
+      throw saveError;
+    }
 
-    return {
-      success: true,
-      value: { userId, existing: false },
-    };
+    return { success: true, value: { userId } };
   }
 }

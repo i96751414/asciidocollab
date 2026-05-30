@@ -25,9 +25,16 @@ export interface UserRepository {
 
   /**
    * Persists a user entity (create or update).
-   * 
+   *
    * @param user - The user entity to save.
    * @returns A promise that resolves when the operation completes.
    */
   save(user: User): Promise<void>;
+
+  /**
+   * Returns true if at least one user exists in the repository.
+   *
+   * @returns True when any user record exists, false when the repository is empty.
+   */
+  hasAny(): Promise<boolean>;
 }

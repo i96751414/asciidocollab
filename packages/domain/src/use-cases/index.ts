@@ -15,3 +15,4 @@ export { ListUserProjectsUseCase } from './list-user-projects';
 export { UpdateProjectUseCase } from './update-project';
 export { ArchiveProjectUseCase } from './archive-project';
 export { RestoreProjectUseCase } from './restore-project';
+export { CheckSystemSetupUseCase } from './check-system-setup';

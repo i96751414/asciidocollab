@@ -46,7 +46,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         members.map((member) => request.server.repos.user.findById(member.userId))
       );
 
-      if (users.some((u) => u === null)) {
+      if (users.includes(null)) {
         return reply.status(500).send({
           error: { code: "INTERNAL_ERROR", message: "Failed to fetch member data" },
         });
@@ -54,10 +54,10 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
 
       return reply.status(200).send({
         data: {
-          members: members.map((member, i) => ({
+          members: members.map((member, index) => ({
             userId: member.userId.value,
-            email: users[i]!.email.value,
-            displayName: users[i]!.displayName,
+            email: users[index]!.email.value,
+            displayName: users[index]!.displayName,
             role: member.role.value,
             joinedAt: member.joinedAt.toISOString(),
           })),

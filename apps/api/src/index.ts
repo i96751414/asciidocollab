@@ -41,11 +41,25 @@ import {
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
+import { csrfPluginWrapped } from './plugins/csrf';
 import { rateLimitPluginWrapped } from './plugins/rate-limit';
 import { corsPluginWrapped } from './plugins/cors';
 import { httpsRedirectPluginWrapped } from './plugins/https-redirect';
 import { errorHandler, notFoundHandler } from './plugins/error-handler';
+import { requireAuth } from './plugins/require-auth';
 import { healthRoute } from './routes/health';
+import { loginRoute } from './routes/login';
+import { registerRoute } from './routes/register';
+import { logoutRoute } from './routes/logout';
+import { meRoute } from './routes/me';
+import { passwordChangeRoute } from './routes/password-change';
+import { passwordResetRequestRoute } from './routes/password-reset-request';
+import { passwordResetRoute } from './routes/password-reset';
+import { projectRoutes } from './routes/projects';
+import { memberRoutes } from './routes/projects/members';
+import { setupStatusRoute } from './routes/setup-status';
+import { csrfTokenRoute } from './routes/csrf-token';
+import type { FastifyInstance } from 'fastify';
 
 /** Dependency injection container for the application. */
 export interface AppContainer {
@@ -180,10 +194,40 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   await app.register(corsPluginWrapped);
   await app.register(authPluginWrapped);
   await app.register(rateLimitPluginWrapped);
-
-  await app.register(healthRoute);
+  await app.register(csrfPluginWrapped);
 
   return app;
+}
+
+/**
+ * Registers all application routes on a fully-built server instance.
+ * Called from `start()` in production; separate to allow tests to register
+ * routes individually without conflicts.
+ */
+export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServer>>): Promise<void> {
+  // Public routes — no auth required
+  await app.register(healthRoute);
+  await app.register(setupStatusRoute);
+  await app.register(csrfTokenRoute);
+
+  // CSRF-protected public auth routes (no session required)
+  await app.register(async function csrfAuthRoutes(scopedApp: FastifyInstance) {
+    scopedApp.addHook('onRequest', scopedApp.csrfProtection);
+    await scopedApp.register(loginRoute);
+    await scopedApp.register(registerRoute);
+    await scopedApp.register(logoutRoute);
+    await scopedApp.register(passwordResetRequestRoute);
+    await scopedApp.register(passwordResetRoute);
+  });
+
+  // Protected routes — require authentication
+  await app.register(async function protectedRoutes(scopedApp: FastifyInstance) {
+    scopedApp.addHook('preHandler', requireAuth);
+    await scopedApp.register(meRoute);
+    await scopedApp.register(passwordChangeRoute);
+    await scopedApp.register(projectRoutes);
+    await scopedApp.register(memberRoutes);
+  });
 }
 
 async function start() {
@@ -194,6 +238,7 @@ async function start() {
   const databaseUrl = process.env.ASCIIDOCOLLAB_DATABASE_URL ?? 'postgresql://localhost:5432/dev';
   const prisma = new PrismaClient({ adapter: new PrismaPg(databaseUrl) });
   const app = await buildServer({ prisma });
+  await registerAllRoutes(app);
   await app.listen({ port: appConfig.api.port, host: appConfig.api.host });
 }
 

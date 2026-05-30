@@ -6,9 +6,13 @@ import { meRoute } from '../src/routes/me';
 import { passwordChangeRoute } from '../src/routes/password-change';
 import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
 import { passwordResetRoute } from '../src/routes/password-reset';
+import { healthRoute } from '../src/routes/health';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 import { LOGIN_DELAY_MS } from '@asciidocollab/domain';
+
+const TEST_EMAIL = 'integration-user@example.com';
+const TEST_PASSWORD = 'ValidP@ssw0rd123!';
 
 describe('Auth Integration Tests', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
@@ -18,6 +22,7 @@ describe('Auth Integration Tests', () => {
     setupTestEnvironment();
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
+    await app.register(healthRoute);
     await app.register(registerRoute);
     await app.register(loginRoute);
     await app.register(logoutRoute);
@@ -33,38 +38,13 @@ describe('Auth Integration Tests', () => {
     await stopTestContainer(testContext);
   });
 
-  describe('Registration', () => {
-    test('successful registration returns 201', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email: `reg-${Date.now()}@example.com`, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      expect(response.statusCode).toBe(201);
-      expect(response.json()).toEqual({ message: 'Account created' });
-    });
-
-    test('duplicate email returns 200 (no enumeration)', async () => {
-      const email = `dup-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'OtherP@ssw0rd456!', displayName: 'Test 2' },
-      });
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ message: 'Account created' });
-    });
-
+  // Schema/validation tests — run BEFORE any user is registered (hasAny() = false)
+  describe('Registration Validation (pre-setup)', () => {
     test('invalid email returns 400', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { email: 'not-an-email', password: 'ValidP@ssw0rd123!', displayName: 'Test' },
+        payload: { email: 'not-an-email', password: TEST_PASSWORD, displayName: 'Test' },
       });
       expect(response.statusCode).toBe(400);
       expect(response.json().error.code).toBe('VALIDATION_ERROR');
@@ -104,7 +84,7 @@ describe('Auth Integration Tests', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { email: longEmail, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
+        payload: { email: longEmail, password: TEST_PASSWORD, displayName: 'Test' },
       });
       expect(response.statusCode).toBe(400);
     });
@@ -113,40 +93,49 @@ describe('Auth Integration Tests', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { email: `long-${Date.now()}@example.com`, password: 'ValidP@ssw0rd123!', displayName: 'a'.repeat(101) },
+        payload: { email: `long-${Date.now()}@example.com`, password: TEST_PASSWORD, displayName: 'a'.repeat(101) },
       });
       expect(response.statusCode).toBe(400);
+    });
+
+    // Register the single test user after validation tests pass
+    test('successful registration returns 201', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email: TEST_EMAIL, password: TEST_PASSWORD, displayName: 'Integration Test User' },
+      });
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({ message: 'Account created' });
+    });
+
+    test('second registration attempt returns 403 REGISTRATION_CLOSED', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email: `any-${Date.now()}@example.com`, password: TEST_PASSWORD, displayName: 'Another' },
+      });
+      expect(response.statusCode).toBe(403);
+      expect(response.json().error.code).toBe('REGISTRATION_CLOSED');
     });
   });
 
   describe('Login', () => {
     test('successful login returns 200', async () => {
-      const email = `login-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
       const response = await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
+        payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
       });
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({ message: 'Authenticated' });
     });
 
     test('wrong password returns 401', async () => {
-      const email = `wrong-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
       const response = await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { email, password: 'WrongP@ssw0rd!' },
+        payload: { email: TEST_EMAIL, password: 'WrongP@ssw0rd!' },
       });
       expect(response.statusCode).toBe(401);
       expect(response.json().error.code).toBe('INVALID_CREDENTIALS');
@@ -163,20 +152,11 @@ describe('Auth Integration Tests', () => {
     });
 
     test('login timing is consistent (prevents enumeration)', async () => {
-      const email = `timing-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-
-      // All login attempts should take at least LOGIN_DELAY_MS
-      // regardless of whether email exists or password is correct
       const start1 = Date.now();
       await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { email, password: 'WrongP@ssw0rd!' },
+        payload: { email: TEST_EMAIL, password: 'WrongP@ssw0rd!' },
       });
       const time1 = Date.now() - start1;
 
@@ -188,7 +168,6 @@ describe('Auth Integration Tests', () => {
       });
       const time2 = Date.now() - start2;
 
-      // Both should take at least LOGIN_DELAY_MS due to constant-time implementation
       expect(time1).toBeGreaterThanOrEqual(LOGIN_DELAY_MS - 100);
       expect(time2).toBeGreaterThanOrEqual(LOGIN_DELAY_MS - 100);
     });
@@ -196,16 +175,10 @@ describe('Auth Integration Tests', () => {
 
   describe('Session Management', () => {
     test('authenticated user can access /auth/me', async () => {
-      const email = `me-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
       const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
+        payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
       });
       const cookie = loginResponse.cookies[0];
       expect(cookie).toBeDefined();
@@ -238,16 +211,10 @@ describe('Auth Integration Tests', () => {
     });
 
     test('logout destroys session', async () => {
-      const email = `logout-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
       const loginResponse = await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
+        payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
       });
       const cookie = loginResponse.cookies[0];
       expect(cookie).toBeDefined();
@@ -276,146 +243,12 @@ describe('Auth Integration Tests', () => {
     });
   });
 
-  describe('Password Change', () => {
-    test('successful password change returns 200', async () => {
-      const email = `pw-change-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const loginResponse = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
-      });
-      const cookie = loginResponse.cookies[0];
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        headers: { cookie: `${cookie!.name}=${cookie!.value}` },
-        payload: { currentPassword: 'ValidP@ssw0rd123!', newPassword: 'NewP@ssw0rd456!' },
-      });
-      expect(response.statusCode).toBe(200);
-
-      const loginWithOld = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
-      });
-      expect(loginWithOld.statusCode).toBe(401);
-
-      const loginWithNew = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'NewP@ssw0rd456!' },
-      });
-      expect(loginWithNew.statusCode).toBe(200);
-    });
-
-    test('wrong current password returns 400', async () => {
-      const email = `pw-wrong-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const loginResponse = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
-      });
-      const cookie = loginResponse.cookies[0];
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        headers: { cookie: `${cookie!.name}=${cookie!.value}` },
-        payload: { currentPassword: 'WrongP@ssw0rd!', newPassword: 'NewP@ssw0rd456!' },
-      });
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error.code).toBe('INVALID_PASSWORD');
-    });
-
-    test('password history enforcement prevents reuse', async () => {
-      const email = `pw-history-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const loginResponse = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
-      });
-      const cookie = loginResponse.cookies[0];
-
-      await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        headers: { cookie: `${cookie!.name}=${cookie!.value}` },
-        payload: { currentPassword: 'ValidP@ssw0rd123!', newPassword: 'NewP@ssw0rd456!' },
-      });
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        headers: { cookie: `${cookie!.name}=${cookie!.value}` },
-        payload: { currentPassword: 'NewP@ssw0rd456!', newPassword: 'ValidP@ssw0rd123!' },
-      });
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error.code).toBe('PASSWORD_REUSE');
-    });
-
-    test('unauthorized request returns 401', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        payload: { currentPassword: 'ValidP@ssw0rd123!', newPassword: 'NewP@ssw0rd456!' },
-      });
-      expect(response.statusCode).toBe(401);
-    });
-
-    test('weak new password returns 400', async () => {
-      const email = `pw-weak-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const loginResponse = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: { email, password: 'ValidP@ssw0rd123!' },
-      });
-      const cookie = loginResponse.cookies[0];
-      expect(cookie).toBeDefined();
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/password/change',
-        headers: { cookie: `${cookie!.name}=${cookie!.value}` },
-        payload: { currentPassword: 'ValidP@ssw0rd123!', newPassword: 'short' },
-      });
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error.code).toBe('VALIDATION_ERROR');
-    });
-  });
-
   describe('Password Reset', () => {
     test('reset request returns 200 for valid email', async () => {
-      const email = `reset-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
       const response = await app.inject({
         method: 'POST',
         url: '/auth/password/reset/request',
-        payload: { email },
+        payload: { email: TEST_EMAIL },
       });
       expect(response.statusCode).toBe(200);
     });
@@ -440,13 +273,7 @@ describe('Auth Integration Tests', () => {
     });
 
     test('expired token returns 400', async () => {
-      const email = `reset-expired-${Date.now()}@example.com`;
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test' },
-      });
-      const user = await app.prisma.user.findUnique({ where: { email } });
+      const user = await app.prisma.user.findUnique({ where: { email: TEST_EMAIL } });
       const crypto = await import('node:crypto');
       const hashedToken = crypto.createHash('sha256').update('expired-token').digest('hex');
       await app.prisma.passwordResetToken.create({

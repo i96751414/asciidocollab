@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/006-project-management/plan.md
+specs/007-phase5-auth-ui/plan.md
 <!-- SPECKIT END -->
 
 ## Project
@@ -325,14 +325,14 @@ Phase 3 (Configurable Email Sender + Security) is **complete and merged to maste
 | 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
 | 3     | Configurable email sender, breach blocking, timing attack prevention                              | ✅ **Complete** |
 | 4     | Project management (CRUD + member management — API + dashboard UI)                                | ✅ **Complete** |
-| 5     | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
-| 6     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
-| 7     | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome)                                 | ⬜ Pending      |
-| 8     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
-| 9     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
-| 10    | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |
-| 11    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)              | ⬜ Pending      |
-| 12    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                            | ⬜ Pending      |
-| 13    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)                       | ⬜ Pending      |
-| 14    | Templates + image management (built-in templates, custom templates, image upload/versions)        | ⬜ Pending      |
+| 5     | File management (file tree CRUD, drag-drop — API + file tree panel)                               | ⬜ Pending      |
+| 6     | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome)                                 | ⬜ Pending      |
+| 7     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
+| 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
+| 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |
+| 10    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)              | ⬜ Pending      |
+| 11    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                            | ⬜ Pending      |
+| 12    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)                       | ⬜ Pending      |
+| 13    | Templates + image management (built-in templates, custom templates, image upload/versions)        | ⬜ Pending      |
+| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
 | 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)                 | ⬜ Pending      |
