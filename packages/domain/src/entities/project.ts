@@ -18,7 +18,9 @@ export class Project {
   private _rootFolderId: FileNodeId | null;
   private _archivedAt: Date | null;
   private _timestamps: Timestamps;
-  private readonly _tags: readonly string[];
+  private _tags: string[];
+  private _name: ProjectName;
+  private _description: string | null;
 
   /**
    * @throws {Error} If tags exceed 10 items, or `initialArchivedAt` precedes `createdAt`.
@@ -27,9 +29,9 @@ export class Project {
     /** Unique identifier for the project. */
     public readonly id: ProjectId,
     /** Human-readable project name. */
-    public readonly name: ProjectName,
+    name: ProjectName,
     /** Optional long-form description of the project. */
-    public readonly description: string | null,
+    description: string | null,
     /** Identifier of the user who owns this project. */
     public readonly ownerId: UserId,
     /**
@@ -50,8 +52,8 @@ export class Project {
      */
     initialArchivedAt: Date | null = null,
   ) {
-    this._tags = [...new Set(tags)];
-    if (this._tags.length > 10) {
+    const deduplicatedTags = [...new Set(tags)];
+    if (deduplicatedTags.length > 10) {
       throw new Error('Tags must not exceed 10 items');
     }
 
@@ -59,9 +61,22 @@ export class Project {
       throw new Error('archivedAt must be >= createdAt');
     }
 
+    this._name = name;
+    this._description = description;
+    this._tags = deduplicatedTags;
     this._rootFolderId = initialRootFolderId;
     this._archivedAt = initialArchivedAt;
     this._timestamps = timestamps;
+  }
+
+  /** @returns The display name of the project. */
+  get name(): ProjectName {
+    return this._name;
+  }
+
+  /** @returns The optional description of the project. */
+  get description(): string | null {
+    return this._description;
   }
 
   /** @returns The root folder identifier, or null if not initialised. */
@@ -69,9 +84,9 @@ export class Project {
     return this._rootFolderId;
   }
 
-  /** @returns The deduplicated tags array. */
+  /** @returns A defensive copy of the tags array. */
   get tags(): readonly string[] {
-    return this._tags;
+    return [...this._tags];
   }
 
   /** @returns The archive timestamp, or null if active. */
@@ -81,12 +96,12 @@ export class Project {
 
   /** @returns A defensive copy of the creation date. */
   get createdAt(): Date {
-    return this._timestamps.createdAt;
+    return new Date(this._timestamps.createdAt);
   }
 
   /** @returns A defensive copy of the last-update date. */
   get updatedAt(): Date {
-    return this._timestamps.updatedAt;
+    return new Date(this._timestamps.updatedAt);
   }
 
   /**
@@ -108,7 +123,57 @@ export class Project {
     if (this._archivedAt !== null) {
       throw new Error('Project is already archived');
     }
-    this._archivedAt = new Date();
+    const now = new Date();
+    this._archivedAt = now;
+    this._timestamps = new Timestamps(this._timestamps.createdAt, now);
+  }
+
+  /**
+   * Restores an archived project by clearing the archive timestamp.
+   * Bumps the update timestamp.
+   * 
+   * @throws {Error} If the project is not archived.
+   */
+  restore(): void {
+    if (this._archivedAt === null) {
+      throw new Error('Project is not archived');
+    }
+    this._archivedAt = null;
+    this._timestamps = new Timestamps(this._timestamps.createdAt, new Date());
+  }
+
+  /**
+   * Updates project details and bumps the update timestamp.
+   * At least one field must be provided.
+   *
+   * @param updates - The fields to update.
+   * @throws {Error} If no fields are provided or tags exceed 10 items.
+   */
+  update(updates: {
+    name?: ProjectName;
+    description?: string | null;
+    tags?: string[];
+  }): void {
+    if (updates.name === undefined && updates.description === undefined && updates.tags === undefined) {
+      throw new Error('At least one field must be provided');
+    }
+
+    if (updates.name !== undefined) {
+      this._name = updates.name;
+    }
+
+    if (updates.description !== undefined) {
+      this._description = updates.description;
+    }
+
+    if (updates.tags !== undefined) {
+      const deduplicated = [...new Set(updates.tags)];
+      if (deduplicated.length > 10) {
+        throw new Error('Tags must not exceed 10 items');
+      }
+      this._tags = deduplicated;
+    }
+
     this._timestamps = new Timestamps(this._timestamps.createdAt, new Date());
   }
 }

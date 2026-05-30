@@ -1,5 +1,5 @@
 /** @file Barrel re-exports for repositories. */
-export { ProjectRepository } from './project.repository';
+export { ProjectRepository, PaginationParameters, PaginatedProjects } from './project.repository';
 export { UserRepository } from './user.repository';
 export { FileNodeRepository } from './file-node.repository';
 export { DocumentRepository } from './document.repository';

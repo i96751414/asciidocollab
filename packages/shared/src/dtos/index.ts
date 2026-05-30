@@ -16,3 +16,10 @@ export {
   AuthErrorResponseDto,
   UserProfileDto,
 } from './auth.dto';
+export {
+  ListUserProjectsResultDto,
+  UpdateProjectDto,
+  ArchiveProjectResultDto,
+  RestoreProjectResultDto,
+  ProjectDto,
+} from './project-management.dto';

@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/005-configurable-mailer/plan.md
+specs/006-project-management/plan.md
 <!-- SPECKIT END -->
 
 ## Project
@@ -10,7 +10,8 @@ AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 3 complete — configurable email sender, breach blocking, and timing attack prevention built on top of Phases 1-2.
+**Status:** Phase 3 complete — configurable email sender, breach blocking, and timing attack prevention built on top of
+Phases 1-2.
 See `specs/005-configurable-mailer/plan.md` for the implementation plan.
 
 ## Tech Stack
@@ -26,7 +27,7 @@ See `specs/005-configurable-mailer/plan.md` for the implementation plan.
 | PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                  |
 | Database                | PostgreSQL via Prisma ORM                                 |
 | Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID) |
-| Email                   | Nodemailer (SMTP)                                        |
+| Email                   | Nodemailer (SMTP)                                         |
 | Monorepo                | pnpm workspaces                                           |
 | Tests                   | Jest + Testing Library + Playwright (E2E)                 |
 | Architecture validation | fresh-onion                                               |

@@ -54,14 +54,23 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
 
     if (!result.success) {
       let code: string;
-      if (result.error.name === 'ValidationError') {
-        code = 'VALIDATION_ERROR';
-      } else if (result.error.name === 'InvalidPasswordError') {
-        code = 'INVALID_PASSWORD';
-      } else if (result.error.name === 'PasswordReuseError') {
-        code = 'PASSWORD_REUSE';
-      } else {
-        code = 'VALIDATION_ERROR';
+      switch (result.error.name) {
+        case 'ValidationError': {
+          code = 'VALIDATION_ERROR';
+          break;
+        }
+        case 'InvalidPasswordError': {
+          code = 'INVALID_PASSWORD';
+          break;
+        }
+        case 'PasswordReuseError': {
+          code = 'PASSWORD_REUSE';
+          break;
+        }
+        default: {
+          code = 'VALIDATION_ERROR';
+          break;
+        }
       }
       return reply.status(400).send({
         error: { code, message: result.error.message },

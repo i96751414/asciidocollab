@@ -5,7 +5,7 @@ const unicorn = require('eslint-plugin-unicorn').default;
 const globals = require('globals');
 
 module.exports = tseslint.config(
-  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/specs/**'] },
+  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/*.cjs', '**/*.d.ts', '**/specs/**', '**/.next/**', '**/next-env.d.ts', '**/prisma.config.ts'] },
 
   eslint.configs.recommended,
 
@@ -16,10 +16,29 @@ module.exports = tseslint.config(
   unicorn.configs['flat/recommended'],
 
   {
+    languageOptions: {
+      parserOptions: {
+        project: [
+          './tsconfig.json',
+          './packages/domain/tsconfig.eslint.json',
+          './packages/shared/tsconfig.eslint.json',
+          './packages/db/tsconfig.json',
+          './packages/infrastructure/tsconfig.eslint.json',
+          './packages/testing/tsconfig.json',
+          './apps/api/tsconfig.eslint.json',
+          './apps/web/tsconfig.json',
+        ],
+        tsconfigRootDir: __dirname,
+      },
+    },
+  },
+
+  {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-deprecated': 'error',
       'no-console': 'warn',
 
       'unicorn/filename-case': 'error',
@@ -53,19 +72,15 @@ module.exports = tseslint.config(
       'jsdoc/require-param-description': 'error',
       'jsdoc/require-returns-description': 'error',
       'jsdoc/require-throws': 'error',
-      'jsdoc/sort-tags': ['warn', {
+      'jsdoc/sort-tags': ['error', {
         tagSequence: [
           { tags: ['param', 'returns', 'throws'] },
         ],
       }],
       'jsdoc/tag-lines': ['error', 'any', { startLines: 1 }],
-      'jsdoc/require-description-complete-sentence': ['warn'],
-      'jsdoc/informative-docs': 'warn',
+      'jsdoc/require-description-complete-sentence': 'error',
+      'jsdoc/informative-docs': 'error',
       'jsdoc/check-tag-names': ['error', { definedTags: ['invariant'] }],
-      'jsdoc/check-alignment': 'warn',
-      'jsdoc/require-param-type': 'off',
-      'jsdoc/require-returns-type': 'off',
-      'jsdoc/require-throws-type': 'off',
       'jsdoc/no-types': 'error',
     },
     languageOptions: {
@@ -88,7 +103,28 @@ module.exports = tseslint.config(
   },
 
   {
-    files: ['**/*.test.ts', '**/tests/helpers/*.ts', '**/src/routes/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
+    files: ['**/*.tsx'],
+    rules: {
+      'unicorn/prevent-abbreviations': ['error', {
+        checkProperties: false,
+        allowList: {
+          props: true,
+          ref: true,
+        },
+      }],
+    },
+  },
+
+  {
+    files: ['**/components/ui/**'],
+    rules: {
+      'unicorn/filename-case': 'off',
+      'jsdoc/require-jsdoc': 'off',
+    },
+  },
+
+  {
+    files: ['**/*.test.ts', '**/tests/helpers/*.ts', '**/src/routes/**/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       'jsdoc/require-jsdoc': 'off',

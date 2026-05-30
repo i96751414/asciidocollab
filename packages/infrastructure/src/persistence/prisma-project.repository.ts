@@ -1,5 +1,14 @@
 import { PrismaClient } from '@prisma/client';
-import { Project, ProjectId, UserId, ProjectName, Timestamps, ProjectRepository } from '@asciidocollab/domain';
+import {
+  Project,
+  ProjectId,
+  UserId,
+  ProjectName,
+  Timestamps,
+  ProjectRepository,
+  PaginationParameters,
+  PaginatedProjects,
+} from '@asciidocollab/domain';
 
 /**
  * Prisma-backed implementation of the `ProjectRepository` interface.
@@ -8,7 +17,9 @@ import { Project, ProjectId, UserId, ProjectName, Timestamps, ProjectRepository 
  */
 export class PrismaProjectRepository implements ProjectRepository {
   /**
+   * Creates a new PrismaProjectRepository.
    *
+   * @param prisma - The Prisma client used for database operations.
    */
   constructor(
     /** The Prisma client used for database operations. */
@@ -34,6 +45,49 @@ export class PrismaProjectRepository implements ProjectRepository {
   }
 
   /**
+   * Finds all projects where the user is a member.
+   *
+   * @param userId - The unique identifier of the user.
+   * @param pagination - Pagination parameters.
+   * @param includeArchived - Whether to include archived projects.
+   * @returns Paginated list of projects.
+   */
+  async findByMemberId(
+    userId: UserId,
+    pagination: PaginationParameters,
+    includeArchived = false,
+  ): Promise<PaginatedProjects> {
+    const where: Record<string, unknown> = {
+      OR: [
+        { ownerId: userId.value },
+        { members: { some: { userId: userId.value } } },
+      ],
+    };
+
+    if (!includeArchived) {
+      where.archivedAt = null;
+    }
+
+    const [records, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where,
+        skip: (pagination.page - 1) * pagination.limit,
+        take: pagination.limit,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.project.count({ where }),
+    ]);
+
+    return {
+      projects: records.map(toDomainProject),
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(total / pagination.limit),
+    };
+  }
+
+  /**
    * Creates or updates a project. Uses upsert so the same method
    * handles both insert and update.
    * 
@@ -49,6 +103,31 @@ export class PrismaProjectRepository implements ProjectRepository {
   }
 
   /**
+   * Archives a project by setting archivedAt timestamp.
+   *
+   * @param id - The unique identifier of the project to archive.
+   * @param archivedAt - The archive timestamp.
+   */
+  async archive(id: ProjectId, archivedAt: Date): Promise<void> {
+    await this.prisma.project.update({
+      where: { id: id.value },
+      data: { archivedAt },
+    });
+  }
+
+  /**
+   * Restores an archived project by setting archivedAt to null.
+   *
+   * @param id - The unique identifier of the project to restore.
+   */
+  async restore(id: ProjectId): Promise<void> {
+    await this.prisma.project.update({
+      where: { id: id.value },
+      data: { archivedAt: null },
+    });
+  }
+
+  /**
    * @param id - The unique identifier of the project to delete.
    */
   async delete(id: ProjectId): Promise<void> {
@@ -58,7 +137,7 @@ export class PrismaProjectRepository implements ProjectRepository {
 
 function toDomainProject(record: {
   id: string; name: string; description: string | null; ownerId: string;
-  tags: unknown; createdAt: Date; updatedAt: Date;
+  tags: unknown; archivedAt: Date | null; createdAt: Date; updatedAt: Date;
 }): Project {
   let tags: string[] = [];
   if (Array.isArray(record.tags)) {
@@ -72,6 +151,7 @@ function toDomainProject(record: {
     tags,
     null,
     new Timestamps(record.createdAt, record.updatedAt),
+    record.archivedAt,
   );
 }
 

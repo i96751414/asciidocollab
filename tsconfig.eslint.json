@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "types": ["jest", "node"]
+  },
+  "include": [
+    "packages/domain/src/**/*.ts",
+    "packages/domain/tests/**/*.ts",
+    "packages/shared/src/**/*.ts",
+    "packages/shared/tests/**/*.ts",
+    "packages/infrastructure/src/**/*.ts",
+    "packages/infrastructure/tests/**/*.ts",
+    "packages/db/src/**/*.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/tests/**/*.ts",
+    "apps/web/src/**/*.ts",
+    "apps/web/src/**/*.tsx"
+  ],
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/coverage/**"
+  ]
+}

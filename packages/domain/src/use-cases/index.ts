@@ -11,3 +11,7 @@ export { ResetPasswordUseCase } from './reset-password';
 export { ChangePasswordUseCase } from './change-password';
 export { RequestPasswordResetUseCase } from './request-password-reset';
 export { LoginUseCase } from './login';
+export { ListUserProjectsUseCase } from './list-user-projects';
+export { UpdateProjectUseCase } from './update-project';
+export { ArchiveProjectUseCase } from './archive-project';
+export { RestoreProjectUseCase } from './restore-project';
