@@ -11,7 +11,7 @@ import { ProjectNotFoundError } from '../errors/project-not-found';
 import { CannotChangeOwnerRoleError } from '../errors/cannot-change-owner-role';
 import { CannotRemoveLastAdminError } from '../errors/cannot-remove-last-admin';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**

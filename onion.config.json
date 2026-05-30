@@ -8,11 +8,11 @@
   "rules": [
     {
       "from": "domain",
-      "allowedImports": ["shared"]
+      "allowedImports": []
     },
     {
       "from": "shared",
-      "allowedImports": []
+      "allowedImports": ["domain"]
     },
     {
       "from": "db",

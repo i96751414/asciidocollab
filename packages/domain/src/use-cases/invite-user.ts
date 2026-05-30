@@ -12,7 +12,7 @@ import { PermissionDeniedError } from '../errors/permission-denied';
 import { UserNotFoundError } from '../errors/user-not-found';
 import { ProjectMemberAlreadyExistsError } from '../errors/project-member-already-exists';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**

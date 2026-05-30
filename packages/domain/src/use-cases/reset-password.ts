@@ -7,7 +7,7 @@ import { InvalidTokenError } from '../errors/invalid-token';
 import { PasswordReuseError } from '../errors/password-reuse';
 import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { PasswordHasher } from '../services/password-hasher';
 import { TokenGenerator } from '../services/token-generator';
 

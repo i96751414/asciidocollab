@@ -9,7 +9,7 @@ import { ProjectRepository } from '../repositories/project.repository';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { ProjectNotFoundError } from '../errors/project-not-found';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 
 /** A single node in the project file tree, with nested children for folders. */
 export interface FileTreeNode {

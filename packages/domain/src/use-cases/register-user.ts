@@ -6,7 +6,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { DomainError } from '../errors/domain-error';
 import { ValidationError } from '../errors/validation-error';
 import { PasswordPolicy, validatePassword } from '../value-objects/password-policy';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 import { PasswordHasher } from '../services/password-hasher';
 import { BreachChecker } from '../services/breach-checker';

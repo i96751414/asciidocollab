@@ -1,4 +1,5 @@
 /** @packageDocumentation Package-level entry point for the domain layer. */
+export * from './types';
 export * from './entities';
 export * from './value-objects';
 export * from './repositories';

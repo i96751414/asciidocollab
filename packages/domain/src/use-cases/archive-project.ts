@@ -9,7 +9,7 @@ import { PermissionDeniedError } from '../errors/permission-denied';
 import { ProjectNotFoundError } from '../errors/project-not-found';
 import { ProjectAlreadyArchivedError } from '../errors/project-already-archived';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**

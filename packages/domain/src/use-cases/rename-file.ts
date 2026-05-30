@@ -13,7 +13,7 @@ import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { randomUUID } from 'crypto';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.

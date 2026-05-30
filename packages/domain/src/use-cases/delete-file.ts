@@ -11,7 +11,7 @@ import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../errors/cannot-delete-root-folder';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**

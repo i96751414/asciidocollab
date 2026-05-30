@@ -15,7 +15,7 @@ import { FileNodeRepository } from '../repositories/file-node.repository';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /** Result returned on successful project creation. */

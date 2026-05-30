@@ -11,7 +11,7 @@ import { CannotRemoveOwnerError } from '../errors/cannot-remove-owner';
 import { CannotRemoveLastAdminError } from '../errors/cannot-remove-last-admin';
 import { MemberNotFoundError } from '../errors/member-not-found';
 import { DomainError } from '../errors/domain-error';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**

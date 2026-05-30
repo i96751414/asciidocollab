@@ -3,7 +3,7 @@ import { PasswordResetTokenId } from '../value-objects/password-reset-token-id';
 import { Email } from '../value-objects/email';
 import { UserRepository } from '../repositories/user.repository';
 import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
-import { Result } from '@asciidocollab/shared';
+import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 import { TokenGenerator } from '../services/token-generator';
 import { PASSWORD_RESET_DELAY_MS } from '../constants';
