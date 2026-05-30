@@ -1,0 +1,27 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "src/app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true
+  },
+  "rsc": false,
+  "tsx": true,
+  "aliases": {
+    "utils": "@/lib",
+    "components": "@/components"
+  },
+  "components": [
+    "button",
+    "card",
+    "input",
+    "label",
+    "badge",
+    "skeleton",
+    "dialog",
+    "dropdown-menu",
+    "select"
+  ]
+}
