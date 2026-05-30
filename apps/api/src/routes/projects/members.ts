@@ -30,6 +30,14 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
+      const callerMembership = await request.server.repos.projectMember.findByCompositeKey(
+        ProjectId.create(id),
+        UserId.create(userId),
+      );
+      if (!callerMembership) {
+        return reply.status(403).send({ error: { code: "FORBIDDEN", message: "Not a member of this project" } });
+      }
+
       const members = await request.server.repos.projectMember.findByProjectId(
         ProjectId.create(id)
       );
@@ -38,16 +46,18 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         members.map((member) => request.server.repos.user.findById(member.userId))
       );
 
-      const membersWithUsers = members
-        .map((member, i) => ({ member, user: users[i] }))
-        .filter((entry): entry is { member: typeof entry.member; user: NonNullable<typeof entry.user> } => entry.user !== null);
+      if (users.some((u) => u === null)) {
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Failed to fetch member data" },
+        });
+      }
 
       return reply.status(200).send({
         data: {
-          members: membersWithUsers.map(({ member, user }) => ({
+          members: members.map((member, i) => ({
             userId: member.userId.value,
-            email: user.email.value,
-            displayName: user.displayName,
+            email: users[i]!.email.value,
+            displayName: users[i]!.displayName,
             role: member.role.value,
             joinedAt: member.joinedAt.toISOString(),
           })),
@@ -113,12 +123,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const invitedUser = await request.server.repos.user.findByEmail(Email.create(email));
-    if (!invitedUser) {
-      return reply.status(500).send({
-        error: { code: "INTERNAL_ERROR", message: "Failed to retrieve invited user" },
-      });
-    }
+    const { member, user: invitedUser } = result.value;
 
     return reply.status(201).send({
       data: {
@@ -126,7 +131,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         email: invitedUser.email.value,
         displayName: invitedUser.displayName,
         role: role,
-        joinedAt: new Date().toISOString(),
+        joinedAt: member.joinedAt.toISOString(),
       },
     });
   });

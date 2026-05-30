@@ -51,10 +51,18 @@ describe('InviteUserUseCase', () => {
     );
   });
 
-  test('admin invites user with editor role - member created, audit log created', async () => {
+  test('admin invites user with editor role - returns member and user, persists membership, logs audit', async () => {
     const role = Role.create('editor');
     const result = await useCase.execute(adminId, projectId, inviteEmail, role);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.member.userId.value).toBe(inviteeId.value);
+      expect(result.value.member.role.value).toBe('editor');
+      expect(result.value.member.joinedAt).toBeInstanceOf(Date);
+      expect(result.value.user.id.value).toBe(inviteeId.value);
+      expect(result.value.user.email.value).toBe(inviteEmail.value);
+      expect(result.value.user.displayName).toBe('Invitee');
+    }
 
     const member = await projectMemberRepo.findByCompositeKey(projectId, inviteeId);
     expect(member).not.toBeNull();

@@ -1,4 +1,5 @@
 import { ProjectMember } from '../entities/project-member';
+import { User } from '../entities/user';
 import { AuditLog } from '../entities/audit-log';
 import { UserId } from '../value-objects/user-id';
 import { ProjectId } from '../value-objects/project-id';
@@ -36,7 +37,7 @@ export class InviteUserUseCase {
    * @param projectId - The project to invite the user into.
    * @param email - The email of the user to invite.
    * @param role - The role to assign to the invited user.
-   * @returns Void on success.
+   * @returns The created `ProjectMember` and the invited `User` on success.
    * On failure returns `PermissionDeniedError` if the caller is not an administrator,
    * `UserNotFoundError` if no user is found for the given email, or
    * `ProjectMemberAlreadyExistsError` if the user is already a member.
@@ -46,7 +47,7 @@ export class InviteUserUseCase {
     projectId: ProjectId,
     email: Email,
     role: Role,
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ member: ProjectMember; user: User }, DomainError>> {
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!callerMembership || callerMembership.role.value !== 'administrator') {
       return { success: false, error: new PermissionDeniedError() };
@@ -82,6 +83,6 @@ export class InviteUserUseCase {
 
     await this.auditLogRepo.save(auditLog);
 
-    return { success: true, value: undefined };
+    return { success: true, value: { member, user: invitedUser } };
   }
 }

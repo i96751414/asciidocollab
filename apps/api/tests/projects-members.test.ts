@@ -61,6 +61,22 @@ describe('Project Members', () => {
       expect(response.json().error.code).toBe('UNAUTHORIZED');
     });
 
+    test('returns 403 when caller is not a member of the project', async () => {
+      const ts = Date.now();
+      const ownerCookie = await registerAndLogin(`owner-auth-${ts}@example.com`, 'Owner');
+      const outsiderCookie = await registerAndLogin(`outsider-${ts}@example.com`, 'Outsider');
+      const projectId = await createProject(ownerCookie, 'Auth Test Project');
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/projects/${projectId}/members`,
+        headers: { cookie: outsiderCookie },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json().error.code).toBe('FORBIDDEN');
+    });
+
     test('returns real email and displayName from user repository', async () => {
       const ts = Date.now();
       const adminEmail = `admin-get-${ts}@example.com`;
@@ -119,6 +135,19 @@ describe('Project Members', () => {
       expect(data.userId).toMatch(/^[0-9a-f-]{36}$/);
       expect(data.role).toBe('viewer');
       expect(data.joinedAt).toBeDefined();
+
+      // joinedAt must be the persisted timestamp, not a fabricated one —
+      // verify it matches what GET /members returns for the same record.
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/api/projects/${projectId}/members`,
+        headers: { cookie: adminCookie },
+      });
+      const listedMember = listResponse.json().data.members.find(
+        (m: { userId: string }) => m.userId === data.userId
+      );
+      expect(listedMember).toBeDefined();
+      expect(listedMember.joinedAt).toBe(data.joinedAt);
     });
 
     test('returns 400 when inviting non-existent user', async () => {
