@@ -19,7 +19,7 @@ auth:
     secure: true
     cookie:
       httpOnly: true
-      sameSite: lax
+      sameSite: strict
       saveUninitialized: false
       rolling: true
 

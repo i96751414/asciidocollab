@@ -3,7 +3,18 @@
  * Handles authentication via session cookies and provides typed responses.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+let csrfToken: string | null = null;
+
+// Fetches a CSRF token from the server and caches it for the page session.
+async function getCsrfToken(): Promise<string> {
+  if (!csrfToken) {
+    const data = await apiRequest<{ token: string }>('/auth/csrf-token');
+    csrfToken = data.token;
+  }
+  return csrfToken;
+}
 
 /**
  * Custom error class for API errors.
@@ -15,11 +26,13 @@ export class ApiError extends Error {
    * @param status - HTTP status code.
    * @param code - Application-specific error code.
    * @param message - Human-readable error message.
+   * @param retryAfter - Seconds until the client may retry (present on 429 responses).
    */
   constructor(
     public readonly status: number,
     public readonly code: string,
     message: string,
+    public readonly retryAfter?: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -54,8 +67,9 @@ async function apiRequest<T>(
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      data.error?.code || "UNKNOWN_ERROR",
-      data.error?.message || "An unexpected error occurred",
+      data.error?.code ?? "UNKNOWN_ERROR",
+      data.error?.message ?? "An unexpected error occurred",
+      data.error?.retryAfter,
     );
   }
 
@@ -138,6 +152,52 @@ export interface ProjectMember {
   /** Timestamp when the user joined. */
   joinedAt: string;
 }
+
+/**
+ * API client for authentication operations.
+ */
+export const authApi = {
+  async login(email: string, password: string): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/login', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  async register(
+    email: string,
+    password: string,
+    displayName: string,
+  ): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/register', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ email, password, displayName }),
+    });
+  },
+
+  async logout(): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    const result = await apiRequest('/auth/logout', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({}),
+    });
+    csrfToken = null;
+    return result;
+  },
+
+  async setupStatus(): Promise<{ configured: boolean }> {
+    return apiRequest('/auth/setup-status');
+  },
+
+  async me(): Promise<{ userId: string }> {
+    return apiRequest('/auth/me');
+  },
+};
 
 /**
  * API client for project operations.

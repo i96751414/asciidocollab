@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/register';
 import { loginRoute } from '../src/routes/login';
@@ -6,9 +7,12 @@ import { memberRoutes } from '../src/routes/projects/members';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 
+const TEST_PASSWORD = 'ValidP@ssw0rd123!';
+
 describe('Project Members', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
+  let passwordHash: string;
 
   beforeAll(async () => {
     setupTestEnvironment();
@@ -19,6 +23,17 @@ describe('Project Members', () => {
     await app.register(projectRoutes);
     await app.register(memberRoutes);
     await app.ready();
+
+    // Register the first (and only) user via API
+    const firstEmail = `first-user-${Date.now()}@example.com`;
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: firstEmail, password: TEST_PASSWORD, displayName: 'First User' },
+    });
+
+    // Compute password hash for subsequent direct user creation
+    passwordHash = await app.services.passwordHasher.hash(TEST_PASSWORD);
   });
 
   afterAll(async () => {
@@ -26,16 +41,27 @@ describe('Project Members', () => {
     await stopTestContainer(testContext);
   });
 
-  async function registerAndLogin(email: string, displayName: string): Promise<string> {
-    await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: { email, password: 'ValidP@ssw0rd123!', displayName },
+  // Creates a user directly in the DB (bypassing single-registration constraint) and returns their session cookie
+  async function createUserAndLogin(email: string, displayName: string): Promise<string> {
+    const userId = randomUUID();
+    await testContext.client.user.create({
+      data: {
+        id: userId,
+        email,
+        displayName,
+        passwordHash,
+        passwordHistory: [],
+        samlSubject: null,
+        mfaSecret: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
+
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
-      payload: { email, password: 'ValidP@ssw0rd123!' },
+      payload: { email, password: TEST_PASSWORD },
     });
     const cookie = loginResponse.cookies[0];
     return cookie ? `${cookie.name}=${cookie.value}` : '';
@@ -63,8 +89,8 @@ describe('Project Members', () => {
 
     test('returns 403 when caller is not a member of the project', async () => {
       const ts = Date.now();
-      const ownerCookie = await registerAndLogin(`owner-auth-${ts}@example.com`, 'Owner');
-      const outsiderCookie = await registerAndLogin(`outsider-${ts}@example.com`, 'Outsider');
+      const ownerCookie = await createUserAndLogin(`owner-auth-${ts}@example.com`, 'Owner');
+      const outsiderCookie = await createUserAndLogin(`outsider-${ts}@example.com`, 'Outsider');
       const projectId = await createProject(ownerCookie, 'Auth Test Project');
 
       const response = await app.inject({
@@ -80,7 +106,7 @@ describe('Project Members', () => {
     test('returns real email and displayName from user repository', async () => {
       const ts = Date.now();
       const adminEmail = `admin-get-${ts}@example.com`;
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin User');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin User');
       const projectId = await createProject(adminCookie, 'Get Members Project');
 
       const response = await app.inject({
@@ -116,8 +142,8 @@ describe('Project Members', () => {
       const adminEmail = `admin-invite-${ts}@example.com`;
       const memberEmail = `member-invite-${ts}@example.com`;
 
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin Inviter');
-      await registerAndLogin(memberEmail, 'Invited Member');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin Inviter');
+      await createUserAndLogin(memberEmail, 'Invited Member');
       const projectId = await createProject(adminCookie, 'Invite Test Project');
 
       const response = await app.inject({
@@ -136,8 +162,6 @@ describe('Project Members', () => {
       expect(data.role).toBe('viewer');
       expect(data.joinedAt).toBeDefined();
 
-      // joinedAt must be the persisted timestamp, not a fabricated one —
-      // verify it matches what GET /members returns for the same record.
       const listResponse = await app.inject({
         method: 'GET',
         url: `/api/projects/${projectId}/members`,
@@ -153,7 +177,7 @@ describe('Project Members', () => {
     test('returns 400 when inviting non-existent user', async () => {
       const ts = Date.now();
       const adminEmail = `admin-nouser-${ts}@example.com`;
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin');
       const projectId = await createProject(adminCookie, 'No User Project');
 
       const response = await app.inject({
@@ -172,9 +196,9 @@ describe('Project Members', () => {
       const viewerEmail = `viewer-perm-${ts}@example.com`;
       const targetEmail = `target-perm-${ts}@example.com`;
 
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin');
-      const viewerCookie = await registerAndLogin(viewerEmail, 'Viewer');
-      await registerAndLogin(targetEmail, 'Target');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin');
+      const viewerCookie = await createUserAndLogin(viewerEmail, 'Viewer');
+      await createUserAndLogin(targetEmail, 'Target');
 
       const projectId = await createProject(adminCookie, 'Permission Test Project');
       await app.inject({
@@ -199,8 +223,8 @@ describe('Project Members', () => {
       const adminEmail = `admin-list-${ts}@example.com`;
       const memberEmail = `member-list-${ts}@example.com`;
 
-      const adminCookie = await registerAndLogin(adminEmail, 'List Admin');
-      await registerAndLogin(memberEmail, 'List Member');
+      const adminCookie = await createUserAndLogin(adminEmail, 'List Admin');
+      await createUserAndLogin(memberEmail, 'List Member');
       const projectId = await createProject(adminCookie, 'List Test Project');
 
       await app.inject({
@@ -243,8 +267,8 @@ describe('Project Members', () => {
       const adminEmail = `admin-role-${ts}@example.com`;
       const memberEmail = `member-role-${ts}@example.com`;
 
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin');
-      await registerAndLogin(memberEmail, 'Member');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin');
+      await createUserAndLogin(memberEmail, 'Member');
       const projectId = await createProject(adminCookie, 'Role Change Project');
 
       const inviteResponse = await app.inject({
@@ -283,8 +307,8 @@ describe('Project Members', () => {
       const adminEmail = `admin-remove-${ts}@example.com`;
       const memberEmail = `member-remove-${ts}@example.com`;
 
-      const adminCookie = await registerAndLogin(adminEmail, 'Admin');
-      await registerAndLogin(memberEmail, 'Member');
+      const adminCookie = await createUserAndLogin(adminEmail, 'Admin');
+      await createUserAndLogin(memberEmail, 'Member');
       const projectId = await createProject(adminCookie, 'Remove Member Project');
 
       const inviteResponse = await app.inject({
@@ -310,7 +334,8 @@ describe('Project Members', () => {
         headers: { cookie: adminCookie },
       });
       const { members } = listResponse.json().data;
-      expect(members.find((m: { userId: string }) => m.userId === memberId)).toBeUndefined();
+      expect(members).toHaveLength(1);
+      expect(members.find((m: { email: string }) => m.email === memberEmail)).toBeUndefined();
     });
   });
 });

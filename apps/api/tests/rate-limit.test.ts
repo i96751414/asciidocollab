@@ -23,41 +23,53 @@ describe('Registration Rate Limiting', () => {
     await stopTestContainer(testContext);
   });
 
-  test('allows up to 3 registrations per IP', async () => {
-    for (let index = 0; index < 3; index++) {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: {
-          email: `rate-${index}-${Date.now()}@example.com`,
-          password: 'ValidP@ssw0rd123!',
-          displayName: 'Test User',
-        },
-      });
-      expect(response.statusCode).toBe(201);
-    }
+  test('first registration attempt succeeds with 201', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: `rate-first-${Date.now()}@example.com`,
+        password: 'ValidP@ssw0rd123!',
+        displayName: 'First User',
+      },
+    });
+    expect(response.statusCode).toBe(201);
   });
 
-  test('rejects 4th registration with 429', async () => {
-    for (let index = 0; index < 3; index++) {
-      await app.inject({
-        method: 'POST',
-        url: '/auth/register',
-        payload: {
-          email: `rate-block-${index}-${Date.now()}@example.com`,
-          password: 'ValidP@ssw0rd123!',
-          displayName: 'Test User',
-        },
-      });
-    }
+  test('subsequent attempts return 403 REGISTRATION_CLOSED (not rate-limited yet)', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: `rate-second-${Date.now()}@example.com`,
+        password: 'ValidP@ssw0rd123!',
+        displayName: 'Second User',
+      },
+    });
+    // Registration is closed (hasAny() = true), not rate-limited yet
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('REGISTRATION_CLOSED');
+  });
+
+  test('rejects 4th registration attempt with 429 (rate limit)', async () => {
+    // Make 2 more attempts to hit the rate limit of 3 total requests
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: `rate-block-2-${Date.now()}@example.com`,
+        password: 'ValidP@ssw0rd123!',
+        displayName: 'User',
+      },
+    });
 
     const response = await app.inject({
       method: 'POST',
       url: '/auth/register',
       payload: {
-        email: `rate-block-overflow-${Date.now()}@example.com`,
+        email: `rate-block-4-${Date.now()}@example.com`,
         password: 'ValidP@ssw0rd123!',
-        displayName: 'Test User',
+        displayName: 'User',
       },
     });
     expect(response.statusCode).toBe(429);

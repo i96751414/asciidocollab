@@ -13,4 +13,17 @@ auth:
   session:
     secure: false
     cookie:
-      sameSite: lax
+      sameSite: strict
+  # Generous rate limits for local development and testing
+  login:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000
+  registration:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000
+  passwordReset:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000
+  passwordChange:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000

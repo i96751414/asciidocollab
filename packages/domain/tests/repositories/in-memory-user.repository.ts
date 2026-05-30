@@ -34,4 +34,11 @@ export class InMemoryUserRepository implements UserRepository {
   async save(user: User): Promise<void> {
     this.storage.set(user.id.value, user);
   }
+
+  /**
+   * @returns True when the in-memory store contains at least one user.
+   */
+  async hasAny(): Promise<boolean> {
+    return this.storage.size > 0;
+  }
 }

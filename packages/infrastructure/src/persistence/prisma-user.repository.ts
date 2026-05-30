@@ -35,7 +35,7 @@ export class PrismaUserRepository implements UserRepository {
   /**
    * Creates or updates a user. Uses Prisma upsert so the same method
    * handles both insert and update based on whether the ID already exists.
-   * 
+   *
    * @param user - The user entity to persist.
    */
   async save(user: User): Promise<void> {
@@ -45,6 +45,13 @@ export class PrismaUserRepository implements UserRepository {
       create: data,
       update: data,
     });
+  }
+
+  /**
+   * @returns True when at least one user row exists in the database.
+   */
+  async hasAny(): Promise<boolean> {
+    return (await this.prisma.user.count({ take: 1 })) > 0;
   }
 }
 

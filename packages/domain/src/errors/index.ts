@@ -20,3 +20,4 @@ export { PasswordReuseError } from './password-reuse';
 export { InvalidPasswordError } from './invalid-password';
 export { ProjectAlreadyArchivedError } from './project-already-archived';
 export { ProjectNotArchivedError } from './project-not-archived';
+export { RegistrationClosedError } from './registration-closed';

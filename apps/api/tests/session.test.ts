@@ -6,6 +6,9 @@ import { meRoute } from '../src/routes/me';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 
+const TEST_EMAIL = 'session-user@example.com';
+const TEST_PASSWORD = 'ValidP@ssw0rd123!';
+
 describe('Session', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
@@ -20,6 +23,13 @@ describe('Session', () => {
     await app.register(logoutRoute);
     await app.register(meRoute);
     await app.ready();
+
+    // Register the single test user once
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: TEST_EMAIL, password: TEST_PASSWORD, displayName: 'Test User' },
+    });
   });
 
   afterAll(async () => {
@@ -28,17 +38,10 @@ describe('Session', () => {
   });
 
   test('authenticated user can access protected route', async () => {
-    const email = `session-${Date.now()}@example.com`;
-    await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
-    });
-
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
-      payload: { email, password: 'ValidP@ssw0rd123!' },
+      payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
     });
     expect(loginResponse.statusCode).toBe(200);
 
@@ -73,17 +76,10 @@ describe('Session', () => {
   });
 
   test('logout invalidates session', async () => {
-    const email = `logout-session-${Date.now()}@example.com`;
-    await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: { email, password: 'ValidP@ssw0rd123!', displayName: 'Test User' },
-    });
-
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/login',
-      payload: { email, password: 'ValidP@ssw0rd123!' },
+      payload: { email: TEST_EMAIL, password: TEST_PASSWORD },
     });
     expect(loginResponse.statusCode).toBe(200);
 

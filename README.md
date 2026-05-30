@@ -105,4 +105,4 @@ No cloud accounts, no telemetry, no external dependencies required.
 
 ## License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE)

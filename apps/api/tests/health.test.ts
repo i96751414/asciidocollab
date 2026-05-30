@@ -1,4 +1,5 @@
 import { buildServer } from '../src/index';
+import { healthRoute } from '../src/routes/health';
 import { setupTestEnvironment } from './helpers/test-environment';
 
 describe('Health endpoint', () => {
@@ -8,6 +9,7 @@ describe('Health endpoint', () => {
 
   test('GET /health returns 200 with status ok', async () => {
     const app = await buildServer();
+    await app.register(healthRoute);
     const response = await app.inject({
       method: 'GET',
       url: '/health',

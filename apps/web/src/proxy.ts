@@ -2,19 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Proxy to protect routes that require authentication.
- * Checks for session cookie and redirects to login if not authenticated.
+ * Next.js edge proxy — redirects unauthenticated requests to /login.
+ * Runs at the edge before any page renders; checks cookie presence only.
+ * Session validity is confirmed by the layout's getSession() call.
+ *
+ * @param request - Incoming Next.js request.
+ * @returns A redirect response when the sessionId cookie is absent, or passes through.
  */
 export function proxy(request: NextRequest) {
-  const session = request.cookies.get("session");
+  const session = request.cookies.get("sessionId");
 
-  // Protected routes that require authentication
-  const protectedPaths = ["/dashboard"];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  if (isProtectedPath && !session) {
+  if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
@@ -24,5 +22,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/(dashboard|projects)(.*)"],
 };
