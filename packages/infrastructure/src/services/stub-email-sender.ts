@@ -17,6 +17,6 @@ export class StubEmailSender implements EmailSender {
    * @param _html - The email body in HTML format (unused in stub).
    */
   async send(to: string, subject: string, _html: string): Promise<void> {
-    logger.info({ to, subject }, 'Email sent');
+    logger.info({ to, subject }, '[STUB] Email sent');
   }
 }
