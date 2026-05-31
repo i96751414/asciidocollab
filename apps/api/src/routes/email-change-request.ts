@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { UserId, RequestEmailChangeUseCase } from '@asciidocollab/domain';
+import { UserId, RequestEmailChangeUseCase, NotificationDeliveryError } from '@asciidocollab/domain';
 import '../types/session';
 import type { RequestEmailChangeDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -7,8 +7,8 @@ export async function emailChangeRequestRoute(app: FastifyInstance): Promise<voi
   app.post('/auth/email/change-request', {
     config: {
       rateLimit: {
-        max: app.config.auth.passwordReset.rateLimitMax,
-        timeWindow: app.config.auth.passwordReset.rateLimitWindow,
+        max: app.config.auth.emailChangeRequest.rateLimitMax,
+        timeWindow: app.config.auth.emailChangeRequest.rateLimitWindow,
       },
     },
     schema: {
@@ -39,6 +39,7 @@ export async function emailChangeRequestRoute(app: FastifyInstance): Promise<voi
     try {
       await useCase.execute(UserId.create(request.session.userId), newEmail);
     } catch (error) {
+      if (!(error instanceof NotificationDeliveryError)) throw error;
       request.log.warn({ err: error }, 'email change confirmation delivery failed');
     }
 

@@ -6,9 +6,7 @@ import { User, UserId, Email, Timestamps, UserRepository, ProjectId } from '@asc
  * Maps between domain `User` entities and the `User` database table.
  */
 export class PrismaUserRepository implements UserRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaUserRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,
@@ -101,7 +99,7 @@ function toDomainUser(record: {
 function toPersistenceUser(user: User): {
   id: string; email: string; displayName: string; passwordHash: string | null;
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
-  createdAt: Date; updatedAt: Date;
+  isAdmin: boolean; createdAt: Date; updatedAt: Date;
 } {
   return {
     id: user.id.value,
@@ -111,6 +109,7 @@ function toPersistenceUser(user: User): {
     passwordHistory: user.passwordHistory,
     samlSubject: user.samlSubject,
     mfaSecret: user.mfaSecret,
+    isAdmin: user.isAdmin,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

@@ -7,6 +7,7 @@ import { EmailChangeTokenRepository } from '../repositories/email-change-token.r
 import { TokenGenerator } from '../services/token-generator';
 import { EmailChangeNotifier } from '../services/email-change-notifier';
 import { Result } from '../types/result';
+import { NotificationDeliveryError } from '../errors/notification-delivery';
 import { randomUUID } from 'crypto';
 
 /** Initiates an email address change by issuing a confirmation token and notifying the user. */
@@ -34,7 +35,9 @@ export class RequestEmailChangeUseCase {
   async execute(userId: UserId, newEmail: string): Promise<Result<undefined, Error>> {
     const currentUser = await this.userRepo.findById(userId);
 
-    if (currentUser && currentUser.email.value === newEmail) {
+    if (!currentUser) return { success: true, value: undefined };
+
+    if (currentUser.email.value === newEmail) {
       return { success: true, value: undefined };
     }
 
@@ -58,7 +61,11 @@ export class RequestEmailChangeUseCase {
     );
     await this.tokenRepo.save(token);
 
-    await this.notifier.sendConfirmationEmail(newEmail, tokenData.token);
+    try {
+      await this.notifier.sendConfirmationEmail(newEmail, tokenData.token);
+    } catch (error) {
+      throw new NotificationDeliveryError(error instanceof Error ? error : undefined);
+    }
 
     return { success: true, value: undefined };
   }

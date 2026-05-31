@@ -53,6 +53,10 @@ auth:
     rateLimitMax: 5
     rateLimitWindow: 900000     # 15 minutes
 
+  emailChangeRequest:
+    rateLimitMax: 5
+    rateLimitWindow: 3600000    # 1 hour
+
   breachCheck:
     hibpApiUrl: "https://api.pwnedpasswords.com/range"
 

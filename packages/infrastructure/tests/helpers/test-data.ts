@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { User, UserId, Email, Project, ProjectId, ProjectName, ProjectMember, Role, FileNode, FileNodeId, FileNodeType, FilePath, Document, DocumentId, ContentId, YjsStateId, MimeType, Image, ImageId, Template, TemplateId, TemplateCategory, GitRepository, GitRepositoryId, GitProvider, AuditLog, AuditLogId, Timestamps } from '@asciidocollab/domain';
 
-type UserOverrides = Partial<{ id?: UserId; email?: Email; displayName?: string; passwordHash?: string | null; passwordHistory?: string[]; samlSubject?: string | null; mfaSecret?: string | null; timestamps?: Timestamps }>;
+type UserOverrides = Partial<{ id?: UserId; email?: Email; displayName?: string; passwordHash?: string | null; passwordHistory?: string[]; samlSubject?: string | null; mfaSecret?: string | null; isAdmin?: boolean; timestamps?: Timestamps }>;
 
 function value<T>(overrides: UserOverrides | undefined, key: string, definition: T): T {
   if (overrides && key in overrides) return (overrides as Record<string, unknown>)[key] as T;
@@ -19,6 +19,7 @@ export function createTestUser(overrides?: UserOverrides): User {
     value<string[]>(overrides, 'passwordHistory', []),
     value<string | null>(overrides, 'samlSubject', null),
     value<string | null>(overrides, 'mfaSecret', null),
+    overrides?.isAdmin ?? false,
     overrides?.timestamps ?? new Timestamps(),
   );
 }

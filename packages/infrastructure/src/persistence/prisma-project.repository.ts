@@ -127,7 +127,7 @@ function toDomainProject(record: {
     ProjectId.create(record.id),
     ProjectName.create(record.name),
     record.description,
-    Array.isArray(record.tags) ? (record.tags as string[]) : [],
+    Array.isArray(record.tags) ? record.tags.filter((t): t is string => typeof t === 'string') : [],
     null,
     new Timestamps(record.createdAt, record.updatedAt),
     record.archivedAt,

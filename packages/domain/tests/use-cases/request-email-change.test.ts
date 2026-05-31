@@ -10,6 +10,7 @@ import { InMemoryEmailChangeTokenRepository } from '../repositories/in-memory-em
 import { UserRepository } from '../../src/repositories/user.repository';
 import { TokenGenerator } from '../../src/services/token-generator';
 import { EmailChangeNotifier } from '../../src/services/email-change-notifier';
+import { NotificationDeliveryError } from '../../src/errors/notification-delivery';
 
 const USER_ID = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 const CURRENT_EMAIL = 'user@example.com';
@@ -111,8 +112,8 @@ describe('RequestEmailChangeUseCase', () => {
     expect(notifier.sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
-  test('SMTP failure: notifier throws, error propagates to caller', async () => {
+  test('SMTP failure: notifier throws, propagates as NotificationDeliveryError', async () => {
     notifier.sendConfirmationEmail.mockRejectedValue(new Error('SMTP down'));
-    await expect(useCase.execute(USER_ID, 'new@example.com')).rejects.toThrow('SMTP down');
+    await expect(useCase.execute(USER_ID, 'new@example.com')).rejects.toThrow(NotificationDeliveryError);
   });
 });

@@ -10,6 +10,14 @@ async function originCheck(app: FastifyInstance): Promise<void> {
     process.env.ASCIIDOCOLLAB_API_FRONTEND_URL ??
     process.env.FRONTEND_URL;
 
+  if (!allowedOrigin) {
+    app.log.error(
+      'origin-check: no frontend URL configured and ASCIIDOCOLLAB_API_FRONTEND_URL is not set. ' +
+      'Origin enforcement is DISABLED — set the env var to enable CSRF protection.',
+    );
+    return;
+  }
+
   if (allowedOrigin === PLACEHOLDER_URL) {
     app.log.warn(
       'origin-check: api.frontendUrl is set to the placeholder default. ' +

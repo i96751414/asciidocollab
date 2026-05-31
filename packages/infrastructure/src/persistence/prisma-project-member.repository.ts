@@ -8,9 +8,7 @@ import { ProjectMember, ProjectId, UserId, Role, ProjectMemberRepository } from 
  * Uses a composite key of `(projectId, userId)` for unique membership.
  */
 export class PrismaProjectMemberRepository implements ProjectMemberRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaProjectMemberRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,
@@ -85,7 +83,8 @@ type ProjectMemberRecord = {
 function toPrismaRole(value: string): 'VIEWER' | 'EDITOR' | 'OWNER' {
   if (value === 'viewer') return 'VIEWER';
   if (value === 'editor') return 'EDITOR';
-  return 'OWNER';
+  if (value === 'owner') return 'OWNER';
+  throw new Error(`Unknown role value: ${value}`);
 }
 
 function toDomainProjectMember(record: ProjectMemberRecord): ProjectMember {
