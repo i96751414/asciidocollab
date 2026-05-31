@@ -17,9 +17,7 @@ interface MemberListProperties {
   onRemove?: (userId: string) => void;
 }
 
-/**
- *
- */
+/** Renders the list of project members with role management and removal controls for owners. */
 export function MemberList({
   projectId,
   members,

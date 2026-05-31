@@ -21,9 +21,7 @@ import { randomUUID } from 'crypto';
  * Requires the caller to be an owner of the project.
  */
 export class InviteUserUseCase {
-  /**
-   *
-   */
+  /** Creates a new InviteUserUseCase instance. */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,

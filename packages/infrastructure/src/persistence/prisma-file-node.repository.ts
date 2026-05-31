@@ -8,9 +8,7 @@ import { FileNode, FileNodeId, ProjectId, FileNodeType, FilePath, Timestamps, Fi
  * File nodes form a tree structure via `parentId` within a project.
  */
 export class PrismaFileNodeRepository implements FileNodeRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaFileNodeRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

@@ -4,22 +4,16 @@ import { Email } from '../../src/value-objects/email';
 import { ProjectId } from '../../src/value-objects/project-id';
 import { UserRepository } from '../../src/repositories/user.repository';
 
-/**
- *
- */
+/** In-memory implementation of UserRepository for use in tests. */
 export class InMemoryUserRepository implements UserRepository {
   private readonly storage = new Map<string, User>();
 
-  /**
-   *
-   */
+  /** Returns the user with the given ID, or null if not found. */
   async findById(id: UserId): Promise<User | null> {
     return this.storage.get(id.value) ?? null;
   }
 
-  /**
-   *
-   */
+  /** Returns the user with the given email address, or null if not found. */
   async findByEmail(email: Email): Promise<User | null> {
     for (const user of this.storage.values()) {
       if (user.email.value === email.value) {
@@ -29,9 +23,7 @@ export class InMemoryUserRepository implements UserRepository {
     return null;
   }
 
-  /**
-   *
-   */
+  /** Stores a user in memory, overwriting any existing entry with the same ID. */
   async save(user: User): Promise<void> {
     this.storage.set(user.id.value, user);
   }

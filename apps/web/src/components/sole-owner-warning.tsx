@@ -4,9 +4,7 @@ interface SoleOwnerWarningProperties {
   visible: boolean;
 }
 
-/**
- *
- */
+/** Renders a warning banner when the current user is the sole owner of a project and cannot remove themselves. */
 export function SoleOwnerWarning({ visible }: SoleOwnerWarningProperties) {
   if (!visible) return null;
 

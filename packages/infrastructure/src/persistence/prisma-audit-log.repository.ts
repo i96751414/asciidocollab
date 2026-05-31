@@ -9,9 +9,7 @@ import { AuditLog, AuditLogId, UserId, ProjectId, AuditLogRepository } from '@as
  * an optional project association.
  */
 export class PrismaAuditLogRepository implements AuditLogRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaAuditLogRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

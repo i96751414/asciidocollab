@@ -10,9 +10,7 @@ import { ProjectId } from '../value-objects/project-id';
  * action and resource type.
  */
 export class AuditLog {
-  /**
-   *
-   */
+  /** Creates a new AuditLog entry. */
   constructor(
     /** Unique identifier for this audit entry. */
     public readonly id: AuditLogId,

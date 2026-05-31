@@ -9,9 +9,7 @@ import { ProjectId } from '../value-objects/project-id';
  * it was derived, or it may be a built-in template with no associated project.
  */
 export class Template {
-  /**
-   *
-   */
+  /** Creates a new Template. */
   constructor(
     /** Unique identifier for this template. */
     public readonly id: TemplateId,

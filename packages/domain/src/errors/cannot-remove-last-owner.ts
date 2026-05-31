@@ -6,9 +6,7 @@ import { DomainError } from './domain-error';
 export class CannotRemoveLastOwnerError extends DomainError {
   readonly name = 'CannotRemoveLastOwnerError';
 
-  /**
-   *
-   */
+  /** Creates a new CannotRemoveLastOwnerError for the given project. */
   constructor(projectId: string) {
     super(`Cannot remove the last owner from project ${projectId}`);
   }

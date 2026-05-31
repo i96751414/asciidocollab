@@ -9,9 +9,7 @@ import { GitProvider } from '../value-objects/git-provider';
  * can be connected to at most one remote repository.
  */
 export class GitRepository {
-  /**
-   *
-   */
+  /** Creates a new GitRepository link. */
   constructor(
     /** Unique identifier for this repository link. */
     public readonly id: GitRepositoryId,

@@ -5,9 +5,7 @@ interface MembersPageProperties {
   params: Promise<{ id: string }>;
 }
 
-/**
- *
- */
+/** Server component page for viewing and managing members of a specific project. */
 export default async function ProjectMembersPage({ params }: MembersPageProperties) {
   const { id } = await params;
   const { project, members, currentUserId, currentUserRole } = await getProjectAccess(

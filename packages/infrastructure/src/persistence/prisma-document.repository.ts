@@ -7,9 +7,7 @@ import { Document, DocumentId, FileNodeId, ContentId, YjsStateId, MimeType, Time
  * Documents have a one-to-one relationship with `FileNode` via `fileNodeId`.
  */
 export class PrismaDocumentRepository implements DocumentRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaDocumentRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

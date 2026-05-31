@@ -22,18 +22,14 @@ import { randomUUID } from 'crypto';
  * - The last owner cannot be demoted (CannotRemoveLastOwnerError).
  */
 export class ChangeMemberRoleUseCase {
-  /**
-   *
-   */
+  /** Creates a new ChangeMemberRoleUseCase instance. */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
-  /**
-   *
-   */
+  /** Changes the role of a project member, enforcing owner-only authorization. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,

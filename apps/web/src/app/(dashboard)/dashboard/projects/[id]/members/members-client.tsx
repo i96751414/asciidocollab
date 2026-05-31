@@ -15,9 +15,7 @@ interface MembersClientProperties {
   isArchived: boolean;
 }
 
-/**
- *
- */
+/** Client component for managing project members, including inviting and updating roles. */
 export function MembersClient({
   projectId,
   projectName,

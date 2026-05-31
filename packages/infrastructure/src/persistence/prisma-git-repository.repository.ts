@@ -8,9 +8,7 @@ import { GitRepository, GitRepositoryId, ProjectId, GitProvider, GitRepositoryRe
  * Each project can have at most one git repository (one-to-one via `projectId` unique).
  */
 export class PrismaGitRepositoryRepository implements GitRepositoryRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaGitRepositoryRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

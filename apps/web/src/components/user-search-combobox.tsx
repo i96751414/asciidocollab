@@ -12,9 +12,7 @@ interface UserSearchComboboxProperties {
   disabled?: boolean;
 }
 
-/**
- *
- */
+/** Renders a debounced search input with a dropdown of matching users that can be selected for project invitation. */
 export function UserSearchCombobox({
   projectId,
   value,

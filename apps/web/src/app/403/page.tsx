@@ -1,8 +1,6 @@
 import Link from "next/link";
 
-/**
- *
- */
+/** Renders the 403 Forbidden page when a user lacks permission to access a resource. */
 export default function ForbiddenPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">

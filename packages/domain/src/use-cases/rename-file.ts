@@ -20,9 +20,7 @@ import { Result } from '../types/result';
  * Requires the actorId to be a member of the project.
  */
 export class RenameFileUseCase {
-  /**
-   *
-   */
+  /** Creates a new RenameFileUseCase instance. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,

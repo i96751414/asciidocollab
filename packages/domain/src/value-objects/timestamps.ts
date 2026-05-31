@@ -7,10 +7,6 @@ import { ValidationError } from '../errors/validation-error';
  *
  * @invariant `createdAt` must be less than or equal to `updatedAt`.
  */
-
-/**
- *
- */
 export class Timestamps {
   private readonly _createdAt: Date;
   private readonly _updatedAt: Date;

@@ -7,9 +7,7 @@ import { Template, TemplateId, ProjectId, TemplateCategory, TemplateRepository }
  * Templates are project-agnostic and optionally reference a source project.
  */
 export class PrismaTemplateRepository implements TemplateRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaTemplateRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

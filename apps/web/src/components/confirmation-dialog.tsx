@@ -16,9 +16,7 @@ interface ConfirmationDialogProperties {
   loading?: boolean;
 }
 
-/**
- *
- */
+/** Renders a modal dialog that asks the user to confirm or cancel a potentially destructive action. */
 export function ConfirmationDialog({
   open,
   onOpenChange,

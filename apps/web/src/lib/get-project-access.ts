@@ -4,25 +4,15 @@ import type { ProjectMember, ProjectMemberRole, Project } from './api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-/**
- *
- */
+/** Resolved access context for a project page, containing the project, its members, and the current user's identity and role. */
 export interface ProjectAccess {
-  /**
-   *
-   */
+  /** The project being accessed. */
   project: Project;
-  /**
-   *
-   */
+  /** All members belonging to the project. */
   members: ProjectMember[];
-  /**
-   *
-   */
+  /** Unique identifier of the currently authenticated user. */
   currentUserId: string;
-  /**
-   *
-   */
+  /** Role of the currently authenticated user within this project. */
   currentUserRole: ProjectMemberRole;
 }
 

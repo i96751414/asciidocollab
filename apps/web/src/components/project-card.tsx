@@ -10,9 +10,7 @@ interface ProjectCardProperties {
   project: Project;
 }
 
-/**
- *
- */
+/** Renders a summary card for a project showing its name, description, role badge, tags, and last-updated date. */
 export function ProjectCard({ project }: ProjectCardProperties) {
   const canManage = project.role === "owner";
 

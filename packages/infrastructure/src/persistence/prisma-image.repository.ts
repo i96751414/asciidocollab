@@ -7,9 +7,7 @@ import { Image, ImageId, ProjectId, MimeType, ImageRepository } from '@asciidoco
  * Supports version chains via `parentId` and tracks file size in bytes.
  */
 export class PrismaImageRepository implements ImageRepository {
-  /**
-   *
-   */
+  /** Creates a new PrismaImageRepository. */
   constructor(
     /** The Prisma client used for database operations. */
     private readonly prisma: PrismaClient,

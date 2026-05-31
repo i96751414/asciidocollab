@@ -21,18 +21,14 @@ import { randomUUID } from 'crypto';
  * - The last owner cannot be removed (CannotRemoveLastOwnerError).
  */
 export class RemoveMemberUseCase {
-  /**
-   *
-   */
+  /** Creates a new RemoveMemberUseCase instance. */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
-  /**
-   *
-   */
+  /** Removes a member from the project after verifying owner authorization. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,

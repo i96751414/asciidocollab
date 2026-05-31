@@ -15,9 +15,7 @@ interface SettingsClientProperties {
   currentUserRole: ProjectMemberRole;
 }
 
-/**
- *
- */
+/** Client component for editing project settings. */
 export function SettingsClient({ project, currentUserRole }: SettingsClientProperties) {
   const router = useRouter();
   const isArchived = !!project.archivedAt;

@@ -9,9 +9,7 @@ import { Role } from '../value-objects/role';
  * that uniquely identifies a membership record.
  */
 export class ProjectMember {
-  /**
-   *
-   */
+  /** Creates a new ProjectMember record. */
   constructor(
     /** The project the user belongs to. */
     public readonly projectId: ProjectId,

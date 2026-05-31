@@ -13,9 +13,7 @@ interface DeleteProjectButtonProperties {
   onDeleted: () => void;
 }
 
-/**
- *
- */
+/** Renders a button that opens a confirmation dialog requiring the user to type the project name before permanently deleting it. */
 export function DeleteProjectButton({
   projectId,
   projectName,

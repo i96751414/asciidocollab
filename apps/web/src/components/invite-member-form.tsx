@@ -13,9 +13,7 @@ interface InviteMemberFormProperties {
   onSuccess?: (member: ProjectMember) => void;
 }
 
-/**
- *
- */
+/** Renders a form for searching and inviting a user to a project with a selected role. */
 export function InviteMemberForm({ projectId, onSuccess }: InviteMemberFormProperties) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

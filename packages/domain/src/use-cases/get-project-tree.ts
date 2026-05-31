@@ -13,29 +13,17 @@ import { Result } from '../types/result';
 
 /** A single node in the project file tree, with nested children for folders. */
 export interface FileTreeNode {
-  /**
-   *
-   */
+  /** Unique identifier of the file or folder node. */
   id: string;
-  /**
-   *
-   */
+  /** Display name of the file or folder. */
   name: string;
-  /**
-   *
-   */
+  /** Node type: `'file'` or `'folder'`. */
   type: string;
-  /**
-   *
-   */
+  /** Full path of the node within the project. */
   path: string;
-  /**
-   *
-   */
+  /** MIME type of the file, present only for file nodes. */
   mimeType?: string;
-  /**
-   *
-   */
+  /** Nested child nodes; empty array for file nodes. */
   children: FileTreeNode[];
 }
 
@@ -61,9 +49,7 @@ function buildTree(
  * Requires the actorId to be a member of the project.
  */
 export class GetProjectTreeUseCase {
-  /**
-   *
-   */
+  /** Creates a new GetProjectTreeUseCase instance. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,

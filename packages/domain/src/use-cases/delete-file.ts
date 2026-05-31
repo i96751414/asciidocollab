@@ -20,9 +20,7 @@ import { randomUUID } from 'crypto';
  * The root folder cannot be deleted.
  */
 export class DeleteFileUseCase {
-  /**
-   *
-   */
+  /** Creates a new DeleteFileUseCase instance. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,

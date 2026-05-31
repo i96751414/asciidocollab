@@ -16,18 +16,14 @@ import { randomUUID } from 'crypto';
  * Only members with the `owner` role may delete a project.
  */
 export class DeleteProjectUseCase {
-  /**
-   *
-   */
+  /** Creates a new DeleteProjectUseCase instance. */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
-  /**
-   *
-   */
+  /** Permanently deletes a project after verifying the actor holds the owner role. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,

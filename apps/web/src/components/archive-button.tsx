@@ -13,9 +13,7 @@ interface ArchiveButtonProperties {
   onRestore?: () => void;
 }
 
-/**
- *
- */
+/** Renders a button that archives or restores a project, with a confirmation dialog. */
 export function ArchiveButton({
   projectId,
   projectName,

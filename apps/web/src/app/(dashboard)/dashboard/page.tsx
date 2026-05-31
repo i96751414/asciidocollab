@@ -8,9 +8,7 @@ import { ProjectCard } from "@/components/project-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 
-/**
- *
- */
+/** Renders the main dashboard page listing all projects for the current user. */
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);

@@ -20,17 +20,11 @@ import { randomUUID } from 'crypto';
 
 /** Result returned on successful project creation. */
 export interface CreateProjectResult {
-  /**
-   *
-   */
+  /** The identifier of the newly created project. */
   projectId: ProjectId;
-  /**
-   *
-   */
+  /** The identifier of the automatically created root folder. */
   rootFolderId: FileNodeId;
-  /**
-   *
-   */
+  /** The role assigned to the creator (always `'owner'`). */
   ownerRole: string;
 }
 
@@ -40,9 +34,7 @@ export interface CreateProjectResult {
  * Requires the actorId to exist as a registered user.
  */
 export class CreateProjectUseCase {
-  /**
-   *
-   */
+  /** Creates a new CreateProjectUseCase instance. */
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly fileNodeRepo: FileNodeRepository,
