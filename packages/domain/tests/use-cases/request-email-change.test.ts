@@ -1,4 +1,4 @@
-// T034: Failing domain unit tests for RequestEmailChangeUseCase
+// T034: Domain unit tests for RequestEmailChangeUseCase
 import { RequestEmailChangeUseCase } from '../../src/use-cases/request-email-change';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
@@ -9,6 +9,7 @@ import { EmailChangeTokenId } from '../../src/value-objects/email-change-token-i
 import { InMemoryEmailChangeTokenRepository } from '../repositories/in-memory-email-change-token.repository';
 import { UserRepository } from '../../src/repositories/user.repository';
 import { TokenGenerator } from '../../src/services/token-generator';
+import { EmailChangeNotifier } from '../../src/services/email-change-notifier';
 
 const USER_ID = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 const CURRENT_EMAIL = 'user@example.com';
@@ -37,10 +38,15 @@ function makeTokenGenerator(): TokenGenerator {
   };
 }
 
+function makeNotifier(): jest.Mocked<EmailChangeNotifier> {
+  return { sendConfirmationEmail: jest.fn().mockResolvedValue(undefined) };
+}
+
 describe('RequestEmailChangeUseCase', () => {
   let tokenRepo: InMemoryEmailChangeTokenRepository;
   let userRepo: UserRepository;
   let tokenGenerator: TokenGenerator;
+  let notifier: jest.Mocked<EmailChangeNotifier>;
   let useCase: RequestEmailChangeUseCase;
 
   beforeEach(() => {
@@ -53,19 +59,20 @@ describe('RequestEmailChangeUseCase', () => {
       hasAny: jest.fn(),
     } as unknown as UserRepository;
     tokenGenerator = makeTokenGenerator();
-    useCase = new RequestEmailChangeUseCase(userRepo, tokenRepo, tokenGenerator);
+    notifier = makeNotifier();
+    useCase = new RequestEmailChangeUseCase(userRepo, tokenRepo, tokenGenerator, notifier);
   });
 
-  test('happy path creates token with pendingEmail', async () => {
+  test('happy path: creates token and sends confirmation email', async () => {
     const result = await useCase.execute(USER_ID, 'new@example.com');
     expect(result.success).toBe(true);
     const active = await tokenRepo.findActiveByUserId(USER_ID);
     expect(active).not.toBeNull();
     expect(active?.pendingEmail).toBe('new@example.com');
+    expect(notifier.sendConfirmationEmail).toHaveBeenCalledWith('new@example.com', 'raw-token');
   });
 
-  test('supersedes existing active token when new request made', async () => {
-    // Seed an existing active token
+  test('supersedes existing active token and sends new confirmation', async () => {
     const oldToken = new EmailChangeToken(
       EmailChangeTokenId.create('550e8400-e29b-41d4-a716-446655440001'),
       USER_ID,
@@ -79,27 +86,34 @@ describe('RequestEmailChangeUseCase', () => {
     const result = await useCase.execute(USER_ID, 'newer@example.com');
     expect(result.success).toBe(true);
 
-    // Old token should be gone
     const byOldHash = await tokenRepo.findByTokenHash('old-hash');
     expect(byOldHash).toBeNull();
 
     const active = await tokenRepo.findActiveByUserId(USER_ID);
     expect(active?.pendingEmail).toBe('newer@example.com');
+    expect(notifier.sendConfirmationEmail).toHaveBeenCalledWith('newer@example.com', 'raw-token');
   });
 
-  test('returns success (no error) when newEmail is already registered (enumeration prevention)', async () => {
+  test('email already registered: returns success, notifier not called (enumeration prevention)', async () => {
     (userRepo.findByEmail as jest.Mock).mockResolvedValue(createTestUser('new@example.com'));
     const result = await useCase.execute(USER_ID, 'new@example.com');
     expect(result.success).toBe(true);
-    // No token created since email is taken
     const active = await tokenRepo.findActiveByUserId(USER_ID);
     expect(active).toBeNull();
+    expect(notifier.sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
-  test('returns success when newEmail equals current email (noop)', async () => {
+  test('newEmail equals current email: returns success, notifier not called (noop)', async () => {
     const result = await useCase.execute(USER_ID, CURRENT_EMAIL);
     expect(result.success).toBe(true);
     const active = await tokenRepo.findActiveByUserId(USER_ID);
     expect(active).toBeNull();
+    expect(notifier.sendConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  test('SMTP failure: notifier throws, use case still returns success', async () => {
+    notifier.sendConfirmationEmail.mockRejectedValue(new Error('SMTP down'));
+    const result = await useCase.execute(USER_ID, 'new@example.com');
+    expect(result.success).toBe(true);
   });
 });

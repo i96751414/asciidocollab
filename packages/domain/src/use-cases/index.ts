@@ -19,6 +19,5 @@ export { CheckSystemSetupUseCase } from './check-system-setup';
 export { UpdateDisplayNameUseCase } from './update-display-name';
 export type { UpdateDisplayNameResult } from './update-display-name';
 export { RequestEmailChangeUseCase } from './request-email-change';
-export type { RequestEmailChangeResult } from './request-email-change';
 export { ConfirmEmailChangeUseCase } from './confirm-email-change';
 export type { ConfirmEmailChangeResult } from './confirm-email-change';

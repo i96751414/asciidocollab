@@ -5,42 +5,30 @@ import { Email } from '../value-objects/email';
 import { UserRepository } from '../repositories/user.repository';
 import { EmailChangeTokenRepository } from '../repositories/email-change-token.repository';
 import { TokenGenerator } from '../services/token-generator';
+import { EmailChangeNotifier } from '../services/email-change-notifier';
 import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
-/** The value returned on successful email change request. */
-export interface RequestEmailChangeResult {
-  /** The raw (unhashed) token to send to the user. Empty string when no email is sent. */
-  rawToken: string;
-  /** The new email address that is pending confirmation. */
-  pendingEmail: string;
-}
-
-/** Initiates an email address change by issuing a confirmation token. */
+/** Initiates an email address change by issuing a confirmation token and notifying the user. */
 export class RequestEmailChangeUseCase {
-  /** Creates the use case with its required repositories and services. */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: EmailChangeTokenRepository,
     private readonly tokenGenerator: TokenGenerator,
+    private readonly notifier: EmailChangeNotifier,
   ) {}
 
-  /** Validates the new email and creates a confirmation token if available. */
-  async execute(
-    userId: UserId,
-    newEmail: string,
-  ): Promise<Result<RequestEmailChangeResult, Error>> {
+  async execute(userId: UserId, newEmail: string): Promise<Result<undefined, Error>> {
     const currentUser = await this.userRepo.findById(userId);
 
-    // Noop if newEmail equals current email
     if (currentUser && currentUser.email.value === newEmail) {
-      return { success: true, value: { rawToken: '', pendingEmail: newEmail } };
+      return { success: true, value: undefined };
     }
 
     // Enumeration prevention — always return success if email is taken
     const existingUser = await this.userRepo.findByEmail(Email.create(newEmail));
     if (existingUser) {
-      return { success: true, value: { rawToken: '', pendingEmail: newEmail } };
+      return { success: true, value: undefined };
     }
 
     // Supersede any existing active token
@@ -57,6 +45,12 @@ export class RequestEmailChangeUseCase {
     );
     await this.tokenRepo.save(token);
 
-    return { success: true, value: { rawToken: tokenData.token, pendingEmail: newEmail } };
+    try {
+      await this.notifier.sendConfirmationEmail(newEmail, tokenData.token);
+    } catch {
+      // delivery failure is non-fatal; infrastructure layer logs it
+    }
+
+    return { success: true, value: undefined };
   }
 }
