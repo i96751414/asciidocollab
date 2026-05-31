@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { membersApi, ProjectMember } from "@/lib/api";
-import { inviteMemberSchema, type InviteMemberInput } from "@asciidocollab/shared";
+import { UserSearchCombobox } from "@/components/user-search-combobox";
+import { membersApi, ProjectMember, ProjectMemberRole, UserSearchResult } from "@/lib/api";
+
+const INVITE_ROLES: ProjectMemberRole[] = ["viewer", "editor", "owner"];
 
 interface InviteMemberFormProperties {
   projectId: string;
@@ -13,90 +14,73 @@ interface InviteMemberFormProperties {
 }
 
 /**
- * Form component for inviting a member to a project.
+ *
  */
 export function InviteMemberForm({ projectId, onSuccess }: InviteMemberFormProperties) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<InviteMemberInput>({
-    email: "",
-    role: "viewer",
-  });
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
+  const [role, setRole] = useState<ProjectMemberRole>("viewer");
 
   const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!selectedUser) return;
     setLoading(true);
     setError(null);
 
     try {
-      const validatedData = inviteMemberSchema.parse(formData);
       const response = await membersApi.invite(projectId, {
-        email: validatedData.email,
-        role: validatedData.role,
+        email: selectedUser.email,
+        role,
       });
-
       onSuccess?.(response.data);
-      setFormData({ email: "", role: "viewer" });
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("Failed to invite member");
-      }
+      setSelectedUser(null);
+      setRole("viewer");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to invite member");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, email: event.target.value });
-  };
-
-  const handleRoleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value;
-    if (value === "viewer" || value === "editor" || value === "administrator") {
-      setFormData({ ...formData, role: value });
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-          {error}
-        </div>
+        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email Address *</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={handleEmailChange}
-            placeholder="user@example.com"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="role">Role *</Label>
-          <select
-            id="role"
-            value={formData.role}
-            onChange={handleRoleChange}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-            <option value="administrator">Administrator</option>
-          </select>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-search">Search User *</Label>
+        <UserSearchCombobox
+          projectId={projectId}
+          value={selectedUser}
+          onChange={setSelectedUser}
+          placeholder="Search by name or email…"
+          disabled={loading}
+        />
       </div>
 
-      <Button type="submit" disabled={loading}>
-        {loading ? "Inviting..." : "Invite Member"}
+      <div className="space-y-2">
+        <Label htmlFor="invite-role">Role *</Label>
+        <select
+          id="invite-role"
+          value={role}
+          onChange={(event) => {
+            const selected = INVITE_ROLES.find((r) => r === event.target.value);
+            if (selected) setRole(selected);
+          }}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {INVITE_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r.charAt(0).toUpperCase() + r.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <Button type="submit" disabled={loading || !selectedUser}>
+        {loading ? "Adding…" : "Add Member"}
       </Button>
     </form>
   );

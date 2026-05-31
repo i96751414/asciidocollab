@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Project } from "@/lib/api";
 
 interface ProjectCardProperties {
@@ -10,9 +11,11 @@ interface ProjectCardProperties {
 }
 
 /**
- * Card component displaying project information.
+ *
  */
 export function ProjectCard({ project }: ProjectCardProperties) {
+  const canManage = project.role === "owner";
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
@@ -22,11 +25,18 @@ export function ProjectCard({ project }: ProjectCardProperties) {
               {project.name}
             </Link>
           </CardTitle>
-          {project.role && (
-            <Badge variant="secondary" className="capitalize">
-              {project.role}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {project.role && (
+              <Badge variant="secondary" className="capitalize">
+                {project.role}
+              </Badge>
+            )}
+            {canManage && (
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/dashboard/projects/${project.id}/settings`}>Settings</Link>
+              </Button>
+            )}
+          </div>
         </div>
         <CardDescription className="line-clamp-2">
           {project.description || "No description"}
