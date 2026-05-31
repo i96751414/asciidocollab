@@ -2,7 +2,7 @@ import convict from 'convict';
 import './formats';
 
 /**
- * Convict schema definition for AsciiDocCollab API server.
+ * Convict schema definition for AsciiDoCollab API server.
  *
  * Single source of truth for all configuration fields.
  * Each field maps to an environment variable for override.
@@ -333,7 +333,7 @@ export function createConfig() {
           subject: {
             doc: 'Subject line for password reset request email.',
             format: String,
-            default: 'Password Reset Request',
+            default: '[ASCIIDOCOLLAB] Password Reset Request',
           },
           html: {
             doc: 'HTML body for password reset request email. Use {token} and {frontendUrl} placeholders.',
@@ -345,7 +345,7 @@ export function createConfig() {
           subject: {
             doc: 'Subject line for password changed notification email.',
             format: String,
-            default: 'Password Changed',
+            default: '[ASCIIDOCOLLAB] Password Changed',
           },
           html: {
             doc: 'HTML body for password changed notification email.',

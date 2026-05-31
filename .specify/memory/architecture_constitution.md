@@ -1,4 +1,4 @@
-# AsciiDocCollab Architecture Constitution
+# AsciiDoCollab Architecture Constitution
 
 ## Architecture Style
 

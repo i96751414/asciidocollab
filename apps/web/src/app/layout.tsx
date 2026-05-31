@@ -5,7 +5,7 @@ import "@/styles/globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AsciiDocCollab",
+  title: "AsciiDoCollab",
   description: "Collaborative AsciiDoc editor for technical publishing",
 };
 

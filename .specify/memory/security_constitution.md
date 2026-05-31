@@ -1,4 +1,4 @@
-# AsciiDocCollab Security Constitution
+# AsciiDoCollab Security Constitution
 
 ## Trust Boundaries
 

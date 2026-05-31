@@ -1,4 +1,4 @@
-# AsciiDocCollab — Architecture Design
+# AsciiDoCollab — Architecture Design
 
 **Date:** 2026-05-26  
 **Status:** Approved
@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
+AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
 file management, Git integration, HTML live preview, PDF generation, and enterprise authentication. It is designed for
 both self-hosted (on-premises) and SaaS (cloud-hosted) deployments.
 
@@ -413,7 +413,7 @@ system preference as default.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [Logo] AsciiDocCollab          [Search]    [+ New] [Avatar] │
+│ [Logo] AsciiDoCollab           [Search]    [+ New] [Avatar] │
 ├─────────────────────────────────────────────────────────────┤
 │  Projects                                    [Sort ▾] [⊞ ⊟]│
 │ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
@@ -581,7 +581,7 @@ Extensions tab:
 
 ```
 ┌──────────────────────────┐
-│  [Logo] AsciiDocCollab   │
+│  [Logo] AsciiDoCollab    │
 │                          │
 │  Email                   │
 │  [____________________]  │

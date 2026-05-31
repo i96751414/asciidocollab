@@ -95,7 +95,7 @@ WEB_PID=$!
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-echo -e "  ${GREEN}AsciiDocCollab is running${RESET}"
+echo -e "  ${GREEN}AsciiDoCollab is running${RESET}"
 echo ""
 echo -e "  Web app   →  ${CYAN}http://localhost:3000${RESET}"
 echo -e "  API       →  ${CYAN}http://localhost:4000${RESET}"

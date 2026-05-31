@@ -1,4 +1,4 @@
-# AsciiDocCollab
+# AsciiDoCollab
 
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
@@ -9,7 +9,7 @@ browser. No lock-in, no vendor dependency: deploy it on your own infrastructure 
 
 ## What it does
 
-AsciiDocCollab gives your team a shared space to write and manage AsciiDoc documents. Multiple people can edit the same
+AsciiDoCollab gives your team a shared space to write and manage AsciiDoc documents. Multiple people can edit the same
 document simultaneously, preview rendered output live, export to PDF, and integrate with Git — all from a single,
 self-hosted web application.
 
@@ -39,7 +39,7 @@ self-hosted web application.
 
 ## Quickstart
 
-The fastest way to get AsciiDocCollab running locally is with the included startup script. You need:
+The fastest way to get AsciiDoCollab running locally is with the included startup script. You need:
 
 - [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL and local email)
 - [Node.js 24+](https://nodejs.org)
@@ -82,7 +82,7 @@ All other settings have secure defaults. See `.env.example` for the full list wi
 
 ## Project status
 
-AsciiDocCollab is under active development. The core foundation — authentication, project management, team membership,
+AsciiDoCollab is under active development. The core foundation — authentication, project management, team membership,
 and security — is complete and production-quality. The collaborative editor, Git integration, and PDF export are next on
 the roadmap.
 
@@ -93,7 +93,7 @@ building on top of it.
 
 ## Self-hosting
 
-AsciiDocCollab is designed to be self-hosted. You need:
+AsciiDoCollab is designed to be self-hosted. You need:
 
 - A PostgreSQL 15+ database
 - An SMTP relay, SendGrid account, or AWS SES credentials (or disable email for local testing)

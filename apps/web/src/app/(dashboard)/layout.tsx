@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
         <div className="hidden w-64 border-r bg-muted/40 lg:block">
           <div className="flex h-16 items-center border-b px-6">
             <Link href="/dashboard" className="text-xl font-semibold">
-              AsciiDocCollab
+              AsciiDoCollab
             </Link>
           </div>
           <nav className="space-y-1 p-4">

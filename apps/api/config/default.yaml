@@ -1,4 +1,4 @@
-# Default configuration for AsciiDocCollab API server
+# Default configuration for AsciiDoCollab API server
 # All non-secret values are defined here.
 # Environment variables override these values.
 

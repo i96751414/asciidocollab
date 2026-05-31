@@ -6,7 +6,7 @@ specs/007-phase5-auth-ui/plan.md
 
 ## Project
 
-AsciiDocCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
+AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 

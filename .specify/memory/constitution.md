@@ -1,4 +1,4 @@
-# AsciiDocCollab Constitution — Governance
+# AsciiDoCollab Constitution — Governance
 
 ## Core Principles
 
