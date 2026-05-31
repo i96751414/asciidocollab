@@ -64,8 +64,8 @@ auth:
     sesRegion: ""
     templates:
       resetRequest:
-        subject: "Password Reset Request"
+        subject: "[ASCIIDOCOLLAB] Password Reset Request"
         html: "<p>Click <a href=\"{frontendUrl}/reset?token={token}\">here</a> to reset your password.</p>"
       passwordChanged:
-        subject: "Password Changed"
+        subject: "[ASCIIDOCOLLAB] Password Changed"
         html: "<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>"
