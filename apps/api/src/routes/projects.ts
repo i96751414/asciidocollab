@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { 
-  ListUserProjectsUseCase, 
-  CreateProjectUseCase, 
-  UpdateProjectUseCase, 
-  ArchiveProjectUseCase, 
-  RestoreProjectUseCase, 
-  ProjectName, 
+import {
+  ListUserProjectsUseCase,
+  CreateProjectUseCase,
+  UpdateProjectUseCase,
+  ArchiveProjectUseCase,
+  RestoreProjectUseCase,
+  DeleteProjectUseCase,
+  ProjectName,
   ProjectId,
   UserId,
   DomainError,
@@ -14,6 +15,7 @@ import {
   ProjectAlreadyArchivedError,
   ProjectNotArchivedError,
 } from "@asciidocollab/domain";
+import { getAuthenticatedUserId } from "../plugins/require-auth";
 
 /**
  * Maps domain errors to HTTP status codes and error codes.
@@ -64,15 +66,9 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       archived?: boolean;
     };
 
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const userId = getAuthenticatedUserId(request);
 
-    const useCase = new ListUserProjectsUseCase(
-      request.server.repos.project,
-    );
+    const useCase = new ListUserProjectsUseCase(request.server.repos.project);
 
     const result = await useCase.execute(
       UserId.create(userId),
@@ -86,39 +82,35 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // Fetch additional data for each project
     const projectsWithData = await Promise.all(
       result.value.projects.map(async (project) => {
-        // Fetch owner name
-        const owner = await request.server.repos.user.findById(project.ownerId);
-        const ownerName = owner?.displayName || "Unknown";
-
-        // Fetch member count
         const members = await request.server.repos.projectMember.findByProjectId(project.id);
         const memberCount = members.length;
 
-        // Fetch user's role
-        const userMembership = await request.server.repos.projectMember.findByCompositeKey(
-          project.id,
-          UserId.create(userId)
+        const userMembership = members.find((m) => m.userId.value === userId);
+
+        const ownerMembers = members.filter((m) => m.role.value === 'owner');
+        const ownerUsers = await Promise.all(
+          ownerMembers.map((m) => request.server.repos.user.findById(m.userId)),
         );
-        const role = userMembership?.role.value || (project.ownerId.value === userId ? "owner" : "viewer");
+        const owners = ownerUsers
+          .filter((u): u is NonNullable<typeof u> => u !== null)
+          .map((u) => ({ userId: u.id.value, displayName: u.displayName }));
 
         return {
           id: project.id.value,
           name: project.name.value,
           description: project.description,
-          ownerId: project.ownerId.value,
-          ownerName,
+          owners,
           tags: [...project.tags],
-          rootFolderId: project.rootFolderId?.value || null,
-          archivedAt: project.archivedAt?.toISOString() || null,
+          rootFolderId: project.rootFolderId?.value ?? null,
+          archivedAt: project.archivedAt?.toISOString() ?? null,
           memberCount,
-          role,
+          role: userMembership?.role.value ?? 'viewer',
           createdAt: project.createdAt.toISOString(),
           updatedAt: project.updatedAt.toISOString(),
         };
-      })
+      }),
     );
 
     return reply.status(200).send({
@@ -128,6 +120,55 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         limit: result.value.limit,
         total: result.value.total,
         totalPages: result.value.totalPages,
+      },
+    });
+  });
+
+  /**
+   * GET /api/projects/:id - Get a single project.
+   */
+  app.get("/api/projects/:id", {
+    schema: {
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string" } },
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = getAuthenticatedUserId(request);
+
+    const project = await request.server.repos.project.findById(ProjectId.create(id));
+    if (!project) {
+      return reply.status(404).send({ error: { code: "NOT_FOUND", message: "Project not found" } });
+    }
+
+    const members = await request.server.repos.projectMember.findByProjectId(ProjectId.create(id));
+    const userMembership = members.find((m) => m.userId.value === userId);
+    if (!userMembership) {
+      return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not a member of this project' } });
+    }
+    const ownerMembers = members.filter((m) => m.role.value === 'owner');
+    const ownerUsers = await Promise.all(
+      ownerMembers.map((m) => request.server.repos.user.findById(m.userId)),
+    );
+    const owners = ownerUsers
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+      .map((u) => ({ userId: u.id.value, displayName: u.displayName }));
+
+    return reply.status(200).send({
+      data: {
+        id: project.id.value,
+        name: project.name.value,
+        description: project.description,
+        owners,
+        tags: [...project.tags],
+        rootFolderId: project.rootFolderId?.value ?? null,
+        archivedAt: project.archivedAt?.toISOString() ?? null,
+        role: userMembership.role.value,
+        createdAt: project.createdAt.toISOString(),
+        updatedAt: project.updatedAt.toISOString(),
       },
     });
   });
@@ -158,11 +199,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       tags?: string[];
     };
 
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const userId = getAuthenticatedUserId(request);
 
     const useCase = new CreateProjectUseCase(
       request.server.repos.project,
@@ -189,7 +226,6 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         id: result.value.projectId.value,
         name: name,
         description: description || null,
-        ownerId: result.value.ownerId.value,
         tags: tags || [],
         rootFolderId: result.value.rootFolderId.value,
         createdAt: new Date().toISOString(),
@@ -206,9 +242,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       params: {
         type: "object",
         required: ["id"],
-        properties: {
-          id: { type: "string" },
-        },
+        properties: { id: { type: "string" } },
       },
       body: {
         type: "object",
@@ -231,11 +265,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       tags?: string[];
     };
 
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const userId = getAuthenticatedUserId(request);
 
     const useCase = new UpdateProjectUseCase(
       request.server.repos.project,
@@ -279,19 +309,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       params: {
         type: "object",
         required: ["id"],
-        properties: {
-          id: { type: "string" },
-        },
+        properties: { id: { type: "string" } },
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const userId = getAuthenticatedUserId(request);
 
     const useCase = new ArchiveProjectUseCase(
       request.server.repos.project,
@@ -299,24 +322,14 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.auditLog,
     );
 
-    const result = await useCase.execute(
-      UserId.create(userId),
-      ProjectId.create(id),
-    );
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
 
     if (!result.success) {
       const { status, code } = mapDomainError(result.error);
-      return reply.status(status).send({
-        error: { code, message: result.error.message },
-      });
+      return reply.status(status).send({ error: { code, message: result.error.message } });
     }
 
-    return reply.status(200).send({
-      data: {
-        id: id,
-        archivedAt: result.value.archivedAt.toISOString(),
-      },
-    });
+    return reply.status(200).send({ data: { id, archivedAt: result.value.archivedAt.toISOString() } });
   });
 
   /**
@@ -327,19 +340,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       params: {
         type: "object",
         required: ["id"],
-        properties: {
-          id: { type: "string" },
-        },
+        properties: { id: { type: "string" } },
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const userId = getAuthenticatedUserId(request);
 
     const useCase = new RestoreProjectUseCase(
       request.server.repos.project,
@@ -347,23 +353,44 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.auditLog,
     );
 
-    const result = await useCase.execute(
-      UserId.create(userId),
-      ProjectId.create(id),
-    );
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
 
     if (!result.success) {
       const { status, code } = mapDomainError(result.error);
-      return reply.status(status).send({
-        error: { code, message: result.error.message },
-      });
+      return reply.status(status).send({ error: { code, message: result.error.message } });
     }
 
-    return reply.status(200).send({
-      data: {
-        id: id,
-        archivedAt: null,
+    return reply.status(200).send({ data: { id, archivedAt: null } });
+  });
+
+  /**
+   * DELETE /api/projects/:id — Permanently delete a project. Owner only.
+   */
+  app.delete("/api/projects/:id", {
+    schema: {
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string" } },
       },
-    });
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = getAuthenticatedUserId(request);
+
+    const useCase = new DeleteProjectUseCase(
+      request.server.repos.project,
+      request.server.repos.projectMember,
+      request.server.repos.auditLog,
+    );
+
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
+
+    if (!result.success) {
+      const { status, code } = mapDomainError(result.error);
+      return reply.status(status).send({ error: { code, message: result.error.message } });
+    }
+
+    return reply.status(200).send({ data: { id } });
   });
 }

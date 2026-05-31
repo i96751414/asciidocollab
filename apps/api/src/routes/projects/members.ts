@@ -1,5 +1,31 @@
 import type { FastifyInstance } from "fastify";
-import { InviteUserUseCase, ChangeMemberRoleUseCase, RemoveMemberUseCase, UserId, ProjectId, Email, Role } from "@asciidocollab/domain";
+import {
+  InviteUserUseCase,
+  ChangeMemberRoleUseCase,
+  RemoveMemberUseCase,
+  UserId,
+  ProjectId,
+  Email,
+  Role,
+  DomainError,
+  PermissionDeniedError,
+  ProjectNotFoundError,
+  UserNotFoundError,
+  ProjectMemberAlreadyExistsError,
+  MemberNotFoundError,
+  CannotRemoveLastOwnerError,
+} from "@asciidocollab/domain";
+import { getAuthenticatedUserId } from "../../plugins/require-auth";
+
+function mapMemberError(error: DomainError): { status: number; code: string } {
+  if (error instanceof PermissionDeniedError) return { status: 403, code: "FORBIDDEN" };
+  if (error instanceof ProjectNotFoundError) return { status: 404, code: "NOT_FOUND" };
+  if (error instanceof UserNotFoundError) return { status: 404, code: "USER_NOT_FOUND" };
+  if (error instanceof MemberNotFoundError) return { status: 404, code: "MEMBER_NOT_FOUND" };
+  if (error instanceof ProjectMemberAlreadyExistsError) return { status: 409, code: "ALREADY_A_MEMBER" };
+  if (error instanceof CannotRemoveLastOwnerError) return { status: 409, code: "CANNOT_REMOVE_LAST_OWNER" };
+  return { status: 400, code: "VALIDATION_ERROR" };
+}
 
 /**
  * Registers the project member management routes.
@@ -15,35 +41,26 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       params: {
         type: "object",
         required: ["id"],
-        properties: {
-          id: { type: "string" },
-        },
+        properties: { id: { type: "string" } },
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const sessionUserId = getAuthenticatedUserId(request);
 
     try {
       const callerMembership = await request.server.repos.projectMember.findByCompositeKey(
         ProjectId.create(id),
-        UserId.create(userId),
+        UserId.create(sessionUserId),
       );
       if (!callerMembership) {
         return reply.status(403).send({ error: { code: "FORBIDDEN", message: "Not a member of this project" } });
       }
 
-      const members = await request.server.repos.projectMember.findByProjectId(
-        ProjectId.create(id)
-      );
+      const members = await request.server.repos.projectMember.findByProjectId(ProjectId.create(id));
 
       const users = await Promise.all(
-        members.map((member) => request.server.repos.user.findById(member.userId))
+        members.map((member) => request.server.repos.user.findById(member.userId)),
       );
 
       if (users.includes(null)) {
@@ -78,16 +95,14 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       params: {
         type: "object",
         required: ["id"],
-        properties: {
-          id: { type: "string" },
-        },
+        properties: { id: { type: "string" } },
       },
       body: {
         type: "object",
         required: ["email", "role"],
         properties: {
           email: { type: "string", format: "email" },
-          role: { type: "string", enum: ["viewer", "editor", "administrator"] },
+          role: { type: "string", enum: ["viewer", "editor", "owner"] },
         },
       },
     },
@@ -95,14 +110,10 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const { email, role } = request.body as {
       email: string;
-      role: "viewer" | "editor" | "administrator";
+      role: "viewer" | "editor" | "owner";
     };
 
-    // Get user ID from session
-    const userId = request.session?.userId;
-    if (!userId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const sessionUserId = getAuthenticatedUserId(request);
 
     const useCase = new InviteUserUseCase(
       request.server.repos.user,
@@ -111,16 +122,15 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     );
 
     const result = await useCase.execute(
-      UserId.create(userId),
+      UserId.create(sessionUserId),
       ProjectId.create(id),
       Email.create(email),
       Role.create(role),
     );
 
     if (!result.success) {
-      return reply.status(400).send({
-        error: { code: "VALIDATION_ERROR", message: result.error.message },
-      });
+      const { status, code } = mapMemberError(result.error);
+      return reply.status(status).send({ error: { code, message: result.error.message } });
     }
 
     const { member, user: invitedUser } = result.value;
@@ -153,19 +163,15 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         type: "object",
         required: ["role"],
         properties: {
-          role: { type: "string", enum: ["viewer", "editor", "administrator"] },
+          role: { type: "string", enum: ["viewer", "editor", "owner"] },
         },
       },
     },
   }, async (request, reply) => {
     const { id, userId } = request.params as { id: string; userId: string };
-    const { role } = request.body as { role: "viewer" | "editor" | "administrator" };
+    const { role } = request.body as { role: "viewer" | "editor" | "owner" };
 
-    // Get user ID from session
-    const sessionUserId = request.session?.userId;
-    if (!sessionUserId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const sessionUserId = getAuthenticatedUserId(request);
 
     const useCase = new ChangeMemberRoleUseCase(
       request.server.repos.project,
@@ -181,17 +187,11 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     );
 
     if (!result.success) {
-      return reply.status(400).send({
-        error: { code: "VALIDATION_ERROR", message: result.error.message },
-      });
+      const { status, code } = mapMemberError(result.error);
+      return reply.status(status).send({ error: { code, message: result.error.message } });
     }
 
-    return reply.status(200).send({
-      data: {
-        userId: userId,
-        role: role,
-      },
-    });
+    return reply.status(200).send({ data: { userId, role } });
   });
 
   /**
@@ -210,12 +210,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     },
   }, async (request, reply) => {
     const { id, userId } = request.params as { id: string; userId: string };
-
-    // Get user ID from session
-    const sessionUserId = request.session?.userId;
-    if (!sessionUserId) {
-      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
-    }
+    const sessionUserId = getAuthenticatedUserId(request);
 
     const useCase = new RemoveMemberUseCase(
       request.server.repos.project,
@@ -230,15 +225,10 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     );
 
     if (!result.success) {
-      return reply.status(400).send({
-        error: { code: "VALIDATION_ERROR", message: result.error.message },
-      });
+      const { status, code } = mapMemberError(result.error);
+      return reply.status(status).send({ error: { code, message: result.error.message } });
     }
 
-    return reply.status(200).send({
-      data: {
-        message: "Member removed successfully",
-      },
-    });
+    return reply.status(200).send({ data: { message: "Member removed successfully" } });
   });
 }
