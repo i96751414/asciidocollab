@@ -64,7 +64,6 @@ describe('DeleteFileUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actorId,
       [],
       rootFolderId,
     );

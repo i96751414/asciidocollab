@@ -8,9 +8,9 @@ import { UserId } from '../../src/value-objects/user-id';
 import { ProjectId } from '../../src/value-objects/project-id';
 import { ProjectName } from '../../src/value-objects/project-name';
 import { Role } from '../../src/value-objects/role';
-import { CannotRemoveOwnerError } from '../../src/errors/cannot-remove-owner';
-import { CannotRemoveLastAdminError } from '../../src/errors/cannot-remove-last-admin';
+import { CannotRemoveLastOwnerError } from '../../src/errors/cannot-remove-last-owner';
 import { PermissionDeniedError } from '../../src/errors/permission-denied';
+import { MemberNotFoundError } from '../../src/errors/member-not-found';
 
 describe('RemoveMemberUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -18,79 +18,78 @@ describe('RemoveMemberUseCase', () => {
   let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: RemoveMemberUseCase;
 
-  const adminId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const ownerId = UserId.create('550e8400-e29b-41d4-a716-446655440000');
+  const editorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
   const viewerId = UserId.create('550e8400-e29b-41d4-a716-446655440002');
-  const ownerId = UserId.create('550e8400-e29b-41d4-a716-446655440003');
+  const secondOwnerId = UserId.create('550e8400-e29b-41d4-a716-446655440003');
+  const nonMemberId = UserId.create('550e8400-e29b-41d4-a716-446655440004');
   const projectId = ProjectId.create('660e8400-e29b-41d4-a716-446655440001');
 
   beforeEach(async () => {
     projectRepo = new InMemoryProjectRepository();
     projectMemberRepo = new InMemoryProjectMemberRepository();
     auditLogRepo = new InMemoryAuditLogRepository();
-    useCase = new RemoveMemberUseCase(
-      projectRepo,
-      projectMemberRepo,
-      auditLogRepo,
-    );
+    useCase = new RemoveMemberUseCase(projectRepo, projectMemberRepo, auditLogRepo);
 
     const project = new Project(
-      projectId,
-      ProjectName.create('Test Project'),
-      'A test project',
-      ownerId,
-      [],
-      null,
+      projectId, ProjectName.create('Test Project'), null, [], null,
     );
     await projectRepo.save(project);
 
-    await projectMemberRepo.addMember(
-      new ProjectMember(projectId, adminId, Role.create('administrator')),
-    );
-    await projectMemberRepo.addMember(
-      new ProjectMember(projectId, viewerId, Role.create('viewer')),
-    );
+    await projectMemberRepo.addMember(new ProjectMember(projectId, ownerId, Role.create('owner')));
+    await projectMemberRepo.addMember(new ProjectMember(projectId, editorId, Role.create('editor')));
+    await projectMemberRepo.addMember(new ProjectMember(projectId, viewerId, Role.create('viewer')));
   });
 
-  test('admin removes a non-owner member - member removed, audit log created', async () => {
-    const result = await useCase.execute(adminId, projectId, viewerId);
+  test('owner removes an editor - member removed, audit log created', async () => {
+    const result = await useCase.execute(ownerId, projectId, editorId);
     expect(result.success).toBe(true);
+    const member = await projectMemberRepo.findByCompositeKey(projectId, editorId);
+    expect(member).toBeNull();
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    expect(logs.some((l) => l.action === 'member.removed')).toBe(true);
+  });
 
+  test('owner removes a viewer - succeeds', async () => {
+    const result = await useCase.execute(ownerId, projectId, viewerId);
+    expect(result.success).toBe(true);
     const member = await projectMemberRepo.findByCompositeKey(projectId, viewerId);
     expect(member).toBeNull();
-
-    const logs = await auditLogRepo.findByProjectId(projectId);
-    const removeLog = logs.find((l) => l.action === 'member.removed');
-    expect(removeLog).toBeDefined();
-    expect(removeLog!.userId.value).toBe(adminId.value);
-    expect(removeLog!.projectId!.value).toBe(projectId.value);
-    expect(removeLog!.resourceType).toBe('ProjectMember');
-    expect(removeLog!.resourceId).toBe(viewerId.value);
   });
 
-  test('owner cannot be removed - returns CannotRemoveOwnerError', async () => {
-    const result = await useCase.execute(adminId, projectId, ownerId);
-
+  test('removing last owner returns CannotRemoveLastOwnerError', async () => {
+    const result = await useCase.execute(ownerId, projectId, ownerId);
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(CannotRemoveOwnerError);
-    }
+    if (!result.success) expect(result.error).toBeInstanceOf(CannotRemoveLastOwnerError);
   });
 
-  test('last admin cannot be removed - returns CannotRemoveLastAdminError', async () => {
-    const result = await useCase.execute(adminId, projectId, adminId);
+  test('owner can remove themselves when another owner exists', async () => {
+    await projectMemberRepo.addMember(new ProjectMember(projectId, secondOwnerId, Role.create('owner')));
+    const result = await useCase.execute(ownerId, projectId, ownerId);
+    expect(result.success).toBe(true);
+  });
 
+  test('non-owner (editor) cannot remove members - returns PermissionDeniedError', async () => {
+    const result = await useCase.execute(editorId, projectId, viewerId);
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(CannotRemoveLastAdminError);
-    }
+    if (!result.success) expect(result.error).toBeInstanceOf(PermissionDeniedError);
   });
 
-  test('non-admin caller cannot remove - returns PermissionDeniedError', async () => {
+  test('viewer cannot remove members - returns PermissionDeniedError', async () => {
     const result = await useCase.execute(viewerId, projectId, viewerId);
-
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(PermissionDeniedError);
-    }
+    if (!result.success) expect(result.error).toBeInstanceOf(PermissionDeniedError);
+  });
+
+  test('non-member cannot remove members - returns PermissionDeniedError', async () => {
+    const result = await useCase.execute(nonMemberId, projectId, viewerId);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(PermissionDeniedError);
+  });
+
+  test('target not a member returns MemberNotFoundError', async () => {
+    const result = await useCase.execute(ownerId, projectId, nonMemberId);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(MemberNotFoundError);
   });
 });

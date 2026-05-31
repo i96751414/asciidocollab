@@ -18,7 +18,7 @@ import { randomUUID } from 'crypto';
 
 /**
  * Invites a user to a project by email, assigning them a role.
- * Requires the caller to be an administrator of the project.
+ * Requires the caller to be an owner of the project.
  */
 export class InviteUserUseCase {
   /**
@@ -33,12 +33,12 @@ export class InviteUserUseCase {
   /**
    * Invites a user to a project by email, assigning them a role.
    *
-   * @param actorId - The administrator performing the invitation.
+   * @param actorId - The owner performing the invitation.
    * @param projectId - The project to invite the user into.
    * @param email - The email of the user to invite.
    * @param role - The role to assign to the invited user.
    * @returns The created `ProjectMember` and the invited `User` on success.
-   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
+   * On failure returns `PermissionDeniedError` if the caller is not an owner,
    * `UserNotFoundError` if no user is found for the given email, or
    * `ProjectMemberAlreadyExistsError` if the user is already a member.
    */
@@ -49,7 +49,7 @@ export class InviteUserUseCase {
     role: Role,
   ): Promise<Result<{ member: ProjectMember; user: User }, DomainError>> {
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
-    if (!callerMembership || callerMembership.role.value !== 'administrator') {
+    if (callerMembership?.role.value !== 'owner') {
       return { success: false, error: new PermissionDeniedError() };
     }
 

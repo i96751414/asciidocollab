@@ -47,18 +47,6 @@ export class InMemoryProjectRepository implements ProjectRepository {
   }
 
   /**
-   * Finds all projects owned by a specific user.
-   *
-   * @param ownerId - The unique identifier of the owner user.
-   * @returns An array of projects owned by the user.
-   */
-  async findByOwnerId(ownerId: UserId): Promise<Project[]> {
-    return [...this.storage.values()].filter(
-      (p) => p.ownerId.value === ownerId.value,
-    );
-  }
-
-  /**
    * Finds all projects where the user is a member (owner or member).
    *
    * @param userId - The unique identifier of the user.
@@ -71,32 +59,18 @@ export class InMemoryProjectRepository implements ProjectRepository {
     pagination: PaginationParameters,
     includeArchived = false,
   ): Promise<PaginatedProjects> {
-    const userProjectIds = this.membershipMap.get(userId.value) || new Set();
-    
-    let projects = [...this.storage.values()].filter(
-      (p) => 
-        p.ownerId.value === userId.value || 
-        userProjectIds.has(p.id.value),
+    const memberProjectIds = this.membershipMap.get(userId.value) ?? new Set<string>();
+    let all = [...this.storage.values()].filter(
+      (p) => memberProjectIds.has(p.id.value),
     );
-
-    if (includeArchived) {
-      // Include all projects (both active and archived)
-    } else {
-      projects = projects.filter((p) => p.archivedAt === null);
+    if (!includeArchived) {
+      all = all.filter((p) => p.archivedAt === null);
     }
-
-    const total = projects.length;
-    const start = (pagination.page - 1) * pagination.limit;
-    const end = start + pagination.limit;
-    const paginatedProjects = projects.slice(start, end);
-
-    return {
-      projects: paginatedProjects,
-      total,
-      page: pagination.page,
-      limit: pagination.limit,
-      totalPages: Math.ceil(total / pagination.limit),
-    };
+    const total = all.length;
+    const page = pagination.page;
+    const limit = pagination.limit;
+    const projects = all.slice((page - 1) * limit, page * limit);
+    return { projects, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   /**

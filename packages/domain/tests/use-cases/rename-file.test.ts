@@ -51,7 +51,6 @@ describe('RenameFileUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actorId,
       [],
       rootFolderId,
     );

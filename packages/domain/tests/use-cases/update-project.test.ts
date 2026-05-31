@@ -32,16 +32,15 @@ describe('UpdateProjectUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       'Initial description',
-      ownerId,
       ['tag1'],
       null,
     );
     await projectRepo.save(project);
 
-    const ownerMember = new ProjectMember(projectId, ownerId, Role.create('administrator'), new Date());
+    const ownerMember = new ProjectMember(projectId, ownerId, Role.create('owner'), new Date());
     await memberRepo.addMember(ownerMember);
 
-    const adminMember = new ProjectMember(projectId, adminId, Role.create('administrator'), new Date());
+    const adminMember = new ProjectMember(projectId, adminId, Role.create('owner'), new Date());
     await memberRepo.addMember(adminMember);
 
     const viewerMember = new ProjectMember(projectId, viewerId, Role.create('viewer'), new Date());
@@ -132,7 +131,7 @@ describe('UpdateProjectUseCase', () => {
     }
   });
 
-  test('returns error when user is not administrator', async () => {
+  test('returns error when user is not owner', async () => {
     expect.assertions(2);
     const input: UpdateProjectInput = { name: 'New Name' };
     const result = await useCase.execute(viewerId, projectId, input);
@@ -143,7 +142,7 @@ describe('UpdateProjectUseCase', () => {
     }
   });
 
-  test('allows administrator to update project', async () => {
+  test('allows another owner to update project', async () => {
     expect.assertions(2);
     const input: UpdateProjectInput = { name: 'Admin Updated Name' };
     const result = await useCase.execute(adminId, projectId, input);

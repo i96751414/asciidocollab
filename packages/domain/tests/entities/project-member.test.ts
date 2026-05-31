@@ -25,12 +25,13 @@ describe('ProjectMember entity', () => {
     expect(pm.role.value).toBe('editor');
   });
 
-  test('accepts administrator role', () => {
-    const pm = new ProjectMember(projectId, userId, Role.create('administrator'), joinedAt);
-    expect(pm.role.value).toBe('administrator');
+  test('accepts owner role', () => {
+    const pm = new ProjectMember(projectId, userId, Role.create('owner'), joinedAt);
+    expect(pm.role.value).toBe('owner');
   });
 
   test('rejects invalid role', () => {
+    expect(() => Role.create('administrator')).toThrow();
     expect(() => Role.create('superadmin')).toThrow();
   });
 

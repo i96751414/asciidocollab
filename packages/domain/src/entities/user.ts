@@ -43,6 +43,8 @@ export class User {
      *  enabled.
      */
     public readonly mfaSecret: string | null,
+    /** Whether this user has system-wide administrator privileges. */
+    public readonly isAdmin: boolean = false,
     /** Creation and last-update timestamps. Defaults to the current time. */
     public readonly timestamps: Timestamps = new Timestamps(),
   ) {

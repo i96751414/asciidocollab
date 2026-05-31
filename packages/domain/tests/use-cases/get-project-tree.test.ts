@@ -58,7 +58,6 @@ describe('GetProjectTreeUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      actorId,
       [],
       rootFolderId,
     );

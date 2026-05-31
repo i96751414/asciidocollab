@@ -1,6 +1,7 @@
 import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
 import { Email } from '../value-objects/email';
+import { ProjectId } from '../value-objects/project-id';
 
 /**
  * Repository interface for managing User persistence.
@@ -37,4 +38,14 @@ export interface UserRepository {
    * @returns True when any user record exists, false when the repository is empty.
    */
   hasAny(): Promise<boolean>;
+
+  /**
+   * Searches users by display name or email (case-insensitive), optionally excluding
+   * members of a given project.
+   *
+   * @param query - The search string matched against displayName and email.
+   * @param excludeProjectId - When provided, users already in this project are excluded.
+   * @returns Up to 10 matching users.
+   */
+  search(query: string, excludeProjectId?: ProjectId): Promise<User[]>;
 }

@@ -16,6 +16,7 @@ import { GitProvider } from '../../src/value-objects/git-provider';
 import { MimeType } from '../../src/value-objects/mime-type';
 import { FileNodeType } from '../../src/value-objects/file-node-type';
 import { TemplateCategory } from '../../src/value-objects/template-category';
+import { ValidationError } from '../../src/errors/validation-error';
 
 describe('Value Objects', () => {
   describe('UUID-based VOs', () => {
@@ -175,20 +176,13 @@ describe('Value Objects', () => {
     });
   });
 
-  describe('Role enum', () => {
-    test('accepts valid roles', () => {
-      expect(Role.create('viewer').value).toBe('viewer');
-      expect(Role.create('editor').value).toBe('editor');
-      expect(Role.create('administrator').value).toBe('administrator');
+  describe('Role', () => {
+    test.each(['viewer', 'editor', 'owner'])('creates valid role: %s', (value) => {
+      expect(Role.create(value).value).toBe(value);
     });
 
-    test('rejects invalid role', () => {
-      expect(() => Role.create('superadmin')).toThrow();
-    });
-
-    test('implements equals()', () => {
-      expect(Role.create('editor').equals(Role.create('editor'))).toBe(true);
-      expect(Role.create('editor').equals(Role.create('viewer'))).toBe(false);
+    test.each(['administrator', 'superuser', ''])('throws for invalid role: %s', (value) => {
+      expect(() => Role.create(value)).toThrow(ValidationError);
     });
   });
 

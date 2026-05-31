@@ -32,13 +32,12 @@ describe('ArchiveProjectUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      ownerId,
       [],
       null,
     );
     await projectRepo.save(project);
 
-    const ownerMember = new ProjectMember(projectId, ownerId, Role.create('administrator'), new Date());
+    const ownerMember = new ProjectMember(projectId, ownerId, Role.create('owner'), new Date());
     await memberRepo.addMember(ownerMember);
   });
 

@@ -1,6 +1,7 @@
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';
+import { ProjectId } from '../../src/value-objects/project-id';
 import { UserRepository } from '../../src/repositories/user.repository';
 
 /**
@@ -40,5 +41,21 @@ export class InMemoryUserRepository implements UserRepository {
    */
   async hasAny(): Promise<boolean> {
     return this.storage.size > 0;
+  }
+
+  /**
+   * Simple in-memory search by displayName or email substring.
+   * The `excludeProjectId` parameter is accepted but not enforced here —
+   * project-membership exclusion is tested at the API integration level.
+   */
+  async search(query: string, _excludeProjectId?: ProjectId): Promise<User[]> {
+    const lower = query.toLowerCase();
+    return [...this.storage.values()]
+      .filter(
+        (u) =>
+          u.displayName.toLowerCase().includes(lower) ||
+          u.email.value.toLowerCase().includes(lower),
+      )
+      .slice(0, 10);
   }
 }

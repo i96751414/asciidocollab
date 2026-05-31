@@ -31,10 +31,6 @@ export interface CreateProjectResult {
   /**
    *
    */
-  ownerId: UserId;
-  /**
-   *
-   */
   ownerRole: string;
 }
 
@@ -78,7 +74,6 @@ export class CreateProjectUseCase {
       projectId,
       name,
       description,
-      actorId,
       initialTags,
       null,
     );
@@ -102,7 +97,7 @@ export class CreateProjectUseCase {
     const member = new ProjectMember(
       projectId,
       actorId,
-      Role.create('administrator'),
+      Role.create('owner'),
       new Date(),
     );
 
@@ -124,8 +119,7 @@ export class CreateProjectUseCase {
       value: {
         projectId,
         rootFolderId,
-        ownerId: project.ownerId,
-        ownerRole: Role.create('administrator').value,
+        ownerRole: Role.create('owner').value,
       },
     };
   }

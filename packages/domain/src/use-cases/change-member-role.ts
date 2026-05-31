@@ -8,16 +8,18 @@ import { ProjectMemberRepository } from '../repositories/project-member.reposito
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { ProjectNotFoundError } from '../errors/project-not-found';
-import { CannotChangeOwnerRoleError } from '../errors/cannot-change-owner-role';
-import { CannotRemoveLastAdminError } from '../errors/cannot-remove-last-admin';
+import { CannotRemoveLastOwnerError } from '../errors/cannot-remove-last-owner';
+import { MemberNotFoundError } from '../errors/member-not-found';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 
 /**
- * Changes the role of a member in a project.
- * Requires the caller to be an administrator.
- * The project owner's role cannot be changed, and the last administrator cannot be demoted.
+ * Changes the role of a project member.
+ *
+ * Authorization rules:
+ * - Only owners may change roles.
+ * - The last owner cannot be demoted (CannotRemoveLastOwnerError).
  */
 export class ChangeMemberRoleUseCase {
   /**
@@ -30,17 +32,7 @@ export class ChangeMemberRoleUseCase {
   ) {}
 
   /**
-   * Changes the role of a member in a project.
    *
-   * @param actorId - The administrator requesting the role change.
-   * @param projectId - The project containing the member.
-   * @param targetUserId - The member whose role will change.
-   * @param newRole - The new role to assign.
-   * @returns Void on success.
-   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
-   * `ProjectNotFoundError` if the project does not exist,
-   * `CannotChangeOwnerRoleError` if the target is the project owner, or
-   * `CannotRemoveLastAdminError` if the target is the last administrator being demoted.
    */
   async execute(
     actorId: UserId,
@@ -49,7 +41,7 @@ export class ChangeMemberRoleUseCase {
     newRole: Role,
   ): Promise<Result<void, DomainError>> {
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
-    if (!callerMembership || callerMembership.role.value !== 'administrator') {
+    if (callerMembership?.role.value !== 'owner') {
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -58,33 +50,32 @@ export class ChangeMemberRoleUseCase {
       return { success: false, error: new ProjectNotFoundError(projectId.value) };
     }
 
-    if (project.ownerId.equals(targetUserId)) {
-      return { success: false, error: new CannotChangeOwnerRoleError(projectId.value) };
+    const targetMembership = await this.projectMemberRepo.findByCompositeKey(projectId, targetUserId);
+    if (!targetMembership) {
+      return { success: false, error: new MemberNotFoundError(projectId.value, targetUserId.value) };
     }
 
-    if (newRole.value !== 'administrator') {
+    // Guard: cannot demote the last owner
+    if (targetMembership.role.value === 'owner' && newRole.value !== 'owner') {
       const members = await this.projectMemberRepo.findByProjectId(projectId);
-      const targetMember = members.find((m) => m.userId.equals(targetUserId));
-      if (targetMember && targetMember.role.value === 'administrator') {
-        const adminCount = members.filter((m) => m.role.value === 'administrator').length;
-        if (adminCount <= 1) {
-          return { success: false, error: new CannotRemoveLastAdminError(projectId.value) };
-        }
+      const ownerCount = members.filter((m) => m.role.value === 'owner').length;
+      if (ownerCount <= 1) {
+        return { success: false, error: new CannotRemoveLastOwnerError(projectId.value) };
       }
     }
 
     await this.projectMemberRepo.updateRole(projectId, targetUserId, newRole);
 
-    const auditLog = new AuditLog(
-      AuditLogId.create(randomUUID()),
-      actorId,
-      projectId,
-      'member.roleChanged',
-      'ProjectMember',
-      targetUserId.value,
+    await this.auditLogRepo.save(
+      new AuditLog(
+        AuditLogId.create(randomUUID()),
+        actorId,
+        projectId,
+        'member.roleChanged',
+        'ProjectMember',
+        targetUserId.value,
+      ),
     );
-
-    await this.auditLogRepo.save(auditLog);
 
     return { success: true, value: undefined };
   }

@@ -44,7 +44,7 @@ describe('InviteUserUseCase', () => {
     await userRepo.save(new User(inviteeId, inviteEmail, 'Invitee', 'hashed', [], null, null));
 
     await projectMemberRepo.addMember(
-      new ProjectMember(projectId, adminId, Role.create('administrator')),
+      new ProjectMember(projectId, adminId, Role.create('owner')),
     );
     await projectMemberRepo.addMember(
       new ProjectMember(projectId, viewerId, Role.create('viewer')),

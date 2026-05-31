@@ -1,6 +1,5 @@
 import { ProjectId } from '../value-objects/project-id';
 import { ProjectName } from '../value-objects/project-name';
-import { UserId } from '../value-objects/user-id';
 import { FileNodeId } from '../value-objects/file-node-id';
 import { Timestamps } from '../value-objects/timestamps';
 
@@ -32,8 +31,6 @@ export class Project {
     name: ProjectName,
     /** Optional long-form description of the project. */
     description: string | null,
-    /** Identifier of the user who owns this project. */
-    public readonly ownerId: UserId,
     /**
      * Categorisation tags for the project. Duplicates are removed, and the
      * resulting array must not exceed 10 items.

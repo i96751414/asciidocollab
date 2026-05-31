@@ -29,17 +29,17 @@ describe('ListUserProjectsUseCase', () => {
     }
   });
 
-  test('returns projects owned by user', async () => {
+  test('returns projects where user is a member', async () => {
     expect.assertions(3);
     const project = new Project(
       projectId,
       ProjectName.create('Test Project'),
       null,
-      userId,
       [],
       null,
     );
     await projectRepo.save(project);
+    projectRepo.addMembership(projectId, userId);
 
     const result = await useCase.execute(userId);
 
@@ -56,7 +56,6 @@ describe('ListUserProjectsUseCase', () => {
       projectId,
       ProjectName.create('Member Project'),
       null,
-      userId,
       [],
       null,
     );
@@ -78,11 +77,11 @@ describe('ListUserProjectsUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      userId,
       [],
       null,
     );
     await projectRepo.save(project);
+    projectRepo.addMembership(projectId, userId);
 
     const result = await useCase.execute(userId);
 
@@ -100,11 +99,11 @@ describe('ListUserProjectsUseCase', () => {
         id,
         ProjectName.create(`Project ${index}`),
         null,
-        userId,
         [],
         null,
       );
       await projectRepo.save(project);
+      projectRepo.addMembership(id, userId);
     }
 
     const result = await useCase.execute(userId, { page: 1, limit: 2 });
@@ -124,11 +123,11 @@ describe('ListUserProjectsUseCase', () => {
       projectId,
       ProjectName.create('Test Project'),
       null,
-      userId,
       [],
       null,
     );
     await projectRepo.save(project);
+    projectRepo.addMembership(projectId, userId);
 
     const result = await useCase.execute(userId, { page: 100, limit: 10 });
 
@@ -145,23 +144,23 @@ describe('ListUserProjectsUseCase', () => {
       projectId,
       ProjectName.create('Active Project'),
       null,
-      userId,
       [],
       null,
     );
     await projectRepo.save(activeProject);
+    projectRepo.addMembership(projectId, userId);
 
     const archivedId = ProjectId.create('550e8400-e29b-41d4-a716-446655440003');
     const archivedProject = new Project(
       archivedId,
       ProjectName.create('Archived Project'),
       null,
-      userId,
       [],
       null,
     );
     archivedProject.archive();
     await projectRepo.save(archivedProject);
+    projectRepo.addMembership(archivedId, userId);
 
     const result = await useCase.execute(userId);
 
@@ -177,23 +176,23 @@ describe('ListUserProjectsUseCase', () => {
       projectId,
       ProjectName.create('Active Project'),
       null,
-      userId,
       [],
       null,
     );
     await projectRepo.save(activeProject);
+    projectRepo.addMembership(projectId, userId);
 
     const archivedId = ProjectId.create('550e8400-e29b-41d4-a716-446655440003');
     const archivedProject = new Project(
       archivedId,
       ProjectName.create('Archived Project'),
       null,
-      userId,
       [],
       null,
     );
     archivedProject.archive();
     await projectRepo.save(archivedProject);
+    projectRepo.addMembership(archivedId, userId);
 
     const result = await useCase.execute(userId, { page: 1, limit: 20 }, true);
 

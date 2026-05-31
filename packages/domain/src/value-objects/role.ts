@@ -2,20 +2,24 @@ import { ValidationError } from '../errors/validation-error';
 
 /**
  * Represents a user role with restricted access levels.
- * Valid values are 'viewer', 'editor', and 'administrator'.
+ * Valid values are 'viewer', 'editor', and 'owner'.
  */
 export class Role {
   private constructor(private readonly _value: string) {}
 
   /**
    * Creates a new Role instance after validating the input.
-   * 
-   * @param value - The role string; must be 'viewer', 'editor', or 'administrator'.
+   *
+   * @param value - The role string; must be 'viewer', 'editor', or 'owner'.
    * @returns A new Role instance.
    * @throws {ValidationError} If the value is not a valid role.
    */
   static create(value: string): Role {
-    if (value !== 'viewer' && value !== 'editor' && value !== 'administrator') {
+    if (
+      value !== 'viewer' &&
+      value !== 'editor' &&
+      value !== 'owner'
+    ) {
       throw new ValidationError(`Invalid Role: ${value}`);
     }
     return new Role(value);

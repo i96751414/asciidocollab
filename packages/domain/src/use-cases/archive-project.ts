@@ -57,7 +57,8 @@ export class ArchiveProjectUseCase {
       return { success: false, error: new ProjectNotFoundError(projectId.value) };
     }
 
-    if (!project.ownerId.equals(actorId)) {
+    const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
+    if (callerMembership?.role.value !== 'owner') {
       return { success: false, error: new PermissionDeniedError() };
     }
 

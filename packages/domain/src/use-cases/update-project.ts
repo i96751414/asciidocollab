@@ -27,7 +27,7 @@ export interface UpdateProjectInput {
 
 /**
  * Updates project details (name, description, tags).
- * Requires the caller to be an administrator of the project.
+ * Requires the caller to be an owner of the project.
  */
 export class UpdateProjectUseCase {
   /**
@@ -46,11 +46,11 @@ export class UpdateProjectUseCase {
   /**
    * Updates project details.
    *
-   * @param actorId - The administrator performing the update.
+   * @param actorId - The owner performing the update.
    * @param projectId - The project to update.
    * @param input - The update data.
    * @returns The updated project.
-   * On failure returns `PermissionDeniedError` if the caller is not an administrator,
+   * On failure returns `PermissionDeniedError` if the caller is not an owner,
    * or `ProjectNotFoundError` if the project does not exist.
    */
   async execute(
@@ -64,7 +64,7 @@ export class UpdateProjectUseCase {
     }
 
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
-    if (!callerMembership || callerMembership.role.value !== 'administrator') {
+    if (callerMembership?.role.value !== 'owner') {
       return { success: false, error: new PermissionDeniedError() };
     }
 

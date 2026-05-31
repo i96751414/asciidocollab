@@ -42,7 +42,6 @@ describe('CreateProjectUseCase', () => {
     expect(project).not.toBeNull();
     expect(project!.name.value).toBe('My Project');
     expect(project!.description).toBe('A test project');
-    expect(project!.ownerId.value).toBe(actorId.value);
     expect(project!.rootFolderId).not.toBeNull();
     expect(project!.rootFolderId!.value).toBe(value.rootFolderId.value);
 
@@ -55,7 +54,7 @@ describe('CreateProjectUseCase', () => {
 
     const member = await projectMemberRepo.findByCompositeKey(value.projectId, actorId);
     expect(member).not.toBeNull();
-    expect(member!.role.value).toBe('administrator');
+    expect(member!.role.value).toBe('owner');
 
     const logs = await auditLogRepo.findByProjectId(value.projectId);
     expect(logs).toHaveLength(1);
@@ -65,7 +64,7 @@ describe('CreateProjectUseCase', () => {
     expect(logs[0].resourceId).toBe(value.projectId.value);
   });
 
-  test('returns correct result shape with ownerId and ownerRole=administrator', async () => {
+  test('returns correct result shape with projectId, rootFolderId, and ownerRole=owner', async () => {
     const name = ProjectName.create('Another Project');
     const result = await useCase.execute(actorId, name, null, []);
 
@@ -73,8 +72,7 @@ describe('CreateProjectUseCase', () => {
     if (!result.success) return;
     expect(result.value.projectId).toBeDefined();
     expect(result.value.rootFolderId).toBeDefined();
-    expect(result.value.ownerId).toBeInstanceOf(UserId);
-    expect(result.value.ownerRole).toBe('administrator');
+    expect(result.value.ownerRole).toBe('owner');
   });
 
   test('rejects empty project name', async () => {

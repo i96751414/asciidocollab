@@ -21,3 +21,4 @@ export type { UpdateDisplayNameResult } from './update-display-name';
 export { RequestEmailChangeUseCase } from './request-email-change';
 export { ConfirmEmailChangeUseCase } from './confirm-email-change';
 export type { ConfirmEmailChangeResult } from './confirm-email-change';
+export { DeleteProjectUseCase } from './delete-project';

@@ -51,7 +51,7 @@ describe('In-Memory Repository Fakes', () => {
   describe('InMemoryProjectRepository', () => {
     it('saves and retrieves a project by id', async () => {
       const repo = new InMemoryProjectRepository();
-      const project = new Project(projectId, ProjectName.create('Test'), null, userId, [], null);
+      const project = new Project(projectId, ProjectName.create('Test'), null, [], null);
       await repo.save(project);
       const found = await repo.findById(projectId);
       expect(found).not.toBeNull();
@@ -64,20 +64,21 @@ describe('In-Memory Repository Fakes', () => {
       expect(found).toBeNull();
     });
 
-    it('finds by owner id', async () => {
+    it('finds projects by member id', async () => {
       const repo = new InMemoryProjectRepository();
-      const p1 = new Project(projectId, ProjectName.create('P1'), null, userId, [], null);
-      const p2 = new Project(projectId2, ProjectName.create('P2'), null, userId2, [], null);
+      const p1 = new Project(projectId, ProjectName.create('P1'), null, [], null);
+      const p2 = new Project(projectId2, ProjectName.create('P2'), null, [], null);
       await repo.save(p1);
       await repo.save(p2);
-      const owned = await repo.findByOwnerId(userId);
-      expect(owned).toHaveLength(1);
-      expect(owned[0].id.value).toBe(projectId.value);
+      repo.addMembership(projectId, userId);
+      const result = await repo.findByMemberId(userId, { page: 1, limit: 20 });
+      expect(result.projects).toHaveLength(1);
+      expect(result.projects[0].id.value).toBe(projectId.value);
     });
 
     it('deletes a project', async () => {
       const repo = new InMemoryProjectRepository();
-      const project = new Project(projectId, ProjectName.create('Test'), null, userId, [], null);
+      const project = new Project(projectId, ProjectName.create('Test'), null, [], null);
       await repo.save(project);
       await repo.delete(projectId);
       const found = await repo.findById(projectId);

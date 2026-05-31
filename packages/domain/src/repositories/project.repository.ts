@@ -42,16 +42,8 @@ export interface ProjectRepository {
   findById(id: ProjectId): Promise<Project | null>;
 
   /**
-   * Finds all projects owned by a specific user.
-   * 
-   * @param ownerId - The unique identifier of the owner user.
-   * @returns An array of projects owned by the user.
-   */
-  findByOwnerId(ownerId: UserId): Promise<Project[]>;
-
-  /**
-   * Finds all projects where the user is a member (not just owner).
-   * 
+   * Finds all projects where the user is a member.
+   *
    * @param userId - The unique identifier of the user.
    * @param pagination - Pagination parameters.
    * @param includeArchived - Whether to include archived projects.
