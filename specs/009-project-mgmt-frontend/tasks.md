@@ -233,11 +233,11 @@
 
 **Purpose**: E2E coverage for critical flows and final quality sweep.
 
-- [ ] T067 [P] Add Playwright E2E test for project settings — middleware auth redirect, server-component 403 redirect, settings update, archived-state disabling in `apps/web/e2e/project-settings.spec.ts`
-- [ ] T068 [P] Add Playwright E2E test for member management — role change, member removal, sole-owner invariant, archived-state read-only in `apps/web/e2e/project-members.spec.ts`
-- [ ] T069 [P] Add Playwright E2E test for project deletion — typed-name gate, redirect, dashboard success toast in `apps/web/e2e/project-delete.spec.ts`
-- [ ] T070 [P] Add Playwright E2E test for archive and restore flow in `apps/web/e2e/project-archive.spec.ts`
-- [ ] T071 Run `pnpm typecheck` and `pnpm lint` across all changed packages; resolve any remaining type errors or lint warnings
+- [x] T067 [P] Add Playwright E2E test for project settings — middleware auth redirect, server-component 403 redirect, settings update, archived-state disabling in `apps/web/e2e/project-settings.spec.ts`
+- [x] T068 [P] Add Playwright E2E test for member management — role change, member removal, sole-owner invariant, archived-state read-only in `apps/web/e2e/project-members.spec.ts`
+- [x] T069 [P] Add Playwright E2E test for project deletion — typed-name gate, redirect, dashboard success toast in `apps/web/e2e/project-delete.spec.ts`
+- [x] T070 [P] Add Playwright E2E test for archive and restore flow in `apps/web/e2e/project-archive.spec.ts`
+- [x] T071 Run `pnpm typecheck` and `pnpm lint` across all changed packages; resolve any remaining type errors or lint warnings
 
 ---
 
