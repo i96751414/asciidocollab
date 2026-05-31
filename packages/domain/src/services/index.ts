@@ -4,3 +4,5 @@ export { BreachChecker } from './breach-checker';
 export { EmailSender } from './email-sender';
 export { TokenGenerator, PasswordResetTokenData } from './token-generator';
 export { CommonPasswordChecker } from './common-password-checker';
+export { PasswordResetNotifier } from './password-reset-notifier';
+export { EmailChangeNotifier } from './email-change-notifier';
