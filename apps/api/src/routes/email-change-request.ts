@@ -33,22 +33,10 @@ export async function emailChangeRequestRoute(app: FastifyInstance): Promise<voi
       request.server.repos.user,
       request.server.repos.emailChangeToken,
       request.server.services.tokenGenerator,
+      request.server.services.emailChangeNotifier,
     );
 
-    const result = await useCase.execute(UserId.create(request.session.userId), newEmail);
-
-    if (result.success && result.value.rawToken) {
-      const frontendUrl = app.config.api.frontendUrl;
-      try {
-        await request.server.services.emailSender.send(
-          newEmail,
-          'Confirm your email address change',
-          `Click to confirm: ${frontendUrl}/email-confirm?token=${result.value.rawToken}`,
-        );
-      } catch (error) {
-        request.log.error({ err: error }, 'Failed to send email change confirmation email');
-      }
-    }
+    await useCase.execute(UserId.create(request.session.userId), newEmail);
 
     return reply.status(200).send({
       message: 'If the address is available, a confirmation link has been sent',
