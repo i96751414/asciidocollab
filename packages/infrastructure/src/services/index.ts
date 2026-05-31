@@ -7,3 +7,5 @@ export { CryptoTokenGenerator, CryptoTokenConfig } from './crypto-token-generato
 export { CommonPasswordFileChecker, createCommonPasswordChecker } from './common-password-file-checker';
 export { SessionEncryption, SessionEncryptionConfig } from './session-encryption';
 export { PrismaSessionStore } from './prisma-session-store';
+export { SmtpPasswordResetNotifier } from './smtp-password-reset-notifier';
+export { SmtpEmailChangeNotifier } from './smtp-email-change-notifier';
