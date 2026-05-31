@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,11 @@ import {
 } from "@/components/ui/card";
 import { authApi, ApiError } from "@/lib/api";
 import { isInternalPath } from "@/lib/redirect";
+
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
 
 /** Properties for the LoginForm component. */
 interface LoginFormProperties {
@@ -31,6 +37,7 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [lockoutMessage, setLockoutMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -40,6 +47,17 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
     event.preventDefault();
     setError(null);
     setLockoutMessage(null);
+    setFieldErrors({});
+
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      const errs = parsed.error.flatten().fieldErrors;
+      setFieldErrors({
+        email: errs.email?.[0],
+        password: errs.password?.[0],
+      });
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -81,9 +99,13 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                required
                 autoComplete="email"
               />
+              {fieldErrors.email && (
+                <p role="alert" className="text-sm text-destructive">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="password">Password</Label>
@@ -92,9 +114,13 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                required
                 autoComplete="current-password"
               />
+              {fieldErrors.password && (
+                <p role="alert" className="text-sm text-destructive">
+                  {fieldErrors.password}
+                </p>
+              )}
             </div>
             {error && (
               <p role="alert" className="text-sm text-destructive">

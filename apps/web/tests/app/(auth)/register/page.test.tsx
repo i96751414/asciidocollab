@@ -3,11 +3,31 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RegisterForm } from '@/app/(auth)/register/register-form';
+import type { PasswordPolicyDto } from '@asciidocollab/shared';
+
+const defaultPolicy: PasswordPolicyDto = {
+  minLength: 12,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireDigits: true,
+  requireSymbols: true,
+};
+
+const VALID_PASSWORD = 'SecurePass1!';
 
 jest.mock('@/lib/api', () => ({
   authApi: {
     register: jest.fn(),
-    setupStatus: jest.fn().mockResolvedValue({ configured: false }),
+    setupStatus: jest.fn().mockResolvedValue({
+      configured: false,
+      passwordPolicy: {
+        minLength: 12,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+      },
+    }),
   },
 }));
 
@@ -20,6 +40,13 @@ jest.mock('next/navigation', () => ({
   redirect: jest.fn(),
 }));
 
+function fillValidForm() {
+  fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Admin' } });
+  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'admin@example.com' } });
+  fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: VALID_PASSWORD } });
+  fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: VALID_PASSWORD } });
+}
+
 describe('RegisterForm (first-run setup)', () => {
   const { authApi } = require('@/lib/api');
 
@@ -28,24 +55,109 @@ describe('RegisterForm (first-run setup)', () => {
   });
 
   test('shows "Set up your account" heading when configured: false', () => {
-    render(<RegisterForm isFirstRun={true} />);
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
     expect(screen.getByText(/set up your account/i)).toBeInTheDocument();
   });
 
-  test('shows password validation error for weak password without losing other input', async () => {
-    render(<RegisterForm isFirstRun={true} />);
+  test('shows password error on blur when password is invalid', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'weak' } });
+    fireEvent.blur(screen.getByLabelText(/^password$/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/password must be at least 12 characters/i);
+    });
+  });
+
+  test('shows mismatch error on blur when passwords differ', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: VALID_PASSWORD } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'different' } });
+    fireEvent.blur(screen.getByLabelText(/confirm password/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/passwords do not match/i);
+    });
+  });
+
+  test('mismatch error clears when confirm password is corrected', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: VALID_PASSWORD } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'different' } });
+    fireEvent.blur(screen.getByLabelText(/confirm password/i));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: VALID_PASSWORD } });
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  test('error clears when the field becomes valid after blur', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'weak' } });
+    fireEvent.blur(screen.getByLabelText(/^password$/i));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: VALID_PASSWORD } });
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  test('shows validation errors on submit when password is weak', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
     fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Admin' } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'admin@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'weak' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'weak' } });
     fireEvent.submit(screen.getByRole('form'));
 
     await waitFor(() => {
-      // Use getByRole('alert') to avoid matching the "Password" label element
-      expect(screen.getByRole('alert')).toHaveTextContent(/password must be at least 8 characters/i);
+      expect(screen.getByRole('alert')).toHaveTextContent(/password must be at least 12 characters/i);
     });
 
     expect(screen.getByLabelText(/email/i)).toHaveValue('admin@example.com');
     expect(screen.getByLabelText(/display name/i)).toHaveValue('Admin');
+  });
+
+  test('respects a custom minLength from the policy', async () => {
+    const relaxedPolicy: PasswordPolicyDto = {
+      minLength: 8,
+      requireUppercase: false,
+      requireLowercase: false,
+      requireDigits: false,
+      requireSymbols: false,
+    };
+    render(<RegisterForm isFirstRun={true} passwordPolicy={relaxedPolicy} />);
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'short' } });
+    fireEvent.blur(screen.getByLabelText(/^password$/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/password must be at least 8 characters/i);
+    });
+  });
+
+  test('Create account button is disabled until the form is valid', () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    const button = screen.getByRole('button', { name: /create account/i });
+
+    expect(button).toBeDisabled();
+
+    fillValidForm();
+
+    expect(button).toBeEnabled();
+  });
+
+  test('Create account button stays disabled when passwords do not match', () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    const button = screen.getByRole('button', { name: /create account/i });
+
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Admin' } });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'admin@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: VALID_PASSWORD } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'different' } });
+
+    expect(button).toBeDisabled();
   });
 
   test('redirects to /dashboard on successful first-run submission', async () => {
@@ -53,10 +165,8 @@ describe('RegisterForm (first-run setup)', () => {
     jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue(router);
     authApi.register.mockResolvedValue({ message: 'Account created' });
 
-    render(<RegisterForm isFirstRun={true} />);
-    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Admin' } });
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'admin@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'SecurePass1!' } });
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
     fireEvent.submit(screen.getByRole('form'));
 
     await waitFor(() => {
@@ -72,7 +182,7 @@ describe('RegisterPage redirect behavior', () => {
     const { redirect } = require('next/navigation');
     const { default: RegisterPage } = require('@/app/(auth)/register/page');
 
-    (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: true });
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: true, passwordPolicy: defaultPolicy });
     (getSession as jest.Mock).mockResolvedValue(null);
 
     await RegisterPage({ searchParams: Promise.resolve({}) });

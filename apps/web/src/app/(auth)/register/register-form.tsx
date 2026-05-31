@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,44 +14,89 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { authApi, ApiError } from "@/lib/api";
+import type { PasswordPolicyDto } from "@asciidocollab/shared";
+
+type FieldName = "displayName" | "email" | "password" | "confirmPassword";
+
+function buildRegisterSchema(policy: PasswordPolicyDto) {
+  let passwordSchema = z.string().min(
+    policy.minLength,
+    `Password must be at least ${policy.minLength} characters`,
+  );
+  if (policy.requireUppercase) {
+    passwordSchema = passwordSchema.regex(/[A-Z]/, "Password must contain at least one uppercase letter");
+  }
+  if (policy.requireLowercase) {
+    passwordSchema = passwordSchema.regex(/[a-z]/, "Password must contain at least one lowercase letter");
+  }
+  if (policy.requireDigits) {
+    passwordSchema = passwordSchema.regex(/\d/, "Password must contain at least one digit");
+  }
+  if (policy.requireSymbols) {
+    passwordSchema = passwordSchema.regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol");
+  }
+  return z
+    .object({
+      displayName: z.string().min(1, "Display name is required").max(100, "Display name must be at most 100 characters"),
+      email: z.string().email("Please enter a valid email address"),
+      password: passwordSchema,
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+}
 
 /** Properties for the RegisterForm component. */
 interface RegisterFormProperties {
   /** True when no users exist yet — shows first-run messaging. */
   isFirstRun: boolean;
+  /** Password policy fetched from the server — used to build client-side validation. */
+  passwordPolicy: PasswordPolicyDto;
 }
 
 /**
  * First-run registration form.
  */
-export function RegisterForm({ isFirstRun }: RegisterFormProperties) {
+export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormProperties) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function validate() {
-    const errors: Record<string, string> = {};
-    if (password.length < 8) {
-      errors.password = "Password must be at least 8 characters";
-    }
+  const schema = useMemo(() => buildRegisterSchema(passwordPolicy), [passwordPolicy]);
 
-    return errors;
+  const validation = schema.safeParse({ displayName, email, password, confirmPassword });
+  const isFormValid = validation.success;
+  const allFieldErrors = validation.success
+    ? {}
+    : validation.error.flatten().fieldErrors;
+
+  function visibleError(field: FieldName): string | undefined {
+    if (!touched[field]) return undefined;
+    if (field === "confirmPassword" && allFieldErrors.password?.length) return undefined;
+    return allFieldErrors[field]?.[0];
+  }
+
+  function touch(field: FieldName) {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }
+
+  function touchAll() {
+    setTouched({ displayName: true, email: true, password: true, confirmPassword: true });
   }
 
   function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setFieldErrors({});
+    setSubmitError(null);
+    touchAll();
 
-    const errors = validate();
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
+    if (!isFormValid) return;
 
     startTransition(async () => {
       try {
@@ -58,9 +104,9 @@ export function RegisterForm({ isFirstRun }: RegisterFormProperties) {
         router.push("/dashboard");
       } catch (error_) {
         if (error_ instanceof ApiError && error_.status === 403) {
-          setError("Registration is closed");
+          setSubmitError("Registration is closed");
         } else {
-          setError(
+          setSubmitError(
             error_ instanceof ApiError
               ? error_.message
               : "Registration failed. Please try again."
@@ -92,9 +138,15 @@ export function RegisterForm({ isFirstRun }: RegisterFormProperties) {
                 type="text"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                required
+                onBlur={() => touch("displayName")}
+                aria-invalid={!!visibleError("displayName")}
                 autoComplete="name"
               />
+              {visibleError("displayName") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("displayName")}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
@@ -103,9 +155,15 @@ export function RegisterForm({ isFirstRun }: RegisterFormProperties) {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                required
+                onBlur={() => touch("email")}
+                aria-invalid={!!visibleError("email")}
                 autoComplete="email"
               />
+              {visibleError("email") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("email")}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="password">Password</Label>
@@ -114,21 +172,39 @@ export function RegisterForm({ isFirstRun }: RegisterFormProperties) {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                required
+                onBlur={() => touch("password")}
+                aria-invalid={!!visibleError("password")}
                 autoComplete="new-password"
               />
-              {fieldErrors.password && (
+              {visibleError("password") && (
                 <p role="alert" className="text-sm text-destructive">
-                  {fieldErrors.password}
+                  {visibleError("password")}
                 </p>
               )}
             </div>
-            {error && (
+            <div className="space-y-1">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                onBlur={() => touch("confirmPassword")}
+                aria-invalid={!!visibleError("confirmPassword")}
+                autoComplete="new-password"
+              />
+              {visibleError("confirmPassword") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("confirmPassword")}
+                </p>
+              )}
+            </div>
+            {submitError && (
               <p role="alert" className="text-sm text-destructive">
-                {error}
+                {submitError}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button type="submit" className="w-full" disabled={!isFormValid || isPending}>
               {isPending ? "Creating account…" : "Create account"}
             </Button>
           </div>

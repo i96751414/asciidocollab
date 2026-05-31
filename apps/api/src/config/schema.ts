@@ -106,7 +106,7 @@ export function createConfig() {
         sameSite: {
           doc: 'Set the SameSite attribute on session cookies.',
           format: ['strict', 'lax', 'none'],
-          default: 'lax',
+          default: 'strict',
         },
         saveUninitialized: {
           doc: 'Save uninitialized sessions to the store.',

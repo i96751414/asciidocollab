@@ -15,6 +15,7 @@ export {
   AuthSuccessResponseDto,
   AuthErrorResponseDto,
   UserProfileDto,
+  PasswordPolicyDto,
   SetupStatusDto,
 } from './auth.dto';
 export {

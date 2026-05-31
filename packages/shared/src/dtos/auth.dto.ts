@@ -61,8 +61,24 @@ export interface UserProfileDto {
   userId: string;
 }
 
+/** Password complexity requirements surfaced to the client. */
+export interface PasswordPolicyDto {
+  /** Minimum number of characters required. */
+  minLength: number;
+  /** Whether at least one uppercase letter is required. */
+  requireUppercase: boolean;
+  /** Whether at least one lowercase letter is required. */
+  requireLowercase: boolean;
+  /** Whether at least one digit is required. */
+  requireDigits: boolean;
+  /** Whether at least one symbol is required. */
+  requireSymbols: boolean;
+}
+
 /** System setup status response. */
 export interface SetupStatusDto {
   /** Whether at least one user account exists. */
   configured: boolean;
+  /** Active password policy, so clients can validate before submitting. */
+  passwordPolicy: PasswordPolicyDto;
 }

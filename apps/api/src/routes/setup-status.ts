@@ -15,14 +15,36 @@ export async function setupStatusRoute(app: FastifyInstance): Promise<void> {
           type: 'object',
           properties: {
             configured: { type: 'boolean' },
+            passwordPolicy: {
+              type: 'object',
+              properties: {
+                minLength: { type: 'integer' },
+                requireUppercase: { type: 'boolean' },
+                requireLowercase: { type: 'boolean' },
+                requireDigits: { type: 'boolean' },
+                requireSymbols: { type: 'boolean' },
+              },
+              required: ['minLength', 'requireUppercase', 'requireLowercase', 'requireDigits', 'requireSymbols'],
+            },
           },
-          required: ['configured'],
+          required: ['configured', 'passwordPolicy'],
         },
       },
     },
   }, async (_request, reply) => {
     const useCase = new CheckSystemSetupUseCase(reply.server.repos.user);
-    const result = await useCase.execute();
-    return reply.status(200).send(result satisfies SetupStatusDto);
+    const { configured } = await useCase.execute();
+    const { auth } = reply.server.config;
+    const response: SetupStatusDto = {
+      configured,
+      passwordPolicy: {
+        minLength: auth.password.minLength,
+        requireUppercase: auth.password.requireUppercase,
+        requireLowercase: auth.password.requireLowercase,
+        requireDigits: auth.password.requireDigits,
+        requireSymbols: auth.password.requireSymbols,
+      },
+    };
+    return reply.status(200).send(response);
   });
 }

@@ -56,6 +56,7 @@ async function apiRequest<T>(
   const response = await fetch(url, {
     ...options,
     credentials: "include",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -181,7 +182,7 @@ export const authApi = {
 
   async logout(): Promise<{ message: string }> {
     const token = await getCsrfToken();
-    const result = await apiRequest('/auth/logout', {
+    const result = await apiRequest<{ message: string }>('/auth/logout', {
       method: 'POST',
       headers: { 'x-csrf-token': token },
       body: JSON.stringify({}),
@@ -190,7 +191,16 @@ export const authApi = {
     return result;
   },
 
-  async setupStatus(): Promise<{ configured: boolean }> {
+  async setupStatus(): Promise<{
+    configured: boolean;
+    passwordPolicy: {
+      minLength: number;
+      requireUppercase: boolean;
+      requireLowercase: boolean;
+      requireDigits: boolean;
+      requireSymbols: boolean;
+    };
+  }> {
     return apiRequest('/auth/setup-status');
   },
 

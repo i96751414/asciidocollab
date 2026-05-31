@@ -12,10 +12,10 @@ export default async function RegisterPage() {
     redirect("/dashboard");
   }
 
-  const { configured } = await authApi.setupStatus();
+  const { configured, passwordPolicy } = await authApi.setupStatus();
   if (configured) {
     redirect("/login");
   }
 
-  return <RegisterForm isFirstRun={true} />;
+  return <RegisterForm isFirstRun={true} passwordPolicy={passwordPolicy} />;
 }

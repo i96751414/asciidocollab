@@ -80,7 +80,7 @@
 
 - [X] T026 [P] [US1] Create centered card layout for auth pages in `apps/web/src/app/(auth)/layout.tsx`
 - [X] T027 [US1] RED: Write failing component tests for `LoginForm` in `apps/web/src/app/(auth)/login/page.test.tsx` — renders email and password fields; shows generic error on 401; disables submit button during submission; `?redirect=https://evil.com` resolves to `/dashboard` after login; `?redirect=//evil.com` resolves to `/dashboard`
-- [X] T028 [US1] GREEN: Implement login page server component and `LoginForm` client component in `apps/web/src/app/(auth)/login/page.tsx` — server component calls `getSession()` from `apps/web/src/lib/auth.ts` and redirects to `/dashboard` if non-null; checks setup status via `authApi.setupStatus()` and redirects to `/register` if `configured: false`; validates `?redirect=` with `isInternalPath()`; shows `?reason=expired` notice; renders `LoginForm` client component with Zod-validated form
+- [X] T028 [US1] GREEN: Implement login page server component and `LoginForm` client component in `apps/web/src/app/(auth)/login/page.tsx` — server component calls `getSession()` from `apps/web/src/lib/auth.ts` and redirects to `/dashboard` if non-null; checks setup status via `authApi.setupStatus()` and redirects to `/register` if `configured: false`; validates `?redirect=` with `isInternalPath()`; shows `?reason=expired` notice; renders `LoginForm` client component with Zod-validated form (`loginSchema` validates email format and non-empty password before API call; field-level errors shown inline)
 - [X] T029 [P] [US1] Add server-side session validation to `apps/web/src/app/(dashboard)/layout.tsx` — call `getSession()` from `apps/web/src/lib/auth.ts`; redirect to `/login?reason=expired` if it returns `null`
 
 **Checkpoint**: User Story 1 fully functional — sign-in flow works end-to-end.
@@ -94,7 +94,7 @@
 **Independent Test**: Start the app against an empty database, visit `/`, verify automatic redirect to `/register`, submit the setup form, and confirm landing on `/dashboard`. Then revisit `/register` and confirm redirect to `/login`.
 
 - [X] T030 [US2] RED: Write failing component tests for `RegisterForm` in `apps/web/src/app/(auth)/register/page.test.tsx` — shows "Set up your account" heading when `configured: false`; shows validation errors for weak password without losing other input; redirects to `/dashboard` on successful first-run submission; page redirects to `/login` when `configured: true` and user has no session
-- [X] T031 [US2] GREEN: Implement register page server component and `RegisterForm` client component in `apps/web/src/app/(auth)/register/page.tsx` — server component calls `getSession()` (redirect to `/dashboard` if non-null), checks setup status (redirect to `/login` if `configured: true`); passes `isFirstRun` flag to `RegisterForm`; Zod-validates displayName, email, and password
+- [X] T031 [US2] GREEN: Implement register page server component and `RegisterForm` client component in `apps/web/src/app/(auth)/register/page.tsx` — server component calls `getSession()` (redirect to `/dashboard` if non-null), checks setup status (redirect to `/login` if `configured: true`); passes `isFirstRun` flag to `RegisterForm`; Zod-validates displayName (1–100 chars), email (format), and password (min 8 chars) via `registerSchema` before API call; field-level errors shown inline per field
 
 **Checkpoint**: User Story 2 fully functional — first-run trial path works end-to-end.
 

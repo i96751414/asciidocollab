@@ -5,6 +5,7 @@ coverage/
 .next/
 .env
 .env.local
+.last-run.json
 *.log
 .DS_Store
 Thumbs.db
