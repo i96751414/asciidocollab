@@ -21,7 +21,7 @@ export class SmtpPasswordResetNotifier implements PasswordResetNotifier {
    * @returns A promise that resolves when the email is sent.
    */
   async sendResetEmail(to: string, rawToken: string): Promise<void> {
-    const html = this.htmlTemplate.replace('{token}', rawToken);
+    const html = this.htmlTemplate.replaceAll('{token}', rawToken);
     await this.emailSender.send(to, this.subject, html);
   }
 }

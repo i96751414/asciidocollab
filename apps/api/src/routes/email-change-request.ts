@@ -36,7 +36,11 @@ export async function emailChangeRequestRoute(app: FastifyInstance): Promise<voi
       request.server.services.emailChangeNotifier,
     );
 
-    await useCase.execute(UserId.create(request.session.userId), newEmail);
+    try {
+      await useCase.execute(UserId.create(request.session.userId), newEmail);
+    } catch (error) {
+      request.log.warn({ err: error }, 'email change confirmation delivery failed');
+    }
 
     return reply.status(200).send({
       message: 'If the address is available, a confirmation link has been sent',

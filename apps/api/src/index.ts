@@ -192,13 +192,13 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
     const passwordResetNotifier = new SmtpPasswordResetNotifier(
       emailSender,
       appConfig.auth.email.templates.resetRequest.subject,
-      appConfig.auth.email.templates.resetRequest.html.replace('{frontendUrl}', appConfig.api.frontendUrl),
+      appConfig.auth.email.templates.resetRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
     );
 
     const emailChangeNotifier = new SmtpEmailChangeNotifier(
       emailSender,
       appConfig.auth.email.templates.emailChangeRequest.subject,
-      appConfig.auth.email.templates.emailChangeRequest.html.replace('{frontendUrl}', appConfig.api.frontendUrl),
+      appConfig.auth.email.templates.emailChangeRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
     );
 
     app.decorate('services', {

@@ -111,9 +111,8 @@ describe('RequestEmailChangeUseCase', () => {
     expect(notifier.sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
-  test('SMTP failure: notifier throws, use case still returns success', async () => {
+  test('SMTP failure: notifier throws, error propagates to caller', async () => {
     notifier.sendConfirmationEmail.mockRejectedValue(new Error('SMTP down'));
-    const result = await useCase.execute(USER_ID, 'new@example.com');
-    expect(result.success).toBe(true);
+    await expect(useCase.execute(USER_ID, 'new@example.com')).rejects.toThrow('SMTP down');
   });
 });

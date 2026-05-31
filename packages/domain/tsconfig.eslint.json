@@ -3,7 +3,6 @@
   "compilerOptions": {
     "composite": false,
     "rootDir": ".",
-    "lib": ["ES2022", "ES2023.Array"],
     "types": ["jest", "node"]
   },
   "include": ["src", "tests"]

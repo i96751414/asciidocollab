@@ -19,7 +19,7 @@ Implement a real SMTP-based email sender using nodemailer, with configurable ena
 
 ## Technical Context
 
-**Language/Version**: TypeScript (ES2022, CommonJS)
+**Language/Version**: TypeScript (ES2025, CommonJS)
 
 **Primary Dependencies**: nodemailer (already in package.json), @types/nodemailer
 

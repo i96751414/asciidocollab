@@ -58,11 +58,7 @@ export class RequestEmailChangeUseCase {
     );
     await this.tokenRepo.save(token);
 
-    try {
-      await this.notifier.sendConfirmationEmail(newEmail, tokenData.token);
-    } catch {
-      // delivery failure is non-fatal; infrastructure layer logs it
-    }
+    await this.notifier.sendConfirmationEmail(newEmail, tokenData.token);
 
     return { success: true, value: undefined };
   }

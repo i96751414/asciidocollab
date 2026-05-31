@@ -116,7 +116,7 @@ export default {
 {
   "compilerOptions": {
     "strict": true,
-    "target": "ES2022",
+    "target": "ES2025",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "declaration": true,
