@@ -1,6 +1,6 @@
-// Test that POST /auth/email/change-request returns 200 even when emailSender.send() throws.
-// Covers the case where the token is persisted but SMTP delivery fails.
-import type { EmailSender } from '@asciidocollab/domain';
+// Test that POST /auth/email/change-request returns 200 even when the notifier throws.
+// Covers the case where the token is persisted but delivery fails.
+import type { EmailChangeNotifier } from '@asciidocollab/domain';
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/register';
 import { loginRoute } from '../src/routes/login';
@@ -11,13 +11,13 @@ import { setupTestEnvironment } from './helpers/test-environment';
 const TEST_EMAIL = 'smtp-failure@example.com';
 const TEST_PASSWORD = 'ValidP@ssw0rd123!';
 
-const throwingEmailSender: EmailSender = {
-  async send(): Promise<void> {
+const throwingNotifier: EmailChangeNotifier = {
+  async sendConfirmationEmail(): Promise<void> {
     throw new Error('SMTP connection refused');
   },
 };
 
-describe('Email Change Request — SMTP failure', () => {
+describe('Email Change Request — delivery failure', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
   let sessionCookie = '';
@@ -27,8 +27,7 @@ describe('Email Change Request — SMTP failure', () => {
 
     testContext = await startTestContainer();
     app = await buildServer({ prisma: testContext.client });
-    // Replace emailSender with one that throws to simulate SMTP failure
-    app.services.emailSender = throwingEmailSender;
+    app.services.emailChangeNotifier = throwingNotifier;
 
     await app.register(registerRoute);
     await app.register(loginRoute);
@@ -55,7 +54,7 @@ describe('Email Change Request — SMTP failure', () => {
     await stopTestContainer(testContext);
   });
 
-  test('returns 200 even when emailSender.send() throws', async () => {
+  test('returns 200 even when notifier throws', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/auth/email/change-request',
