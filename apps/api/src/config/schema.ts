@@ -338,7 +338,7 @@ export function createConfig() {
           html: {
             doc: 'HTML body for password reset request email. Use {token} and {frontendUrl} placeholders.',
             format: String,
-            default: '<p>Click <a href="{frontendUrl}/reset?token={token}">here</a> to reset your password.</p>',
+            default: '<p>Click <a href="{frontendUrl}/reset-password?token={token}">here</a> to reset your password.</p>',
           },
         },
         passwordChanged: {
@@ -351,6 +351,18 @@ export function createConfig() {
             doc: 'HTML body for password changed notification email.',
             format: String,
             default: '<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>',
+          },
+        },
+        emailChangeRequest: {
+          subject: {
+            doc: 'Subject line for email change confirmation email.',
+            format: String,
+            default: '[ASCIIDOCOLLAB] Confirm your email address change',
+          },
+          html: {
+            doc: 'HTML body for email change confirmation email. Use {token} and {frontendUrl} placeholders.',
+            format: String,
+            default: '<p>Click <a href="{frontendUrl}/email-confirm?token={token}">here</a> to confirm your new email address.</p>',
           },
         },
       },
@@ -500,6 +512,8 @@ export interface Config {
         resetRequest: { subject: string; html: string };
         /** Password changed notification email template. */
         passwordChanged: { subject: string; html: string };
+        /** Email change confirmation email template. */
+        emailChangeRequest: { subject: string; html: string };
       };
     };
   };
