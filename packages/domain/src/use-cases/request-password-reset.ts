@@ -17,6 +17,12 @@ import { PASSWORD_RESET_DELAY_MS } from '../constants';
  * prevent enumeration. Applies constant-time delay to prevent timing attacks.
  */
 export class RequestPasswordResetUseCase {
+  /**
+   * @param userRepo - Repository for user lookups.
+   * @param tokenRepo - Repository for password reset token persistence.
+   * @param tokenGenerator - Service for token generation.
+   * @param notifier - Notifier responsible for sending the reset message.
+   */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: PasswordResetTokenRepository,
@@ -24,6 +30,15 @@ export class RequestPasswordResetUseCase {
     private readonly notifier: PasswordResetNotifier,
   ) {}
 
+  /**
+   * Creates a password reset token for the given email and notifies the user.
+   *
+   * Always returns success to prevent email enumeration.
+   * Applies constant-time delay to prevent timing attacks.
+   *
+   * @param email - The email address to reset.
+   * @returns Always returns success.
+   */
   async execute(email: Email): Promise<Result<undefined, Error>> {
     const startTime = Date.now();
 

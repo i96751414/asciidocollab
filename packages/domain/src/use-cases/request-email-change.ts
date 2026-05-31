@@ -11,6 +11,12 @@ import { randomUUID } from 'crypto';
 
 /** Initiates an email address change by issuing a confirmation token and notifying the user. */
 export class RequestEmailChangeUseCase {
+  /**
+   * @param userRepo - Repository for user lookups.
+   * @param tokenRepo - Repository for email change token persistence.
+   * @param tokenGenerator - Service for token generation.
+   * @param notifier - Notifier responsible for sending the confirmation message.
+   */
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenRepo: EmailChangeTokenRepository,
@@ -18,6 +24,13 @@ export class RequestEmailChangeUseCase {
     private readonly notifier: EmailChangeNotifier,
   ) {}
 
+  /**
+   * Validates the new email and creates a confirmation token if available.
+   *
+   * @param userId - The authenticated user requesting the change.
+   * @param newEmail - The desired new email address.
+   * @returns Always returns success to prevent enumeration.
+   */
   async execute(userId: UserId, newEmail: string): Promise<Result<undefined, Error>> {
     const currentUser = await this.userRepo.findById(userId);
 
