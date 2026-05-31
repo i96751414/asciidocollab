@@ -35,7 +35,7 @@ export class InMemoryPasswordResetTokenRepository implements PasswordResetTokenR
   async findByUserId(userId: UserId): Promise<PasswordResetToken[]> {
     return [...this.storage.values()]
       .filter((t) => t.userId.value === userId.value)
-      .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   /**
