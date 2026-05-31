@@ -10,6 +10,7 @@ import { healthRoute } from '../src/routes/health';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 import { LOGIN_DELAY_MS } from '@asciidocollab/domain';
+import { createHash } from 'node:crypto';
 
 const TEST_EMAIL = 'integration-user@example.com';
 const TEST_PASSWORD = 'ValidP@ssw0rd123!';
@@ -274,8 +275,7 @@ describe('Auth Integration Tests', () => {
 
     test('expired token returns 400', async () => {
       const user = await app.prisma.user.findUnique({ where: { email: TEST_EMAIL } });
-      const crypto = await import('node:crypto');
-      const hashedToken = crypto.createHash('sha256').update('expired-token').digest('hex');
+      const hashedToken = createHash('sha256').update('expired-token').digest('hex');
       await app.prisma.passwordResetToken.create({
         data: {
           userId: user!.id,
