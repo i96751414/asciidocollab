@@ -1,12 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import { UserId } from '@asciidocollab/domain';
 import '../types/session';
 import type { UserProfileDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
-/**
- * Registers the user profile route.
- *
- * @param app - The Fastify instance to register the route on.
- */
 export async function meRoute(app: FastifyInstance): Promise<void> {
   app.get('/auth/me', async (request, reply) => {
     if (!request.session.userId) {
@@ -14,6 +10,21 @@ export async function meRoute(app: FastifyInstance): Promise<void> {
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
       } satisfies AuthErrorResponseDto);
     }
-    return { userId: request.session.userId } satisfies UserProfileDto;
+
+    const user = await request.server.repos.user.findById(
+      UserId.create(request.session.userId),
+    );
+
+    if (!user) {
+      return reply.status(401).send({
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      } satisfies AuthErrorResponseDto);
+    }
+
+    return {
+      userId: user.id.value,
+      displayName: user.displayName,
+      email: user.email.value,
+    } satisfies UserProfileDto;
   });
 }

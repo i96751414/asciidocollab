@@ -131,10 +131,10 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Real-time CRDT         | Yjs                                       | All collaborative text editing via Yjs `Y.Text`; Hocuspocus for server |
 | PDF generation         | Asciidoctor-PDF (Ruby sidecar)            | Ruby container spawned per-render; no JS-based PDF fallback            |
 | API framework          | Fastify                                   | Schema-first validation for all routes                                 |
-| Frontend framework     | Next.js 14 (App Router)                   | Dashboard/auth via SSR; editor as client component                     |
+| Frontend framework     | Next.js 16 (App Router)                   | Dashboard/auth via SSR; editor as client component                     |
 | Component library      | shadcn/ui + Radix UI + Tailwind CSS       | Design tokens as CSS custom properties; light/dark themes              |
 | Test runner            | Jest + Testing Library (unit/integration) | Jest for all Node.js tests; Playwright for E2E                         |
 | Domain testing         | In-memory fakes                           | Every domain repository has an in-memory fake in the test suite        |
 | Infrastructure testing | testcontainers                            | Integration tests spin up real PostgreSQL/Docker containers            |
 
-**Version**: 2.0.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-28
+**Version**: 2.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-30

@@ -1,7 +1,11 @@
 ---
-description: Generate or validate implementation tasks with memory context, security constraints, and architecture refactor/migration awareness.
+description: Generate or validate implementation tasks with memory context, security
+  constraints, and architecture refactor/migration awareness.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Governed Tasks Command
 
 You are orchestrating the `governed-tasks` workflow for `architecture-guard`.

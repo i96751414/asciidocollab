@@ -1,10 +1,14 @@
 ---
-description: Perform a framework-agnostic architecture review validating implementation against spec.md, plan.md, tasks.md, and the governance and architecture constitutions.
+description: Perform a framework-agnostic architecture review validating implementation
+  against spec.md, plan.md, tasks.md, and the governance and architecture constitutions.
 scripts:
   sh: ../scripts/bash/detect-changed-files.sh
   ps: ../scripts/powershell/detect-changed-files.ps1
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Architecture Review Command
 
 You are running `architecture-guard`, a framework-agnostic architecture review extension designed for high-integrity governance.
@@ -71,7 +75,7 @@ This pattern enables flexibility: fast execution for typical PRs, powerful execu
 1. **Normalize Arguments**: Parse "$ARGUMENTS" to identify the `mode` (`architecture` or `performance`) and `focus` aspects (`general`, `db`, `api`, or `async`).
 2. **Identify Changed Files**:
    - If the user provided a file list or explicit instructions, follow them.
-   - Otherwise, you **MUST** execute the `{SCRIPT}` with `--json` to detect changed files since the merge-base or in the working directory.
+   - Otherwise, you **MUST** execute the `../scripts/bash/detect-changed-files.sh` with `--json` to detect changed files since the merge-base or in the working directory.
    - Use the `changed_files` list as the primary review set.
 
 ## Input & Context Loading
@@ -140,14 +144,15 @@ Detect violations such as:
 
 ## Review Procedure
 
-1. **Identify Scope**: Run `{SCRIPT}` or use user-provided files.
+1. **Identify Scope**: Run `../scripts/bash/detect-changed-files.sh` or use user-provided files.
 2. **Model Context**: Load artifacts and build the Semantic Models for the identified scope.
 3. **Verify Evidence**: Check if task-referenced files exist and contain expected implementation logic.
 4. **Analyze Alignment**: Compare `spec.md` intent vs. `plan.md` architecture vs. implementation behavior.
 5. **Scan Principles**: Apply Review Principles across the implemented boundaries.
 6. **Security & Governance Cross-Check**:
-   - If `security-constraints.md` or `security_constitution.md` is breached, log it as a critical violation.
-   - Cross-reference architecture decisions with security trust boundaries.
+  - If `security-constraints.md` or `security_constitution.md` is breached, log it as a critical violation.
+  - If a finding is primarily security-related and Security Review is available, route it to `/speckit.security-review.branch` instead of duplicating it here.
+  - Cross-reference architecture decisions with security trust boundaries.
 7. **Performance Scan (if mode=performance)**: Skip violations; focus on optimizations.
 7b. **Code Quality Scan (SonarLint)**: If `mode=architecture`, optionally scan for coupling/complexity violations.
 8. **Generate Refactors**: Produce structured tasks for each confirmed violation.
@@ -303,7 +308,7 @@ Findings that correlate with architecture concerns:
 2. **Architecture Alignment**: Resolve boundary erosion and contract mismatches.
 3. **Code Quality**: Address SonarLint findings that map to architectural concerns (if any).
 4. **Durable Memory Preservation (Mandatory Check)**: If new architectural patterns, decisions, or repeatable lessons were identified, you **MUST automatically execute** the durable-memory capture alias immediately after providing the report. Do not just recommend it; let the formal capture flow propose entries and request user approval.
-5. **Next Step**: [e.g. Run /speckit.architecture-guard.architecture-apply]
+5. **Next Step**: [e.g. Run `/speckit.security-review.branch` for security-first findings, or `/speckit.architecture-guard.architecture-apply` for architecture fixes]
 6. **Remediation**: [Concrete remediation direction for the top issues, or "None needed"]
 
 ## Framework Preset Guidance

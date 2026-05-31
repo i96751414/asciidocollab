@@ -1,7 +1,11 @@
 ---
-description: Apply approved architecture refactors by updating plan and task artifacts directly.
+description: Apply approved architecture refactors by updating plan and task artifacts
+  directly.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Architecture Apply Command
 
 You are applying approved architecture refactors for `architecture-guard`.
@@ -9,6 +13,8 @@ When `flash-mem` is available, prefer `memory-synthesis.md` and the approved arc
 If `flash-mem` is available, use the MCP-backed context preparation flow exposed by `flash-mem`; otherwise treat the legacy prepare-context alias as a compatibility path. Compatibility tool names such as `speckit_memory_*` are provided by `flash-mem` when the host still expects them.
 
 This is the write-capable companion to the review workflow. Use it when the team wants the architecture feedback reflected directly in planning artifacts instead of only receiving suggestions.
+
+Use it after `architecture-review` or `violation-detection` has produced approved refactor tasks, or when a Constitution Update Proposal should be reflected in `plan.md` or `tasks.md`.
 
 Use it for approved Constitution Update Proposals when the change should be reflected in plan or task artifacts as explicit follow-up work.
 

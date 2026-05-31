@@ -1,7 +1,11 @@
 ---
-description: Run implementation with memory context, then review the produced implementation against security and architecture constraints.
+description: Run implementation with memory context, then review the produced implementation
+  against security and architecture constraints.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Governed Implement Command
 
 You are orchestrating the `governed-implement` workflow for `architecture-guard`.

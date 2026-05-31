@@ -59,6 +59,22 @@ export interface AuthErrorResponseDto {
 export interface UserProfileDto {
   /** User's unique identifier. */
   userId: string;
+  /** User's display name. */
+  displayName: string;
+  /** User's email address. */
+  email: string;
+}
+
+/** Update display name request data. */
+export interface UpdateDisplayNameDto {
+  /** New display name (min 1, max 100 characters). */
+  displayName: string;
+}
+
+/** Request email change request data. */
+export interface RequestEmailChangeDto {
+  /** New email address to change to. */
+  newEmail: string;
 }
 
 /** Password complexity requirements surfaced to the client. */

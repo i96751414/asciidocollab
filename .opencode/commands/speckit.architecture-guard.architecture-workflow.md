@@ -1,7 +1,11 @@
 ---
-description: Run a single architecture workflow that prefers memory-first context and can incorporate security review when available.
+description: Run a single architecture workflow that prefers memory-first context
+  and can incorporate security review when available.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Architecture Workflow Command
 
 You are running `architecture-guard` as the single orchestration entry point for architecture review.

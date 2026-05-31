@@ -1,5 +1,14 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
+function extractRetryAfterSeconds(error: FastifyError | Error): number {
+  if (!('headers' in error)) return 60;
+  const { headers } = error;
+  if (typeof headers !== 'object' || headers === null) return 60;
+  if (!('retry-after' in headers)) return 60;
+  const raw = Number(headers['retry-after']);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60;
+}
+
 /**
  * Global error handler for unhandled errors in routes.
  *
@@ -14,6 +23,15 @@ export function errorHandler(
 ): void {
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   request.log.error({ err: { type: error.constructor.name, statusCode } }, 'Unhandled error in route');
+
+  if (statusCode === 429) {
+    const retryAfter = extractRetryAfterSeconds(error);
+    reply.status(429).send({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests', retryAfter },
+    });
+    return;
+  }
+
   reply.status(statusCode).send({
     error: {
       code: statusCode === 400 ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR',

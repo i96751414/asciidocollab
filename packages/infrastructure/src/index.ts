@@ -12,5 +12,6 @@ export { PrismaTemplateRepository } from './persistence/prisma-template.reposito
 export { PrismaImageRepository } from './persistence/prisma-image.repository';
 export { PrismaAuditLogRepository } from './persistence/prisma-audit-log.repository';
 export { PrismaPasswordResetTokenRepository } from './persistence/prisma-password-reset-token.repository';
+export { PrismaEmailChangeTokenRepository } from './persistence/prisma-email-change-token.repository';
 
 export * from './services';

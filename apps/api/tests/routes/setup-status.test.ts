@@ -30,7 +30,9 @@ describe('GET /auth/setup-status', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ configured: false });
+    const body = response.json();
+    expect(body.configured).toBe(false);
+    expect(body.passwordPolicy).toBeDefined();
   });
 
   test('returns configured: true after a user is created', async () => {
@@ -50,6 +52,8 @@ describe('GET /auth/setup-status', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ configured: true });
+    const body = response.json();
+    expect(body.configured).toBe(true);
+    expect(body.passwordPolicy).toBeDefined();
   });
 });

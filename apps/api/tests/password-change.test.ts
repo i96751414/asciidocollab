@@ -106,4 +106,15 @@ describe('Password Change', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('PASSWORD_REUSE');
   });
+
+  test('new password failing policy returns 400 VALIDATION_ERROR', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/password/change',
+      headers: { cookie: sessionCookie },
+      payload: { currentPassword, newPassword: 'weak' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
 });

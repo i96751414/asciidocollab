@@ -14,32 +14,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { authApi, ApiError } from "@/lib/api";
+import { buildPasswordSchema } from "@/lib/password-schema";
 import type { PasswordPolicyDto } from "@asciidocollab/shared";
 
 type FieldName = "displayName" | "email" | "password" | "confirmPassword";
 
 function buildRegisterSchema(policy: PasswordPolicyDto) {
-  let passwordSchema = z.string().min(
-    policy.minLength,
-    `Password must be at least ${policy.minLength} characters`,
-  );
-  if (policy.requireUppercase) {
-    passwordSchema = passwordSchema.regex(/[A-Z]/, "Password must contain at least one uppercase letter");
-  }
-  if (policy.requireLowercase) {
-    passwordSchema = passwordSchema.regex(/[a-z]/, "Password must contain at least one lowercase letter");
-  }
-  if (policy.requireDigits) {
-    passwordSchema = passwordSchema.regex(/\d/, "Password must contain at least one digit");
-  }
-  if (policy.requireSymbols) {
-    passwordSchema = passwordSchema.regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol");
-  }
   return z
     .object({
       displayName: z.string().min(1, "Display name is required").max(100, "Display name must be at most 100 characters"),
-      email: z.string().email("Please enter a valid email address"),
-      password: passwordSchema,
+      email: z.email("Please enter a valid email address"),
+      password: buildPasswordSchema(policy),
       confirmPassword: z.string(),
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -75,7 +60,7 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
   const isFormValid = validation.success;
   const allFieldErrors = validation.success
     ? {}
-    : validation.error.flatten().fieldErrors;
+    : z.flattenError(validation.error).fieldErrors;
 
   function visibleError(field: FieldName): string | undefined {
     if (!touched[field]) return undefined;
@@ -84,7 +69,7 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
   }
 
   function touch(field: FieldName) {
-    setTouched((prev) => ({ ...prev, [field]: true }));
+    setTouched((previous) => ({ ...previous, [field]: true }));
   }
 
   function touchAll() {

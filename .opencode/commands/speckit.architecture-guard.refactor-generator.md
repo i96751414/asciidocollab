@@ -1,7 +1,11 @@
 ---
-description: Convert architecture violations into non-blocking, structured refactor tasks.
+description: Convert architecture violations into non-blocking, structured refactor
+  tasks.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Refactor Generator Command
 
 You are generating non-blocking refactor tasks for `architecture-guard`.

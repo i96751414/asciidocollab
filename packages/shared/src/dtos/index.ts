@@ -17,6 +17,8 @@ export {
   UserProfileDto,
   PasswordPolicyDto,
   SetupStatusDto,
+  UpdateDisplayNameDto,
+  RequestEmailChangeDto,
 } from './auth.dto';
 export {
   ListUserProjectsResultDto,

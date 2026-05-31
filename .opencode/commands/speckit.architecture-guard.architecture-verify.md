@@ -1,10 +1,14 @@
 ---
-description: Perform an architecture-aware verification gate validating implementation against spec.md, plan.md, tasks.md, and the Architecture Constitution.
+description: Perform an architecture-aware verification gate validating implementation
+  against spec.md, plan.md, tasks.md, and the Architecture Constitution.
 scripts:
   sh: ../scripts/bash/check-prerequisites.sh --json --paths-only
   ps: ../scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Architecture Verification
 
 Validate that the implementation fulfills all tasks in `tasks.md` while adhering to the defined architecture boundaries and the **Architecture Constitution**. This command acts as a post-implementation gate.
@@ -31,7 +35,7 @@ Perform a high-integrity verification of the implementation. Unlike a general re
 
 ### 1. Initialize Context
 
-1. Run `{SCRIPT}` from repo root to identify the active `FEATURE_DIR`.
+1. Run `../scripts/bash/check-prerequisites.sh --json --paths-only` from repo root to identify the active `FEATURE_DIR`.
 2. Derive absolute paths for `spec.md`, `plan.md`, and `tasks.md`.
 3. Load the Architecture Constitution: `.specify/memory/architecture_constitution.md`.
 
@@ -56,6 +60,10 @@ Build internal representations:
 #### C. Constitution Compliance
 - **Rule Check**: Does the implementation violate any "MUST" rules in the `architecture_constitution.md`?
 - **Pattern Match**: Does the code follow the mandated architectural patterns (e.g., DTOs, Repositories, Events)?
+
+#### D. Security Review on Implementation
+- If `spec-kit-security-review` is available, run `/speckit.security-review.branch` against the verified implementation.
+- If security findings are architecture-relevant, classify them as `Security-Architecture Conflict`.
 
 ### 4. Severity Assignment
 

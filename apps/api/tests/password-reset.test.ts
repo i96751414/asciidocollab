@@ -115,4 +115,43 @@ describe('Password Reset', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('INVALID_TOKEN');
   });
+
+  test('already-used token returns 400 INVALID_TOKEN', async () => {
+    const hashedToken = createHash('sha256').update('used-token').digest('hex');
+    await app.prisma.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash: hashedToken,
+        expiresAt: new Date(Date.now() + 3_600_000),
+        usedAt: new Date(),
+      },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/password/reset',
+      payload: { token: 'used-token', newPassword: 'NewP@ssw0rd456!' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_TOKEN');
+  });
+
+  test('password failing policy returns 400 VALIDATION_ERROR', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/password/reset',
+      payload: { token: 'any-token', newPassword: 'weak' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  test('missing token field returns 400', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/password/reset',
+      payload: { newPassword: 'NewP@ssw0rd456!' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
 });

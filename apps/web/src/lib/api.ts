@@ -204,8 +204,53 @@ export const authApi = {
     return apiRequest('/auth/setup-status');
   },
 
-  async me(): Promise<{ userId: string }> {
+  async me(): Promise<{ userId: string; displayName: string; email: string }> {
     return apiRequest('/auth/me');
+  },
+
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/password/reset/request', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const csrfToken = await getCsrfToken();
+    return apiRequest('/auth/password/reset', {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrfToken },
+      body: JSON.stringify({ token, newPassword }),
+    });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/password/change', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
+  async updateDisplayName(displayName: string): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/profile', {
+      method: 'PATCH',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ displayName }),
+    });
+  },
+
+  async requestEmailChange(newEmail: string): Promise<{ message: string }> {
+    const token = await getCsrfToken();
+    return apiRequest('/auth/email/change-request', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+      body: JSON.stringify({ newEmail }),
+    });
   },
 };
 

@@ -59,6 +59,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
               <Button asChild>
                 <Link href="/dashboard/projects/new">Create Project</Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link href="/dashboard/account">Account</Link>
+              </Button>
               <SignOutButton />
             </div>
           </div>

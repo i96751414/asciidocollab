@@ -1,7 +1,11 @@
 ---
-description: Detect framework-agnostic architecture violations in plans, tasks, and implementation summaries.
+description: Detect framework-agnostic architecture violations in plans, tasks, and
+  implementation summaries.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Violation Detection Command
 
 You are detecting architecture violations for `architecture-guard`, a high-integrity governance extension.
@@ -154,6 +158,10 @@ If there are no violations:
 Violations:
 - None detected
 ```
+
+## Next Step
+
+Feed detected violations to `/speckit.architecture-guard.refactor-generator` so they can be converted into actionable refactor tasks.
 
 ## Framework Preset Guidance
 

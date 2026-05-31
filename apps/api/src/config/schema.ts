@@ -249,6 +249,20 @@ export function createConfig() {
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_CHANGE_RATE_LIMIT_WINDOW',
       },
     },
+    emailConfirm: {
+      rateLimitMax: {
+        doc: 'Maximum email confirmation attempts per IP per window.',
+        format: 'integer',
+        default: 10,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_CONFIRM_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Email confirmation rate limit window in milliseconds.',
+        format: 'integer',
+        default: 3_600_000,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_CONFIRM_RATE_LIMIT_WINDOW',
+      },
+    },
     breachCheck: {
       hibpApiUrl: {
         doc: 'HIBP API base URL for password breach checking.',
@@ -446,6 +460,13 @@ export interface Config {
       /** Maximum password change requests per user per window. */
       rateLimitMax: number;
       /** Password change rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** Email confirmation rate limiting configuration. */
+    emailConfirm: {
+      /** Maximum email confirmation attempts per IP per window. */
+      rateLimitMax: number;
+      /** Email confirmation rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
     /** Breach check configuration. */

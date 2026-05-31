@@ -1,7 +1,11 @@
 ---
-description: Orchestrate a governed planning workflow that coordinates flash-mem, Security Review, and Architecture Guard validation.
+description: Orchestrate a governed planning workflow that coordinates flash-mem,
+  Security Review, and Architecture Guard validation.
 ---
 
+
+<!-- Extension: architecture-guard -->
+<!-- Config: .specify/extensions/architecture-guard/ -->
 # Governed Plan Command
 
 You are orchestrating the `governed-plan` workflow for `architecture-guard`.

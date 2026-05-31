@@ -13,6 +13,7 @@ import {
   PrismaImageRepository,
   PrismaAuditLogRepository,
   PrismaPasswordResetTokenRepository,
+  PrismaEmailChangeTokenRepository,
   Argon2PasswordHasher,
   HIBPBreachChecker,
   CommonPasswordFileChecker,
@@ -33,6 +34,7 @@ import {
   ImageRepository,
   AuditLogRepository,
   PasswordResetTokenRepository,
+  EmailChangeTokenRepository,
   PasswordHasher,
   BreachChecker,
   CommonPasswordChecker,
@@ -53,6 +55,9 @@ import { registerRoute } from './routes/register';
 import { logoutRoute } from './routes/logout';
 import { meRoute } from './routes/me';
 import { passwordChangeRoute } from './routes/password-change';
+import { profileUpdateRoute } from './routes/profile-update';
+import { emailChangeRequestRoute } from './routes/email-change-request';
+import { emailConfirmRoute } from './routes/email-confirm';
 import { passwordResetRequestRoute } from './routes/password-reset-request';
 import { passwordResetRoute } from './routes/password-reset';
 import { projectRoutes } from './routes/projects';
@@ -77,6 +82,7 @@ export interface AppContainer {
     image: ImageRepository;
     auditLog: AuditLogRepository;
     passwordResetToken: PasswordResetTokenRepository;
+    emailChangeToken: EmailChangeTokenRepository;
   };
   /** Infrastructure service instances. */
   services: {
@@ -126,6 +132,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       image: new PrismaImageRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
+      emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
     });
   }
 
@@ -209,6 +216,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
   await app.register(healthRoute);
   await app.register(setupStatusRoute);
   await app.register(csrfTokenRoute);
+  await app.register(emailConfirmRoute);
 
   // CSRF-protected public auth routes (no session required)
   await app.register(async function csrfAuthRoutes(scopedApp: FastifyInstance) {
@@ -225,6 +233,8 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
     scopedApp.addHook('preHandler', requireAuth);
     await scopedApp.register(meRoute);
     await scopedApp.register(passwordChangeRoute);
+    await scopedApp.register(profileUpdateRoute);
+    await scopedApp.register(emailChangeRequestRoute);
     await scopedApp.register(projectRoutes);
     await scopedApp.register(memberRoutes);
   });
@@ -264,6 +274,7 @@ declare module 'fastify' {
       image: ImageRepository;
       auditLog: AuditLogRepository;
       passwordResetToken: PasswordResetTokenRepository;
+      emailChangeToken: EmailChangeTokenRepository;
     };
     services: {
       passwordHasher: PasswordHasher;

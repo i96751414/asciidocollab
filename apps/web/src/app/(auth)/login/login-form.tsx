@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { authApi, ApiError } from "@/lib/api";
 import { isInternalPath } from "@/lib/redirect";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -51,7 +52,7 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
 
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
-      const errs = parsed.error.flatten().fieldErrors;
+      const errs = z.flattenError(parsed.error).fieldErrors;
       setFieldErrors({
         email: errs.email?.[0],
         password: errs.password?.[0],
@@ -132,6 +133,11 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
                 {lockoutMessage}
               </p>
             )}
+            <div className="flex items-center justify-end">
+              <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Signing in…" : "Sign in"}
             </Button>
