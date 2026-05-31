@@ -36,15 +36,6 @@ export class PrismaProjectRepository implements ProjectRepository {
   }
 
   /**
-   * @param ownerId - The user ID of the project owner.
-   * @returns All projects owned by the given user.
-   */
-  async findByOwnerId(ownerId: UserId): Promise<Project[]> {
-    const records = await this.prisma.project.findMany({ where: { ownerId: ownerId.value } });
-    return records.map(toDomainProject);
-  }
-
-  /**
    * Finds all projects where the user is a member.
    *
    * @param userId - The unique identifier of the user.
@@ -58,15 +49,9 @@ export class PrismaProjectRepository implements ProjectRepository {
     includeArchived = false,
   ): Promise<PaginatedProjects> {
     const where: Record<string, unknown> = {
-      OR: [
-        { ownerId: userId.value },
-        { members: { some: { userId: userId.value } } },
-      ],
+      members: { some: { userId: userId.value } },
     };
-
-    if (!includeArchived) {
-      where.archivedAt = null;
-    }
+    if (!includeArchived) where.archivedAt = null;
 
     const [records, total] = await Promise.all([
       this.prisma.project.findMany({
@@ -77,7 +62,6 @@ export class PrismaProjectRepository implements ProjectRepository {
       }),
       this.prisma.project.count({ where }),
     ]);
-
     return {
       projects: records.map(toDomainProject),
       total,
@@ -136,19 +120,14 @@ export class PrismaProjectRepository implements ProjectRepository {
 }
 
 function toDomainProject(record: {
-  id: string; name: string; description: string | null; ownerId: string;
+  id: string; name: string; description: string | null;
   tags: unknown; archivedAt: Date | null; createdAt: Date; updatedAt: Date;
 }): Project {
-  let tags: string[] = [];
-  if (Array.isArray(record.tags)) {
-    tags = record.tags.filter((t): t is string => typeof t === 'string');
-  }
   return new Project(
     ProjectId.create(record.id),
     ProjectName.create(record.name),
     record.description,
-    UserId.create(record.ownerId),
-    tags,
+    Array.isArray(record.tags) ? (record.tags as string[]) : [],
     null,
     new Timestamps(record.createdAt, record.updatedAt),
     record.archivedAt,
@@ -156,14 +135,13 @@ function toDomainProject(record: {
 }
 
 function toPersistenceProject(project: Project): {
-  id: string; name: string; description: string | null; ownerId: string;
+  id: string; name: string; description: string | null;
   tags: string[]; createdAt: Date; updatedAt: Date;
 } {
   return {
     id: project.id.value,
     name: project.name.value,
     description: project.description,
-    ownerId: project.ownerId.value,
     tags: [...project.tags],
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,

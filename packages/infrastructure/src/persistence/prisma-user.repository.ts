@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { User, UserId, Email, Timestamps, UserRepository } from '@asciidocollab/domain';
+import { User, UserId, Email, Timestamps, UserRepository, ProjectId } from '@asciidocollab/domain';
 
 /**
  * Prisma-backed implementation of the `UserRepository` interface.
@@ -53,12 +53,37 @@ export class PrismaUserRepository implements UserRepository {
   async hasAny(): Promise<boolean> {
     return (await this.prisma.user.count({ take: 1 })) > 0;
   }
+
+  /**
+   * Case-insensitive search across displayName and email.
+   * Excludes members of `excludeProjectId` when provided.
+   * Returns at most 10 results.
+   */
+  async search(query: string, excludeProjectId?: ProjectId): Promise<User[]> {
+    const records = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { displayName: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+        ],
+        ...(excludeProjectId
+          ? {
+              NOT: {
+                memberships: { some: { projectId: excludeProjectId.value } },
+              },
+            }
+          : {}),
+      },
+      take: 10,
+    });
+    return records.map(toDomainUser);
+  }
 }
 
 function toDomainUser(record: {
   id: string; email: string; displayName: string; passwordHash: string | null;
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
-  createdAt: Date; updatedAt: Date;
+  isAdmin: boolean; createdAt: Date; updatedAt: Date;
 }): User {
   return new User(
     UserId.create(record.id),
@@ -68,6 +93,7 @@ function toDomainUser(record: {
     record.passwordHistory,
     record.samlSubject,
     record.mfaSecret,
+    record.isAdmin,
     new Timestamps(record.createdAt, record.updatedAt),
   );
 }

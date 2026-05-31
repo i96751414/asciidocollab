@@ -109,6 +109,7 @@ export class ChangePasswordUseCase {
       updatedHistory,
       user.samlSubject,
       user.mfaSecret,
+      user.isAdmin,
       user.timestamps,
     );
     await this.userRepo.save(updatedUser);

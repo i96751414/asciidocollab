@@ -82,10 +82,10 @@ type ProjectMemberRecord = {
   projectId: string; userId: string; role: string; joinedAt: Date;
 };
 
-function toPrismaRole(value: string): 'VIEWER' | 'EDITOR' | 'ADMINISTRATOR' {
+function toPrismaRole(value: string): 'VIEWER' | 'EDITOR' | 'OWNER' {
   if (value === 'viewer') return 'VIEWER';
   if (value === 'editor') return 'EDITOR';
-  return 'ADMINISTRATOR';
+  return 'OWNER';
 }
 
 function toDomainProjectMember(record: ProjectMemberRecord): ProjectMember {
