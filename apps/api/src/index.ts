@@ -22,6 +22,8 @@ import {
   CryptoTokenGenerator,
   SessionEncryption,
   PrismaSessionStore,
+  SmtpPasswordResetNotifier,
+  SmtpEmailChangeNotifier,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -40,6 +42,8 @@ import {
   CommonPasswordChecker,
   EmailSender,
   TokenGenerator,
+  PasswordResetNotifier,
+  EmailChangeNotifier,
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
@@ -93,6 +97,8 @@ export interface AppContainer {
     tokenGenerator: TokenGenerator;
     sessionEncryption: SessionEncryption;
     prismaSessionStore: PrismaSessionStore;
+    passwordResetNotifier: PasswordResetNotifier;
+    emailChangeNotifier: EmailChangeNotifier;
   };
 }
 
@@ -183,6 +189,18 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       ? new PrismaSessionStore(app.prisma, sessionEncryption)
       : undefined;
 
+    const passwordResetNotifier = new SmtpPasswordResetNotifier(
+      emailSender,
+      appConfig.auth.email.templates.resetRequest.subject,
+      appConfig.auth.email.templates.resetRequest.html.replace('{frontendUrl}', appConfig.api.frontendUrl),
+    );
+
+    const emailChangeNotifier = new SmtpEmailChangeNotifier(
+      emailSender,
+      appConfig.auth.email.templates.emailChangeRequest.subject,
+      appConfig.auth.email.templates.emailChangeRequest.html.replace('{frontendUrl}', appConfig.api.frontendUrl),
+    );
+
     app.decorate('services', {
       passwordHasher,
       breachChecker,
@@ -191,6 +209,8 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       tokenGenerator,
       sessionEncryption,
       prismaSessionStore,
+      passwordResetNotifier,
+      emailChangeNotifier,
     });
   }
 
@@ -284,6 +304,8 @@ declare module 'fastify' {
       tokenGenerator: TokenGenerator;
       sessionEncryption: SessionEncryption;
       prismaSessionStore: PrismaSessionStore | undefined;
+      passwordResetNotifier: PasswordResetNotifier;
+      emailChangeNotifier: EmailChangeNotifier;
     };
   }
 }
