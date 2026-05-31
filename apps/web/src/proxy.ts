@@ -7,14 +7,16 @@ import type { NextRequest } from "next/server";
  * Session validity is confirmed by the layout's getSession() call.
  *
  * @param request - Incoming Next.js request.
- * @returns A redirect response when the sessionId cookie is absent, or passes through.
+ * @returns A redirect response when the session cookie is absent, or passes through.
  */
 export function proxy(request: NextRequest) {
-  const session = request.cookies.get("sessionId");
+  const session =
+    request.cookies.get("sessionId") ?? request.cookies.get("session");
 
   if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    loginUrl.searchParams.set("reason", "unauthenticated");
     return NextResponse.redirect(loginUrl);
   }
 
