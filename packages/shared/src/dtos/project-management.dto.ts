@@ -56,10 +56,8 @@ export interface ProjectDto {
   name: string;
   /** Optional project description. */
   description: string | null;
-  /** User ID of the project owner. */
-  ownerId: string;
-  /** Display name of the project owner. */
-  ownerName: string;
+  /** Users with the owner role on this project. */
+  owners: { userId: string; displayName: string }[];
   /** Categorization tags. */
   tags: string[];
   /** Root folder identifier. */
@@ -69,7 +67,7 @@ export interface ProjectDto {
   /** Number of project members. */
   memberCount?: number;
   /** Current user's role in the project. */
-  role?: 'viewer' | 'editor' | 'administrator';
+  role?: 'viewer' | 'editor' | 'owner';
   /** Creation timestamp. */
   createdAt: string;
   /** Last update timestamp. */

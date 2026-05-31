@@ -27,3 +27,4 @@ export {
   RestoreProjectResultDto,
   ProjectDto,
 } from './project-management.dto';
+export { UserSearchResultDto } from './user-search.dto';

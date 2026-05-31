@@ -31,9 +31,5 @@ export interface CreateProjectResultDto {
   /**
    *
    */
-  ownerId: string;
-  /**
-   *
-   */
-  ownerRole: 'administrator';
+  ownerRole: 'owner';
 }

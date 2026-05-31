@@ -45,14 +45,14 @@ export const updateProjectSchema = z.object({
  */
 export const inviteMemberSchema = z.object({
   email: z.email("Invalid email address"),
-  role: z.enum(["viewer", "editor", "administrator"]),
+  role: z.enum(["viewer", "editor", "owner"]),
 });
 
 /**
  * Schema for validating member role update requests.
  */
 export const updateMemberRoleSchema = z.object({
-  role: z.enum(["viewer", "editor", "administrator"]),
+  role: z.enum(["viewer", "editor", "owner"]),
 });
 
 /**
