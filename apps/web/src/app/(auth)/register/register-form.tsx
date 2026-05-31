@@ -89,7 +89,11 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
         router.push("/dashboard");
       } catch (error_) {
         if (error_ instanceof ApiError && error_.status === 403) {
-          setSubmitError("Registration is closed");
+          setSubmitError(
+            error_.code === "REGISTRATION_CLOSED"
+              ? "Registration is closed"
+              : error_.message,
+          );
         } else {
           setSubmitError(
             error_ instanceof ApiError

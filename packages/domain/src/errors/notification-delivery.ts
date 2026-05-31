@@ -6,7 +6,6 @@ export class NotificationDeliveryError extends DomainError {
 
   /** Creates a new NotificationDeliveryError, optionally wrapping the underlying cause. */
   constructor(cause?: Error) {
-    super('Notification delivery failed');
-    if (cause) this.cause = cause;
+    super('Notification delivery failed', cause ? { cause } : undefined);
   }
 }

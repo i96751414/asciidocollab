@@ -10,8 +10,8 @@ export async function usersSearchRoute(app: FastifyInstance): Promise<void> {
   app.get('/api/users/search', {
     config: {
       rateLimit: {
-        max: 30,
-        timeWindow: 60_000, // 30 requests per minute
+        max: app.config.auth.userSearch.rateLimitMax,
+        timeWindow: app.config.auth.userSearch.rateLimitWindow,
       },
     },
     schema: {

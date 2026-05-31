@@ -86,7 +86,7 @@ trap cleanup EXIT INT TERM
 
 # ─── Start services ───────────────────────────────────────────────────────────
 info "Starting API server …"
-(cd "$ROOT/apps/api" && node dist/index.js) &
+(cd "$ROOT/apps/api" && NODE_ENV=development node dist/index.js) &
 API_PID=$!
 
 info "Starting web app …"

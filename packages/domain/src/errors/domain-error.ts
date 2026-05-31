@@ -9,8 +9,8 @@ export abstract class DomainError extends Error {
   /**
    * @param message - A human-readable description of the error.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

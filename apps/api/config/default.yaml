@@ -2,8 +2,6 @@
 # All non-secret values are defined here.
 # Environment variables override these values.
 
-env: development
-
 api:
   port: 4000
   host: 0.0.0.0
@@ -56,6 +54,10 @@ auth:
   emailChangeRequest:
     rateLimitMax: 5
     rateLimitWindow: 3600000    # 1 hour
+
+  userSearch:
+    rateLimitMax: 30
+    rateLimitWindow: 60000      # 1 minute
 
   breachCheck:
     hibpApiUrl: "https://api.pwnedpasswords.com/range"

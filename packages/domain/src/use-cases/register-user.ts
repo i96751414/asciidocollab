@@ -87,7 +87,7 @@ export class RegisterUserUseCase {
       [],
       null,
       null,
-      false,
+      true,
       new Timestamps(),
     );
 

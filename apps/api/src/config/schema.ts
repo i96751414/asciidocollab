@@ -21,7 +21,7 @@ export function createConfig() {
     env: {
     doc: 'The application environment.',
     format: ['production', 'development', 'test'],
-    default: 'development',
+    default: 'production',
     env: 'NODE_ENV',
   },
   api: {
@@ -277,6 +277,20 @@ export function createConfig() {
         env: 'ASCIIDOCOLLAB_AUTH_EMAIL_CHANGE_REQUEST_RATE_LIMIT_WINDOW',
       },
     },
+    userSearch: {
+      rateLimitMax: {
+        doc: 'Maximum user search requests per IP per window.',
+        format: 'integer',
+        default: 30,
+        env: 'ASCIIDOCOLLAB_AUTH_USER_SEARCH_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'User search rate limit window in milliseconds.',
+        format: 'integer',
+        default: 60_000,
+        env: 'ASCIIDOCOLLAB_AUTH_USER_SEARCH_RATE_LIMIT_WINDOW',
+      },
+    },
     breachCheck: {
       hibpApiUrl: {
         doc: 'HIBP API base URL for password breach checking.',
@@ -500,6 +514,13 @@ export interface Config {
       /** Maximum email change requests per IP per window. */
       rateLimitMax: number;
       /** Email change request rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** User search rate limiting configuration. */
+    userSearch: {
+      /** Maximum user search requests per IP per window. */
+      rateLimitMax: number;
+      /** User search rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
     /** Breach check configuration. */
