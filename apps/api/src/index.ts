@@ -48,6 +48,7 @@ import {
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
 import { csrfPluginWrapped } from './plugins/csrf';
+import { originCheckPlugin } from './plugins/origin-check';
 import { rateLimitPluginWrapped } from './plugins/rate-limit';
 import { corsPluginWrapped } from './plugins/cors';
 import { httpsRedirectPluginWrapped } from './plugins/https-redirect';
@@ -66,6 +67,7 @@ import { passwordResetRequestRoute } from './routes/password-reset-request';
 import { passwordResetRoute } from './routes/password-reset';
 import { projectRoutes } from './routes/projects';
 import { memberRoutes } from './routes/projects/members';
+import { usersSearchRoute } from './routes/projects/users-search';
 import { setupStatusRoute } from './routes/setup-status';
 import { csrfTokenRoute } from './routes/csrf-token';
 import type { FastifyInstance } from 'fastify';
@@ -222,6 +224,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   await app.register(authPluginWrapped);
   await app.register(rateLimitPluginWrapped);
   await app.register(csrfPluginWrapped);
+  await app.register(originCheckPlugin);
 
   return app;
 }
@@ -257,6 +260,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
     await scopedApp.register(emailChangeRequestRoute);
     await scopedApp.register(projectRoutes);
     await scopedApp.register(memberRoutes);
+    await scopedApp.register(usersSearchRoute);
   });
 }
 

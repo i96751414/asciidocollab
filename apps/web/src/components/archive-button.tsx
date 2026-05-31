@@ -3,31 +3,33 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { projectsApi } from "@/lib/api";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 interface ArchiveButtonProperties {
   projectId: string;
+  projectName: string;
   isArchived: boolean;
   onArchive?: () => void;
   onRestore?: () => void;
 }
 
 /**
- * Button component for archiving or restoring a project.
+ *
  */
 export function ArchiveButton({
   projectId,
+  projectName,
   isArchived,
   onArchive,
   onRestore,
 }: ArchiveButtonProperties) {
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleClick = async () => {
-    if (!confirm(isArchived ? "Restore this project?" : "Archive this project?")) {
-      return;
-    }
-
+  const handleConfirm = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (isArchived) {
         await projectsApi.restore(projectId);
@@ -36,28 +38,36 @@ export function ArchiveButton({
         await projectsApi.archive(projectId);
         onArchive?.();
       }
-    } catch (error) {
-      // Error is logged but not displayed to user
-      void error;
+      setOpen(false);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Operation failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const buttonText = (() => {
-    if (loading) {
-      return isArchived ? "Restoring..." : "Archiving...";
-    }
-    return isArchived ? "Restore Project" : "Archive Project";
-  })();
-
   return (
-    <Button
-      variant={isArchived ? "default" : "outline"}
-      onClick={handleClick}
-      disabled={loading}
-    >
-      {buttonText}
-    </Button>
+    <>
+      {error && (
+        <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
+      )}
+      <Button variant={isArchived ? "default" : "outline"} onClick={() => setOpen(true)}>
+        {isArchived ? "Restore Project" : "Archive Project"}
+      </Button>
+      <ConfirmationDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={isArchived ? "Restore Project" : "Archive Project"}
+        description={
+          isArchived
+            ? `Restore "${projectName}"? It will become active again.`
+            : `Archive "${projectName}"? It will be hidden from the active project list.`
+        }
+        confirmLabel={isArchived ? "Restore" : "Archive"}
+        variant={isArchived ? "default" : "destructive"}
+        onConfirm={handleConfirm}
+        loading={loading}
+      />
+    </>
   );
 }

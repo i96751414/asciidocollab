@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cn } from "@/lib/utilities";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth";
+import { getProfile } from "@/lib/auth";
+import { CurrentUserProvider } from "@/contexts/current-user-context";
 import { SignOutButton } from "./sign-out-button";
 
 const navigation = [
@@ -20,12 +21,13 @@ interface DashboardLayoutProperties {
  * Dashboard layout with sidebar navigation and session validation.
  */
 export default async function DashboardLayout({ children }: DashboardLayoutProperties) {
-  const session = await getSession();
-  if (!session) {
+  const profile = await getProfile();
+  if (!profile) {
     redirect("/login?reason=expired");
   }
 
   return (
+    <CurrentUserProvider user={profile}>
     <div className="min-h-screen bg-background">
       <div className="flex">
         {/* Sidebar */}
@@ -69,5 +71,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
         </div>
       </div>
     </div>
+    </CurrentUserProvider>
   );
 }

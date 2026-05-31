@@ -4,6 +4,7 @@ import { registerRoute } from '../src/routes/register';
 import { loginRoute } from '../src/routes/login';
 import { projectRoutes } from '../src/routes/projects';
 import { memberRoutes } from '../src/routes/projects/members';
+import { requireAuth } from '../src/plugins/require-auth';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 
@@ -20,8 +21,11 @@ describe('Project Members', () => {
     app = await buildServer({ prisma: testContext.client });
     await app.register(registerRoute);
     await app.register(loginRoute);
-    await app.register(projectRoutes);
-    await app.register(memberRoutes);
+    await app.register(async (scopedApp) => {
+      scopedApp.addHook('preHandler', requireAuth);
+      await scopedApp.register(projectRoutes);
+      await scopedApp.register(memberRoutes);
+    });
     await app.ready();
 
     // Register the first (and only) user via API
@@ -174,7 +178,7 @@ describe('Project Members', () => {
       expect(listedMember.joinedAt).toBe(data.joinedAt);
     });
 
-    test('returns 400 when inviting non-existent user', async () => {
+    test('returns 404 when inviting non-existent user', async () => {
       const ts = Date.now();
       const adminEmail = `admin-nouser-${ts}@example.com`;
       const adminCookie = await createUserAndLogin(adminEmail, 'Admin');
@@ -187,10 +191,10 @@ describe('Project Members', () => {
         payload: { email: `nonexistent-${ts}@example.com`, role: 'viewer' },
       });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(404);
     });
 
-    test('returns 400 when non-admin tries to invite', async () => {
+    test('returns 403 when non-admin tries to invite', async () => {
       const ts = Date.now();
       const adminEmail = `admin-perm-${ts}@example.com`;
       const viewerEmail = `viewer-perm-${ts}@example.com`;
@@ -215,7 +219,7 @@ describe('Project Members', () => {
         payload: { email: targetEmail, role: 'viewer' },
       });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(403);
     });
 
     test('invited member appears in list with correct data', async () => {

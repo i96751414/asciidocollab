@@ -22,8 +22,8 @@
 
 **⚠️ CRITICAL**: Complete before any domain, shared, API, or frontend work begins.
 
-- [ ] T001 Add `OWNER` to the `Role` enum in `packages/db/prisma/schema.prisma`
-- [ ] T002 Create Prisma migration (`add_owner_role`) with backfill SQL that sets `role = OWNER` for each `ProjectMember` whose `userId` matches the parent `Project.ownerId` in `packages/db/prisma/migrations/`
+- [x] T001 Add `OWNER` to the `Role` enum in `packages/db/prisma/schema.prisma`
+- [x] T002 Create Prisma migration (`add_owner_role`) with backfill SQL that sets `role = OWNER` for each `ProjectMember` whose `userId` matches the parent `Project.ownerId` in `packages/db/prisma/migrations/`
 
 **Checkpoint**: `pnpm --filter @asciidocollab/db prisma migrate dev` succeeds; existing project-creator rows show `OWNER` role.
 
@@ -37,69 +37,69 @@
 
 ### CSRF — SameSite + Origin validation (replaces token system)
 
-- [ ] T003 Write failing tests for the Origin check Fastify plugin — correct origin passes, wrong origin returns 403, missing origin returns 403 — in `apps/api/tests/plugins/origin-check.test.ts`
-- [ ] T004 Create `apps/api/src/plugins/origin-check.ts` — a Fastify `preHandler` hook that validates `request.headers.origin === process.env.FRONTEND_URL` for all `POST`, `PATCH`, `PUT`, and `DELETE` requests, returning `403 FORBIDDEN_ORIGIN` on mismatch; register the plugin in `apps/api/src/index.ts`; add `FRONTEND_URL=http://localhost:3000` to `.env.example` with a comment noting the production value requirement
-- [ ] T005 [P] Configure `sameSite: 'strict'` on the session cookie in the Fastify session plugin registration in `apps/api/src/index.ts`
+- [x] T003 Write failing tests for the Origin check Fastify plugin — correct origin passes, wrong origin returns 403, missing origin returns 403 — in `apps/api/tests/plugins/origin-check.test.ts`
+- [x] T004 Create `apps/api/src/plugins/origin-check.ts` — a Fastify `preHandler` hook that validates `request.headers.origin === process.env.FRONTEND_URL` for all `POST`, `PATCH`, `PUT`, and `DELETE` requests, returning `403 FORBIDDEN_ORIGIN` on mismatch; register the plugin in `apps/api/src/index.ts`; add `FRONTEND_URL=http://localhost:3000` to `.env.example` with a comment noting the production value requirement
+- [x] T005 [P] Configure `sameSite: 'strict'` on the session cookie in the Fastify session plugin registration in `apps/api/src/index.ts`
 
 ### Domain — Role value object and error types
 
-- [ ] T006 Write failing tests for the updated `Role` value object (accepts `'owner'`, rejects unknown values) in `packages/domain/tests/value-objects/role.test.ts`
-- [ ] T007 Update `Role.create()` to accept `'owner'` as a valid value in `packages/domain/src/value-objects/role.ts`
-- [ ] T008 [P] Create `CannotRemoveLastOwnerError` in `packages/domain/src/errors/cannot-remove-last-owner.ts` and export from `packages/domain/src/errors/index.ts`
+- [x] T006 Write failing tests for the updated `Role` value object (accepts `'owner'`, rejects unknown values) in `packages/domain/tests/value-objects/role.test.ts`
+- [x] T007 Update `Role.create()` to accept `'owner'` as a valid value in `packages/domain/src/value-objects/role.ts`
+- [x] T008 [P] Create `CannotRemoveLastOwnerError` in `packages/domain/src/errors/cannot-remove-last-owner.ts` and export from `packages/domain/src/errors/index.ts`
 
 ### Domain — Repository interface extensions
 
-- [ ] T009 Add `delete(projectId: ProjectId): Promise<void>` to the `ProjectRepository` interface in `packages/domain/src/repositories/project.repository.ts`
-- [ ] T010 [P] Add `search(query: string, excludeProjectId?: ProjectId): Promise<User[]>` to the `UserRepository` interface in `packages/domain/src/repositories/user.repository.ts`
+- [x] T009 Add `delete(projectId: ProjectId): Promise<void>` to the `ProjectRepository` interface in `packages/domain/src/repositories/project.repository.ts`
+- [x] T010 [P] Add `search(query: string, excludeProjectId?: ProjectId): Promise<User[]>` to the `UserRepository` interface in `packages/domain/src/repositories/user.repository.ts`
 
 ### Domain — In-memory fake updates (must complete before use-case tests compile)
 
-- [ ] T011 Update the `InMemoryProjectRepository` test fake with a `delete()` implementation in the domain test helpers
-- [ ] T012 [P] Update the `InMemoryUserRepository` test fake with a `search()` implementation in the domain test helpers
+- [x] T011 Update the `InMemoryProjectRepository` test fake with a `delete()` implementation in the domain test helpers
+- [x] T012 [P] Update the `InMemoryUserRepository` test fake with a `search()` implementation in the domain test helpers
 
 ### Infrastructure — Repository implementations
 
-- [ ] T013 Implement `ProjectRepository.delete()` using Prisma `project.delete` in `packages/infrastructure/src/repositories/project.repository.ts`
-- [ ] T014 [P] Implement `UserRepository.search()` using Prisma `user.findMany` with case-insensitive match on `displayName` and `email`, excluding members of `excludeProjectId` when provided, in `packages/infrastructure/src/repositories/user.repository.ts`
+- [x] T013 Implement `ProjectRepository.delete()` using Prisma `project.delete` in `packages/infrastructure/src/repositories/project.repository.ts`
+- [x] T014 [P] Implement `UserRepository.search()` using Prisma `user.findMany` with case-insensitive match on `displayName` and `email`, excluding members of `excludeProjectId` when provided, in `packages/infrastructure/src/repositories/user.repository.ts`
 
 ### Domain — Use case updates and new use case
 
-- [ ] T015 Write failing tests for the updated `ChangeMemberRoleUseCase` — owner callers can change any role; administrators cannot assign/change `owner`; last-owner demotion returns `CannotRemoveLastOwnerError`; use in-memory fakes in `packages/domain/tests/use-cases/change-member-role.test.ts`
-- [ ] T016 Update `ChangeMemberRoleUseCase` — allow `owner` OR `administrator` callers; only `owner` callers may assign or demote the `owner` role; enforce last-owner invariant in `packages/domain/src/use-cases/change-member-role.ts`
-- [ ] T017 [P] Write failing tests for the updated `RemoveMemberUseCase` — owner callers can remove non-last-owner members; blocking removal of the last owner returns `CannotRemoveLastOwnerError`; use in-memory fakes in `packages/domain/tests/use-cases/remove-member.test.ts`
-- [ ] T018 [P] Update `RemoveMemberUseCase` — allow `owner` OR `administrator` callers; replace `project.ownerId.equals(targetUserId)` check with owner-role count; return `CannotRemoveLastOwnerError` when target is last owner in `packages/domain/src/use-cases/remove-member.ts`
-- [ ] T019 Write failing tests for `DeleteProjectUseCase` — owner succeeds, non-owner returns `PermissionDeniedError`, unknown project returns `ProjectNotFoundError`; use in-memory fakes in `packages/domain/tests/use-cases/delete-project.test.ts`
-- [ ] T020 Implement `DeleteProjectUseCase` — owner-only guard → write audit log entry (`project.deleted`) → `projectRepo.delete()`; export from `packages/domain/src/use-cases/index.ts` in `packages/domain/src/use-cases/delete-project.ts`
+- [x] T015 Write failing tests for the updated `ChangeMemberRoleUseCase` — owner callers can change any role; administrators cannot assign/change `owner`; last-owner demotion returns `CannotRemoveLastOwnerError`; use in-memory fakes in `packages/domain/tests/use-cases/change-member-role.test.ts`
+- [x] T016 Update `ChangeMemberRoleUseCase` — allow `owner` OR `administrator` callers; only `owner` callers may assign or demote the `owner` role; enforce last-owner invariant in `packages/domain/src/use-cases/change-member-role.ts`
+- [x] T017 [P] Write failing tests for the updated `RemoveMemberUseCase` — owner callers can remove non-last-owner members; blocking removal of the last owner returns `CannotRemoveLastOwnerError`; use in-memory fakes in `packages/domain/tests/use-cases/remove-member.test.ts`
+- [x] T018 [P] Update `RemoveMemberUseCase` — allow `owner` OR `administrator` callers; replace `project.ownerId.equals(targetUserId)` check with owner-role count; return `CannotRemoveLastOwnerError` when target is last owner in `packages/domain/src/use-cases/remove-member.ts`
+- [x] T019 Write failing tests for `DeleteProjectUseCase` — owner succeeds, non-owner returns `PermissionDeniedError`, unknown project returns `ProjectNotFoundError`; use in-memory fakes in `packages/domain/tests/use-cases/delete-project.test.ts`
+- [x] T020 Implement `DeleteProjectUseCase` — owner-only guard → write audit log entry (`project.deleted`) → `projectRepo.delete()`; export from `packages/domain/src/use-cases/index.ts` in `packages/domain/src/use-cases/delete-project.ts`
 
 ### Shared package — Types and schemas
 
-- [ ] T021 [P] Add `"owner"` to both `inviteMemberSchema` and `updateMemberRoleSchema` role enums in `packages/shared/src/schemas/project.ts`
-- [ ] T022 [P] Create `UserSearchResultDto` interface in `packages/shared/src/dtos/user-search.dto.ts` and export from `packages/shared/src/dtos/index.ts`
-- [ ] T023 [P] Update `ProjectDto.role` and `ProjectMember.role` union types to include `'owner'` in `packages/shared/src/dtos/project-management.dto.ts`
+- [x] T021 [P] Add `"owner"` to both `inviteMemberSchema` and `updateMemberRoleSchema` role enums in `packages/shared/src/schemas/project.ts`
+- [x] T022 [P] Create `UserSearchResultDto` interface in `packages/shared/src/dtos/user-search.dto.ts` and export from `packages/shared/src/dtos/index.ts`
+- [x] T023 [P] Update `ProjectDto.role` and `ProjectMember.role` union types to include `'owner'` in `packages/shared/src/dtos/project-management.dto.ts`
 
 ### API layer — New and updated routes
 
-- [ ] T024 Write failing integration test for `DELETE /api/projects/:id` (owner succeeds 200, non-owner 403, unknown 404) in `apps/api/tests/routes/projects.delete.test.ts`
-- [ ] T025 Add `DELETE /api/projects/:id` route delegating to `DeleteProjectUseCase` in `apps/api/src/routes/projects.ts`
-- [ ] T026 [P] Write failing integration test for `GET /api/users/search?q=...&excludeProjectId=...` (results exclude project members, max 10 returned) in `apps/api/tests/routes/users-search.test.ts`
-- [ ] T027 [P] Create `GET /api/users/search` route in `apps/api/src/routes/projects/users-search.ts`; register it in `apps/api/src/index.ts`
-- [ ] T028 Update `POST /api/projects/:id/members` and `PATCH /api/projects/:id/members/:userId` Fastify schemas to accept `"owner"` in the `role` enum in `apps/api/src/routes/projects/members.ts`
+- [x] T024 Write failing integration test for `DELETE /api/projects/:id` (owner succeeds 200, non-owner 403, unknown 404) in `apps/api/tests/routes/projects.delete.test.ts`
+- [x] T025 Add `DELETE /api/projects/:id` route delegating to `DeleteProjectUseCase` in `apps/api/src/routes/projects.ts`
+- [x] T026 [P] Write failing integration test for `GET /api/users/search?q=...&excludeProjectId=...` (results exclude project members, max 10 returned) in `apps/api/tests/routes/users-search.test.ts`
+- [x] T027 [P] Create `GET /api/users/search` route in `apps/api/src/routes/projects/users-search.ts`; register it in `apps/api/src/index.ts`
+- [x] T028 Update `POST /api/projects/:id/members` and `PATCH /api/projects/:id/members/:userId` Fastify schemas to accept `"owner"` in the `role` enum in `apps/api/src/routes/projects/members.ts`
 
 ### Frontend — api.ts, server-side access helper, auth middleware, 403 page, and CurrentUser context
 
-- [ ] T029 Update `apps/web/src/lib/api.ts` — add `'owner'` to all role type unions; remove ALL `getCsrfToken()` calls from every method in `authApi`, `projectsApi`, and `membersApi` (SameSite+Origin approach covers the full API surface); add `projectsApi.delete(id)`; add `usersApi.search(query, excludeProjectId?)`
-- [ ] T030 Create `apps/web/src/app/403/page.tsx` — a static "Not Authorised" server component page with an explanatory message and a link back to `/dashboard`
-- [ ] T031 Create `apps/web/src/middleware.ts` — Next.js Edge middleware that checks for the presence of the session cookie only; if absent, redirect to `/login`; no project-role check (Edge runtime cannot query PostgreSQL)
-- [ ] T032 Create `apps/web/src/lib/get-project-access.ts` — a server-side async helper that calls `GET /api/projects/:id/members` and `GET /auth/me` with the forwarded session cookie, resolves the current user's `ProjectMemberRole` for the project, and calls `redirect('/403')` if the role does not meet the required minimum; used by settings and members server-component pages
-- [ ] T033 [P] Create `CurrentUserContext` and `CurrentUserProvider` in `apps/web/src/contexts/current-user-context.tsx`
-- [ ] T034 [P] Create `useCurrentUser()` hook consuming `CurrentUserContext` in `apps/web/src/hooks/use-current-user.ts`
-- [ ] T035 [P] Update `apps/web/src/app/(dashboard)/layout.tsx` to fetch current user via `authApi.me()` server-side and wrap children in `CurrentUserProvider`
+- [x] T029 Update `apps/web/src/lib/api.ts` — add `'owner'` to all role type unions; remove ALL `getCsrfToken()` calls from every method in `authApi`, `projectsApi`, and `membersApi` (SameSite+Origin approach covers the full API surface); add `projectsApi.delete(id)`; add `usersApi.search(query, excludeProjectId?)`
+- [x] T030 Create `apps/web/src/app/403/page.tsx` — a static "Not Authorised" server component page with an explanatory message and a link back to `/dashboard`
+- [x] T031 Create `apps/web/src/middleware.ts` — Next.js Edge middleware that checks for the presence of the session cookie only; if absent, redirect to `/login`; no project-role check (Edge runtime cannot query PostgreSQL)
+- [x] T032 Create `apps/web/src/lib/get-project-access.ts` — a server-side async helper that calls `GET /api/projects/:id/members` and `GET /auth/me` with the forwarded session cookie, resolves the current user's `ProjectMemberRole` for the project, and calls `redirect('/403')` if the role does not meet the required minimum; used by settings and members server-component pages
+- [x] T033 [P] Create `CurrentUserContext` and `CurrentUserProvider` in `apps/web/src/contexts/current-user-context.tsx`
+- [x] T034 [P] Create `useCurrentUser()` hook consuming `CurrentUserContext` in `apps/web/src/hooks/use-current-user.ts`
+- [x] T035 [P] Update `apps/web/src/app/(dashboard)/layout.tsx` to fetch current user via `authApi.me()` server-side and wrap children in `CurrentUserProvider`
 
 ### Frontend — ConfirmationDialog (Foundational — required by US3, US5, US6)
 
-- [ ] T036 Write failing tests for `ConfirmationDialog` — renders title/description, confirm triggers `onConfirm`, cancel closes without triggering in `apps/web/tests/components/confirmation-dialog.test.tsx`
-- [ ] T037 Install shadcn AlertDialog component: `pnpm dlx shadcn@latest add alert-dialog` to generate `apps/web/src/components/ui/alert-dialog.tsx`
-- [ ] T038 Create `ConfirmationDialog` component wrapping shadcn `AlertDialog` in `apps/web/src/components/confirmation-dialog.tsx`
+- [x] T036 Write failing tests for `ConfirmationDialog` — renders title/description, confirm triggers `onConfirm`, cancel closes without triggering in `apps/web/tests/components/confirmation-dialog.test.tsx`
+- [x] T037 Install shadcn AlertDialog component: `pnpm dlx shadcn@latest add alert-dialog` to generate `apps/web/src/components/ui/alert-dialog.tsx`
+- [x] T038 Create `ConfirmationDialog` component wrapping shadcn `AlertDialog` in `apps/web/src/components/confirmation-dialog.tsx`
 
 **Checkpoint**: `pnpm typecheck` green. Domain tests pass. Origin-check plugin rejects wrong-origin requests. Session cookie has `SameSite=Strict`. `/403` page renders. Middleware redirects unauthenticated requests to `/login`.
 
@@ -113,13 +113,13 @@
 
 ### Tests
 
-- [ ] T039 Write failing tests for the updated `ProjectCard` — settings link renders for `administrator` and `owner`, absent for `viewer` and `editor` in `apps/web/tests/components/project-card.test.tsx`
-- [ ] T040 [P] Write failing tests for the updated `DashboardPage` — "Create Project" button always visible, archived toggle link present in `apps/web/tests/app/(dashboard)/dashboard/page.test.tsx`
+- [x] T039 Write failing tests for the updated `ProjectCard` — settings link renders for `administrator` and `owner`, absent for `viewer` and `editor` in `apps/web/tests/components/project-card.test.tsx`
+- [x] T040 [P] Write failing tests for the updated `DashboardPage` — "Create Project" button always visible, archived toggle link present in `apps/web/tests/app/(dashboard)/dashboard/page.test.tsx`
 
 ### Implementation
 
-- [ ] T041 [US1] Update `ProjectCard` to render a settings link when `project.role === 'administrator' || project.role === 'owner'` in `apps/web/src/components/project-card.tsx`
-- [ ] T042 [US1] Update `DashboardPage` to always show a "New Project" button in the header and add a link to `/dashboard/archived` when projects exist in `apps/web/src/app/(dashboard)/dashboard/page.tsx`
+- [x] T041 [US1] Update `ProjectCard` to render a settings link when `project.role === 'administrator' || project.role === 'owner'` in `apps/web/src/components/project-card.tsx`
+- [x] T042 [US1] Update `DashboardPage` to always show a "New Project" button in the header and add a link to `/dashboard/archived` when projects exist in `apps/web/src/app/(dashboard)/dashboard/page.tsx`
 
 **Checkpoint**: Dashboard is role-aware with persistent navigation.
 
@@ -133,14 +133,14 @@
 
 ### Tests
 
-- [ ] T043 Write failing tests for the updated `ProjectSettingsForm` — inputs disabled when `isArchived=true`; archive banner visible; save button hidden when `isArchived=true` in `apps/web/tests/components/project-settings-form.test.tsx`
-- [ ] T044 [P] Write failing tests for `ProjectSettingsPage` (server component) — calls `getProjectAccess`; renders client component with correct props; redirects when role is insufficient in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/settings/page.test.tsx`
+- [x] T043 Write failing tests for the updated `ProjectSettingsForm` — inputs disabled when `isArchived=true`; archive banner visible; save button hidden when `isArchived=true` in `apps/web/tests/components/project-settings-form.test.tsx`
+- [x] T044 [P] Write failing tests for `ProjectSettingsPage` (server component) — calls `getProjectAccess`; renders client component with correct props; redirects when role is insufficient in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/settings/page.test.tsx`
 
 ### Implementation
 
-- [ ] T045 [US2] Update `ProjectSettingsForm` to accept `isArchived: boolean` and `currentUserRole: ProjectMemberRole` props; disable all inputs and hide submit when `isArchived=true`; render a prominent archive `Alert` banner when `isArchived=true` in `apps/web/src/components/project-settings-form.tsx`
-- [ ] T046 [US2] Convert `ProjectSettingsPage` to an `async` server component: call `getProjectAccess(id, minRole: 'administrator')` (redirects to `/403` automatically if role is insufficient); pass `project`, `isArchived`, and `currentUserRole` as props to `SettingsClient` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/page.tsx`
-- [ ] T047 [US2] Create `SettingsClient` — extract the existing `"use client"` page logic (loading/error states, `ProjectSettingsForm`) into `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/settings-client.tsx`; accepts `project`, `isArchived`, `currentUserRole` as props
+- [x] T045 [US2] Update `ProjectSettingsForm` to accept `isArchived: boolean` and `currentUserRole: ProjectMemberRole` props; disable all inputs and hide submit when `isArchived=true`; render a prominent archive `Alert` banner when `isArchived=true` in `apps/web/src/components/project-settings-form.tsx`
+- [x] T046 [US2] Convert `ProjectSettingsPage` to an `async` server component: call `getProjectAccess(id, minRole: 'administrator')` (redirects to `/403` automatically if role is insufficient); pass `project`, `isArchived`, and `currentUserRole` as props to `SettingsClient` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/page.tsx`
+- [x] T047 [US2] Create `SettingsClient` — extract the existing `"use client"` page logic (loading/error states, `ProjectSettingsForm`) into `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/settings-client.tsx`; accepts `project`, `isArchived`, `currentUserRole` as props
 
 **Checkpoint**: Settings page enforces role access server-side and disables correctly for archived projects.
 
@@ -154,16 +154,16 @@
 
 ### Tests
 
-- [ ] T048 [P] Write failing tests for `SoleOwnerWarning` — visible when `visible=true`, hidden when `visible=false` in `apps/web/tests/components/sole-owner-warning.test.tsx`
-- [ ] T049 Write failing tests for the updated `MemberList` — `owner` option only in dropdown for owner callers; own-row dropdown disabled below `owner` when sole owner; remove triggers `ConfirmationDialog` not `window.confirm`; errors displayed on failure in `apps/web/tests/components/member-list.test.tsx`
-- [ ] T050 [P] Write failing tests for `ProjectMembersPage` (server component) — calls `getProjectAccess`; renders `MembersClient` with correct props; redirects on insufficient role in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/members/page.test.tsx`
+- [x] T048 [P] Write failing tests for `SoleOwnerWarning` — visible when `visible=true`, hidden when `visible=false` in `apps/web/tests/components/sole-owner-warning.test.tsx`
+- [x] T049 Write failing tests for the updated `MemberList` — `owner` option only in dropdown for owner callers; own-row dropdown disabled below `owner` when sole owner; remove triggers `ConfirmationDialog` not `window.confirm`; errors displayed on failure in `apps/web/tests/components/member-list.test.tsx`
+- [x] T050 [P] Write failing tests for `ProjectMembersPage` (server component) — calls `getProjectAccess`; renders `MembersClient` with correct props; redirects on insufficient role in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/members/page.test.tsx`
 
 ### Implementation
 
-- [ ] T051 [P] [US3] Create `SoleOwnerWarning` component (destructive `Alert` banner) in `apps/web/src/components/sole-owner-warning.tsx`
-- [ ] T052 [US3] Update `MemberList` — add `currentUserId` and `currentUserRole` props; show `owner` in role dropdown only when caller is owner; disable own-row dropdown options below `owner` when sole owner (tooltip explanation); replace `window.confirm()` with `ConfirmationDialog`; display errors on failure in `apps/web/src/components/member-list.tsx`
-- [ ] T053 [US3] Convert `ProjectMembersPage` to an `async` server component: call `getProjectAccess(id, minRole: 'administrator')`; pass `members`, `currentUserId`, and `currentUserRole` to `MembersClient` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/page.tsx`
-- [ ] T054 [US3] Create `MembersClient` — extract the existing `"use client"` page logic (`MemberList`, `InviteMemberForm`, `SoleOwnerWarning`) into `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/members-client.tsx`; accepts `members`, `currentUserId`, `currentUserRole` as props
+- [x] T051 [P] [US3] Create `SoleOwnerWarning` component (destructive `Alert` banner) in `apps/web/src/components/sole-owner-warning.tsx`
+- [x] T052 [US3] Update `MemberList` — add `currentUserId` and `currentUserRole` props; show `owner` in role dropdown only when caller is owner; disable own-row dropdown options below `owner` when sole owner (tooltip explanation); replace `window.confirm()` with `ConfirmationDialog`; display errors on failure in `apps/web/src/components/member-list.tsx`
+- [x] T053 [US3] Convert `ProjectMembersPage` to an `async` server component: call `getProjectAccess(id, minRole: 'administrator')`; pass `members`, `currentUserId`, and `currentUserRole` to `MembersClient` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/page.tsx`
+- [x] T054 [US3] Create `MembersClient` — extract the existing `"use client"` page logic (`MemberList`, `InviteMemberForm`, `SoleOwnerWarning`) into `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/members-client.tsx`; accepts `members`, `currentUserId`, `currentUserRole` as props
 
 **Checkpoint**: Members page enforces sole-owner protection and role access server-side; all destructive actions use dialog confirmation.
 
@@ -177,13 +177,13 @@
 
 ### Tests
 
-- [ ] T055 Write failing tests for `UserSearchCombobox` — dropdown renders after typing ≥2 chars; "No users found" when API returns empty; calls `onChange` with selected user; passes `projectId` as `excludeProjectId` in `apps/web/tests/components/user-search-combobox.test.tsx`
-- [ ] T056 [P] Write failing tests for the updated `InviteMemberForm` — renders `UserSearchCombobox` instead of email input; submit disabled when no user selected; `owner` role option visible only when `currentUserRole === 'owner'`; resets on success in `apps/web/tests/components/invite-member-form.test.tsx`
+- [x] T055 Write failing tests for `UserSearchCombobox` — dropdown renders after typing ≥2 chars; "No users found" when API returns empty; calls `onChange` with selected user; passes `projectId` as `excludeProjectId` in `apps/web/tests/components/user-search-combobox.test.tsx`
+- [x] T056 [P] Write failing tests for the updated `InviteMemberForm` — renders `UserSearchCombobox` instead of email input; submit disabled when no user selected; `owner` role option visible only when `currentUserRole === 'owner'`; resets on success in `apps/web/tests/components/invite-member-form.test.tsx`
 
 ### Implementation
 
-- [ ] T057 [US4] Create `UserSearchCombobox` — debounced input (300 ms) calling `usersApi.search()`; dropdown of results; "No users found" empty state; clears on reset in `apps/web/src/components/user-search-combobox.tsx`
-- [ ] T058 [US4] Update `InviteMemberForm` — replace email `<Input>` with `UserSearchCombobox`; submit the selected user's email to the existing invite endpoint; show `owner` in the role `<select>` only when `currentUserRole === 'owner'` in `apps/web/src/components/invite-member-form.tsx`
+- [x] T057 [US4] Create `UserSearchCombobox` — debounced input (300 ms) calling `usersApi.search()`; dropdown of results; "No users found" empty state; clears on reset in `apps/web/src/components/user-search-combobox.tsx`
+- [x] T058 [US4] Update `InviteMemberForm` — replace email `<Input>` with `UserSearchCombobox`; submit the selected user's email to the existing invite endpoint; show `owner` in the role `<select>` only when `currentUserRole === 'owner'` in `apps/web/src/components/invite-member-form.tsx`
 
 **Checkpoint**: Invite flow fully autocomplete-driven; unregistered addresses unreachable; owner role option visible to owners only.
 
@@ -197,13 +197,13 @@
 
 ### Tests
 
-- [ ] T059 Write failing tests for the updated `ArchiveButton` — uses `ConfirmationDialog` instead of `window.confirm`; displays error notification on API failure in `apps/web/tests/components/archive-button.test.tsx`
-- [ ] T060 [P] Write failing tests for the archived-state guard on `MembersClient` — all member actions disabled and invite form hidden when `isArchived=true` in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/members/members-client.test.tsx`
+- [x] T059 Write failing tests for the updated `ArchiveButton` — uses `ConfirmationDialog` instead of `window.confirm`; displays error notification on API failure in `apps/web/tests/components/archive-button.test.tsx`
+- [x] T060 [P] Write failing tests for the archived-state guard on `MembersClient` — all member actions disabled and invite form hidden when `isArchived=true` in `apps/web/tests/app/(dashboard)/dashboard/projects/[id]/members/members-client.test.tsx`
 
 ### Implementation
 
-- [ ] T061 [US5] Update `ArchiveButton` — replace `window.confirm()` with `ConfirmationDialog`; add error notification on API failure; accept `projectName` prop for dialog description in `apps/web/src/components/archive-button.tsx`
-- [ ] T062 [US5] Update `MembersClient` to accept `isArchived: boolean`; when `true`, disable all role dropdowns and remove buttons, hide the invite form, and show the archive banner in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/members-client.tsx`
+- [x] T061 [US5] Update `ArchiveButton` — replace `window.confirm()` with `ConfirmationDialog`; add error notification on API failure; accept `projectName` prop for dialog description in `apps/web/src/components/archive-button.tsx`
+- [x] T062 [US5] Update `MembersClient` to accept `isArchived: boolean`; when `true`, disable all role dropdowns and remove buttons, hide the invite form, and show the archive banner in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/members/members-client.tsx`
 
 **Checkpoint**: Archive/restore uses proper dialogs; archived projects are fully read-only in both the settings and members pages.
 
@@ -217,13 +217,13 @@
 
 ### Tests
 
-- [ ] T063 Write failing tests for `DeleteProjectButton` — delete button disabled until typed value exactly matches `projectName`; on success calls `onDeleted`; not rendered when `currentUserRole !== 'owner'` in `apps/web/tests/components/delete-project-button.test.tsx`
+- [x] T063 Write failing tests for `DeleteProjectButton` — delete button disabled until typed value exactly matches `projectName`; on success calls `onDeleted`; not rendered when `currentUserRole !== 'owner'` in `apps/web/tests/components/delete-project-button.test.tsx`
 
 ### Implementation
 
-- [ ] T064 Install shadcn toast (or sonner): `pnpm dlx shadcn@latest add sonner`; register `<Toaster />` in `apps/web/src/app/layout.tsx`
-- [ ] T065 [US6] Create `DeleteProjectButton` — opens `AlertDialog` with typed-name input gating the confirm button (case-sensitive equality check); on confirm calls `projectsApi.delete(projectId)`; on success calls `onDeleted()` in `apps/web/src/components/delete-project-button.tsx`
-- [ ] T066 [US6] Integrate `ArchiveButton` and `DeleteProjectButton` into `SettingsClient` — render both only when `currentUserRole === 'owner'`; wire `onDeleted` to `router.push('/dashboard?deleted=1')` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/settings-client.tsx`; update `DashboardPage` to read the `deleted` query param on mount and fire a "Project deleted" toast in `apps/web/src/app/(dashboard)/dashboard/page.tsx`
+- [x] T064 Install shadcn toast (or sonner): `pnpm dlx shadcn@latest add sonner`; register `<Toaster />` in `apps/web/src/app/layout.tsx`
+- [x] T065 [US6] Create `DeleteProjectButton` — opens `AlertDialog` with typed-name input gating the confirm button (case-sensitive equality check); on confirm calls `projectsApi.delete(projectId)`; on success calls `onDeleted()` in `apps/web/src/components/delete-project-button.tsx`
+- [x] T066 [US6] Integrate `ArchiveButton` and `DeleteProjectButton` into `SettingsClient` — render both only when `currentUserRole === 'owner'`; wire `onDeleted` to `router.push('/dashboard?deleted=1')` in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/settings/settings-client.tsx`; update `DashboardPage` to read the `deleted` query param on mount and fire a "Project deleted" toast in `apps/web/src/app/(dashboard)/dashboard/page.tsx`
 
 **Checkpoint**: Complete project lifecycle — create, configure, archive, restore, delete — fully functional end-to-end with toast feedback.
 
