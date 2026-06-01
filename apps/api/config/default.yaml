@@ -75,3 +75,19 @@ auth:
       passwordChanged:
         subject: "[ASCIIDOCOLLAB] Password Changed"
         html: "<p>Your password has been changed. If you did not make this change, please contact support immediately.</p>"
+
+  invitation:
+    rateLimitMax: 10
+    rateLimitWindow: 3600000
+
+  emailVerification:
+    rateLimitMax: 5
+    rateLimitWindow: 3600000
+
+admin:
+  invite:
+    rateLimitMax: 10
+    rateLimitWindow: 3600000
+  openRegistration:
+    rateLimitMax: 60
+    rateLimitWindow: 60000

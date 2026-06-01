@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint · Type-check · Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (generate type declarations)
+        run: pnpm -r build
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Type-check (domain)
+        run: npx tsc -p packages/domain/tsconfig.json --noEmit
+
+      - name: Type-check (API)
+        run: npx tsc -p apps/api/tsconfig.json --noEmit
+
+      - name: Type-check (web)
+        run: npx tsc -p apps/web/tsconfig.json --noEmit
+
+      - name: Domain unit tests
+        run: pnpm --filter @asciidocollab/domain test --passWithNoTests
+
+      - name: Security audit (high+ severity)
+        run: pnpm audit --audit-level=high

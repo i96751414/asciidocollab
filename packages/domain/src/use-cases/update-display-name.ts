@@ -44,6 +44,8 @@ export class UpdateDisplayNameUseCase {
       user.mfaSecret,
       user.isAdmin,
       user.timestamps,
+      user.emailVerified,
+      user.registrationMethod,
     );
     await this.userRepo.save(updatedUser);
 

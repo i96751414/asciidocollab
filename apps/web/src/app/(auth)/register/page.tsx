@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { authApi } from "@/lib/api";
+import { authApi, adminApi } from "@/lib/api";
 import { RegisterForm } from "./register-form";
 
-/**
- * Register page — only accessible when no users exist yet (first-run setup).
- */
+/** Registration page — redirects authenticated users and checks open-registration settings before rendering. */
 export default async function RegisterPage() {
   const session = await getSession();
   if (session) {
@@ -13,8 +11,14 @@ export default async function RegisterPage() {
   }
 
   const { configured, passwordPolicy } = await authApi.setupStatus();
+
   if (configured) {
-    redirect("/login");
+    // If setup is complete, check whether open registration is enabled
+    const { openRegistration } = await adminApi.getOpenRegistrationStatus().catch(() => ({ openRegistration: false }));
+    if (!openRegistration) {
+      redirect("/login");
+    }
+    return <RegisterForm isFirstRun={false} passwordPolicy={passwordPolicy} />;
   }
 
   return <RegisterForm isFirstRun={true} passwordPolicy={passwordPolicy} />;

@@ -10,7 +10,7 @@ import type { ChangePasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } 
  * @param app - The Fastify instance to register the route on.
  */
 export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
-  app.post('/auth/password/change', {
+  app.post<{ Body: ChangePasswordDto }>('/auth/password/change', {
     config: {
       rateLimit: {
         max: app.config.auth.passwordChange.rateLimitMax,
@@ -34,7 +34,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    const { currentPassword, newPassword } = request.body as ChangePasswordDto;
+    const { currentPassword, newPassword } = request.body;
 
     const historyDepth = app.config.auth.password.historyDepth;
 

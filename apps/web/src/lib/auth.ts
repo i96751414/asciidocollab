@@ -11,12 +11,16 @@ export interface SessionData {
 
 /** Full profile data returned by /auth/me. */
 export interface ProfileData {
-  /** The authenticated user's ID. */
+  /** Unique identifier of the authenticated user. */
   userId: string;
-  /** The user's display name. */
+  /** Display name of the authenticated user. */
   displayName: string;
-  /** The user's email address. */
+  /** Email address of the authenticated user. */
   email: string;
+  /** Whether the user has administrator privileges. */
+  isAdmin: boolean;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
 }
 
 /**

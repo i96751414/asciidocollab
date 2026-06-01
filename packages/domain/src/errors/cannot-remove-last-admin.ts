@@ -1,15 +1,15 @@
 import { DomainError } from './domain-error';
 
-/**
- * Thrown when an attempt is made to remove or demote the last administrator of a project.
- */
+/** Error thrown when an action would leave the system with no administrator accounts. */
 export class CannotRemoveLastAdminError extends DomainError {
   readonly name = 'CannotRemoveLastAdminError';
 
-  /**
-   * @param projectId - The project that would be left without an administrator.
-   */
-  constructor(projectId: string) {
-    super(`Cannot remove the last administrator from project ${projectId}`);
+  /** Creates a CannotRemoveLastAdminError, optionally scoped to a project context. */
+  constructor(context?: string) {
+    super(
+      context
+        ? `Cannot remove the last administrator from project ${context}`
+        : 'Cannot remove or demote the last system administrator',
+    );
   }
 }

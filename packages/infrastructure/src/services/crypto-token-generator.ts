@@ -1,5 +1,9 @@
 import { randomBytes, createHash } from 'node:crypto';
 import type { TokenGenerator, PasswordResetTokenData } from '@asciidocollab/domain';
+import {
+  INVITATION_TOKEN_EXPIRY_MS,
+  EMAIL_VERIFICATION_TOKEN_EXPIRY_MS,
+} from '@asciidocollab/domain';
 
 /**
  * Configuration for the crypto token generator.
@@ -26,20 +30,28 @@ export class CryptoTokenGenerator implements TokenGenerator {
    * @returns A new token with raw and hashed versions.
    */
   generatePasswordResetToken(): PasswordResetTokenData {
-    const token = randomBytes(this.config.tokenByteLength).toString('hex');
-    const hashedToken = createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + this.config.tokenExpiry);
-
-    return { token, hashedToken, expiresAt };
+    return this.generateToken(this.config.tokenExpiry);
   }
 
-  /**
-   * Hashes a raw token using SHA-256.
-   *
-   * @param token - The raw token to hash.
-   * @returns The SHA-256 hash of the token.
-   */
+  /** Generates a new invitation token with its configured expiry. */
+  generateInvitationToken(): PasswordResetTokenData {
+    return this.generateToken(INVITATION_TOKEN_EXPIRY_MS);
+  }
+
+  /** Generates a new email-verification token with its configured expiry. */
+  generateEmailVerificationToken(): PasswordResetTokenData {
+    return this.generateToken(EMAIL_VERIFICATION_TOKEN_EXPIRY_MS);
+  }
+
+  /** Returns the SHA-256 hex hash of the given raw token. */
   hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private generateToken(expiryMs: number): PasswordResetTokenData {
+    const token = randomBytes(this.config.tokenByteLength).toString('hex');
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + expiryMs);
+    return { token, hashedToken, expiresAt };
   }
 }

@@ -32,6 +32,6 @@ describe('User entity', () => {
   test('rejects when createdAt > updatedAt', () => {
     const future = new Date('2025-01-02');
     const past = new Date('2025-01-01');
-    expect(() => new User(userId, email, 'Test User', 'hash', [], null, null, new Timestamps(future, past))).toThrow();
+    expect(() => new User(userId, email, 'Test User', 'hash', [], null, null, false, new Timestamps(future, past))).toThrow();
   });
 });

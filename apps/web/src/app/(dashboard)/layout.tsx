@@ -6,7 +6,7 @@ import { getProfile } from "@/lib/auth";
 import { CurrentUserProvider } from "@/contexts/current-user-context";
 import { SignOutButton } from "./sign-out-button";
 
-const navigation = [
+const baseNavigation = [
   { name: "Projects", href: "/dashboard" },
   { name: "Archived", href: "/dashboard/archived" },
 ];
@@ -25,6 +25,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
   if (!profile) {
     redirect("/login?reason=expired");
   }
+
+  const navigation = [
+    ...baseNavigation,
+    ...(profile.isAdmin ? [{ name: "Users", href: "/dashboard/admin/users" }] : []),
+  ];
 
   return (
     <CurrentUserProvider user={profile}>

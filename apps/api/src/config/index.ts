@@ -6,6 +6,7 @@ import type { Config } from './schema';
 
 let config: ReturnType<typeof createConfig> | null = null;
 
+/** Returns the cached convict config instance, creating it on first call. */
 function ensureConfig(): ReturnType<typeof createConfig> {
   if (!config) {
     config = createConfig();
@@ -52,6 +53,8 @@ export function loadConfig(configDirectory: string): void {
  * @returns The configuration object with all fields typed.
  */
 export function getConfig(): Config {
+  // convict validates the full schema before getProperties() returns, so this cast is safe.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return structuredClone(ensureConfig().getProperties()) as Config;
 }
 

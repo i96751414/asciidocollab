@@ -28,34 +28,33 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
    */
   async findByProjectId(projectId: ProjectId): Promise<AuditLog[]> {
     const records = await this.prisma.auditLog.findMany({ where: { projectId: projectId.value } });
-    return records.map(toDomainAuditLog);
+    return records.map(toDomainAuditLog).filter((r): r is AuditLog => r !== null);
   }
 
   /**
    * @param userId - The user ID to filter by.
-   * @returns All audit log entries for the given user.
+   * @returns All audit log entries associated with the user.
    */
   async findByUserId(userId: UserId): Promise<AuditLog[]> {
     const records = await this.prisma.auditLog.findMany({ where: { userId: userId.value } });
-    return records.map(toDomainAuditLog);
+    return records.map(toDomainAuditLog).filter((r): r is AuditLog => r !== null);
   }
 
-  /**
-   * @returns All audit log entries in the database.
-   */
+  /** Returns all audit log entries in the database. */
   async findAll(): Promise<AuditLog[]> {
     const records = await this.prisma.auditLog.findMany();
-    return records.map(toDomainAuditLog);
+    return records.map(toDomainAuditLog).filter((r): r is AuditLog => r !== null);
   }
 }
 
 type AuditLogRecord = {
-  id: string; userId: string; projectId: string | null;
+  id: string; userId: string | null; projectId: string | null;
   action: string; resourceType: string; resourceId: string;
   timestamp: Date; metadata: Prisma.JsonValue;
 };
 
-function toDomainAuditLog(record: AuditLogRecord): AuditLog {
+function toDomainAuditLog(record: AuditLogRecord): AuditLog | null {
+  if (!record.userId) return null;
   return new AuditLog(
     AuditLogId.create(record.id),
     UserId.create(record.userId),
@@ -86,7 +85,7 @@ function extractMetadata(value: Prisma.JsonValue): Record<string, unknown> {
 function toPersistenceAuditLog(auditLog: AuditLog): Prisma.AuditLogCreateInput {
   return {
     id: auditLog.id.value,
-    user: { connect: { id: auditLog.userId.value } },
+    user: auditLog.userId ? { connect: { id: auditLog.userId.value } } : undefined,
     project: auditLog.projectId ? { connect: { id: auditLog.projectId.value } } : undefined,
     action: auditLog.action,
     resourceType: auditLog.resourceType,

@@ -24,6 +24,7 @@ function createTestUser(email = CURRENT_EMAIL): User {
     [],
     null,
     null,
+    false,
     new Timestamps(),
   );
 }

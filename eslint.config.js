@@ -138,7 +138,7 @@ module.exports = tseslint.config(
   },
 
   {
-    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/tests/helpers/*.ts', '**/src/routes/**/*.ts', '**/src/services/session-store.ts', '**/src/config/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/tests/**/*.ts', '**/e2e/**/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       '@typescript-eslint/no-require-imports': 'off',
@@ -146,6 +146,8 @@ module.exports = tseslint.config(
       'jsdoc/require-description-complete-sentence': 'off',
       'jsdoc/informative-docs': 'off',
       'jsdoc/require-throws': 'off',
+      'jsdoc/no-blank-blocks': 'off',
+      'jsdoc/require-description': 'off',
     },
   },
 );

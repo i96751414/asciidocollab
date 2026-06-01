@@ -36,7 +36,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/projects/:id/members - List all members of a project.
    */
-  app.get("/api/projects/:id/members", {
+  app.get<{ Params: { id: string } }>("/api/projects/:id/members", {
     schema: {
       params: {
         type: "object",
@@ -45,7 +45,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = request.params;
     const sessionUserId = getAuthenticatedUserId(request);
 
     try {
@@ -90,7 +90,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/projects/:id/members - Invite a user to a project.
    */
-  app.post("/api/projects/:id/members", {
+  app.post<{ Params: { id: string }; Body: { email: string; role: "viewer" | "editor" | "owner" } }>("/api/projects/:id/members", {
     schema: {
       params: {
         type: "object",
@@ -107,11 +107,8 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const { email, role } = request.body as {
-      email: string;
-      role: "viewer" | "editor" | "owner";
-    };
+    const { id } = request.params;
+    const { email, role } = request.body;
 
     const sessionUserId = getAuthenticatedUserId(request);
 
@@ -149,7 +146,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
   /**
    * PATCH /api/projects/:id/members/:userId - Update a member's role.
    */
-  app.patch("/api/projects/:id/members/:userId", {
+  app.patch<{ Params: { id: string; userId: string }; Body: { role: "viewer" | "editor" | "owner" } }>("/api/projects/:id/members/:userId", {
     schema: {
       params: {
         type: "object",
@@ -168,8 +165,8 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id, userId } = request.params as { id: string; userId: string };
-    const { role } = request.body as { role: "viewer" | "editor" | "owner" };
+    const { id, userId } = request.params;
+    const { role } = request.body;
 
     const sessionUserId = getAuthenticatedUserId(request);
 
@@ -197,7 +194,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
   /**
    * DELETE /api/projects/:id/members/:userId - Remove a member from a project.
    */
-  app.delete("/api/projects/:id/members/:userId", {
+  app.delete<{ Params: { id: string; userId: string } }>("/api/projects/:id/members/:userId", {
     schema: {
       params: {
         type: "object",
@@ -209,7 +206,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id, userId } = request.params as { id: string; userId: string };
+    const { id, userId } = request.params;
     const sessionUserId = getAuthenticatedUserId(request);
 
     const useCase = new RemoveMemberUseCase(

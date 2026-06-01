@@ -35,11 +35,6 @@ export class InMemoryUserRepository implements UserRepository {
     return this.storage.size > 0;
   }
 
-  /**
-   * Simple in-memory search by displayName or email substring.
-   * The `excludeProjectId` parameter is accepted but not enforced here —
-   * project-membership exclusion is tested at the API integration level.
-   */
   async search(query: string, _excludeProjectId?: ProjectId): Promise<User[]> {
     const lower = query.toLowerCase();
     return [...this.storage.values()]
@@ -49,5 +44,17 @@ export class InMemoryUserRepository implements UserRepository {
           u.email.value.toLowerCase().includes(lower),
       )
       .slice(0, 10);
+  }
+
+  async findAll(): Promise<User[]> {
+    return [...this.storage.values()];
+  }
+
+  async delete(id: UserId): Promise<void> {
+    this.storage.delete(id.value);
+  }
+
+  async countAdmins(): Promise<number> {
+    return [...this.storage.values()].filter((u) => u.isAdmin).length;
   }
 }

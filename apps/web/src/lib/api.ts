@@ -145,8 +145,7 @@ export const authApi = {
     email: string,
     password: string,
     displayName: string,
-  ): Promise<{ /** Confirmation message from the server. */
-  message: string }> {
+  ): Promise<{ /** Confirmation message from the server. */ message: string; /** True when email verification is required before login. */ requiresEmailVerification?: boolean }> {
     return apiRequest('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, displayName }),
@@ -347,11 +346,108 @@ export const usersApi = {
   async search(
     query: string,
     excludeProjectId?: string,
-  ): Promise<{ /** Wrapper object containing the search results array. */
-  data: { /** List of users matching the search query. */
+  ): Promise<{ /** Wrapper object containing the search results. */
+  data: { /** List of users matching the query. */
   users: UserSearchResult[] } }> {
     const parameters = new URLSearchParams({ q: query });
     if (excludeProjectId) parameters.set('excludeProjectId', excludeProjectId);
     return apiRequest(`/api/users/search?${parameters.toString()}`);
+  },
+};
+
+/** Admin view of a user account. */
+export interface AdminUser {
+  /** Unique identifier of the user. */
+  id: string;
+  /** Email address of the user. */
+  email: string;
+  /** Display name chosen by the user. */
+  displayName: string;
+  /** Whether the user has administrator privileges. */
+  isAdmin: boolean;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
+  /** How the user was registered. */
+  registrationMethod: 'SELF_REGISTERED' | 'INVITED';
+  /** ISO timestamp when the account was created. */
+  createdAt: string;
+}
+
+/** Admin-controlled application settings. */
+export interface AdminSettings {
+  /** Whether self-registration is currently open to the public. */
+  openRegistration: boolean;
+}
+
+export const adminApi = {
+  async inviteUser(email: string): Promise<void> {
+    return apiRequest('/admin/users/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async getAcceptInvitePreview(token: string): Promise<{ /** Email address associated with the invitation. */
+  email: string }> {
+    return apiRequest(`/auth/accept-invite?token=${encodeURIComponent(token)}`);
+  },
+
+  async acceptInvite(token: string, displayName: string, password: string): Promise<void> {
+    return apiRequest('/auth/accept-invite', {
+      method: 'POST',
+      body: JSON.stringify({ token, displayName, password }),
+    });
+  },
+
+  async getAdminUsers(): Promise<{ /** List of all registered users. */
+  users: AdminUser[] }> {
+    return apiRequest('/admin/users');
+  },
+
+  async setAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+    return apiRequest(`/admin/users/${userId}/admin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isAdmin }),
+    });
+  },
+
+  async getUserRemovalPreview(userId: string): Promise<{ /** Projects that will be transferred to the acting admin. */
+  projectsToTransfer: Array<{ /** Unique identifier of the project. */
+  id: string; /** Name of the project. */
+  name: string }> }> {
+    return apiRequest(`/admin/users/${userId}/removal-preview`);
+  },
+
+  async removeUser(userId: string): Promise<void> {
+    return apiRequest(`/admin/users/${userId}`, { method: 'DELETE' });
+  },
+
+  async getAdminSettings(): Promise<AdminSettings> {
+    return apiRequest('/admin/settings');
+  },
+
+  async updateAdminSettings(settings: Partial<AdminSettings>): Promise<AdminSettings> {
+    return apiRequest('/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  async getOpenRegistrationStatus(): Promise<{ /** Whether self-registration is currently enabled. */
+  openRegistration: boolean }> {
+    return apiRequest('/auth/open-registration-status');
+  },
+
+  async resendVerification(): Promise<void> {
+    return apiRequest('/auth/resend-verification', { method: 'POST' });
+  },
+
+  async verifyEmail(token: string): Promise<void> {
+    return apiRequest(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+  },
+
+  /** Returns the current session's authentication and verification state. */
+  async getSessionStatus(): Promise<{ authenticated: boolean; emailVerified: boolean; isAdmin: boolean }> {
+    return apiRequest('/auth/session-status');
   },
 };

@@ -1,5 +1,5 @@
 # AsciiDoCollab — Claude Code Agent Context
 
 <!-- SPECKIT START -->
-Active implementation plan: specs/009-project-mgmt-frontend/plan.md
+Active implementation plan: specs/010-user-registration-management/plan.md
 <!-- SPECKIT END -->

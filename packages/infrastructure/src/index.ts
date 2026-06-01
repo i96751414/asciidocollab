@@ -13,5 +13,9 @@ export { PrismaImageRepository } from './persistence/prisma-image.repository';
 export { PrismaAuditLogRepository } from './persistence/prisma-audit-log.repository';
 export { PrismaPasswordResetTokenRepository } from './persistence/prisma-password-reset-token.repository';
 export { PrismaEmailChangeTokenRepository } from './persistence/prisma-email-change-token.repository';
+export { PrismaUserInvitationRepository } from './persistence/prisma-user-invitation.repository';
+export { PrismaEmailVerificationTokenRepository } from './persistence/prisma-email-verification-token.repository';
+export { PrismaSystemSettingRepository } from './persistence/prisma-system-setting.repository';
+export { PrismaSessionRepository } from './persistence/prisma-session.repository';
 
 export * from './services';

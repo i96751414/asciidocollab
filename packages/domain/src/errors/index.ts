@@ -21,3 +21,6 @@ export { ProjectAlreadyArchivedError } from './project-already-archived';
 export { ProjectNotArchivedError } from './project-not-archived';
 export { RegistrationClosedError } from './registration-closed';
 export { NotificationDeliveryError } from './notification-delivery';
+export { InvitationAlreadyPendingError } from './invitation-already-pending';
+export { CannotRemoveSelfError } from './cannot-remove-self';
+export { CannotModifySelfAdminError } from './cannot-modify-self-admin';

@@ -235,6 +235,20 @@ export function createConfig() {
         env: 'ASCIIDOCOLLAB_AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW',
       },
     },
+    profileUpdate: {
+      rateLimitMax: {
+        doc: 'Maximum profile update requests per user per window.',
+        format: 'integer',
+        default: 10,
+        env: 'ASCIIDOCOLLAB_AUTH_PROFILE_UPDATE_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Profile update rate limit window in milliseconds.',
+        format: 'integer',
+        default: 900_000,
+        env: 'ASCIIDOCOLLAB_AUTH_PROFILE_UPDATE_RATE_LIMIT_WINDOW',
+      },
+    },
     passwordChange: {
       rateLimitMax: {
         doc: 'Maximum password change requests per user per window.',
@@ -296,6 +310,70 @@ export function createConfig() {
         doc: 'HIBP API base URL for password breach checking.',
         format: String,
         default: 'https://api.pwnedpasswords.com/range',
+      },
+    },
+    invitation: {
+      subject: {
+        doc: 'Subject line for user invitation emails.',
+        format: String,
+        default: '[ASCIIDOCOLLAB] You have been invited',
+        env: 'ASCIIDOCOLLAB_AUTH_INVITATION_SUBJECT',
+      },
+      htmlTemplate: {
+        doc: 'HTML body for invitation email. Use {token} and {invitedBy} placeholders.',
+        format: String,
+        default: '<p>You have been invited by {invitedBy}. <a href="{frontendUrl}/accept-invite?token={token}">Click here to accept.</a></p>',
+        env: 'ASCIIDOCOLLAB_AUTH_INVITATION_HTML_TEMPLATE',
+      },
+      rateLimitMax: {
+        doc: 'Maximum invitation sends per IP per window.',
+        format: 'integer',
+        default: 10,
+        env: 'ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Invitation rate limit window in milliseconds.',
+        format: 'integer',
+        default: 3_600_000,
+        env: 'ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_WINDOW',
+      },
+    },
+    emailVerification: {
+      subject: {
+        doc: 'Subject line for email verification emails.',
+        format: String,
+        default: '[ASCIIDOCOLLAB] Verify your email address',
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_SUBJECT',
+      },
+      htmlTemplate: {
+        doc: 'HTML body for email verification. Use {token} placeholder.',
+        format: String,
+        default: '<p><a href="{frontendUrl}/verify-email?token={token}">Click here to verify your email.</a></p>',
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_HTML_TEMPLATE',
+      },
+      resendSubject: {
+        doc: 'Subject line for resend verification emails.',
+        format: String,
+        default: '[ASCIIDOCOLLAB] Resend: Verify your email address',
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RESEND_SUBJECT',
+      },
+      resendHtmlTemplate: {
+        doc: 'HTML body for resend verification email. Use {token} placeholder.',
+        format: String,
+        default: '<p><a href="{frontendUrl}/verify-email?token={token}">Click here to verify your email.</a></p>',
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RESEND_HTML_TEMPLATE',
+      },
+      rateLimitMax: {
+        doc: 'Maximum resend verification requests per IP per window.',
+        format: 'integer',
+        default: 5,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Resend verification rate limit window in milliseconds.',
+        format: 'integer',
+        default: 3_600_000,
+        env: 'ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_WINDOW',
       },
     },
     email: {
@@ -396,13 +474,40 @@ export function createConfig() {
       },
     },
   },
+  admin: {
+    invite: {
+      rateLimitMax: {
+        doc: 'Maximum admin invite requests per IP per window.',
+        format: 'integer',
+        default: 10,
+        env: 'ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Admin invite rate limit window in milliseconds.',
+        format: 'integer',
+        default: 3_600_000,
+        env: 'ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_WINDOW',
+      },
+    },
+    openRegistration: {
+      rateLimitMax: {
+        doc: 'Maximum open registration status requests per IP per window.',
+        format: 'integer',
+        default: 60,
+        env: 'ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Open registration status rate limit window in milliseconds.',
+        format: 'integer',
+        default: 60_000,
+        env: 'ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_WINDOW',
+      },
+    },
+  },
   });
 }
 
-/**
- * The validated configuration type.
- * Defines the shape manually to ensure type safety.
- */
+/** Typed configuration interface for the application. */
 export interface Config {
   /** The application environment. */
   env: string;
@@ -495,6 +600,13 @@ export interface Config {
       /** Password reset rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
+    /** Profile update rate limiting configuration. */
+    profileUpdate: {
+      /** Maximum profile update requests per user per window. */
+      rateLimitMax: number;
+      /** Profile update rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
     /** Password change rate limiting configuration. */
     passwordChange: {
       /** Maximum password change requests per user per window. */
@@ -525,20 +637,20 @@ export interface Config {
     };
     /** Breach check configuration. */
     breachCheck: {
-      /** HIBP API base URL. */
+      /** HIBP API base URL for password breach checking. */
       hibpApiUrl: string;
     };
     /** Email configuration. */
     email: {
-      /** Enable or disable email sending. */
+      /** Whether email sending is enabled. */
       enabled: boolean;
-      /** Email provider type. */
+      /** Email provider to use (smtp, sendgrid, ses, or console). */
       provider: string;
-      /** SMTP server host. */
+      /** SMTP server hostname. */
       smtpHost: string;
       /** SMTP server port. */
       smtpPort: number;
-      /** SMTP authentication user. */
+      /** SMTP authentication username. */
       smtpUser: string;
       /** SMTP authentication password. */
       smtpPassword: string;
@@ -546,17 +658,60 @@ export interface Config {
       sendgridApiKey: string;
       /** AWS SES region. */
       sesRegion: string;
-      /** From address for transactional emails. */
+      /** Sender email address shown in the From header. */
       from: string | null;
-      /** Email templates. */
+      /** Email templates configuration. */
       templates: {
         /** Password reset request email template. */
-        resetRequest: { subject: string; html: string };
+        resetRequest: { /** Email subject. */ subject: string; /** Email HTML body. */ html: string };
         /** Password changed notification email template. */
-        passwordChanged: { subject: string; html: string };
-        /** Email change confirmation email template. */
-        emailChangeRequest: { subject: string; html: string };
+        passwordChanged: { /** Email subject. */ subject: string; /** Email HTML body. */ html: string };
+        /** Email change request confirmation email template. */
+        emailChangeRequest: { /** Email subject. */ subject: string; /** Email HTML body. */ html: string };
       };
+    };
+    /** Invitation email and rate limiting configuration. */
+    invitation: {
+      /** Email subject for invitation messages. */
+      subject: string;
+      /** HTML template for invitation emails. */
+      htmlTemplate: string;
+      /** Maximum invitation requests per IP per window. */
+      rateLimitMax: number;
+      /** Invitation rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** Email verification configuration. */
+    emailVerification: {
+      /** Email subject for initial verification messages. */
+      subject: string;
+      /** HTML template for initial verification emails. */
+      htmlTemplate: string;
+      /** Email subject for resend verification messages. */
+      resendSubject: string;
+      /** HTML template for resend verification emails. */
+      resendHtmlTemplate: string;
+      /** Maximum email verification requests per IP per window. */
+      rateLimitMax: number;
+      /** Email verification rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+  };
+  /** Admin configuration. */
+  admin: {
+    /** Admin invite rate limiting configuration. */
+    invite: {
+      /** Maximum admin invite requests per IP per window. */
+      rateLimitMax: number;
+      /** Admin invite rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** Open registration rate limiting configuration. */
+    openRegistration: {
+      /** Maximum open registration status requests per IP per window. */
+      rateLimitMax: number;
+      /** Open registration rate limit window in milliseconds. */
+      rateLimitWindow: number;
     };
   };
 }
