@@ -83,9 +83,11 @@ test.describe('Email verification gate (Bug #1)', () => {
       await page.context().clearCookies();
       await page.request.post(`${API_URL}/auth/login`, { data: { email, password: TEST_PASSWORD } });
 
-      // /auth/resend-verification must be accessible even without email verification
+      // /auth/resend-verification must be accessible even without email verification.
+      // 202 = sent successfully; 429 = rate-limited (also means the gate let them through).
+      // Both prove the endpoint was reached, not blocked with 403 EMAIL_NOT_VERIFIED.
       const resp = await page.request.post(`${API_URL}/auth/resend-verification`);
-      expect(resp.status()).toBe(200);
+      expect([202, 429]).toContain(resp.status());
     } finally {
       await loginAdminViaApi(page);
       await adminSetOpenRegistration(page, false);
@@ -113,8 +115,8 @@ test.describe('Cross-device verify-email UX (Bug #3+5)', () => {
       });
 
       // Get verification token from Mailpit
-      const emailMsg = await waitForEmail(email);
-      const token = extractVerificationToken(emailMsg.HTML);
+      const emailMessage = await waitForEmail(email);
+      const token = extractVerificationToken(emailMessage.HTML);
 
       // Simulate opening the link on a DIFFERENT device — no session cookie
       await page.context().clearCookies();
@@ -149,8 +151,8 @@ test.describe('Cross-device verify-email UX (Bug #3+5)', () => {
       await page.context().clearCookies();
       await page.request.post(`${API_URL}/auth/login`, { data: { email, password: TEST_PASSWORD } });
 
-      const emailMsg = await waitForEmail(email);
-      const token = extractVerificationToken(emailMsg.HTML);
+      const emailMessage = await waitForEmail(email);
+      const token = extractVerificationToken(emailMessage.HTML);
 
       // Visit verify-email with the active session
       await page.goto(`/verify-email?token=${token}`);

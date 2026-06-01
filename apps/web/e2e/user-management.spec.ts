@@ -35,7 +35,7 @@ test.describe('Admin user management (US3)', () => {
       await page.goto('/dashboard/admin/users');
 
       // Find the row for the new user and click "Make Admin"
-      const userRow = page.locator('div, tr').filter({ hasText: email }).first();
+      const userRow = page.locator('tr').filter({ hasText: email });
       await userRow.getByRole('button', { name: /make admin/i }).click();
 
       // Button text should toggle to "Remove Admin"
@@ -129,7 +129,7 @@ test.describe('Admin user management (US3)', () => {
 
       // Confirm removal via UI
       await page.goto('/dashboard/admin/users');
-      const userRow = page.locator('div, tr').filter({ hasText: email }).first();
+      const userRow = page.locator('tr').filter({ hasText: email });
       await userRow.getByRole('button', { name: /remove/i }).click();
 
       // Confirm the removal dialog

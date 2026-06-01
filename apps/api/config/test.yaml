@@ -12,3 +12,37 @@ auth:
   session:
     secure: false
     maxAge: 300000  # 5 minutes for faster test expiry
+
+  # Relax rate limits for test / E2E runs — real limits apply in production.
+  registration:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  login:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  emailVerification:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  invitation:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  passwordReset:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  passwordChange:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  profileUpdate:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  emailChangeRequest:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+
+admin:
+  invite:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  openRegistration:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000

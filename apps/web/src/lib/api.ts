@@ -33,7 +33,10 @@ async function apiRequest<T>(
     credentials: "include",
     cache: "no-store",
     headers: {
-      "Content-Type": "application/json",
+      // Only declare Content-Type when there is a body to describe.
+      // Sending Content-Type: application/json on a bodyless POST causes
+      // Fastify's JSON body parser to attempt to parse an empty body → 400.
+      ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
       ...options.headers,
     },
   });
@@ -373,6 +376,16 @@ export interface AdminUser {
   createdAt: string;
 }
 
+/** Session authentication and verification state returned by /auth/session-status. */
+export interface SessionStatus {
+  /** Whether the request carries a valid authenticated session. */
+  authenticated: boolean;
+  /** Whether the authenticated user has verified their email address. */
+  emailVerified: boolean;
+  /** Whether the authenticated user has administrator privileges. */
+  isAdmin: boolean;
+}
+
 /** Admin-controlled application settings. */
 export interface AdminSettings {
   /** Whether self-registration is currently open to the public. */
@@ -447,7 +460,7 @@ export const adminApi = {
   },
 
   /** Returns the current session's authentication and verification state. */
-  async getSessionStatus(): Promise<{ authenticated: boolean; emailVerified: boolean; isAdmin: boolean }> {
+  async getSessionStatus(): Promise<SessionStatus> {
     return apiRequest('/auth/session-status');
   },
 };

@@ -26,7 +26,7 @@ test.describe('Registration via invitation (US1)', () => {
       const inviteResp = await page.request.post(`${API_URL}/admin/users/invite`, {
         data: { email },
       });
-      expect(inviteResp.status()).toBe(201);
+      expect(inviteResp.status()).toBe(202);
 
       // Get invitation token from Mailpit
       const emailMessage = await waitForEmail(email);
@@ -38,7 +38,7 @@ test.describe('Registration via invitation (US1)', () => {
       // Visit the accept-invite page
       await page.goto(`/accept-invite?token=${token}`);
       await expect(page.getByText(/complete your registration/i)).toBeVisible({ timeout: 5000 });
-      await expect(page.getByDisplayValue(email)).toBeVisible();
+      await expect(page.getByRole('textbox', { name: /email/i })).toHaveValue(email);
 
       // Fill in the registration form
       await page.getByLabel(/display name/i).fill('New Invitee');
@@ -56,7 +56,7 @@ test.describe('Registration via invitation (US1)', () => {
   test('expired invitation link shows error', async ({ page }) => {
     // A syntactically plausible but non-existent token is treated as expired/invalid.
     await page.goto('/accept-invite?token=expired-invalid-token-xyz-000');
-    await expect(page.getByText(/invalid|expired/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /invalid/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('already-used invitation shows error', async ({ page }) => {
@@ -82,7 +82,7 @@ test.describe('Registration via invitation (US1)', () => {
 
       // Attempt to use the same token again via the UI
       await page.goto(`/accept-invite?token=${token}`);
-      await expect(page.getByText(/invalid|expired|already been used/i)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('heading', { name: /invalid/i })).toBeVisible({ timeout: 5000 });
     } finally {
       await loginAdminViaApi(page);
       await adminDeleteUserByEmail(page, email);
@@ -101,6 +101,6 @@ test.describe('Registration via invitation (US1)', () => {
 
   test('accept-invite page shows invalid state for bad token', async ({ page }) => {
     await page.goto('/accept-invite?token=invalid-token-xyz');
-    await expect(page.locator('text=/invalid|expired/i')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /invalid/i })).toBeVisible({ timeout: 5000 });
   });
 });

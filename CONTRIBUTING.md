@@ -6,7 +6,9 @@ Thank you for your interest in AsciiDoCollab.
 
 **Pull requests are not being accepted at this stage.**
 
-The project has not reached MVP. The codebase is being actively developed and the architecture may change significantly before the first release. Opening a PR now would likely result in conflicts or rework, so contributions are on hold until the MVP milestone is reached.
+The project has not reached MVP. The codebase is being actively developed and the architecture may change significantly
+before the first release. Opening a PR now would likely result in conflicts or rework, so contributions are on hold
+until the MVP milestone is reached.
 
 Once MVP ships, this file will be updated with contribution guidelines, coding standards, and a PR checklist.
 
@@ -21,7 +23,8 @@ Issues and bug reports are welcome. Please open a GitHub issue with:
 
 ## Security vulnerabilities
 
-Please do **not** open a public GitHub issue for security vulnerabilities. Instead, email the maintainer directly (see the commit history for contact information). You will receive a response within 72 hours.
+Please do **not** open a public GitHub issue for security vulnerabilities. Instead, email the maintainer directly (see
+the commit history for contact information).
 
 ## Development setup
 

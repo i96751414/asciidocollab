@@ -1,22 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request } from '@playwright/test';
 import {
   ensureTestUser,
   loginAdminViaApi,
   adminSetOpenRegistration,
+  TEST_USER,
 } from './helpers/test-user';
 import { signIn } from './helpers/test-project';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+/**
+ * Resets open registration to false via a standalone context that does not
+ * contaminate the page's cookie jar.
+ */
+async function resetOpenRegistration(): Promise<void> {
+  const context = await request.newContext({ baseURL: API_URL });
+  try {
+    await context.post('/auth/login', { data: { email: TEST_USER.email, password: TEST_USER.password } });
+    await context.patch('/admin/settings', { data: { openRegistration: false } });
+  } finally {
+    await context.dispose();
+  }
+}
 
 test.describe('Open registration toggle (US4)', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
 
-  test.afterEach(async ({ page }) => {
-    // Always restore open registration to disabled after each test.
-    await loginAdminViaApi(page);
-    await adminSetOpenRegistration(page, false);
+  test.beforeEach(async () => {
+    // Ensure a clean baseline regardless of state left by other test files.
+    // Uses a separate context so the page's own cookie jar stays clean.
+    await resetOpenRegistration();
+  });
+
+  test.afterEach(async () => {
+    await resetOpenRegistration();
   });
 
   test('admin can enable/disable open registration', async ({ page }) => {

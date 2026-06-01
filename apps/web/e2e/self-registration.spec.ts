@@ -71,7 +71,7 @@ test.describe('Self-registration with email verification (US2)', () => {
       // Navigating to /dashboard should redirect to /verify-email-required
       await page.goto('/dashboard');
       await expect(page).toHaveURL(/\/verify-email-required/);
-      await expect(page.getByText(/verify your email/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /verify your email/i })).toBeVisible();
     } finally {
       await loginAdminViaApi(page);
       await adminSetOpenRegistration(page, false);
