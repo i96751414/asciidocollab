@@ -51,8 +51,8 @@ test.describe('Project deletion', () => {
     const confirmButton = page.getByRole('button', { name: /delete project/i }).last();
     await confirmButton.click();
 
-    // Should redirect to /dashboard with ?deleted=1
-    await page.waitForURL(/\/dashboard/);
+    // Should redirect to /dashboard with ?deleted=1 (wait for the root dashboard, not a sub-path)
+    await page.waitForURL(url => url.pathname === '/dashboard');
     const currentUrl = page.url();
     const hasDeletedParameter = currentUrl.includes('deleted=1');
     const hasSuccessText = await page.getByText('Project deleted successfully.').isVisible().catch(() => false);

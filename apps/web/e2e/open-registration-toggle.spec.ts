@@ -87,7 +87,7 @@ test.describe('Open registration toggle (US4)', () => {
   });
 
   test('open registration setting persists across page reload', async ({ page }) => {
-    await loginAdminViaApi(page);
+    await signIn(page);
     await adminSetOpenRegistration(page, true);
 
     await page.goto('/dashboard/admin/users');

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,24 @@ import {
 import { adminApi, authApi, ApiError } from "@/lib/api";
 import { buildPasswordSchema } from "@/lib/password-schema";
 import type { PasswordPolicyDto } from "@asciidocollab/shared";
+
+type FieldName = "displayName" | "password" | "confirmPassword";
+
+function buildAcceptInviteSchema(policy: PasswordPolicyDto) {
+  return z
+    .object({
+      displayName: z
+        .string()
+        .min(1, "Display name is required")
+        .max(100, "Display name must be at most 100 characters"),
+      password: buildPasswordSchema(policy),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+}
 
 /** Properties for the AcceptInviteForm component. */
 interface AcceptInviteFormProperties {
@@ -30,6 +49,8 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProperties) {
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyDto | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -50,26 +71,36 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProperties) {
       .catch(() => setTokenState("invalid"));
   }, [token]);
 
+  const schema = useMemo(
+    () => (passwordPolicy ? buildAcceptInviteSchema(passwordPolicy) : null),
+    [passwordPolicy],
+  );
+
+  const validation = schema?.safeParse({ displayName, password, confirmPassword });
+  const isFormValid = validation?.success ?? false;
+  const allFieldErrors =
+    validation && !validation.success ? z.flattenError(validation.error).fieldErrors : {};
+
+  function visibleError(field: FieldName): string | undefined {
+    if (!touched[field]) return undefined;
+    if (field === "confirmPassword" && allFieldErrors.password?.length) return undefined;
+    return allFieldErrors[field]?.[0];
+  }
+
+  function touch(field: FieldName) {
+    setTouched((previous) => ({ ...previous, [field]: true }));
+  }
+
+  function touchAll() {
+    setTouched({ displayName: true, password: true, confirmPassword: true });
+  }
+
   function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
+    touchAll();
 
-    if (!passwordPolicy) return;
-
-    if (!displayName || displayName.trim().length === 0) {
-      setSubmitError("Display name is required");
-      return;
-    }
-    if (displayName.length > 100) {
-      setSubmitError("Display name must be 100 characters or fewer");
-      return;
-    }
-
-    const passwordResult = buildPasswordSchema(passwordPolicy).safeParse(password);
-    if (!passwordResult.success) {
-      setSubmitError(passwordResult.error.issues[0]?.message ?? "Password does not meet requirements");
-      return;
-    }
+    if (!isFormValid) return;
 
     startTransition(async () => {
       try {
@@ -122,8 +153,15 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProperties) {
                 type="text"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
+                onBlur={() => touch("displayName")}
+                aria-invalid={!!visibleError("displayName")}
                 autoComplete="name"
               />
+              {visibleError("displayName") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("displayName")}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="password">Password</Label>
@@ -132,13 +170,37 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProperties) {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                onBlur={() => touch("password")}
+                aria-invalid={!!visibleError("password")}
                 autoComplete="new-password"
               />
+              {visibleError("password") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("password")}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                onBlur={() => touch("confirmPassword")}
+                aria-invalid={!!visibleError("confirmPassword")}
+                autoComplete="new-password"
+              />
+              {visibleError("confirmPassword") && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visibleError("confirmPassword")}
+                </p>
+              )}
             </div>
             {submitError && (
               <p role="alert" className="text-sm text-destructive">{submitError}</p>
             )}
-            <Button type="submit" className="w-full" disabled={isPending || !passwordPolicy}>
+            <Button type="submit" className="w-full" disabled={!isFormValid || isPending || !passwordPolicy}>
               {isPending ? "Creating account…" : "Create account"}
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@asciidocollab/db';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { execSync } from 'child_process';
 import path from 'path';

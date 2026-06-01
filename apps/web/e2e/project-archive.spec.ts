@@ -52,7 +52,7 @@ test.describe('Project archive and restore', () => {
     await page.goto(`/dashboard/projects/${projectId}/settings`);
 
     // Archived banner must be visible
-    await expect(page.getByText(/archived/i)).toBeVisible();
+    await expect(page.getByText(/this project is archived/i)).toBeVisible();
 
     // Name input must be disabled
     await expect(page.getByLabel(/project name/i)).toBeDisabled();

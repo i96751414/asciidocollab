@@ -1,37 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-// Paths that are always accessible without auth
-const PUBLIC_PATHS = [
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/accept-invite",
-  "/verify-email",
-  "/verify-email-required",
-];
-
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "?"));
-}
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:4000";
 
 /**
- * Next.js edge proxy that enforces authentication and email-verification on
- * dashboard routes by consulting the API's /auth/session-status endpoint.
+ * Next.js proxy (middleware) that enforces authentication and email verification
+ * on dashboard routes by consulting the API's /auth/session-status endpoint.
  *
  * @param request - Incoming Next.js request.
  * @returns A redirect or pass-through response.
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
-
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
-  }
-
   const cookieHeader = request.headers.get("cookie") ?? "";
 
   try {
@@ -43,10 +26,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (!response.ok) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
+      loginUrl.searchParams.set("reason", "unauthenticated");
       return NextResponse.redirect(loginUrl);
     }
 
-    // fetch().json() returns any — access fields directly without assertion.
     const session = await response.json();
     const authenticated: boolean = Boolean(session?.authenticated);
     const emailVerified: boolean = Boolean(session?.emailVerified);
@@ -54,6 +37,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (!authenticated) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
+      loginUrl.searchParams.set("reason", "unauthenticated");
       return NextResponse.redirect(loginUrl);
     }
 
@@ -63,12 +47,12 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.next();
   } catch {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("reason", "unauthenticated");
+    return NextResponse.redirect(loginUrl);
   }
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-  ],
+  matcher: ["/dashboard/:path*"],
 };

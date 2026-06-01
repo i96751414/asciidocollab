@@ -21,7 +21,7 @@ test.describe('Project members page', () => {
       await page.goto(`/dashboard/projects/${projectId}/members`);
 
       await expect(page.getByText(TEST_USER.displayName)).toBeVisible();
-      await expect(page.getByText(/owner/i)).toBeVisible();
+      await expect(page.getByRole('combobox').first()).toHaveValue('owner');
     } finally {
       await cleanupProject(page, projectId);
     }
@@ -36,7 +36,7 @@ test.describe('Project members page', () => {
 
       // The sole-owner warning banner should be present
       await expect(
-        page.getByText(/sole owner|only owner|cannot remove/i),
+        page.getByText(/you are the sole owner/i),
       ).toBeVisible();
 
       // The Remove button should be absent for the current user's own row.
@@ -63,7 +63,7 @@ test.describe('Project members page', () => {
       await page.goto(`/dashboard/projects/${projectId}/members`);
 
       // Archived banner is visible
-      await expect(page.getByText(/archived/i)).toBeVisible();
+      await expect(page.getByText(/this project is archived/i)).toBeVisible();
 
       // Invite member form is hidden (the "Add Member" / "Invite Member" heading/button should not exist)
       await expect(page.getByRole('heading', { name: /invite member/i })).not.toBeVisible();

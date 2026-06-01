@@ -45,7 +45,7 @@ test.describe('Project settings page — T067', () => {
     page,
   }) => {
     await page.goto(
-      '/dashboard/projects/00000000-0000-0000-0000-000000000000/settings',
+      '/dashboard/projects/00000000-0000-4000-8000-000000000000/settings',
     );
     await expect(page).toHaveURL(/\/404/);
   });
@@ -70,7 +70,7 @@ test.describe('Project settings page — T067', () => {
     await page.goto(`/dashboard/projects/${projectId}/settings`);
 
     // Banner indicating the project is archived
-    await expect(page.getByText(/archived/i)).toBeVisible();
+    await expect(page.getByText(/this project is archived/i)).toBeVisible();
 
     // Name input must be disabled
     const nameInput = page.getByLabel(/name/i);

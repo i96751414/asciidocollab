@@ -42,7 +42,8 @@ test.describe('Registration via invitation (US1)', () => {
 
       // Fill in the registration form
       await page.getByLabel(/display name/i).fill('New Invitee');
-      await page.getByLabel(/password/i).fill(password);
+      await page.getByLabel('Password', { exact: true }).fill(password);
+      await page.getByLabel(/confirm password/i).fill(password);
       await page.getByRole('button', { name: /create account/i }).click();
 
       // Should land on /dashboard (invitation-based accounts are pre-verified)
