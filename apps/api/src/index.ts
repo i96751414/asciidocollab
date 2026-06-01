@@ -47,7 +47,6 @@ import {
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
-import { csrfPluginWrapped } from './plugins/csrf';
 import { originCheckPlugin } from './plugins/origin-check';
 import { rateLimitPluginWrapped } from './plugins/rate-limit';
 import { corsPluginWrapped } from './plugins/cors';
@@ -69,7 +68,6 @@ import { projectRoutes } from './routes/projects';
 import { memberRoutes } from './routes/projects/members';
 import { usersSearchRoute } from './routes/projects/users-search';
 import { setupStatusRoute } from './routes/setup-status';
-import { csrfTokenRoute } from './routes/csrf-token';
 import type { FastifyInstance } from 'fastify';
 
 /** Dependency injection container for the application. */
@@ -223,7 +221,6 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   await app.register(corsPluginWrapped);
   await app.register(authPluginWrapped);
   await app.register(rateLimitPluginWrapped);
-  await app.register(csrfPluginWrapped);
   await app.register(originCheckPlugin);
 
   return app;
@@ -238,18 +235,14 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
   // Public routes — no auth required
   await app.register(healthRoute);
   await app.register(setupStatusRoute);
-  await app.register(csrfTokenRoute);
   await app.register(emailConfirmRoute);
 
-  // CSRF-protected public auth routes (no session required)
-  await app.register(async function csrfAuthRoutes(scopedApp: FastifyInstance) {
-    scopedApp.addHook('onRequest', scopedApp.csrfProtection);
-    await scopedApp.register(loginRoute);
-    await scopedApp.register(registerRoute);
-    await scopedApp.register(logoutRoute);
-    await scopedApp.register(passwordResetRequestRoute);
-    await scopedApp.register(passwordResetRoute);
-  });
+  // Public auth routes — protected by SameSite=Strict + Origin check (replaces old CSRF tokens)
+  await app.register(loginRoute);
+  await app.register(registerRoute);
+  await app.register(logoutRoute);
+  await app.register(passwordResetRequestRoute);
+  await app.register(passwordResetRoute);
 
   // Protected routes — require authentication
   await app.register(async function protectedRoutes(scopedApp: FastifyInstance) {

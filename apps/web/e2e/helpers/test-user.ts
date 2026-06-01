@@ -15,12 +15,7 @@ export const TEST_USER = {
 export async function ensureTestUser(): Promise<void> {
   const context = await request.newContext({ baseURL: API_URL });
   try {
-    const csrfResponse = await context.get('/auth/csrf-token');
-    const { token } = await csrfResponse.json();
-    await context.post('/auth/register', {
-      headers: { 'x-csrf-token': token },
-      data: TEST_USER,
-    });
+    await context.post('/auth/register', { data: TEST_USER });
     // 201 = created, 403 = registration closed (user already exists) — both are fine
   } finally {
     await context.dispose();
