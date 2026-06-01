@@ -1,24 +1,29 @@
 # AsciiDoCollab
 
 > **⚠ Pre-MVP — not ready for production use.**
-> The core infrastructure is being built and hardened. The collaborative editor — the central feature — does not exist yet. See [Project status](#project-status) for the honest picture.
+> The core infrastructure is being built and hardened. The collaborative editor — the central feature — does not exist
+> yet. See [Project status](#project-status) for the honest picture.
 
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
-Write technical documentation, books, and structured content in AsciiDoc format — together, in real time, in your browser. No lock-in, no vendor dependency: deploy it on your own infrastructure and keep full control of your documents.
+Write technical documentation, books, and structured content in AsciiDoc format — together, in real time, in your
+browser. No lock-in, no vendor dependency: deploy it on your own infrastructure and keep full control of your documents.
 
 ---
 
 ## What it does
 
-AsciiDoCollab gives your team a shared space to write and manage AsciiDoc documents. Multiple people can edit the same document simultaneously, preview rendered output live, export to PDF, and integrate with Git — all from a single, self-hosted web application.
+AsciiDoCollab gives your team a shared space to write and manage AsciiDoc documents. Multiple people can edit the same
+document simultaneously, preview rendered output live, export to PDF, and integrate with Git — all from a single,
+self-hosted web application.
 
 ## Features
 
 **Foundation (built, under active hardening)**
 
 - User accounts — self-registration with email verification, admin invitation flow
-- Secure login with session management (Argon2id, encrypted sessions, rate limiting, breach detection via [Have I Been Pwned](https://haveibeenpwned.com))
+- Secure login with session management (Argon2id, encrypted sessions, rate limiting, breach detection
+  via [Have I Been Pwned](https://haveibeenpwned.com))
 - Create and manage projects to organise your work
 - Invite team members and assign roles — Viewer, Editor, or Owner
 - Admin panel — manage users, toggle open registration, audit log
@@ -43,18 +48,19 @@ AsciiDoCollab gives your team a shared space to write and manage AsciiDoc docume
 
 **This project has not reached MVP.**
 
-The authentication and user-management layer is feature-complete and has been through multiple rounds of code review and hardening. The collaborative editor — the reason this project exists — is not yet started.
+The authentication and user-management layer is feature-complete and has been through multiple rounds of code review and
+hardening. The collaborative editor — the reason this project exists — is not yet started.
 
-| Layer | Status |
-|-------|--------|
+| Layer                               | Status            |
+|-------------------------------------|-------------------|
 | Authentication & session management | ✅ Built, hardened |
 | User registration & invitation flow | ✅ Built, hardened |
-| Project & team management | ✅ Built |
-| Admin panel & audit log | ✅ Built |
-| AsciiDoc editor | ❌ Not started |
-| Real-time collaboration | ❌ Not started |
-| Git integration | ❌ Not started |
-| PDF export | ❌ Not started |
+| Project & team management           | ✅ Built           |
+| Admin panel & audit log             | ✅ Built           |
+| AsciiDoc editor                     | ❌ Not started     |
+| Real-time collaboration             | ❌ Not started     |
+| Git integration                     | ❌ Not started     |
+| PDF export                          | ❌ Not started     |
 
 Do not deploy this to production or rely on it for real work yet. The API and data model may change before MVP.
 
@@ -82,7 +88,8 @@ The script will:
 4. Build the codebase and apply the database schema
 5. Start the API server (`http://localhost:4000`) and the web app (`http://localhost:3000`)
 
-**Local email preview** — all outbound emails (registration, password reset) are captured by [Mailpit](https://mailpit.axllent.org) and visible at `http://localhost:8025`. Nothing is sent to real addresses.
+**Local email preview** — all outbound emails (registration, password reset) are captured
+by [Mailpit](https://mailpit.axllent.org) and visible at `http://localhost:8025`. Nothing is sent to real addresses.
 
 ---
 
