@@ -21,7 +21,7 @@ export async function clearMailpit(): Promise<void> {
   }
 }
 
-export async function waitForEmail(toAddress: string, timeoutMs = 15000): Promise<MailpitMessageDetail> {
+export async function waitForEmail(toAddress: string, timeoutMs = 15_000): Promise<MailpitMessageDetail> {
   const context = await request.newContext();
   const deadline = Date.now() + timeoutMs;
   try {
