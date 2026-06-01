@@ -46,13 +46,13 @@ export interface ProjectRepository {
    *
    * @param userId - The unique identifier of the user.
    * @param pagination - Pagination parameters.
-   * @param includeArchived - Whether to include archived projects.
+   * @param archivedOnly - When true, return only archived projects; when false, return only active ones.
    * @returns Paginated list of projects.
    */
   findByMemberId(
     userId: UserId,
     pagination: PaginationParameters,
-    includeArchived?: boolean,
+    archivedOnly?: boolean,
   ): Promise<PaginatedProjects>;
 
   /**

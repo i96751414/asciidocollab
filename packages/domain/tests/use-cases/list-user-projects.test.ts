@@ -170,8 +170,8 @@ describe('ListUserProjectsUseCase', () => {
     }
   });
 
-  test('includes archived projects when requested', async () => {
-    expect.assertions(2);
+  test('returns only archived projects when archivedOnly=true', async () => {
+    expect.assertions(3);
     const activeProject = new Project(
       projectId,
       ProjectName.create('Active Project'),
@@ -198,7 +198,8 @@ describe('ListUserProjectsUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.projects).toHaveLength(2);
+      expect(result.value.projects).toHaveLength(1);
+      expect(result.value.projects[0].id.value).toBe('550e8400-e29b-41d4-a716-446655440003');
     }
   });
 });

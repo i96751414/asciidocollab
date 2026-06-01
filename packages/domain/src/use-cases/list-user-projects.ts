@@ -44,18 +44,18 @@ export class ListUserProjectsUseCase {
    *
    * @param actorId - The user requesting the project list.
    * @param pagination - Pagination parameters.
-   * @param includeArchived - Whether to include archived projects.
+   * @param archivedOnly - When true, return only archived projects; when false, return only active ones.
    * @returns Paginated list of projects.
    */
   async execute(
     actorId: UserId,
     pagination: PaginationParameters = DEFAULT_PAGINATION,
-    includeArchived = false,
+    archivedOnly = false,
   ): Promise<Result<ListUserProjectsResult, DomainError>> {
     const result = await this.projectRepo.findByMemberId(
       actorId,
       pagination,
-      includeArchived,
+      archivedOnly,
     );
 
     return {

@@ -51,21 +51,21 @@ export class InMemoryProjectRepository implements ProjectRepository {
    *
    * @param userId - The unique identifier of the user.
    * @param pagination - Pagination parameters.
-   * @param includeArchived - Whether to include archived projects.
+   * @param archivedOnly - When true, return only archived projects; when false, return only active ones.
    * @returns Paginated list of projects.
    */
   async findByMemberId(
     userId: UserId,
     pagination: PaginationParameters,
-    includeArchived = false,
+    archivedOnly = false,
   ): Promise<PaginatedProjects> {
     const memberProjectIds = this.membershipMap.get(userId.value) ?? new Set<string>();
     let all = [...this.storage.values()].filter(
       (p) => memberProjectIds.has(p.id.value),
     );
-    if (!includeArchived) {
-      all = all.filter((p) => p.archivedAt === null);
-    }
+    all = archivedOnly
+      ? all.filter((p) => p.archivedAt !== null)
+      : all.filter((p) => p.archivedAt === null);
     const total = all.length;
     const page = pagination.page;
     const limit = pagination.limit;

@@ -40,18 +40,18 @@ export class PrismaProjectRepository implements ProjectRepository {
    *
    * @param userId - The unique identifier of the user.
    * @param pagination - Pagination parameters.
-   * @param includeArchived - Whether to include archived projects.
+   * @param archivedOnly - When true, return only archived projects; when false, return only active ones.
    * @returns Paginated list of projects.
    */
   async findByMemberId(
     userId: UserId,
     pagination: PaginationParameters,
-    includeArchived = false,
+    archivedOnly = false,
   ): Promise<PaginatedProjects> {
     const where: Record<string, unknown> = {
       members: { some: { userId: userId.value } },
+      archivedAt: archivedOnly ? { not: null } : null,
     };
-    if (!includeArchived) where.archivedAt = null;
 
     const [records, total] = await Promise.all([
       this.prisma.project.findMany({
