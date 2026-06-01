@@ -28,3 +28,10 @@ export {
   ProjectDto,
 } from './project-management.dto';
 export { UserSearchResultDto } from './user-search.dto';
+export {
+  AdminUserDto,
+  AdminSettingsDto,
+  AdminInviteUserDto,
+  AcceptInviteDto,
+  UserRemovalPreviewDto,
+} from './admin.dto';

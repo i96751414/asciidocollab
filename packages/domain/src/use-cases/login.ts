@@ -6,8 +6,12 @@ import { LOGIN_DELAY_MS } from '../constants';
 
 /** Result returned on successful login. */
 export interface LoginResult {
-  /** The authenticated user's ID. */
+  /** The authenticated user's identifier. */
   userId: string;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
+  /** Whether the user has administrator privileges. */
+  isAdmin: boolean;
 }
 
 /**
@@ -63,7 +67,7 @@ export class LoginUseCase {
 
     return {
       success: true,
-      value: { userId: user.id.value },
+      value: { userId: user.id.value, emailVerified: user.emailVerified, isAdmin: user.isAdmin },
     };
   }
 }

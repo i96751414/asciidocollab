@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { User, UserId, Email, Timestamps, UserRepository, ProjectId } from '@asciidocollab/domain';
+import type { RegistrationMethod } from '@asciidocollab/domain';
 
 /**
  * Prisma-backed implementation of the `UserRepository` interface.
@@ -52,11 +53,23 @@ export class PrismaUserRepository implements UserRepository {
     return (await this.prisma.user.count({ take: 1 })) > 0;
   }
 
-  /**
-   * Case-insensitive search across displayName and email.
-   * Excludes members of `excludeProjectId` when provided.
-   * Returns at most 10 results.
-   */
+  /** Returns all user records in the database. */
+  async findAll(): Promise<User[]> {
+    const records = await this.prisma.user.findMany();
+    return records.map(toDomainUser);
+  }
+
+  /** Hard-deletes the user with the given ID from the database. */
+  async delete(id: UserId): Promise<void> {
+    await this.prisma.user.deleteMany({ where: { id: id.value } });
+  }
+
+  /** Returns the number of users with the admin flag set. */
+  async countAdmins(): Promise<number> {
+    return this.prisma.user.count({ where: { isAdmin: true } });
+  }
+
+  /** Searches users by display name or email, optionally excluding members of a given project. */
   async search(query: string, excludeProjectId?: ProjectId): Promise<User[]> {
     const records = await this.prisma.user.findMany({
       where: {
@@ -82,6 +95,7 @@ function toDomainUser(record: {
   id: string; email: string; displayName: string; passwordHash: string | null;
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
   isAdmin: boolean; createdAt: Date; updatedAt: Date;
+  emailVerified: boolean; registrationMethod: RegistrationMethod;
 }): User {
   return new User(
     UserId.create(record.id),
@@ -93,6 +107,8 @@ function toDomainUser(record: {
     record.mfaSecret,
     record.isAdmin,
     new Timestamps(record.createdAt, record.updatedAt),
+    record.emailVerified,
+    record.registrationMethod,
   );
 }
 
@@ -100,6 +116,7 @@ function toPersistenceUser(user: User): {
   id: string; email: string; displayName: string; passwordHash: string | null;
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
   isAdmin: boolean; createdAt: Date; updatedAt: Date;
+  emailVerified: boolean; registrationMethod: RegistrationMethod;
 } {
   return {
     id: user.id.value,
@@ -112,5 +129,7 @@ function toPersistenceUser(user: User): {
     isAdmin: user.isAdmin,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    emailVerified: user.emailVerified,
+    registrationMethod: user.registrationMethod,
   };
 }

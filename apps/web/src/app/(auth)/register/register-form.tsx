@@ -52,6 +52,7 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
   const [confirmPassword, setConfirmPassword] = useState("");
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [checkEmail, setCheckEmail] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const schema = useMemo(() => buildRegisterSchema(passwordPolicy), [passwordPolicy]);
@@ -85,7 +86,11 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
 
     startTransition(async () => {
       try {
-        await authApi.register(email, password, displayName);
+        const data = await authApi.register(email, password, displayName);
+        if (data.requiresEmailVerification) {
+          setCheckEmail(true);
+          return;
+        }
         router.push("/dashboard");
       } catch (error_) {
         if (error_ instanceof ApiError && error_.status === 403) {
@@ -103,6 +108,19 @@ export function RegisterForm({ isFirstRun, passwordPolicy }: RegisterFormPropert
         }
       }
     });
+  }
+
+  if (checkEmail) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Check your email</CardTitle>
+          <CardDescription>
+            We sent a verification link to <strong>{email}</strong>. Click the link to activate your account.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   return (

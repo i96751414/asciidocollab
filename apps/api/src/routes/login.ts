@@ -26,8 +26,8 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
         },
       },
     },
-  }, async (request, reply) => {
-    const { email, password } = request.body as LoginDto;
+  }, async (request: import('fastify').FastifyRequest<{ Body: LoginDto }>, reply) => {
+    const { email, password } = request.body;
 
     const useCase = new LoginUseCase(request.server.repos.user, request.server.services.passwordHasher);
     const result = await useCase.execute(Email.create(email), password);
@@ -39,6 +39,8 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
     }
 
     request.session.userId = result.value.userId;
+    request.session.emailVerified = result.value.emailVerified;
+    request.session.isAdmin = result.value.isAdmin;
 
     return reply.status(200).send({ message: 'Authenticated' } satisfies AuthSuccessResponseDto);
   });

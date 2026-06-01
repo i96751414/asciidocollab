@@ -48,7 +48,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/projects - List all projects where the user is a member.
    */
-  app.get("/api/projects", {
+  app.get<{ Querystring: { page?: number; limit?: number; archived?: boolean } }>("/api/projects", {
     schema: {
       querystring: {
         type: "object",
@@ -60,11 +60,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { page, limit, archived } = request.query as {
-      page?: number;
-      limit?: number;
-      archived?: boolean;
-    };
+    const { page, limit, archived } = request.query;
 
     const userId = getAuthenticatedUserId(request);
 
@@ -127,7 +123,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/projects/:id - Get a single project.
    */
-  app.get("/api/projects/:id", {
+  app.get<{ Params: { id: string } }>("/api/projects/:id", {
     schema: {
       params: {
         type: "object",
@@ -136,7 +132,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = request.params;
     const userId = getAuthenticatedUserId(request);
 
     const project = await request.server.repos.project.findById(ProjectId.create(id));
@@ -176,7 +172,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/projects - Create a new project.
    */
-  app.post("/api/projects", {
+  app.post<{ Body: { name: string; description?: string; tags?: string[] } }>("/api/projects", {
     schema: {
       body: {
         type: "object",
@@ -193,11 +189,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { name, description, tags } = request.body as {
-      name: string;
-      description?: string;
-      tags?: string[];
-    };
+    const { name, description, tags } = request.body;
 
     const userId = getAuthenticatedUserId(request);
 
@@ -237,7 +229,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * PATCH /api/projects/:id - Update a project.
    */
-  app.patch("/api/projects/:id", {
+  app.patch<{ Params: { id: string }; Body: { name?: string; description?: string; tags?: string[] } }>("/api/projects/:id", {
     schema: {
       params: {
         type: "object",
@@ -258,12 +250,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const { name, description, tags } = request.body as {
-      name?: string;
-      description?: string;
-      tags?: string[];
-    };
+    const { id } = request.params;
+    const { name, description, tags } = request.body;
 
     const userId = getAuthenticatedUserId(request);
 
@@ -304,7 +292,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/projects/:id/archive - Archive a project.
    */
-  app.post("/api/projects/:id/archive", {
+  app.post<{ Params: { id: string } }>("/api/projects/:id/archive", {
     schema: {
       params: {
         type: "object",
@@ -313,7 +301,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = request.params;
     const userId = getAuthenticatedUserId(request);
 
     const useCase = new ArchiveProjectUseCase(
@@ -335,7 +323,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/projects/:id/restore - Restore an archived project.
    */
-  app.post("/api/projects/:id/restore", {
+  app.post<{ Params: { id: string } }>("/api/projects/:id/restore", {
     schema: {
       params: {
         type: "object",
@@ -344,7 +332,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = request.params;
     const userId = getAuthenticatedUserId(request);
 
     const useCase = new RestoreProjectUseCase(
@@ -366,7 +354,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * DELETE /api/projects/:id — Permanently delete a project. Owner only.
    */
-  app.delete("/api/projects/:id", {
+  app.delete<{ Params: { id: string } }>("/api/projects/:id", {
     schema: {
       params: {
         type: "object",
@@ -375,7 +363,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = request.params;
     const userId = getAuthenticatedUserId(request);
 
     const useCase = new DeleteProjectUseCase(

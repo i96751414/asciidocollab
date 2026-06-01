@@ -74,6 +74,30 @@ export class PrismaProjectMemberRepository implements ProjectMemberRepository {
       data: { role },
     });
   }
+
+  /**
+   * Returns projects where the given user is the sole owner.
+   *
+   * @param userId - The user to check sole ownership for.
+   * @returns Projects where the user is the only owner member.
+   */
+  async findSoleOwnerProjects(userId: UserId): Promise<Array<{ id: ProjectId; name: string }>> {
+    const ownerMemberships = await this.prisma.projectMember.findMany({
+      where: { userId: userId.value, role: 'OWNER' },
+      include: { project: { select: { id: true, name: true } } },
+    });
+
+    const result: Array<{ id: ProjectId; name: string }> = [];
+    for (const m of ownerMemberships) {
+      const otherOwnerCount = await this.prisma.projectMember.count({
+        where: { projectId: m.projectId, role: 'OWNER', userId: { not: userId.value } },
+      });
+      if (otherOwnerCount === 0) {
+        result.push({ id: ProjectId.create(m.project.id), name: m.project.name });
+      }
+    }
+    return result;
+  }
 }
 
 type ProjectMemberRecord = {

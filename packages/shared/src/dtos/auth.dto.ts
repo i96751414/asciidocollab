@@ -57,12 +57,16 @@ export interface AuthErrorResponseDto {
 
 /** User profile response. */
 export interface UserProfileDto {
-  /** User's unique identifier. */
+  /** Unique identifier of the authenticated user. */
   userId: string;
-  /** User's display name. */
+  /** Display name of the authenticated user. */
   displayName: string;
-  /** User's email address. */
+  /** Email address of the authenticated user. */
   email: string;
+  /** Whether the user has administrator privileges. */
+  isAdmin: boolean;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
 }
 
 /** Update display name request data. */

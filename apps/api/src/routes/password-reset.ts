@@ -9,7 +9,7 @@ import type { ResetPasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } f
  * @param app - The Fastify instance to register the route on.
  */
 export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
-  app.post('/auth/password/reset', {
+  app.post<{ Body: ResetPasswordDto }>('/auth/password/reset', {
     config: {
       rateLimit: {
         max: app.config.auth.passwordReset.rateLimitMax,
@@ -27,7 +27,7 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { token, newPassword } = request.body as ResetPasswordDto;
+    const { token, newPassword } = request.body;
 
     const historyDepth = app.config.auth.password.historyDepth;
 

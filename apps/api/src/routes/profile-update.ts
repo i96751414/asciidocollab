@@ -3,8 +3,15 @@ import { UserId, UpdateDisplayNameUseCase } from '@asciidocollab/domain';
 import '../types/session';
 import type { UpdateDisplayNameDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
+/** Registers the profile update route on the Fastify instance. */
 export async function profileUpdateRoute(app: FastifyInstance): Promise<void> {
-  app.patch('/auth/profile', {
+  app.patch<{ Body: UpdateDisplayNameDto }>('/auth/profile', {
+    config: {
+      rateLimit: {
+        max: app.config.auth.profileUpdate.rateLimitMax,
+        timeWindow: app.config.auth.profileUpdate.rateLimitWindow,
+      },
+    },
     schema: {
       body: {
         type: 'object',
@@ -21,7 +28,7 @@ export async function profileUpdateRoute(app: FastifyInstance): Promise<void> {
       } satisfies AuthErrorResponseDto);
     }
 
-    const { displayName } = request.body as UpdateDisplayNameDto;
+    const { displayName } = request.body;
 
     const useCase = new UpdateDisplayNameUseCase(request.server.repos.user);
     const result = await useCase.execute(UserId.create(request.session.userId), displayName);

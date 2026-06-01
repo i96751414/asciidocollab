@@ -48,4 +48,26 @@ export interface UserRepository {
    * @returns Up to 10 matching users.
    */
   search(query: string, excludeProjectId?: ProjectId): Promise<User[]>;
+
+  /**
+   * Returns all users in the system.
+   *
+   * @returns An array of all user entities.
+   */
+  findAll(): Promise<User[]>;
+
+  /**
+   * Hard-deletes a user by ID.
+   *
+   * @param id - The unique identifier of the user to delete.
+   * @returns A promise that resolves when the user is deleted.
+   */
+  delete(id: UserId): Promise<void>;
+
+  /**
+   * Returns the count of users with isAdmin=true.
+   *
+   * @returns The number of admin users.
+   */
+  countAdmins(): Promise<number>;
 }

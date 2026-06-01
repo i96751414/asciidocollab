@@ -10,22 +10,31 @@ export interface PasswordResetTokenData {
   expiresAt: Date;
 }
 
-/**
- * Interface for generating password reset tokens.
- */
+/** Service interface for generating and hashing cryptographic tokens. */
 export interface TokenGenerator {
   /**
-   * Generates a new password reset token.
+   * Generates a new password-reset token with raw value, hash, and expiry.
    *
-   * @returns A new token with raw and hashed versions.
+   * @returns A new password reset token data object.
    */
   generatePasswordResetToken(): PasswordResetTokenData;
-
   /**
-   * Hashes a raw token for secure storage.
+   * Generates a new invitation token with raw value, hash, and expiry.
    *
-   * @param token - The raw token to hash.
-   * @returns The hashed token.
+   * @returns A new invitation token data object.
+   */
+  generateInvitationToken(): PasswordResetTokenData;
+  /**
+   * Generates a new email-verification token with raw value, hash, and expiry.
+   *
+   * @returns A new email verification token data object.
+   */
+  generateEmailVerificationToken(): PasswordResetTokenData;
+  /**
+   * Returns the SHA-256 hex hash of the given raw token.
+   *
+   * @param token - The raw token string to hash.
+   * @returns The hex-encoded SHA-256 hash of the token.
    */
   hashToken(token: string): string;
 }

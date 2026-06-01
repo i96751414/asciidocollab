@@ -1,5 +1,9 @@
 # AsciiDoCollab
 
+> **⚠ Pre-MVP — not ready for production use.**
+> The core infrastructure is being built and hardened. The collaborative editor — the central feature — does not exist
+> yet. See [Project status](#project-status) for the honest picture.
+
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
 Write technical documentation, books, and structured content in AsciiDoc format — together, in real time, in your
@@ -15,25 +19,50 @@ self-hosted web application.
 
 ## Features
 
-**Available now**
+**Foundation (built, under active hardening)**
 
-- User accounts with registration and secure login
+- User accounts — self-registration with email verification, admin invitation flow
+- Secure login with session management (Argon2id, encrypted sessions, rate limiting, breach detection
+  via [Have I Been Pwned](https://haveibeenpwned.com))
 - Create and manage projects to organise your work
-- Invite team members and assign roles — Viewer, Editor, or Administrator
-- Audit log of all changes and access events
-- Configurable email notifications (SMTP, SendGrid, or AWS SES)
-- Enterprise-ready security defaults: Argon2id password hashing, encrypted sessions, rate limiting, breach detection
-  via [Have I Been Pwned](https://haveibeenpwned.com)
+- Invite team members and assign roles — Viewer, Editor, or Owner
+- Admin panel — manage users, toggle open registration, audit log
+- Configurable email delivery (SMTP, SendGrid, or AWS SES)
 
-**Coming soon**
+**Not yet built (MVP blockers)**
 
 - AsciiDoc editor with syntax highlighting and live HTML preview
 - Real-time co-editing — see collaborators' cursors and changes as they happen
 - Git integration — push, pull, branch, and create pull requests from the UI
 - PDF export via Asciidoctor-PDF
+
+**Planned after MVP**
+
 - SSO / SAML 2.0 (Microsoft Entra ID and compatible providers)
 - File and folder management within projects
 - Multi-factor authentication and IP-based access controls
+
+---
+
+## Project status
+
+**This project has not reached MVP.**
+
+The authentication and user-management layer is feature-complete and has been through multiple rounds of code review and
+hardening. The collaborative editor — the reason this project exists — is not yet started.
+
+| Layer                               | Status            |
+|-------------------------------------|-------------------|
+| Authentication & session management | ✅ Built, hardened |
+| User registration & invitation flow | ✅ Built, hardened |
+| Project & team management           | ✅ Built           |
+| Admin panel & audit log             | ✅ Built           |
+| AsciiDoc editor                     | ❌ Not started     |
+| Real-time collaboration             | ❌ Not started     |
+| Git integration                     | ❌ Not started     |
+| PDF export                          | ❌ Not started     |
+
+Do not deploy this to production or rely on it for real work yet. The API and data model may change before MVP.
 
 ---
 
@@ -46,7 +75,7 @@ The fastest way to get AsciiDoCollab running locally is with the included startu
 - [pnpm 9+](https://pnpm.io/installation)
 
 ```bash
-git clone https://github.com/your-org/asciidocollab.git
+git clone https://github.com/joaoleal/asciidocollab.git
 cd asciidocollab
 ./scripts/dev.sh
 ```
@@ -80,17 +109,6 @@ All other settings have secure defaults. See `.env.example` for the full list wi
 
 ---
 
-## Project status
-
-AsciiDoCollab is under active development. The core foundation — authentication, project management, team membership,
-and security — is complete and production-quality. The collaborative editor, Git integration, and PDF export are next on
-the roadmap.
-
-The API is fully functional and the web dashboard is operational. This is a good time to try it, give feedback, or start
-building on top of it.
-
----
-
 ## Self-hosting
 
 AsciiDoCollab is designed to be self-hosted. You need:
@@ -100,6 +118,12 @@ AsciiDoCollab is designed to be self-hosted. You need:
 - Node.js 24+ to run the API and web app
 
 No cloud accounts, no telemetry, no external dependencies required.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

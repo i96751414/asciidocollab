@@ -4,10 +4,11 @@ import { getAuthenticatedUserId } from '../../plugins/require-auth';
 
 /**
  * Registers the user search route.
- * GET /api/users/search?q=<query>&excludeProjectId=<id>
+ *
+ * GET /api/users/search?q=query&excludeProjectId=id.
  */
 export async function usersSearchRoute(app: FastifyInstance): Promise<void> {
-  app.get('/api/users/search', {
+  app.get<{ Querystring: { q?: string; excludeProjectId?: string } }>('/api/users/search', {
     config: {
       rateLimit: {
         max: app.config.auth.userSearch.rateLimitMax,
@@ -26,7 +27,7 @@ export async function usersSearchRoute(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     getAuthenticatedUserId(request); // asserts session is valid; result unused here
 
-    const { q, excludeProjectId } = request.query as { q?: string; excludeProjectId?: string };
+    const { q, excludeProjectId } = request.query;
 
     if (!q || q.length < 2) {
       return reply.status(400).send({

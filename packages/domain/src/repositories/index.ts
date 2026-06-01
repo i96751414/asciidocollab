@@ -10,3 +10,7 @@ export { ImageRepository } from './image.repository';
 export { AuditLogRepository } from './audit-log.repository';
 export { PasswordResetTokenRepository } from './password-reset-token.repository';
 export { EmailChangeTokenRepository } from './email-change-token.repository';
+export { UserInvitationRepository } from './user-invitation.repository';
+export { EmailVerificationTokenRepository } from './email-verification-token.repository';
+export { SystemSettingRepository } from './system-setting.repository';
+export { SessionRepository } from './session.repository';

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi, adminApi, ApiError } from "@/lib/api";
 import { isInternalPath } from "@/lib/redirect";
 
 const loginSchema = z.object({
@@ -40,9 +40,14 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [lockoutMessage, setLockoutMessage] = useState<string | null>(null);
+  const [openRegistration, setOpenRegistration] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const safeRedirect = isInternalPath(redirectTo) ? redirectTo : "/dashboard";
+
+  useEffect(() => {
+    adminApi.getOpenRegistrationStatus().then((d) => setOpenRegistration(d.openRegistration)).catch(() => {});
+  }, []);
 
   function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,6 +146,14 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Signing in…" : "Sign in"}
             </Button>
+            {openRegistration && (
+              <p className="text-center text-sm text-muted-foreground">
+                No account?{" "}
+                <Link href="/register" className="underline hover:text-foreground">
+                  Create an account
+                </Link>
+              </p>
+            )}
           </div>
         </form>
       </CardContent>

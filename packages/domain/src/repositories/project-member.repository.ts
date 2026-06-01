@@ -35,28 +35,37 @@ export interface ProjectMemberRepository {
 
   /**
    * Adds a new member to a project.
-   * 
+   *
    * @param member - The project member entity to add.
-   * @returns A promise that resolves when the operation completes.
+   * @returns A promise that resolves when the member is added.
    */
   addMember(member: ProjectMember): Promise<void>;
 
   /**
    * Removes a member from a project.
-   * 
+   *
    * @param projectId - The unique identifier of the project.
    * @param userId - The unique identifier of the user to remove.
-   * @returns A promise that resolves when the operation completes.
+   * @returns A promise that resolves when the member is removed.
    */
   removeMember(projectId: ProjectId, userId: UserId): Promise<void>;
 
   /**
-   * Updates the role of a project member.
-   * 
+   * Updates the role of an existing project member.
+   *
    * @param projectId - The unique identifier of the project.
-   * @param userId - The unique identifier of the user.
+   * @param userId - The unique identifier of the user whose role to update.
    * @param newRole - The new role to assign.
-   * @returns A promise that resolves when the operation completes.
+   * @returns A promise that resolves when the role is updated.
    */
   updateRole(projectId: ProjectId, userId: UserId, newRole: Role): Promise<void>;
+
+  /**
+   * Returns projects where the given user is the sole OWNER
+   * (no other OWNER member exists).
+   *
+   * @param userId - The user to check sole ownership for.
+   * @returns An array of projects where the user is the only owner.
+   */
+  findSoleOwnerProjects(userId: UserId): Promise<Array<{ id: ProjectId; name: string }>>;
 }

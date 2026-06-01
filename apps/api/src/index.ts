@@ -14,6 +14,10 @@ import {
   PrismaAuditLogRepository,
   PrismaPasswordResetTokenRepository,
   PrismaEmailChangeTokenRepository,
+  PrismaUserInvitationRepository,
+  PrismaEmailVerificationTokenRepository,
+  PrismaSystemSettingRepository,
+  PrismaSessionRepository,
   Argon2PasswordHasher,
   HIBPBreachChecker,
   CommonPasswordFileChecker,
@@ -24,6 +28,8 @@ import {
   PrismaSessionStore,
   SmtpPasswordResetNotifier,
   SmtpEmailChangeNotifier,
+  SmtpRegistrationInvitationNotifier,
+  SmtpEmailVerificationNotifier,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -37,6 +43,10 @@ import {
   AuditLogRepository,
   PasswordResetTokenRepository,
   EmailChangeTokenRepository,
+  UserInvitationRepository,
+  EmailVerificationTokenRepository,
+  SystemSettingRepository,
+  SessionRepository,
   PasswordHasher,
   BreachChecker,
   CommonPasswordChecker,
@@ -44,6 +54,8 @@ import {
   TokenGenerator,
   PasswordResetNotifier,
   EmailChangeNotifier,
+  RegistrationInvitationNotifier,
+  EmailVerificationNotifier,
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
 import { authPluginWrapped } from './plugins/auth';
@@ -53,6 +65,7 @@ import { corsPluginWrapped } from './plugins/cors';
 import { httpsRedirectPluginWrapped } from './plugins/https-redirect';
 import { errorHandler, notFoundHandler } from './plugins/error-handler';
 import { requireAuth } from './plugins/require-auth';
+import { requireEmailVerified } from './plugins/require-email-verified';
 import { healthRoute } from './routes/health';
 import { loginRoute } from './routes/login';
 import { registerRoute } from './routes/register';
@@ -68,37 +81,79 @@ import { projectRoutes } from './routes/projects';
 import { memberRoutes } from './routes/projects/members';
 import { usersSearchRoute } from './routes/projects/users-search';
 import { setupStatusRoute } from './routes/setup-status';
+import { sessionStatusRoute } from './routes/session-status';
+import { acceptInviteRoute } from './routes/accept-invite';
+import { usersInviteRoute } from './routes/admin/users-invite';
+import { usersRoute } from './routes/admin/users';
+import { usersAdminStatusRoute } from './routes/admin/users-admin-status';
+import { usersRemoveRoute } from './routes/admin/users-remove';
+import { verifyEmailRoute } from './routes/verify-email';
+import { resendVerificationRoute } from './routes/resend-verification';
+import { openRegistrationStatusRoute } from './routes/open-registration-status';
+import { adminSettingsRoute } from './routes/admin/settings';
 import type { FastifyInstance } from 'fastify';
 
-/** Dependency injection container for the application. */
+/** Dependency container passed to `buildServer` to wire repositories and services. */
 export interface AppContainer {
-  /** Prisma client instance for database access. */
+  /** Prisma client instance used to construct repositories. */
   prisma: PrismaClient;
-  /** Repository instances wired to domain interfaces. */
+  /** Collection of domain repository implementations. */
   repos: {
+    /** Repository for user persistence. */
     user: UserRepository;
+    /** Repository for project persistence. */
     project: ProjectRepository;
+    /** Repository for file-node persistence. */
     fileNode: FileNodeRepository;
+    /** Repository for document persistence. */
     document: DocumentRepository;
+    /** Repository for project-member persistence. */
     projectMember: ProjectMemberRepository;
+    /** Repository for git-repository persistence. */
     gitRepository: GitRepositoryRepository;
+    /** Repository for template persistence. */
     template: TemplateRepository;
+    /** Repository for image persistence. */
     image: ImageRepository;
+    /** Repository for audit-log persistence. */
     auditLog: AuditLogRepository;
+    /** Repository for password-reset-token persistence. */
     passwordResetToken: PasswordResetTokenRepository;
+    /** Repository for email-change-token persistence. */
     emailChangeToken: EmailChangeTokenRepository;
+    /** Repository for user-invitation persistence. */
+    userInvitation: UserInvitationRepository;
+    /** Repository for email-verification-token persistence. */
+    emailVerificationToken: EmailVerificationTokenRepository;
+    /** Repository for system-setting persistence. */
+    systemSetting: SystemSettingRepository;
+    /** Repository for session persistence. */
+    session: SessionRepository;
   };
-  /** Infrastructure service instances. */
+  /** Collection of domain service implementations. */
   services: {
+    /** Service for hashing and verifying passwords. */
     passwordHasher: PasswordHasher;
+    /** Service for checking passwords against breach databases. */
     breachChecker: BreachChecker;
+    /** Service for checking passwords against a common-password list. */
     commonPasswordChecker: CommonPasswordChecker;
+    /** Service for sending transactional emails. */
     emailSender: EmailSender;
+    /** Service for generating cryptographic tokens. */
     tokenGenerator: TokenGenerator;
+    /** Service for encrypting and decrypting session data. */
     sessionEncryption: SessionEncryption;
+    /** Prisma-backed session store for use with the auth plugin. */
     prismaSessionStore: PrismaSessionStore;
+    /** Notifier for password-reset emails. */
     passwordResetNotifier: PasswordResetNotifier;
+    /** Notifier for email-change confirmation emails. */
     emailChangeNotifier: EmailChangeNotifier;
+    /** Notifier for registration-invitation emails. */
+    registrationInvitationNotifier: RegistrationInvitationNotifier;
+    /** Notifier for email-verification emails. */
+    emailVerificationNotifier: EmailVerificationNotifier;
   };
 }
 
@@ -139,6 +194,10 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       auditLog: new PrismaAuditLogRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
       emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
+      userInvitation: new PrismaUserInvitationRepository(app.prisma),
+      emailVerificationToken: new PrismaEmailVerificationTokenRepository(app.prisma),
+      systemSetting: new PrismaSystemSettingRepository(app.prisma),
+      session: new PrismaSessionRepository(app.prisma),
     });
   }
 
@@ -201,6 +260,20 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       appConfig.auth.email.templates.emailChangeRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
     );
 
+    const registrationInvitationNotifier = new SmtpRegistrationInvitationNotifier(
+      emailSender,
+      appConfig.auth.invitation.subject,
+      appConfig.auth.invitation.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+    );
+
+    const emailVerificationNotifier = new SmtpEmailVerificationNotifier(
+      emailSender,
+      appConfig.auth.emailVerification.subject,
+      appConfig.auth.emailVerification.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+      appConfig.auth.emailVerification.resendSubject,
+      appConfig.auth.emailVerification.resendHtmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+    );
+
     app.decorate('services', {
       passwordHasher,
       breachChecker,
@@ -211,6 +284,8 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       prismaSessionStore,
       passwordResetNotifier,
       emailChangeNotifier,
+      registrationInvitationNotifier,
+      emailVerificationNotifier,
     });
   }
 
@@ -235,6 +310,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
   // Public routes — no auth required
   await app.register(healthRoute);
   await app.register(setupStatusRoute);
+  await app.register(sessionStatusRoute);
   await app.register(emailConfirmRoute);
 
   // Public auth routes — protected by SameSite=Strict + Origin check (replaces old CSRF tokens)
@@ -243,17 +319,34 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
   await app.register(logoutRoute);
   await app.register(passwordResetRequestRoute);
   await app.register(passwordResetRoute);
+  await app.register(acceptInviteRoute);
+  await app.register(verifyEmailRoute);
+  await app.register(openRegistrationStatusRoute);
 
   // Protected routes — require authentication
   await app.register(async function protectedRoutes(scopedApp: FastifyInstance) {
     scopedApp.addHook('preHandler', requireAuth);
-    await scopedApp.register(meRoute);
-    await scopedApp.register(passwordChangeRoute);
-    await scopedApp.register(profileUpdateRoute);
-    await scopedApp.register(emailChangeRequestRoute);
-    await scopedApp.register(projectRoutes);
-    await scopedApp.register(memberRoutes);
-    await scopedApp.register(usersSearchRoute);
+
+    // Resend-verification is accessible to authenticated but UNVERIFIED users —
+    // exempting it from the email-verification gate avoids a circular dependency.
+    await scopedApp.register(resendVerificationRoute);
+
+    // All remaining protected routes additionally require a verified email address.
+    await scopedApp.register(async function verifiedRoutes(innerApp: FastifyInstance) {
+      innerApp.addHook('preHandler', requireEmailVerified);
+      await innerApp.register(meRoute);
+      await innerApp.register(passwordChangeRoute);
+      await innerApp.register(profileUpdateRoute);
+      await innerApp.register(emailChangeRequestRoute);
+      await innerApp.register(projectRoutes);
+      await innerApp.register(memberRoutes);
+      await innerApp.register(usersSearchRoute);
+      await innerApp.register(usersInviteRoute);
+      await innerApp.register(usersRoute);
+      await innerApp.register(usersAdminStatusRoute);
+      await innerApp.register(usersRemoveRoute);
+      await innerApp.register(adminSettingsRoute);
+    });
   });
 }
 
@@ -292,6 +385,10 @@ declare module 'fastify' {
       auditLog: AuditLogRepository;
       passwordResetToken: PasswordResetTokenRepository;
       emailChangeToken: EmailChangeTokenRepository;
+      userInvitation: UserInvitationRepository;
+      emailVerificationToken: EmailVerificationTokenRepository;
+      systemSetting: SystemSettingRepository;
+      session: SessionRepository;
     };
     services: {
       passwordHasher: PasswordHasher;
@@ -303,6 +400,8 @@ declare module 'fastify' {
       prismaSessionStore: PrismaSessionStore | undefined;
       passwordResetNotifier: PasswordResetNotifier;
       emailChangeNotifier: EmailChangeNotifier;
+      registrationInvitationNotifier: RegistrationInvitationNotifier;
+      emailVerificationNotifier: EmailVerificationNotifier;
     };
   }
 }

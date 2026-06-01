@@ -1,6 +1,7 @@
 import { UserId } from '../value-objects/user-id';
 import { Email } from '../value-objects/email';
 import { Timestamps } from '../value-objects/timestamps';
+import type { RegistrationMethod } from '../types/registration-method';
 
 /**
  * Represents a registered user in the system.
@@ -47,6 +48,10 @@ export class User {
     public readonly isAdmin: boolean = false,
     /** Creation and last-update timestamps. Defaults to the current time. */
     public readonly timestamps: Timestamps = new Timestamps(),
+    /** Whether the user's email address has been verified. */
+    public readonly emailVerified: boolean = false,
+    /** How this user entered the system. */
+    public readonly registrationMethod: RegistrationMethod = 'SELF_REGISTERED',
   ) {
     if (!this.passwordHash && !this.samlSubject) {
       throw new Error('User must have at least one of passwordHash or samlSubject');

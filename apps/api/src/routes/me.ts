@@ -3,6 +3,7 @@ import { UserId } from '@asciidocollab/domain';
 import '../types/session';
 import type { UserProfileDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
+/** Registers the me route on the Fastify instance. */
 export async function meRoute(app: FastifyInstance): Promise<void> {
   app.get('/auth/me', async (request, reply) => {
     if (!request.session.userId) {
@@ -25,6 +26,8 @@ export async function meRoute(app: FastifyInstance): Promise<void> {
       userId: user.id.value,
       displayName: user.displayName,
       email: user.email.value,
+      isAdmin: user.isAdmin,
+      emailVerified: user.emailVerified,
     } satisfies UserProfileDto;
   });
 }

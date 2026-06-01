@@ -2,8 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { Email, RequestPasswordResetUseCase } from '@asciidocollab/domain';
 import type { RequestPasswordResetDto, AuthSuccessResponseDto } from '@asciidocollab/shared';
 
+/** Registers the password reset request route on the Fastify instance. */
 export async function passwordResetRequestRoute(app: FastifyInstance): Promise<void> {
-  app.post('/auth/password/reset/request', {
+  app.post<{ Body: RequestPasswordResetDto }>('/auth/password/reset/request', {
     config: {
       rateLimit: {
         max: app.config.auth.passwordReset.rateLimitMax,
@@ -20,7 +21,7 @@ export async function passwordResetRequestRoute(app: FastifyInstance): Promise<v
       },
     },
   }, async (request, reply) => {
-    const { email } = request.body as RequestPasswordResetDto;
+    const { email } = request.body;
 
     const useCase = new RequestPasswordResetUseCase(
       request.server.repos.user,

@@ -15,6 +15,7 @@ function createTestUser(displayName = 'Original Name'): User {
     [],
     null,
     null,
+    false,
     new Timestamps(),
   );
 }

@@ -2,8 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { ConfirmEmailChangeUseCase } from '@asciidocollab/domain';
 import type { AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
+/** Registers the email confirm route on the Fastify instance. */
 export async function emailConfirmRoute(app: FastifyInstance): Promise<void> {
-  app.get('/auth/email/confirm', {
+  app.get<{ Querystring: { token: string } }>('/auth/email/confirm', {
     config: {
       rateLimit: {
         max: app.config.auth.emailConfirm.rateLimitMax,
@@ -20,7 +21,7 @@ export async function emailConfirmRoute(app: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { token } = request.query as { token: string };
+    const { token } = request.query;
 
     const useCase = new ConfirmEmailChangeUseCase(
       request.server.repos.emailChangeToken,

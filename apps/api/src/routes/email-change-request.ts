@@ -3,8 +3,9 @@ import { UserId, RequestEmailChangeUseCase, NotificationDeliveryError } from '@a
 import '../types/session';
 import type { RequestEmailChangeDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
+/** Registers the email change request route on the Fastify instance. */
 export async function emailChangeRequestRoute(app: FastifyInstance): Promise<void> {
-  app.post('/auth/email/change-request', {
+  app.post<{ Body: RequestEmailChangeDto }>('/auth/email/change-request', {
     config: {
       rateLimit: {
         max: app.config.auth.emailChangeRequest.rateLimitMax,
@@ -27,7 +28,7 @@ export async function emailChangeRequestRoute(app: FastifyInstance): Promise<voi
       } satisfies AuthErrorResponseDto);
     }
 
-    const { newEmail } = request.body as RequestEmailChangeDto;
+    const { newEmail } = request.body;
 
     const useCase = new RequestEmailChangeUseCase(
       request.server.repos.user,

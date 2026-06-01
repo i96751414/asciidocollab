@@ -23,3 +23,5 @@ export { PasswordResetTokenId } from './password-reset-token-id';
 export { EmailChangeTokenId } from './email-change-token-id';
 export { validatePassword } from './password-policy';
 export type { PasswordPolicy } from './password-policy';
+export { UserInvitationId } from './user-invitation-id';
+export { EmailVerificationTokenId } from './email-verification-token-id';

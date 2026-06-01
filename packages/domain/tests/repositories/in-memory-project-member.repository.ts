@@ -41,7 +41,6 @@ export class InMemoryProjectMemberRepository implements ProjectMemberRepository 
     this.storage.delete(compositeKey(projectId, userId));
   }
 
-  /** Updates the role of an existing member by replacing their record with a new role value. */
   async updateRole(projectId: ProjectId, userId: UserId, newRole: Role): Promise<void> {
     const key = compositeKey(projectId, userId);
     const member = this.storage.get(key);
@@ -49,5 +48,25 @@ export class InMemoryProjectMemberRepository implements ProjectMemberRepository 
       const updated = new ProjectMember(member.projectId, member.userId, newRole, member.joinedAt);
       this.storage.set(key, updated);
     }
+  }
+
+  async findSoleOwnerProjects(userId: UserId): Promise<Array<{ id: ProjectId; name: string }>> {
+    const ownerMemberships = [...this.storage.values()].filter(
+      (m) => m.userId.value === userId.value && m.role.value === 'owner',
+    );
+
+    const result: Array<{ id: ProjectId; name: string }> = [];
+    for (const membership of ownerMemberships) {
+      const otherOwners = [...this.storage.values()].filter(
+        (m) =>
+          m.projectId.value === membership.projectId.value &&
+          m.userId.value !== userId.value &&
+          m.role.value === 'owner',
+      );
+      if (otherOwners.length === 0) {
+        result.push({ id: membership.projectId, name: 'Project' });
+      }
+    }
+    return result;
   }
 }

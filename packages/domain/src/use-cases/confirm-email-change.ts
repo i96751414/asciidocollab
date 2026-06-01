@@ -55,6 +55,8 @@ export class ConfirmEmailChangeUseCase {
       user.mfaSecret,
       user.isAdmin,
       user.timestamps,
+      user.emailVerified,
+      user.registrationMethod,
     );
     await this.userRepo.save(updatedUser);
     await this.tokenRepo.markAsUsed(token.id.value, new Date());
