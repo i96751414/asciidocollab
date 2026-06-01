@@ -30,9 +30,14 @@ export function ProjectCard({ project }: ProjectCardProperties) {
               </Badge>
             )}
             {canManage && (
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/dashboard/projects/${project.id}/settings`}>Settings</Link>
-              </Button>
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/dashboard/projects/${project.id}/members`}>Members</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/dashboard/projects/${project.id}/settings`}>Settings</Link>
+                </Button>
+              </>
             )}
           </div>
         </div>
