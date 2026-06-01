@@ -105,7 +105,7 @@ describe('PrismaFileNodeRepository', () => {
   async function setupProject(): Promise<{ project: Project }> {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await projectRepo.save(project);
     return { project };
   }

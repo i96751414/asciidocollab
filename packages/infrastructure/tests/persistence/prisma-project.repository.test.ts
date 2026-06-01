@@ -32,13 +32,12 @@ describe('PrismaProjectRepository', () => {
   it('should save and find a project by id', async () => {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await repo.save(project);
 
     const found = await repo.findById(project.id);
     expect(found).not.toBeNull();
     expect(found!.id.value).toBe(project.id.value);
-    expect(found!.ownerId.value).toBe(owner.id.value);
   });
 
   it('should return null when finding by non-existent id', async () => {
@@ -46,22 +45,10 @@ describe('PrismaProjectRepository', () => {
     expect(result).toBeNull();
   });
 
-  it('should find projects by owner id', async () => {
-    const owner = createTestUser();
-    await userRepo.save(owner);
-    const project1 = createTestProject(owner.id, { name: ProjectName.create('Project 1') });
-    const project2 = createTestProject(owner.id, { name: ProjectName.create('Project 2') });
-    await repo.save(project1);
-    await repo.save(project2);
-
-    const projects = await repo.findByOwnerId(owner.id);
-    expect(projects).toHaveLength(2);
-  });
-
   it('should delete a project', async () => {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await repo.save(project);
 
     await repo.delete(project.id);
@@ -72,10 +59,10 @@ describe('PrismaProjectRepository', () => {
   it('should update an existing project on save', async () => {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await repo.save(project);
 
-    const updatedProject = createTestProject(owner.id, { id: project.id, name: ProjectName.create('Updated Project') });
+    const updatedProject = createTestProject({ id: project.id, name: ProjectName.create('Updated Project') });
     await repo.save(updatedProject);
 
     const found = await repo.findById(project.id);
@@ -90,7 +77,7 @@ describe('PrismaProjectRepository', () => {
   it('should persist and retrieve tags as JSON', async () => {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id, { tags: ['tag1', 'tag2', 'tag3'] });
+    const project = createTestProject({ tags: ['tag1', 'tag2', 'tag3'] });
     await repo.save(project);
 
     const found = await repo.findById(project.id);

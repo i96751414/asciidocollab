@@ -84,18 +84,18 @@ describe('PrismaProjectMemberRepository', () => {
     const member = createTestProjectMember(project.id, user.id);
     await repo.addMember(member);
 
-    const newRole = Role.create('administrator');
+    const newRole = Role.create('owner');
     await repo.updateRole(project.id, user.id, newRole);
 
     const found = await repo.findByCompositeKey(project.id, user.id);
     expect(found).not.toBeNull();
-    expect(found!.role.value).toBe('administrator');
+    expect(found!.role.value).toBe('owner');
   });
 
   async function setupProjectAndUser(): Promise<{ project: Project; user: User }> {
     const user = createTestUser();
     await userRepo.save(user);
-    const project = createTestProject(user.id);
+    const project = createTestProject();
     await projectRepo.save(project);
     return { project, user };
   }

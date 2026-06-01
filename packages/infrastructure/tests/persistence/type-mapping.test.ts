@@ -10,7 +10,7 @@ import { PrismaImageRepository } from '../../src/persistence/prisma-image.reposi
 import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
 import { PrismaGitRepositoryRepository } from '../../src/persistence/prisma-git-repository.repository';
 import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
-import { Project, FileNodeType, FilePath, Role, Timestamps, TemplateCategory, GitProvider } from '@asciidocollab/domain';
+import { FileNodeType, FilePath, Role, TemplateCategory, GitProvider } from '@asciidocollab/domain';
 
 describe('Type mapping round-trip', () => {
   let container: TestContainer;
@@ -103,7 +103,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with tags and no description', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id, {
+      const project = createTestProject({
         description: null,
       });
       await projectRepo.save(project);
@@ -117,21 +117,12 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with description and tags', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id, {
+      const project = createTestProject({
         description: 'A documentation project',
       });
-      // Add tags after construction
-      const projectWithTags = new Project(
-        project.id,
-        project.name,
-        project.description,
-        project.ownerId,
-        ['docs', 'asciidoc'],
-        null,
-        new Timestamps(project.createdAt, project.updatedAt),
-      );
-      await projectRepo.save(projectWithTags);
-      const found = await projectRepo.findById(projectWithTags.id);
+      project.update({ tags: ['docs', 'asciidoc'] });
+      await projectRepo.save(project);
+      const found = await projectRepo.findById(project.id);
       expect(found).not.toBeNull();
       expect(found!.description).toBe('A documentation project');
       expect(found!.tags).toEqual(['docs', 'asciidoc']);
@@ -142,12 +133,12 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with all role values', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
       const member = createTestUser();
       await userRepo.save(member);
 
-      for (const roleName of ['viewer' as const, 'editor' as const, 'administrator' as const]) {
+      for (const roleName of ['viewer' as const, 'editor' as const, 'owner' as const]) {
         const pm = createTestProjectMember(project.id, member.id, { role: Role.create(roleName) });
         await projectMemberRepo.addMember(pm);
         const found = await projectMemberRepo.findByCompositeKey(project.id, member.id);
@@ -162,7 +153,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip folder with null parentId', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
       const folder = createTestFileNode(project.id, { type: FileNodeType.create('folder'), name: 'src', path: FilePath.create('/src') });
       await fileNodeRepo.save(folder);
@@ -177,7 +168,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip file node with parentId', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
       const folder = createTestFileNode(project.id, { type: FileNodeType.create('folder'), name: 'docs', path: FilePath.create('/docs') });
       await fileNodeRepo.save(folder);
@@ -194,7 +185,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with contentId and yjsStateId', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
       const folder = createTestFileNode(project.id, { type: FileNodeType.create('folder'), name: 'docs', path: FilePath.create('/docs') });
       await fileNodeRepo.save(folder);
@@ -213,7 +204,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with version chain (parentId)', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
 
       const original = createTestImage(project.id, { sizeBytes: 1024 });
@@ -249,7 +240,7 @@ describe('Type mapping round-trip', () => {
     it('should round-trip with all provider values', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
-      const project = createTestProject(owner.id);
+      const project = createTestProject();
       await projectRepo.save(project);
 
       for (const p of ['github' as const, 'gitlab' as const, 'bitbucket' as const]) {

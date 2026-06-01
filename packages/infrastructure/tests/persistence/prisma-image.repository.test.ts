@@ -69,7 +69,7 @@ describe('PrismaImageRepository', () => {
   async function setupProject(): Promise<Project> {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await projectRepo.save(project);
     return project;
   }

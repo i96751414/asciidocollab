@@ -45,7 +45,7 @@ describe('PrismaAuditLogRepository', () => {
   it('should find audit logs by project id', async () => {
     const user = createTestUser();
     await userRepo.save(user);
-    const project = createTestProject(user.id);
+    const project = createTestProject();
     await projectRepo.save(project);
     const entry = createTestAuditLog(user.id, { projectId: project.id });
     await repo.save(entry);

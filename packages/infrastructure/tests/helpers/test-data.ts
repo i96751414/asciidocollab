@@ -24,12 +24,11 @@ export function createTestUser(overrides?: UserOverrides): User {
   );
 }
 
-export function createTestProject(ownerId: UserId, overrides?: { id?: ProjectId; name?: ProjectName; description?: string | null; tags?: string[]; rootFolderId?: FileNodeId | null; timestamps?: Timestamps }): Project {
+export function createTestProject(overrides?: { id?: ProjectId; name?: ProjectName; description?: string | null; tags?: string[]; rootFolderId?: FileNodeId | null; timestamps?: Timestamps }): Project {
   return new Project(
     overrides?.id ?? ProjectId.create(randomUUID()),
     overrides?.name ?? ProjectName.create('Test Project'),
     overrides?.description ?? null,
-    ownerId,
     overrides?.tags ?? [],
     overrides?.rootFolderId ?? null,
     overrides?.timestamps ?? new Timestamps(),

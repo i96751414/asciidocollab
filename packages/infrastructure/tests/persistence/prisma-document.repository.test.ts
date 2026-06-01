@@ -84,7 +84,7 @@ describe('PrismaDocumentRepository', () => {
   async function setupFileNode(name = 'test.adoc'): Promise<FileNode> {
     const owner = createTestUser();
     await userRepo.save(owner);
-    const project = createTestProject(owner.id);
+    const project = createTestProject();
     await projectRepo.save(project);
     const folder = createTestFileNode(project.id, { type: FileNodeType.create('folder'), path: FilePath.create('/docs') });
     await fileNodeRepo.save(folder);
