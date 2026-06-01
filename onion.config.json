@@ -2,25 +2,15 @@
   "layers": {
     "domain": "./packages/domain/src",
     "shared": "./packages/shared/src",
-    "db": "./packages/db/src",
-    "infrastructure": "./packages/infrastructure/src"
+    "infrastructure": "./packages/infrastructure/src",
+    "api": "./apps/api/src",
+    "web": "./apps/web/src"
   },
   "rules": [
-    {
-      "from": "domain",
-      "allowedImports": []
-    },
-    {
-      "from": "shared",
-      "allowedImports": ["domain"]
-    },
-    {
-      "from": "db",
-      "allowedImports": []
-    },
-    {
-      "from": "infrastructure",
-      "allowedImports": ["domain", "shared", "db"]
-    }
+    { "from": "domain", "allowedImports": [] },
+    { "from": "shared", "allowedImports": [] },
+    { "from": "infrastructure", "allowedImports": ["domain", "shared"] },
+    { "from": "api", "allowedImports": ["domain", "infrastructure", "shared"] },
+    { "from": "web", "allowedImports": ["shared"] }
   ]
 }
