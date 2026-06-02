@@ -19,7 +19,7 @@ import { getAuthenticatedUserId } from '../../plugins/require-auth';
 
 /** Registers image upload and retrieval routes. Requires `@fastify/multipart` to be installed. */
 export async function imagesRoutes(app: FastifyInstance): Promise<void> {
-  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: app.config.storage.maxUploadSizeBytes } });
 
   app.post<{ Params: { projectId: string }; Querystring: { parentId: string } }>(
     '/projects/:projectId/images',
