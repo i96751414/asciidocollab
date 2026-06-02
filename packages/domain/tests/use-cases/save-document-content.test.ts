@@ -100,4 +100,28 @@ describe('SaveDocumentContentUseCase', () => {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
+
+  it('returns a failed Result (not throws) and does not update DB ContentId when disk write fails', async () => {
+    const failingStore = {
+      write: jest.fn().mockRejectedValue(new Error('disk full')),
+    } as unknown as typeof fileStore;
+
+    const useCaseWithFailingStore = new SaveDocumentContentUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      documentRepo,
+      failingStore,
+    );
+
+    const docBefore = await documentRepo.findByFileNodeId(fileNodeId);
+    const contentIdBefore = docBefore?.contentId.value;
+
+    // Must return a Result, not throw
+    const result = await useCaseWithFailingStore.execute(actorId, projectId, fileNodeId, newContent);
+    expect(result.success).toBe(false);
+
+    // DB ContentId must not have changed
+    const docAfter = await documentRepo.findByFileNodeId(fileNodeId);
+    expect(docAfter?.contentId.value).toBe(contentIdBefore);
+  });
 });

@@ -46,7 +46,11 @@ export class SaveDocumentContentUseCase {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
-    await this.fileStore.write(projectId, fileNode.path, content);
+    try {
+      await this.fileStore.write(projectId, fileNode.path, content);
+    } catch {
+      return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
+    }
 
     const updated = new Document(
       document.id,
