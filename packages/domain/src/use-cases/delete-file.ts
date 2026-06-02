@@ -9,6 +9,7 @@ import { ProjectMemberRepository } from '../repositories/project-member.reposito
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { ProjectFileStore } from '../storage/project-file-store';
 import { YjsStateStore } from '../storage/yjs-state-store';
+import { YjsStateId } from '../value-objects/yjs-state-id';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../errors/cannot-delete-root-folder';
@@ -76,7 +77,7 @@ export class DeleteFileUseCase {
         await this.yjsStateStore.delete(projectId, document.yjsStateId);
       }
     } else {
-      await this.deleteFolderRecursively(fileNodeId);
+      await this.deleteFolderRecursively(fileNodeId, projectId);
       if (this.fileStore) {
         await this.fileStore.removeDirectory(projectId, fileNode.path);
       }
@@ -95,9 +96,10 @@ export class DeleteFileUseCase {
     return { success: true, value: undefined };
   }
 
-  private async deleteFolderRecursively(folderId: FileNodeId): Promise<void> {
+  private async deleteFolderRecursively(folderId: FileNodeId, projectId: ProjectId): Promise<void> {
     const stack: FileNodeId[] = [folderId];
     const toDelete: FileNodeId[] = [];
+    const yjsStateIds: YjsStateId[] = [];
 
     while (stack.length > 0) {
       const currentId = stack.pop()!;
@@ -109,6 +111,7 @@ export class DeleteFileUseCase {
         if (child.type.value === 'file') {
           const document = await this.documentRepo.findByFileNodeId(child.id);
           if (document) {
+            yjsStateIds.push(document.yjsStateId);
             await this.documentRepo.delete(document.id);
           }
           toDelete.push(child.id);
@@ -121,6 +124,12 @@ export class DeleteFileUseCase {
     // eslint-disable-next-line unicorn/no-array-reverse
     for (const id of [...toDelete].reverse()) {
       await this.fileNodeRepo.delete(id);
+    }
+
+    if (this.yjsStateStore) {
+      for (const stateId of yjsStateIds) {
+        await this.yjsStateStore.delete(projectId, stateId);
+      }
     }
   }
 }

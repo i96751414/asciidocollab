@@ -276,6 +276,39 @@ describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {
     expect(folderNode).toBeNull();
   });
 
+  it('cleans up Yjs state for all documents inside a deleted folder', async () => {
+    const childFileId = FileNodeId.create('ff0e8400-e29b-41d4-a716-446655440030');
+    const childDocId = DocumentId.create('ff0e8400-e29b-41d4-a716-446655440031');
+    const childYjsStateId = YjsStateId.create('ff0e8400-e29b-41d4-a716-446655440032');
+
+    const childFile = new FileNode(
+      childFileId,
+      projectId,
+      folderNodeId,
+      'note.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/child-folder/note.adoc'),
+    );
+    await fileNodeRepo.save(childFile);
+
+    const childDoc = new Document(
+      childDocId,
+      childFileId,
+      ContentId.create('aa0e8400-e29b-41d4-a716-446655440033'),
+      childYjsStateId,
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo.save(childDoc);
+
+    await yjsStateStore.save(projectId, childYjsStateId, Buffer.from('yjs-data'));
+    expect(await yjsStateStore.load(projectId, childYjsStateId)).not.toBeNull();
+
+    const result = await useCase.execute(actorId, folderNodeId, projectId);
+    expect(result.success).toBe(true);
+
+    expect(await yjsStateStore.load(projectId, childYjsStateId)).toBeNull();
+  });
+
   it('returns FileNodeNotFoundError when the file node belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440011');
