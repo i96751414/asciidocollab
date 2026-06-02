@@ -102,7 +102,7 @@ export async function imagesRoutes(app: FastifyInstance): Promise<void> {
       return reply
         .status(200)
         .header('Content-Type', result.value.mimeType.value)
-        .header('Content-Disposition', `inline; filename="${result.value.filename}"`)
+        .header('Content-Disposition', `attachment; filename="${result.value.filename.replaceAll('"', '')}"`)
         .send(result.value.bytes);
     },
   );

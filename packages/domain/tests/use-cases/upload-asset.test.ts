@@ -125,6 +125,32 @@ describe('UploadAssetUseCase', () => {
     expect(result.success).toBe(true);
   });
 
+  it('returns ValidationError when MIME type is text/html', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'evil.html', MimeType.create('text/html'), smallBytes);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
+  it('returns ValidationError when MIME type is text/javascript', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'evil.js', MimeType.create('text/javascript'), smallBytes);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
+  it('accepts image/png', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts application/pdf', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'report.pdf', MimeType.create('application/pdf'), smallBytes);
+    expect(result.success).toBe(true);
+  });
+
   it('returns ValidationError when bytes is empty (zero-byte file)', async () => {
     const result = await useCase.execute(
       actorId,

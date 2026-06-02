@@ -20,8 +20,21 @@ import { Image } from '../entities/image';
 import { SETTING_MAX_UPLOAD_SIZE_BYTES } from '../constants';
 import { randomUUID } from 'crypto';
 
-/** Saves an uploaded file asset and persists its metadata. No MIME type restriction. */
+/** Saves an uploaded file asset and persists its metadata. */
 export class UploadAssetUseCase {
+  private static readonly ALLOWED_MIME_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'image/bmp',
+    'image/tiff',
+    'application/pdf',
+    'application/octet-stream',
+    'text/plain',
+    'text/csv',
+  ]);
   /** Initializes the use case with the repositories and file store required to store and record an asset. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
@@ -44,6 +57,10 @@ export class UploadAssetUseCase {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
+    }
+
+    if (!UploadAssetUseCase.ALLOWED_MIME_TYPES.has(mimeType.value)) {
+      return { success: false, error: new ValidationError(`MIME type '${mimeType.value}' is not permitted`) };
     }
 
     const stored = await this.systemSettingRepo.get(SETTING_MAX_UPLOAD_SIZE_BYTES);
