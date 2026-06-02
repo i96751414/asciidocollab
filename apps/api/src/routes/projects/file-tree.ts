@@ -143,6 +143,19 @@ export async function fileTreeRoutes(app: FastifyInstance): Promise<void> {
         const newParentId = FileNodeId.create(parentId);
         const moveResult = await moveUseCase.execute(actorId, projectId, fileNodeId, newParentId);
         if (!moveResult.success) return sendFileTreeError(reply, moveResult.error);
+
+        const updatedNode = await request.server.repos.fileNode.findById(fileNodeId);
+        if (updatedNode) {
+          const event: FileTreeEventDto = {
+            type: 'moved',
+            fileNodeId: fileNodeId.value,
+            nodeType: toNodeType(updatedNode.type.value),
+            name,
+            path: moveResult.value.newPath.value,
+            parentId,
+          };
+          request.server.fileTreeEventBus.emit(projectId.value, event);
+        }
         return reply.status(204).send();
       } else if (name !== undefined) {
         const useCase = new RenameFileUseCase(
