@@ -35,7 +35,7 @@ export class MoveFileUseCase {
     }
 
     const fileNode = await this.fileNodeRepo.findById(fileNodeId);
-    if (!fileNode) {
+    if (!fileNode || fileNode.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
@@ -44,7 +44,7 @@ export class MoveFileUseCase {
     }
 
     const newParent = await this.fileNodeRepo.findById(newParentId);
-    if (!newParent || newParent.type.value !== 'folder') {
+    if (!newParent || newParent.type.value !== 'folder' || newParent.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(newParentId.value) };
     }
 

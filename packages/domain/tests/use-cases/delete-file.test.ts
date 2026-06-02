@@ -1,4 +1,6 @@
 import { DeleteFileUseCase } from '../../src/use-cases/delete-file';
+import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
+import { PermissionDeniedError } from '../../src/errors/permission-denied';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
@@ -272,5 +274,26 @@ describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {
     // Verify the folder node is deleted from DB.
     const folderNode = await fileNodeRepo.findById(folderNodeId);
     expect(folderNode).toBeNull();
+  });
+
+  it('returns FileNodeNotFoundError when the file node belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440011');
+    const alienNode = new FileNode(
+      alienNodeId,
+      otherProjectId,
+      rootFolderId,
+      'alien.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/alien.adoc'),
+    );
+    await fileNodeRepo.save(alienNode);
+
+    // actor is a member of projectId, but alienNode belongs to otherProjectId
+    const result = await useCase.execute(actorId, alienNodeId, projectId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
   });
 });

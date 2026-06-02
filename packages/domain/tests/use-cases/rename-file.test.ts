@@ -1,4 +1,5 @@
 import { RenameFileUseCase } from '../../src/use-cases/rename-file';
+import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
@@ -173,6 +174,26 @@ describe('RenameFileUseCase with ProjectFileStore', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.name).toBe('FileConflictError');
+    }
+  });
+
+  it('returns FileNodeNotFoundError when the file node belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440013');
+    const alienNode = new FileNode(
+      alienNodeId,
+      otherProjectId,
+      rootFolderId,
+      'alien.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/alien.adoc'),
+    );
+    await fileNodeRepo.save(alienNode);
+
+    const result = await useCase.execute(actorId, alienNodeId, 'new-name.adoc', projectId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
 });

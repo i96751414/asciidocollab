@@ -124,4 +124,24 @@ describe('UploadAssetUseCase', () => {
     const result = await useCase.execute(actorId, projectId, rootFolderId, 'data.xyz', MimeType.create('application/octet-stream'), smallBytes);
     expect(result.success).toBe(true);
   });
+
+  it('returns FileNodeNotFoundError when parentId belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienFolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440014');
+    const alienFolder = new FileNode(
+      alienFolderId,
+      otherProjectId,
+      null,
+      'alienroot',
+      FileNodeType.create('folder'),
+      FilePath.create('/'),
+    );
+    await fileNodeRepo.save(alienFolder);
+
+    const result = await useCase.execute(actorId, projectId, alienFolderId, 'img.png', MimeType.create('image/png'), smallBytes);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
 });

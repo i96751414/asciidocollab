@@ -89,4 +89,45 @@ describe('MoveFileUseCase', () => {
       expect(result.error).toBeInstanceOf(CannotDeleteRootFolderError);
     }
   });
+
+  it('returns FileNodeNotFoundError when fileNode belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440011');
+    const alienParentId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440019');
+    const alienNode = new FileNode(
+      alienNodeId,
+      otherProjectId,
+      alienParentId,
+      'alien.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/alien.adoc'),
+    );
+    await fileNodeRepo.save(alienNode);
+
+    const result = await useCase.execute(actorId, projectId, alienNodeId, subFolderId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
+
+  it('returns FileNodeNotFoundError when newParent belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienFolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440012');
+    const alienFolder = new FileNode(
+      alienFolderId,
+      otherProjectId,
+      null,
+      'alienfolder',
+      FileNodeType.create('folder'),
+      FilePath.create('/alienfolder'),
+    );
+    await fileNodeRepo.save(alienFolder);
+
+    const result = await useCase.execute(actorId, projectId, fileNodeId, alienFolderId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
 });

@@ -16,6 +16,7 @@ import { FilePath } from '../../src/value-objects/file-path';
 import { MimeType } from '../../src/value-objects/mime-type';
 import { PermissionDeniedError } from '../../src/errors/permission-denied';
 import { ContentNotFoundError } from '../../src/errors/content-not-found';
+import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
 
 describe('GetAssetContentUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
@@ -81,6 +82,20 @@ describe('GetAssetContentUseCase', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeInstanceOf(ContentNotFoundError);
+    }
+  });
+
+  it('returns FileNodeNotFoundError when the image belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const alienAssetId = ImageId.create('cc0e8400-e29b-41d4-a716-446655440010');
+    const alienImage = new Image(alienAssetId, otherProjectId, 'secret.png', '/secret.png', MimeType.create('image/png'), 100, null);
+    await imageRepo.save(alienImage);
+
+    // actor is a member of projectId, but alienImage belongs to otherProjectId
+    const result = await useCase.execute(actorId, projectId, alienAssetId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
 });

@@ -35,7 +35,7 @@ export class GetAssetContentUseCase {
     }
 
     const image = await this.imageRepo.findById(assetId);
-    if (!image) {
+    if (!image || image.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(assetId.value) };
     }
 

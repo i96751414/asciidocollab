@@ -54,7 +54,7 @@ export class UploadAssetUseCase {
     }
 
     const parent = await this.fileNodeRepo.findById(parentId);
-    if (!parent || parent.type.value !== 'folder') {
+    if (!parent || parent.type.value !== 'folder' || parent.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(parentId.value) };
     }
 
