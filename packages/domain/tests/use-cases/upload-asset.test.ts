@@ -125,6 +125,21 @@ describe('UploadAssetUseCase', () => {
     expect(result.success).toBe(true);
   });
 
+  it('returns ValidationError when bytes is empty (zero-byte file)', async () => {
+    const result = await useCase.execute(
+      actorId,
+      projectId,
+      rootFolderId,
+      'empty.png',
+      MimeType.create('image/png'),
+      Buffer.alloc(0),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
   it('returns FileNodeNotFoundError when parentId belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienFolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440014');

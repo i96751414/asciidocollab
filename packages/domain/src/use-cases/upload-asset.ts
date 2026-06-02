@@ -49,6 +49,10 @@ export class UploadAssetUseCase {
     const stored = await this.systemSettingRepo.get(SETTING_MAX_UPLOAD_SIZE_BYTES);
     const effectiveLimit = stored === null ? this.defaultMaxUploadSizeBytes : Number(stored);
 
+    if (bytes.length === 0) {
+      return { success: false, error: new ValidationError('File must not be empty') };
+    }
+
     if (bytes.length > effectiveLimit) {
       return { success: false, error: new ValidationError('File exceeds maximum permitted size') };
     }
