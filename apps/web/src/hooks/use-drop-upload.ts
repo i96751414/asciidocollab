@@ -60,9 +60,9 @@ export function useDropUpload(targetFolderId: string, projectId: string) {
         return result.fileNodeId;
       } catch (error) {
         if (error instanceof FileTreeApiError && error.status === 409) {
-          // Folder already exists — this is fine
-          folderCache.set(folderPath, parentId);
-          return parentId;
+          const resolvedId = error.existingFileNodeId ?? parentId;
+          folderCache.set(folderPath, resolvedId);
+          return resolvedId;
         }
         throw error;
       }

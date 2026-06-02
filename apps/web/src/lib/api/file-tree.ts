@@ -2,11 +2,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /** Error thrown when a file tree API request fails with a structured error response. */
 export class FileTreeApiError extends Error {
-  /** Creates a FileTreeApiError with the HTTP status code, error code, and message. */
+  /** Creates a FileTreeApiError with the HTTP status code, error code, message, and optional existing node ID for 409 conflicts. */
   constructor(
     public readonly status: number,
     public readonly code: string,
     message: string,
+    public readonly existingFileNodeId?: string,
   ) {
     super(message);
     this.name = 'FileTreeApiError';
@@ -24,7 +25,7 @@ export async function createFolder(projectId: string, parentId: string, name: st
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new FileTreeApiError(response.status, body?.error?.code ?? 'ERROR', body?.error?.message ?? 'Failed to create folder');
+    throw new FileTreeApiError(response.status, body?.error?.code ?? 'ERROR', body?.error?.message ?? 'Failed to create folder', body?.existingFileNodeId);
   }
 
   return response.json();

@@ -12,10 +12,28 @@ jest.mock('@/lib/api/assets', () => ({
 const mockWalkEntries = jest.requireMock('@/lib/fs-entry-walker').walkEntries as jest.Mock;
 const mockUploadAsset = jest.requireMock('@/lib/api/assets').uploadAsset as jest.Mock;
 
-// We also need createFolder mock - it will be used via API call
-jest.mock('@/lib/api/file-tree', () => ({
-  createFolder: jest.fn(),
-}));
+jest.mock('@/lib/api/file-tree', () => {
+  class FileTreeApiError extends Error {
+    status: number;
+    code: string;
+    existingFileNodeId?: string;
+    constructor(status: number, code: string, message: string, existingFileNodeId?: string) {
+      super(message);
+      this.name = 'FileTreeApiError';
+      this.status = status;
+      this.code = code;
+      this.existingFileNodeId = existingFileNodeId;
+    }
+  }
+  return { createFolder: jest.fn(), FileTreeApiError };
+});
+
+const FileTreeApiError = jest.requireMock('@/lib/api/file-tree').FileTreeApiError as new (
+  status: number,
+  code: string,
+  message: string,
+  existingFileNodeId?: string,
+) => Error & { status: number; existingFileNodeId?: string };
 function makeFile(name: string): File {
   return new File([`content of ${name}`], name, { type: 'text/plain' });
 }
@@ -89,6 +107,30 @@ describe('useDropUpload', () => {
     });
 
     expect(result.current.progress.every((p) => p.status === 'done')).toBe(true);
+  });
+
+  it('uses existingFileNodeId from 409 response when folder already exists', async () => {
+    const existingFolderId = 'existing-folder-uuid';
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+
+    mockCreateFolder.mockRejectedValueOnce(
+      new FileTreeApiError(409, 'CONFLICT', 'Folder already exists', existingFolderId),
+    );
+    mockUploadAsset.mockResolvedValue({ assetId: 'asset-1', filename: 'file.txt', storagePath: '/docs/file.txt', sizeBytes: 10, mimeType: 'text/plain' });
+    mockWalkEntries.mockReturnValue(
+      makeAsyncIterable([{ file: makeFile('file.txt'), relativePath: 'docs/file.txt' }]),
+    );
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    const mockItems = {} as DataTransferItemList;
+
+    await act(async () => {
+      await result.current.onDrop(mockItems);
+    });
+
+    expect(mockCreateFolder).toHaveBeenCalledWith(projectId, targetFolderId, 'docs');
+    // uploadAsset must use existingFolderId (not targetFolderId) as the parent
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, existingFolderId, expect.any(File));
   });
 
   it('one item failure sets status to error and does not cancel remaining items', async () => {

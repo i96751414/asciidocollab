@@ -1,4 +1,5 @@
 import { CreateFolderUseCase } from '../../src/use-cases/create-folder';
+import { FileConflictError } from '../../src/errors/file-conflict';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
@@ -69,6 +70,20 @@ describe('CreateFolderUseCase', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
+
+  it('returns FileConflictError with existingId when folder with same name already exists under same parent', async () => {
+    const first = await useCase.execute(actorId, projectId, rootFolderId, 'docs');
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+    const existingId = first.value.fileNodeId.value;
+
+    const second = await useCase.execute(actorId, projectId, rootFolderId, 'docs');
+    expect(second.success).toBe(false);
+    if (!second.success) {
+      expect(second.error).toBeInstanceOf(FileConflictError);
+      expect((second.error as FileConflictError).existingId).toBe(existingId);
     }
   });
 });

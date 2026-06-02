@@ -186,7 +186,9 @@ function sendFileTreeError(reply: FastifyReply, error: Error) {
     return reply.status(403).send({ error: { code: 'FORBIDDEN', message: error.message } });
   }
   if (error instanceof FileConflictError) {
-    return reply.status(409).send({ error: { code: 'CONFLICT', message: error.message } });
+    const body: Record<string, unknown> = { error: { code: 'CONFLICT', message: error.message } };
+    if (error.existingId) body['existingFileNodeId'] = error.existingId;
+    return reply.status(409).send(body);
   }
   if (error instanceof FileNodeNotFoundError) {
     return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'File not found' } });

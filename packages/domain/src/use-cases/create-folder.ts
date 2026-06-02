@@ -8,6 +8,7 @@ import { FileNodeRepository } from '../repositories/file-node.repository';
 import { ProjectFileStore } from '../storage/project-file-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
+import { FileConflictError } from '../errors/file-conflict';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '../types/result';
 import { FileNode } from '../entities/file-node';
@@ -37,6 +38,12 @@ export class CreateFolderUseCase {
     const parent = await this.fileNodeRepo.findById(parentId);
     if (!parent || parent.type.value !== 'folder') {
       return { success: false, error: new FileNodeNotFoundError(parentId.value) };
+    }
+
+    const siblings = await this.fileNodeRepo.findByParentId(parentId);
+    const duplicate = siblings.find((n) => n.name === name && n.type.value === 'folder');
+    if (duplicate) {
+      return { success: false, error: new FileConflictError(`Folder '${name}' already exists`, duplicate.id.value) };
     }
 
     const parentPath = parent.path.value === '/' ? '/' : `${parent.path.value}/`;
