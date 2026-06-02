@@ -90,6 +90,36 @@ describe('MoveFileUseCase', () => {
     }
   });
 
+  it('updates descendant FileNode paths in DB when moving a folder', async () => {
+    const srcId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440020');
+    const utilsId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440021');
+    const helperId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440022');
+    const libId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440023');
+
+    const srcFolder = new FileNode(srcId, projectId, rootFolderId, 'src', FileNodeType.create('folder'), FilePath.create('/src'));
+    await fileNodeRepo.save(srcFolder);
+    await fileStore.createDirectory(projectId, FilePath.create('/src'));
+
+    const utilsFolder = new FileNode(utilsId, projectId, srcId, 'utils', FileNodeType.create('folder'), FilePath.create('/src/utils'));
+    await fileNodeRepo.save(utilsFolder);
+    await fileStore.createDirectory(projectId, FilePath.create('/src/utils'));
+
+    const helperFile = new FileNode(helperId, projectId, utilsId, 'helper.adoc', FileNodeType.create('file'), FilePath.create('/src/utils/helper.adoc'));
+    await fileNodeRepo.save(helperFile);
+    await fileStore.write(projectId, FilePath.create('/src/utils/helper.adoc'), Buffer.from('helper'));
+
+    const libFolder = new FileNode(libId, projectId, rootFolderId, 'lib', FileNodeType.create('folder'), FilePath.create('/lib'));
+    await fileNodeRepo.save(libFolder);
+    await fileStore.createDirectory(projectId, FilePath.create('/lib'));
+
+    // Move /src/utils -> /lib/utils
+    const result = await useCase.execute(actorId, projectId, utilsId, libId);
+    expect(result.success).toBe(true);
+
+    const updatedHelper = await fileNodeRepo.findById(helperId);
+    expect(updatedHelper?.path.value).toBe('/lib/utils/helper.adoc');
+  });
+
   it('returns FileNodeNotFoundError when fileNode belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440011');

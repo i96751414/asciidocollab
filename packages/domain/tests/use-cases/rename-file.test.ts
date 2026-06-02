@@ -177,6 +177,28 @@ describe('RenameFileUseCase with ProjectFileStore', () => {
     }
   });
 
+  it('updates descendant FileNode paths in DB when renaming a folder', async () => {
+    const fileStore = new InMemoryProjectFileStore();
+    const useCaseWithStore = new RenameFileUseCase(projectMemberRepo, fileNodeRepo, auditLogRepo, fileStore);
+
+    const docsId = FileNodeId.create('dd0e8400-e29b-41d4-a716-446655440020');
+    const introId = FileNodeId.create('dd0e8400-e29b-41d4-a716-446655440021');
+
+    const docsFolder = new FileNode(docsId, projectId, rootFolderId, 'docs', FileNodeType.create('folder'), FilePath.create('/docs'));
+    await fileNodeRepo.save(docsFolder);
+    await fileStore.createDirectory(projectId, FilePath.create('/docs'));
+
+    const introFile = new FileNode(introId, projectId, docsId, 'intro.adoc', FileNodeType.create('file'), FilePath.create('/docs/intro.adoc'));
+    await fileNodeRepo.save(introFile);
+    await fileStore.write(projectId, FilePath.create('/docs/intro.adoc'), Buffer.from('content'));
+
+    const result = await useCaseWithStore.execute(actorId, docsId, 'documentation', projectId);
+    expect(result.success).toBe(true);
+
+    const updatedIntro = await fileNodeRepo.findById(introId);
+    expect(updatedIntro?.path.value).toBe('/documentation/intro.adoc');
+  });
+
   it('returns FileNodeNotFoundError when the file node belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440013');

@@ -67,6 +67,30 @@ export class MoveFileUseCase {
     );
     await this.fileNodeRepo.save(updated);
 
+    if (fileNode.type.value === 'folder') {
+      await this.cascadePathUpdate(fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+    }
+
     return { success: true, value: { fileNodeId, newPath } };
+  }
+
+  private async cascadePathUpdate(folderId: FileNodeId, oldPathPrefix: string, newPathPrefix: string): Promise<void> {
+    const children = await this.fileNodeRepo.findByParentId(folderId);
+    for (const child of children) {
+      const newChildPath = FilePath.create(newPathPrefix + child.path.value.slice(oldPathPrefix.length));
+      const updatedChild = new FileNode(
+        child.id,
+        child.projectId,
+        child.parentId,
+        child.name,
+        child.type,
+        newChildPath,
+        new Timestamps(child.createdAt, new Date()),
+      );
+      await this.fileNodeRepo.save(updatedChild);
+      if (child.type.value === 'folder') {
+        await this.cascadePathUpdate(child.id, oldPathPrefix + child.name + '/', newPathPrefix + child.name + '/');
+      }
+    }
   }
 }
