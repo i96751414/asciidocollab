@@ -141,6 +141,15 @@ describe('UploadAssetUseCase', () => {
     }
   });
 
+  it('returns fileNodeId distinct from assetId in the success value', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.fileNodeId).toBeDefined();
+      expect(result.value.fileNodeId.value).not.toEqual(result.value.assetId.value);
+    }
+  });
+
   it('accepts image/png', async () => {
     const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
     expect(result.success).toBe(true);

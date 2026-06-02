@@ -63,7 +63,7 @@ export async function imagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
       }
 
-      const event: FileTreeEventDto = { type: 'created', fileNodeId: result.value.assetId.value, nodeType: 'file', name: data.filename, path: result.value.storagePath, parentId: request.query.parentId };
+      const event: FileTreeEventDto = { type: 'created', fileNodeId: result.value.fileNodeId.value, nodeType: 'file', name: data.filename, path: result.value.storagePath, parentId: request.query.parentId };
       request.server.fileTreeEventBus.emit(projectId.value, event);
 
       return reply.status(201).send({

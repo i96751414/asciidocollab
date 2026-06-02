@@ -53,7 +53,7 @@ export class UploadAssetUseCase {
     filename: string,
     mimeType: MimeType,
     bytes: Buffer,
-  ): Promise<Result<{ assetId: ImageId; storagePath: string }, DomainError>> {
+  ): Promise<Result<{ assetId: ImageId; fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
@@ -96,6 +96,6 @@ export class UploadAssetUseCase {
     const image = new Image(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
     await this.imageRepo.save(image);
 
-    return { success: true, value: { assetId, storagePath } };
+    return { success: true, value: { assetId, fileNodeId, storagePath } };
   }
 }
