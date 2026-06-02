@@ -89,6 +89,32 @@ Domain ← Application ← Infrastructure ← Delivery
 
 ---
 
+## Test File Layout
+
+Tests MUST live in a dedicated `tests/` directory at the package or app root, mirroring the source directory structure. Co-located `__tests__` directories are **prohibited**.
+
+### Canonical paths
+
+| Package / App | Source root | Test root |
+|---|---|---|
+| `packages/domain` | `packages/domain/src/` | `packages/domain/tests/` |
+| `packages/infrastructure` | `packages/infrastructure/src/` | `packages/infrastructure/tests/` |
+| `apps/api` | `apps/api/src/` | `apps/api/tests/` |
+| `apps/web` | `apps/web/src/` | `apps/web/tests/` |
+
+### Structure mirrors source
+
+A test for `apps/api/src/routes/users/keybindings.ts` lives at `apps/api/tests/routes/keybindings.test.ts`. A test for `apps/web/src/hooks/useKeyBindings.ts` lives at `apps/web/tests/hooks/useKeyBindings.test.ts`. The `src/` segment is dropped; the rest of the path is preserved.
+
+### Rules
+
+- MUST NOT create `__tests__/` directories anywhere in the repository.
+- MUST NOT place test files alongside source files.
+- Task descriptions that reference test file paths MUST use the `tests/` root convention above.
+- When `/speckit-analyze` detects a test path using `__tests__` in tasks.md or plan.md, it MUST flag it as a **MEDIUM** inconsistency finding.
+
+---
+
 ## Blocking Architecture Violations (P0)
 
 The following violations MUST block merge:
@@ -99,6 +125,7 @@ The following violations MUST block merge:
 4. Cross-package type duplication (same type defined in multiple packages).
 5. `any` type in production code.
 6. `as` casts in production code.
+7. Test files placed in `__tests__/` directories or co-located with source files.
 
 ---
 
@@ -137,4 +164,4 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Domain testing         | In-memory fakes                           | Every domain repository has an in-memory fake in the test suite        |
 | Infrastructure testing | testcontainers                            | Integration tests spin up real PostgreSQL/Docker containers            |
 
-**Version**: 2.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-30
+**Version**: 2.2.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-02

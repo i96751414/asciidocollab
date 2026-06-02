@@ -19,3 +19,6 @@ export { PrismaSystemSettingRepository } from './persistence/prisma-system-setti
 export { PrismaSessionRepository } from './persistence/prisma-session.repository';
 
 export * from './services';
+export { FilesystemProjectFileStore } from './storage/filesystem-project-file-store';
+export { FilesystemYjsStateStore } from './storage/filesystem-yjs-state-store';
+export { PrismaKeyBindingRepository } from './persistence/prisma-key-binding.repository';

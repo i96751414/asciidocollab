@@ -3,6 +3,7 @@ import { InMemoryProjectMemberRepository } from '../repositories/in-memory-proje
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
 import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
+import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';
@@ -122,5 +123,56 @@ describe('RenameFileUseCase', () => {
     if (result.success) return;
 
     expect(result.error.name).toBe('PermissionDeniedError');
+  });
+});
+
+describe('RenameFileUseCase with ProjectFileStore', () => {
+  let fileNodeRepo: InMemoryFileNodeRepository;
+  let projectMemberRepo: InMemoryProjectMemberRepository;
+  let auditLogRepo: InMemoryAuditLogRepository;
+  let fileStore: InMemoryProjectFileStore;
+  let useCase: RenameFileUseCase;
+
+  const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
+  const rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
+  const fileNodeId = FileNodeId.create('990e8400-e29b-41d4-a716-446655440005');
+  const oldPath = FilePath.create('/original-name.txt');
+  const fileContent = Buffer.from('hello');
+
+  beforeEach(async () => {
+    fileNodeRepo = new InMemoryFileNodeRepository();
+    projectMemberRepo = new InMemoryProjectMemberRepository();
+    auditLogRepo = new InMemoryAuditLogRepository();
+    fileStore = new InMemoryProjectFileStore();
+
+    useCase = new RenameFileUseCase(projectMemberRepo, fileNodeRepo, auditLogRepo, fileStore);
+
+    const rootFolder = new FileNode(rootFolderId, projectId, null, 'Root', FileNodeType.create('folder'), FilePath.create('/'));
+    await fileNodeRepo.save(rootFolder);
+
+    const fileNode = new FileNode(fileNodeId, projectId, rootFolderId, 'original-name.txt', FileNodeType.create('file'), oldPath);
+    await fileNodeRepo.save(fileNode);
+    await fileStore.write(projectId, oldPath, fileContent);
+
+    const member = new ProjectMember(projectId, actorId, Role.create('editor'));
+    await projectMemberRepo.addMember(member);
+  });
+
+  test('fileStore.move called with old and new path', async () => {
+    await useCase.execute(actorId, fileNodeId, 'new-name.txt', projectId);
+    const oldContent = await fileStore.read(projectId, oldPath);
+    const newContent = await fileStore.read(projectId, FilePath.create('/new-name.txt'));
+    expect(oldContent).toBeNull();
+    expect(newContent).toEqual(fileContent);
+  });
+
+  test('returns FileConflictError when new path occupied', async () => {
+    await fileStore.write(projectId, FilePath.create('/new-name.txt'), Buffer.from('existing'));
+    const result = await useCase.execute(actorId, fileNodeId, 'new-name.txt', projectId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.name).toBe('FileConflictError');
+    }
   });
 });

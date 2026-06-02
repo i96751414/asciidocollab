@@ -9,6 +9,7 @@ import { AuditLogId } from '../value-objects/audit-log-id';
 import { FileNodeRepository } from '../repositories/file-node.repository';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { ProjectFileStore } from '../storage/project-file-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { randomUUID } from 'crypto';
@@ -25,6 +26,7 @@ export class RenameFileUseCase {
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly auditLogRepo: AuditLogRepository,
+    private readonly fileStore?: ProjectFileStore,
   ) {}
 
   /**
@@ -58,6 +60,13 @@ export class RenameFileUseCase {
     const lastSlash = pathString.lastIndexOf('/');
     const parentPath = pathString.slice(0, lastSlash + 1);
     const newPath = FilePath.create(parentPath + newName);
+
+    if (this.fileStore) {
+      const moveResult = await this.fileStore.move(projectId, fileNode.path, newPath);
+      if (!moveResult.success) {
+        return { success: false, error: moveResult.error };
+      }
+    }
 
     const updatedFileNode = new FileNode(
       fileNode.id,

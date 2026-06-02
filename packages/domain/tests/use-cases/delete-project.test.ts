@@ -2,6 +2,10 @@ import { DeleteProjectUseCase } from '../../src/use-cases/delete-project';
 import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
+import { InMemoryYjsStateStore } from '../storage/in-memory-yjs-state-store';
+import { FilePath } from '../../src/value-objects/file-path';
+import { YjsStateId } from '../../src/value-objects/yjs-state-id';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { UserId } from '../../src/value-objects/user-id';
@@ -55,5 +59,46 @@ describe('DeleteProjectUseCase', () => {
     const result = await useCase.execute(ownerId, unknownId);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBeInstanceOf(ProjectNotFoundError);
+  });
+});
+
+describe('DeleteProjectUseCase with storage cleanup', () => {
+  let projectRepo: InMemoryProjectRepository;
+  let projectMemberRepo: InMemoryProjectMemberRepository;
+  let auditLogRepo: InMemoryAuditLogRepository;
+  let fileStore: InMemoryProjectFileStore;
+  let yjsStateStore: InMemoryYjsStateStore;
+  let useCase: DeleteProjectUseCase;
+
+  const ownerId = UserId.create('550e8400-e29b-41d4-a716-446655440000');
+  const projectId = ProjectId.create('660e8400-e29b-41d4-a716-446655440001');
+  const yjsId = YjsStateId.create('770e8400-e29b-41d4-a716-446655440002');
+
+  beforeEach(async () => {
+    projectRepo = new InMemoryProjectRepository();
+    projectMemberRepo = new InMemoryProjectMemberRepository();
+    auditLogRepo = new InMemoryAuditLogRepository();
+    fileStore = new InMemoryProjectFileStore();
+    yjsStateStore = new InMemoryYjsStateStore();
+    useCase = new DeleteProjectUseCase(projectRepo, projectMemberRepo, auditLogRepo, fileStore, yjsStateStore);
+
+    const project = new Project(projectId, ProjectName.create('To Delete'), null, [], null);
+    await projectRepo.save(project);
+    await projectMemberRepo.addMember(new ProjectMember(projectId, ownerId, Role.create('owner')));
+
+    await fileStore.write(projectId, FilePath.create('/file.txt'), Buffer.from('hello'));
+    await yjsStateStore.save(projectId, yjsId, Buffer.from([1, 2, 3]));
+  });
+
+  test('fileStore.removeProject called on deletion', async () => {
+    await useCase.execute(ownerId, projectId);
+    const content = await fileStore.read(projectId, FilePath.create('/file.txt'));
+    expect(content).toBeNull();
+  });
+
+  test('yjsStateStore.deleteAllForProject called on deletion', async () => {
+    await useCase.execute(ownerId, projectId);
+    const state = await yjsStateStore.load(projectId, yjsId);
+    expect(state).toBeNull();
   });
 });

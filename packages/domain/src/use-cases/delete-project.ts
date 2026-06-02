@@ -5,6 +5,8 @@ import { AuditLogId } from '../value-objects/audit-log-id';
 import { ProjectRepository } from '../repositories/project.repository';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { ProjectFileStore } from '../storage/project-file-store';
+import { YjsStateStore } from '../storage/yjs-state-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { ProjectNotFoundError } from '../errors/project-not-found';
 import { DomainError } from '../errors/domain-error';
@@ -21,6 +23,8 @@ export class DeleteProjectUseCase {
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
+    private readonly fileStore?: ProjectFileStore,
+    private readonly yjsStateStore?: YjsStateStore,
   ) {}
 
   /** Permanently deletes a project after verifying the actor holds the owner role. */
@@ -50,6 +54,13 @@ export class DeleteProjectUseCase {
     );
 
     await this.projectRepo.delete(projectId);
+
+    if (this.fileStore) {
+      await this.fileStore.removeProject(projectId);
+    }
+    if (this.yjsStateStore) {
+      await this.yjsStateStore.deleteAllForProject(projectId);
+    }
 
     return { success: true, value: undefined };
   }

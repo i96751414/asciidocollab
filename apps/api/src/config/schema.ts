@@ -474,6 +474,20 @@ export function createConfig() {
       },
     },
   },
+  storage: {
+    path: {
+      doc: 'Root directory for per-project file storage.',
+      format: String,
+      default: './storage',
+      env: 'ASCIIDOCOLLAB_STORAGE_PATH',
+    },
+    maxUploadSizeBytes: {
+      doc: 'Maximum permitted upload size in bytes.',
+      format: 'integer',
+      default: 20_971_520,
+      env: 'ASCIIDOCOLLAB_STORAGE_MAX_UPLOAD_BYTES',
+    },
+  },
   admin: {
     invite: {
       rateLimitMax: {
@@ -696,6 +710,13 @@ export interface Config {
       /** Email verification rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
+  };
+  /** Storage configuration. */
+  storage: {
+    /** Root directory for per-project file storage. */
+    path: string;
+    /** Maximum permitted upload size in bytes. */
+    maxUploadSizeBytes: number;
   };
   /** Admin configuration. */
   admin: {

@@ -35,3 +35,5 @@ export {
   AcceptInviteDto,
   UserRemovalPreviewDto,
 } from './admin.dto';
+export { FileTreeEventDto } from './file-tree-event.dto';
+export { KeyBindingDto } from './key-binding.dto';

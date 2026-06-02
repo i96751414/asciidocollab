@@ -4,6 +4,7 @@ import { authApi } from "@/lib/api";
 import { DisplayNameCard } from "./display-name-card";
 import { PasswordCard } from "./password-card";
 import { EmailCard } from "./email-card";
+import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
 
 interface AccountPageProperties {
   searchParams: Promise<Record<string, string | undefined>>;
@@ -38,6 +39,7 @@ export default async function AccountPage({ searchParams }: AccountPagePropertie
       <DisplayNameCard displayName={displayName} />
       <PasswordCard passwordPolicy={passwordPolicy} />
       <EmailCard email={email} />
+      <KeyboardShortcutsCard />
     </div>
   );
 }

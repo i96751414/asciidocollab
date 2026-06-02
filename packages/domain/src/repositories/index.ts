@@ -14,3 +14,4 @@ export { UserInvitationRepository } from './user-invitation.repository';
 export { EmailVerificationTokenRepository } from './email-verification-token.repository';
 export { SystemSettingRepository } from './system-setting.repository';
 export { SessionRepository } from './session.repository';
+export { KeyBindingRepository } from './key-binding.repository';

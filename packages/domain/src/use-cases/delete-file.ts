@@ -7,6 +7,8 @@ import { FileNodeRepository } from '../repositories/file-node.repository';
 import { DocumentRepository } from '../repositories/document.repository';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { ProjectFileStore } from '../storage/project-file-store';
+import { YjsStateStore } from '../storage/yjs-state-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../errors/cannot-delete-root-folder';
@@ -26,6 +28,8 @@ export class DeleteFileUseCase {
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly documentRepo: DocumentRepository,
     private readonly auditLogRepo: AuditLogRepository,
+    private readonly fileStore?: ProjectFileStore,
+    private readonly yjsStateStore?: YjsStateStore,
   ) {}
 
   /**
@@ -64,8 +68,18 @@ export class DeleteFileUseCase {
         await this.documentRepo.delete(document.id);
       }
       await this.fileNodeRepo.delete(fileNodeId);
+      // Filesystem cleanup after DB deletions (RT-5 ordering)
+      if (this.fileStore) {
+        await this.fileStore.remove(projectId, fileNode.path);
+      }
+      if (document && this.yjsStateStore) {
+        await this.yjsStateStore.delete(projectId, document.yjsStateId);
+      }
     } else {
       await this.deleteFolderRecursively(fileNodeId);
+      if (this.fileStore) {
+        await this.fileStore.removeDirectory(projectId, fileNode.path);
+      }
     }
 
     const auditLog = new AuditLog(

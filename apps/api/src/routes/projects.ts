@@ -370,6 +370,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      request.server.stores.fileStore,
+      request.server.stores.yjsStateStore,
     );
 
     const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));

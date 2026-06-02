@@ -12,3 +12,4 @@ export { PasswordResetToken } from './password-reset-token';
 export { EmailChangeToken } from './email-change-token';
 export { UserInvitation } from './user-invitation';
 export { EmailVerificationToken } from './email-verification-token';
+export type { KeyBinding } from './key-binding';
