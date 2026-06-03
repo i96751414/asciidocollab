@@ -39,8 +39,8 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
   return source;
 }
 
-declare const self: SharedWorkerGlobalScope;
-self.addEventListener('connect', (connectEvent: MessageEvent) => {
+const sharedWorkerSelf = self as unknown as SharedWorkerGlobalScope;
+sharedWorkerSelf.addEventListener('connect', (connectEvent: MessageEvent) => {
   const port: MessagePort = connectEvent.ports[0];
 
   port.addEventListener('message', (event: WorkerMessage) => {

@@ -51,9 +51,6 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
 
   app.put<{ Params: { projectId: string; fileNodeId: string } }>(
     '/projects/:projectId/files/:fileNodeId/content',
-    {
-      config: { rawBody: true },
-    },
     async (request, reply) => {
       const actorId = UserId.create(getAuthenticatedUserId(request));
       const projectId = ProjectId.create(request.params.projectId);

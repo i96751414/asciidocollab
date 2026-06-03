@@ -9,7 +9,8 @@ description: "Task list template for feature implementation"
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the
+feature specification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -21,48 +22,52 @@ description: "Task list template for feature implementation"
 
 ## Path Conventions
 
-Test files MUST live in a dedicated `tests/` directory at the package or app root, mirroring the source tree. **Never use `__tests__/` directories or co-locate test files with source files.**
+Test files MUST live in a dedicated `tests/` directory at the package or app root, mirroring the source tree. **Never
+use `__tests__/` directories or co-locate test files with source files.**
 
-| Package / App | Source root | Test root |
-|---|---|---|
-| `packages/domain` | `packages/domain/src/` | `packages/domain/tests/` |
+| Package / App             | Source root                    | Test root                        |
+|---------------------------|--------------------------------|----------------------------------|
+| `packages/domain`         | `packages/domain/src/`         | `packages/domain/tests/`         |
 | `packages/infrastructure` | `packages/infrastructure/src/` | `packages/infrastructure/tests/` |
-| `apps/api` | `apps/api/src/` | `apps/api/tests/` |
-| `apps/web` | `apps/web/src/` | `apps/web/tests/` |
+| `apps/api`                | `apps/api/src/`                | `apps/api/tests/`                |
+| `apps/web`                | `apps/web/src/`                | `apps/web/tests/`                |
 
 A test for `apps/api/src/routes/users/profile.ts` → `apps/api/tests/routes/profile.test.ts`. Drop `src/`, keep the rest.
 
-Source paths follow the architecture: `packages/domain/src/`, `packages/infrastructure/src/`, `apps/api/src/`, `apps/web/src/`.
+Source paths follow the architecture: `packages/domain/src/`, `packages/infrastructure/src/`, `apps/api/src/`,
+`apps/web/src/`.
 
 ### Domain-package subfolder conventions
 
 After the 2026-06-03 codebase reorganization, the domain package uses grouped subfolders:
 
-| Layer | Source paths | Test paths |
-|---|---|---|
-| Use cases | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/` | `packages/domain/tests/use-cases/{subfolder}/` |
-| Port interfaces | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/domain/tests/ports/{subfolder}/` |
-| Infrastructure | `packages/infrastructure/src/persistence/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/infrastructure/tests/persistence/{subfolder}/` |
+| Layer           | Source paths                                                                                  | Test paths                                               |
+|-----------------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| Use cases       | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/`            | `packages/domain/tests/use-cases/{subfolder}/`           |
+| Port interfaces | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/`               | `packages/domain/tests/ports/{subfolder}/`               |
+| Infrastructure  | `packages/infrastructure/src/persistence/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/infrastructure/tests/persistence/{subfolder}/` |
 
 All public APIs remain stable — consumers import from `@asciidocollab/domain` (not from internal subfolder paths).
 
 <!--
-  ============================================================================
-  IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
+============================================================================
+IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
 
-  The /speckit-tasks command MUST replace these with actual tasks based on:
-  - User stories from spec.md (with their priorities P1, P2, P3...)
-  - Feature requirements from plan.md
-  - Entities from data-model.md
-  - Endpoints from contracts/
+The /speckit-tasks command MUST replace these with actual tasks based on:
 
-  Tasks MUST be organized by user story so each story can be:
-  - Implemented independently
-  - Tested independently
-  - Delivered as an MVP increment
+- User stories from spec.md (with their priorities P1, P2, P3...)
+- Feature requirements from plan.md
+- Entities from data-model.md
+- Endpoints from contracts/
 
-  DO NOT keep these sample tasks in the generated tasks.md file.
-  ============================================================================
+Tasks MUST be organized by user story so each story can be:
+
+- Implemented independently
+- Tested independently
+- Delivered as an MVP increment
+
+DO NOT keep these sample tasks in the generated tasks.md file.
+============================================================================
 -->
 
 ## Phase 1: Setup (Shared Infrastructure)
@@ -187,15 +192,17 @@ Examples of foundational tasks (adjust based on your project):
 - **Setup (Phase 1)**: No dependencies - can start immediately
 - **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
 - **User Stories (Phase 3+)**: All depend on Foundational phase completion
-  - User stories can then proceed in parallel (if staffed)
-  - Or sequentially in priority order (P1 → P2 → P3)
+    - User stories can then proceed in parallel (if staffed)
+    - Or sequentially in priority order (P1 → P2 → P3)
 - **Polish (Final Phase)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
-- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently testable
-- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently testable
+- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently
+  testable
+- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently
+  testable
 
 ### Within Each User Story
 
@@ -254,9 +261,9 @@ With multiple developers:
 
 1. Team completes Setup + Foundational together
 2. Once Foundational is done:
-   - Developer A: User Story 1
-   - Developer B: User Story 2
-   - Developer C: User Story 3
+    - Developer A: User Story 1
+    - Developer B: User Story 2
+    - Developer C: User Story 3
 3. Stories complete and integrate independently
 
 ---
