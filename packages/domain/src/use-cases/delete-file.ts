@@ -133,7 +133,12 @@ export class DeleteFileUseCase {
 
     if (this.yjsStateStore) {
       for (const stateId of yjsStateIds) {
-        await this.yjsStateStore.delete(projectId, stateId);
+        try {
+          await this.yjsStateStore.delete(projectId, stateId);
+        } catch {
+          // Yjs state cleanup failed; DB records are already deleted so the deletion
+          // is semantically complete. The orphaned blob will need manual cleanup.
+        }
       }
     }
   }

@@ -386,4 +386,41 @@ describe('DeleteFileUseCase — yjsStateStore failure tolerance', () => {
     const result = await useCase3.execute(actorId3, fileNodeId3, projectId3);
     expect(result.success).toBe(true);
   });
+
+  it('returns success when deleting a folder even if yjsStateStore.delete throws for a child document', async () => {
+    // Create a subfolder with a document inside it
+    const subfolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-220000000010');
+    const subfolder = new FileNode(subfolderId, projectId3, rootFolderId3, 'sub', FileNodeType.create('folder'), FilePath.create('/sub'));
+    await fileNodeRepo3.save(subfolder);
+
+    const childFileNodeId = FileNodeId.create('ff0e8400-e29b-41d4-a716-220000000011');
+    const childFile = new FileNode(childFileNodeId, projectId3, subfolderId, 'child.adoc', FileNodeType.create('file'), FilePath.create('/sub/child.adoc'));
+    await fileNodeRepo3.save(childFile);
+
+    const childDoc = new Document(
+      DocumentId.create('110e8400-e29b-41d4-a716-220000000012'),
+      childFileNodeId,
+      ContentId.create('120e8400-e29b-41d4-a716-220000000013'),
+      YjsStateId.create('130e8400-e29b-41d4-a716-220000000014'),
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo3.save(childDoc);
+
+    const throwingYjsStore2 = {
+      delete: jest.fn().mockRejectedValue(new Error('Yjs store unavailable')),
+      deleteAllForProject: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const useCase3folder = new DeleteFileUseCase(
+      projectMemberRepo3,
+      fileNodeRepo3,
+      documentRepo3,
+      auditLogRepo3,
+      fileStore3,
+      throwingYjsStore2 as never,
+    );
+
+    const result = await useCase3folder.execute(actorId3, subfolderId, projectId3);
+    expect(result.success).toBe(true);
+  });
 });
