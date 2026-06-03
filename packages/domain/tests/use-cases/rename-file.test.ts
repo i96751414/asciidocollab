@@ -252,3 +252,66 @@ describe('RenameFileUseCase with ProjectFileStore', () => {
     }
   });
 });
+
+describe('RenameFileUseCase with fileStore — filesystem rollback on DB failure', () => {
+  let projectRepo2: InMemoryProjectRepository;
+  let fileNodeRepo2: InMemoryFileNodeRepository;
+  let projectMemberRepo2: InMemoryProjectMemberRepository;
+  let auditLogRepo2: InMemoryAuditLogRepository;
+  let fileStore2: InMemoryProjectFileStore;
+
+  const actorId2 = UserId.create('550e8400-e29b-41d4-a716-110000000001');
+  const projectId2 = ProjectId.create('770e8400-e29b-41d4-a716-110000000003');
+  const rootFolderId2 = FileNodeId.create('880e8400-e29b-41d4-a716-110000000004');
+  const fileNodeId2 = FileNodeId.create('990e8400-e29b-41d4-a716-110000000005');
+
+  beforeEach(async () => {
+    projectRepo2 = new InMemoryProjectRepository();
+    fileNodeRepo2 = new InMemoryFileNodeRepository();
+    projectMemberRepo2 = new InMemoryProjectMemberRepository();
+    auditLogRepo2 = new InMemoryAuditLogRepository();
+    fileStore2 = new InMemoryProjectFileStore();
+
+    const project2 = new Project(projectId2, ProjectName.create('Test Project'), null, [], rootFolderId2);
+    await projectRepo2.save(project2);
+
+    const rootFolder2 = new FileNode(rootFolderId2, projectId2, null, 'root', FileNodeType.create('folder'), FilePath.create('/'));
+    await fileNodeRepo2.save(rootFolder2);
+
+    const fileNode2 = new FileNode(fileNodeId2, projectId2, rootFolderId2, 'original.txt', FileNodeType.create('file'), FilePath.create('/original.txt'));
+    await fileNodeRepo2.save(fileNode2);
+
+    await fileStore2.write(projectId2, FilePath.create('/original.txt'), Buffer.from('hello'));
+    await projectMemberRepo2.addMember(new ProjectMember(projectId2, actorId2, Role.create('editor')));
+  });
+
+  it('rolls back filesystem rename when fileNodeRepo.save throws after fileStore.move succeeds', async () => {
+    // Make the FIRST save call (for the renamed file node) throw
+    let callCount = 0;
+    const originalSave = fileNodeRepo2.save.bind(fileNodeRepo2);
+    fileNodeRepo2.save = jest.fn(async (node: FileNode) => {
+      callCount++;
+      if (callCount === 1) throw new Error('DB failure');
+      return originalSave(node);
+    }) as typeof fileNodeRepo2.save;
+
+    const useCase2 = new RenameFileUseCase(projectMemberRepo2, fileNodeRepo2, auditLogRepo2, fileStore2);
+
+    // The use case must propagate the error (not silently swallow it)
+    let caughtError: unknown = null;
+    try {
+      await useCase2.execute(actorId2, fileNodeId2, 'renamed.txt', projectId2);
+    } catch (err) {
+      caughtError = err;
+    }
+    expect(caughtError).not.toBeNull();
+
+    // The file must still be accessible at the ORIGINAL path (rollback succeeded)
+    const originalContent = await fileStore2.read(projectId2, FilePath.create('/original.txt'));
+    expect(originalContent).not.toBeNull();
+
+    // The file must NOT exist at the new path (rollback removed it)
+    const newContent = await fileStore2.read(projectId2, FilePath.create('/renamed.txt'));
+    expect(newContent).toBeNull();
+  });
+});

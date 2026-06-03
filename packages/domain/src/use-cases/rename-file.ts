@@ -68,20 +68,27 @@ export class RenameFileUseCase {
       }
     }
 
-    const updatedFileNode = new FileNode(
-      fileNode.id,
-      fileNode.projectId,
-      fileNode.parentId,
-      newName,
-      fileNode.type,
-      newPath,
-      new Timestamps(fileNode.createdAt, new Date()),
-    );
+    try {
+      const updatedFileNode = new FileNode(
+        fileNode.id,
+        fileNode.projectId,
+        fileNode.parentId,
+        newName,
+        fileNode.type,
+        newPath,
+        new Timestamps(fileNode.createdAt, new Date()),
+      );
 
-    await this.fileNodeRepo.save(updatedFileNode);
+      await this.fileNodeRepo.save(updatedFileNode);
 
-    if (fileNode.type.value === 'folder') {
-      await this.cascadePathUpdate(fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+      if (fileNode.type.value === 'folder') {
+        await this.cascadePathUpdate(fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+      }
+    } catch (error) {
+      if (this.fileStore) {
+        await this.fileStore.move(projectId, newPath, fileNode.path);
+      }
+      throw error;
     }
 
     const auditLog = new AuditLog(
