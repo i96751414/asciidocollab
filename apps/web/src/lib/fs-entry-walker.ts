@@ -30,9 +30,17 @@ async function* walkEntry(
   }
 }
 
+interface DataTransferItemWithGetAsEntry extends DataTransferItem {
+  getAsEntry?(): FileSystemEntry | null;
+}
+
+function hasGetAsEntry(item: DataTransferItem): item is DataTransferItemWithGetAsEntry {
+  return 'getAsEntry' in item;
+}
+
 function getEntry(item: DataTransferItem): FileSystemEntry | null {
-  const extItem = item as DataTransferItem & { getAsEntry?: () => FileSystemEntry | null };
-  return extItem.getAsEntry?.() ?? item.webkitGetAsEntry?.() ?? null;
+  if (hasGetAsEntry(item)) return item.getAsEntry?.() ?? null;
+  return item.webkitGetAsEntry?.() ?? null;
 }
 
 function isFileEntry(entry: FileSystemEntry): entry is FileSystemFileEntry {

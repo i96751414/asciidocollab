@@ -39,32 +39,36 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
   return source;
 }
 
-const sharedWorkerSelf = self as unknown as SharedWorkerGlobalScope;
-sharedWorkerSelf.addEventListener('connect', (connectEvent: MessageEvent) => {
-  const port: MessagePort = connectEvent.ports[0];
+// instanceof narrows globalThis to SharedWorkerGlobalScope, giving us the
+// typed 'connect' overload without any type assertions.
+if (globalThis instanceof SharedWorkerGlobalScope) {
+  globalThis.addEventListener('connect', (connectEvent) => {
+    if (!(connectEvent instanceof MessageEvent)) return;
+    const port: MessagePort = connectEvent.ports[0];
 
-  port.addEventListener('message', (event: WorkerMessage) => {
-    const { type, projectId, apiBase } = event.data;
+    port.addEventListener('message', (event: WorkerMessage) => {
+      const { type, projectId, apiBase } = event.data;
 
-    if (type === 'subscribe') {
-      if (!ports.has(projectId)) ports.set(projectId, []);
-      ports.get(projectId)!.push(port);
+      if (type === 'subscribe') {
+        if (!ports.has(projectId)) ports.set(projectId, []);
+        ports.get(projectId)!.push(port);
 
-      getOrOpenSource(projectId, apiBase);
+        getOrOpenSource(projectId, apiBase);
 
-      port.addEventListener('close', () => {
-        const projectPorts = ports.get(projectId);
-        if (!projectPorts) return;
-        const index = projectPorts.indexOf(port);
-        if (index !== -1) projectPorts.splice(index, 1);
-        if (projectPorts.length === 0) {
-          ports.delete(projectId);
-          sources.get(projectId)?.close();
-          sources.delete(projectId);
-        }
-      });
-    }
+        port.addEventListener('close', () => {
+          const projectPorts = ports.get(projectId);
+          if (!projectPorts) return;
+          const index = projectPorts.indexOf(port);
+          if (index !== -1) projectPorts.splice(index, 1);
+          if (projectPorts.length === 0) {
+            ports.delete(projectId);
+            sources.get(projectId)?.close();
+            sources.delete(projectId);
+          }
+        });
+      }
+    });
+
+    port.start();
   });
-
-  port.start();
-});
+}

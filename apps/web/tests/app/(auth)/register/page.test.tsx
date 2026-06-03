@@ -29,6 +29,9 @@ jest.mock('@/lib/api', () => ({
       },
     }),
   },
+  adminApi: {
+    getOpenRegistrationStatus: jest.fn().mockResolvedValue({ openRegistration: false }),
+  },
 }));
 
 jest.mock('@/lib/auth', () => ({

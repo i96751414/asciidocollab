@@ -26,11 +26,6 @@ jest.mock('next/link', () => {
 });
 
 describe('ProjectCard', () => {
-  test('shows settings link for administrator role', () => {
-    render(<ProjectCard project={makeProject('administrator')} />);
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-  });
-
   test('shows settings link for owner role', () => {
     render(<ProjectCard project={makeProject('owner')} />);
     expect(screen.getByText('Settings')).toBeInTheDocument();

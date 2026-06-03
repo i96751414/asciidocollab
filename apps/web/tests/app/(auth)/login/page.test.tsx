@@ -10,6 +10,9 @@ jest.mock('@/lib/api', () => ({
     setupStatus: jest.fn().mockResolvedValue({ configured: true }),
     me: jest.fn().mockRejectedValue(new Error('Unauthorized')),
   },
+  adminApi: {
+    getOpenRegistrationStatus: jest.fn().mockResolvedValue({ openRegistration: false }),
+  },
   ApiError: class ApiError extends Error {
     constructor(public status: number, public code: string, message: string) {
       super(message);

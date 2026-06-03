@@ -8,6 +8,12 @@ jest.mock('@/components/file-tree/drag-drop-zone', () => ({
   ),
 }));
 
+jest.mock('@/components/file-tree/file-tree-actions', () => ({
+  FileTreeActions: ({ nodeType }: { nodeType: string }) => (
+    <button data-testid="file-tree-actions">{nodeType} actions</button>
+  ),
+}));
+
 const fileNode = {
   id: 'file-1',
   name: 'document.adoc',
@@ -33,6 +39,8 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
       />,
@@ -46,6 +54,8 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
       />,
@@ -63,19 +73,38 @@ describe('FileTreeNode', () => {
     expect(screen.queryByText('document.adoc')).not.toBeInTheDocument();
   });
 
-  it('calls onSelect on click', () => {
+  it('calls onSelect on click with nodeId, nodeName, nodePath, nodeType', () => {
     const onSelect = jest.fn();
     render(
       <FileTreeNode
         node={fileNode}
         depth={0}
         projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
         onSelect={onSelect}
         onContextMenu={jest.fn()}
       />,
     );
     fireEvent.click(screen.getByText('document.adoc'));
-    expect(onSelect).toHaveBeenCalledWith(fileNode.id);
+    expect(onSelect).toHaveBeenCalledWith(fileNode.id, fileNode.name, fileNode.path, 'file');
+  });
+
+  it('calls onSelect with nodeType=folder when a folder node is clicked', () => {
+    const onSelect = jest.fn();
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
+        onSelect={onSelect}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText('src'));
+    expect(onSelect).toHaveBeenCalledWith(folderNode.id, folderNode.name, folderNode.path, 'folder');
   });
 
   it('calls onContextMenu on right-click', () => {
@@ -85,6 +114,8 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={onContextMenu}
       />,
@@ -99,10 +130,61 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
       />,
     );
     expect(screen.getByTestId(`drop-zone-${folderNode.id}`)).toBeInTheDocument();
+  });
+
+  // T006 (a): selectedNodeId matches node.id → bg-accent highlight class applied
+  it('applies bg-accent class when selectedNodeId matches node id', () => {
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={fileNode.id}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    const nodeElement = screen.getByText('document.adoc').closest('div');
+    expect(nodeElement).toHaveClass('bg-accent');
+  });
+
+  // T006 (b): isOwner=false → no action button rendered
+  it('does not render action button when isOwner=false', () => {
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('file-tree-actions')).not.toBeInTheDocument();
+  });
+
+  // T006 (b continued): isOwner=true → action button rendered
+  it('renders action button when isOwner=true', () => {
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={true}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { FileTree } from '@/components/file-tree/file-tree';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
@@ -21,7 +21,24 @@ jest.mock('@/hooks/use-file-tree-key-handler', () => ({
 }));
 
 jest.mock('@/components/file-tree/file-tree-node', () => ({
-  FileTreeNode: ({ node }: { node: { name: string } }) => <div data-testid={`node-${node.name}`}>{node.name}</div>,
+  FileTreeNode: ({
+    node,
+    isOwner,
+    onSelect,
+  }: {
+    node: { name: string; id: string; path: string; type: string };
+    isOwner?: boolean;
+    onSelect?: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
+  }) => (
+    <div
+      data-testid={`node-${node.name}`}
+      data-is-owner={String(isOwner)}
+      onClick={() => node.type === 'file' && onSelect?.(node.id, node.name, node.path, node.type as 'file' | 'folder')}
+    >
+      {node.name}
+      {isOwner && <button data-testid={`actions-${node.name}`}>Actions</button>}
+    </div>
+  ),
 }));
 
 const projectId = 'proj-1';
@@ -52,12 +69,36 @@ describe('FileTree', () => {
   });
 
   it('initial tree is fetched and rendered on mount', async () => {
-    render(<FileTree projectId={projectId} />);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
   });
 
+  // T005 (a): isOwner=false hides action buttons
+  it('isOwner=false — no FileTreeActions buttons rendered', async () => {
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+    expect(screen.queryByTestId('actions-doc.adoc')).not.toBeInTheDocument();
+  });
+
+  // T005 (b): onSelectFile called with (nodeId, nodeName, nodePath) on file click
+  it('calls onSelectFile with nodeId, nodeName, nodePath when file node is clicked', async () => {
+    const onSelectFile = jest.fn();
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={onSelectFile} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('node-doc.adoc'));
+    expect(onSelectFile).toHaveBeenCalledWith('file-1', 'doc.adoc', '/doc.adoc', 'file');
+  });
+
+  // T005 (c): empty children renders "No files yet" text
+  it('renders empty state when tree has no children', async () => {
+    const emptyRoot = { ...rootNode, children: [] };
+    mockFetch(emptyRoot);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByText(/No files yet/i)).toBeInTheDocument());
+  });
+
   it('created event adds a node to the rendered tree', async () => {
-    render(<FileTree projectId={projectId} />);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -77,7 +118,7 @@ describe('FileTree', () => {
   });
 
   it('deleted event removes a node', async () => {
-    render(<FileTree projectId={projectId} />);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -97,7 +138,7 @@ describe('FileTree', () => {
   });
 
   it('renamed event updates the node name', async () => {
-    render(<FileTree projectId={projectId} />);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -116,6 +157,14 @@ describe('FileTree', () => {
     await waitFor(() => expect(screen.getByTestId('node-renamed.adoc')).toBeInTheDocument());
   });
 
+  // C5: network error during initial fetch must not leave the tree stuck on "Loading..."
+  it('shows an error state when the initial fetch fails with a network error', async () => {
+    globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network down'));
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
   it('reconnect triggers a full re-fetch', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
@@ -123,7 +172,7 @@ describe('FileTree', () => {
     } as Response);
     globalThis.fetch = fetchMock;
 
-    render(<FileTree projectId={projectId} />);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     act(() => {

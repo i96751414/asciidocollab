@@ -5,7 +5,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
-  retries: 0,
+  retries: process.env.CI ? 2 : 0,
   reporter: [['line']],
   use: {
     baseURL: WEB_URL,

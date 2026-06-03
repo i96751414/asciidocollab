@@ -1,8 +1,11 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan at
-specs/007-phase5-auth-ui/plan.md
+Active implementation plan: specs/012-project-page-editor/plan.md
 <!-- SPECKIT END -->
+
+## Agent Instructions
+
+- **Do not create CLAUDE.md.** This project uses `AGENTS.md` as the single agent context file. If you find yourself about to write `CLAUDE.md`, write to `AGENTS.md` instead or update the relevant section here.
+- All quality gate commands, project conventions, and architectural rules live in this file.
 
 ## Project
 
@@ -64,6 +67,39 @@ pnpm typecheck            # TypeScript type-checking
 pnpm lint                 # lint all packages
 pnpm fresh-onion          # validate architecture boundaries
 ```
+
+## Quality Gates for `apps/web`
+
+**Always use `pnpm --filter` from the repo root.** Running `npx jest` or `npx eslint` from the repo root without `--filter` picks up configs from all workspace packages and produces misleading results (e.g. 146 phantom test failures).
+
+```bash
+# Run individually from repo root:
+pnpm --filter @asciidocollab/web lint        # eslint src/ tests/ e2e/ — 0 violations required
+pnpm --filter @asciidocollab/web typecheck   # tsc --noEmit — 0 errors required
+pnpm --filter @asciidocollab/web test        # jest — all 170 tests must pass
+
+# Or run all three in sequence:
+pnpm --filter @asciidocollab/web check
+```
+
+**Why not `next lint`?** `next lint` was removed in Next.js 16. The `apps/web` lint script now runs `eslint src/ tests/ e2e/` directly.
+
+## Speckit Architecture Files
+
+This project uses [speckit](https://github.com/speckit) for structured feature development. Key files:
+
+| File | Purpose |
+|------|---------|
+| `specs/<feature>/spec.md` | Product specification (non-technical, user-facing) |
+| `specs/<feature>/plan.md` | Implementation plan (tech stack, architecture decisions) |
+| `specs/<feature>/data-model.md` | Frontend/backend data shapes for the feature |
+| `specs/<feature>/contracts/` | Component prop contracts and hook interfaces |
+| `specs/<feature>/tasks.md` | Ordered, dependency-tracked task list for implementation |
+| `specs/<feature>/research.md` | Technical research and ADRs |
+| `.specify/` | Speckit internal configuration and extensions |
+| `onion.config.json` | Architecture boundary configuration (fresh-onion) |
+
+The active plan is always referenced in the SPECKIT block at the top of this file. Run `/speckit-implement` to execute tasks from the current plan.
 
 ## Architecture Principles
 
