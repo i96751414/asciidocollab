@@ -94,27 +94,30 @@ Domain ← Application ← Infrastructure ← Delivery
 
 ## Test File Layout
 
-Tests MUST live in a dedicated `tests/` directory at the package or app root, mirroring the source directory structure. Co-located `__tests__` directories are **prohibited**.
+Tests MUST live in a dedicated `tests/` directory at the package or app root, mirroring the source directory structure.
+Co-located `__tests__` directories are **prohibited**.
 
 ### Canonical paths
 
-| Package / App | Source root | Test root |
-|---|---|---|
-| `packages/domain` | `packages/domain/src/` | `packages/domain/tests/` |
+| Package / App             | Source root                    | Test root                        |
+|---------------------------|--------------------------------|----------------------------------|
+| `packages/domain`         | `packages/domain/src/`         | `packages/domain/tests/`         |
 | `packages/infrastructure` | `packages/infrastructure/src/` | `packages/infrastructure/tests/` |
-| `apps/api` | `apps/api/src/` | `apps/api/tests/` |
-| `apps/web` | `apps/web/src/` | `apps/web/tests/` |
+| `apps/api`                | `apps/api/src/`                | `apps/api/tests/`                |
+| `apps/web`                | `apps/web/src/`                | `apps/web/tests/`                |
 
 ### Structure mirrors source
 
-A test for `apps/api/src/routes/users/keybindings.ts` lives at `apps/api/tests/routes/keybindings.test.ts`. A test for `apps/web/src/hooks/useKeyBindings.ts` lives at `apps/web/tests/hooks/useKeyBindings.test.ts`. The `src/` segment is dropped; the rest of the path is preserved.
+A test for `apps/api/src/routes/users/keybindings.ts` lives at `apps/api/tests/routes/keybindings.test.ts`. A test for
+`apps/web/src/hooks/useKeyBindings.ts` lives at `apps/web/tests/hooks/useKeyBindings.test.ts`. The `src/` segment is
+dropped; the rest of the path is preserved.
 
 ### Subfolder conventions (domain package)
 
-| Layer | Source path | Test path |
-|---|---|---|
-| Domain use cases | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/` | `packages/domain/tests/use-cases/{subfolder}/` |
-| Domain ports | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/domain/tests/ports/{subfolder}/` |
+| Layer                      | Source path                                                                                   | Test path                                                |
+|----------------------------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| Domain use cases           | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/`            | `packages/domain/tests/use-cases/{subfolder}/`           |
+| Domain ports               | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/`               | `packages/domain/tests/ports/{subfolder}/`               |
 | Infrastructure persistence | `packages/infrastructure/src/persistence/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/infrastructure/tests/persistence/{subfolder}/` |
 
 ### Rules
@@ -122,7 +125,20 @@ A test for `apps/api/src/routes/users/keybindings.ts` lives at `apps/api/tests/r
 - MUST NOT create `__tests__/` directories anywhere in the repository.
 - MUST NOT place test files alongside source files.
 - Task descriptions that reference test file paths MUST use the `tests/` root convention above.
-- When `/speckit-analyze` detects a test path using `__tests__` in tasks.md or plan.md, it MUST flag it as a **MEDIUM** inconsistency finding.
+- When `/speckit-analyze` detects a test path using `__tests__` in tasks.md or plan.md, it MUST flag it as a **MEDIUM**
+  inconsistency finding.
+
+---
+
+## Database Migration Policy
+
+Agents MUST ask the user before generating or applying Prisma migration scripts.
+
+- Agents MAY update `packages/db/prisma/schema.prisma` as part of a task.
+- When a schema change is made, the agent MUST ask the user: "Do you want me to generate a Prisma migration script for this change?" and wait for confirmation before running any migrate command.
+- Agents MUST NOT run `prisma migrate dev`, `prisma migrate deploy`, or create files under `packages/db/prisma/migrations/` unless the user explicitly confirms.
+
+This rule exists because the application has not been released yet — there are no live systems to migrate, so migration scripts are not required for schema changes during development.
 
 ---
 
@@ -137,6 +153,7 @@ The following violations MUST block merge:
 5. `any` type in production code.
 6. `as` casts in production code.
 7. Test files placed in `__tests__/` directories or co-located with source files.
+8. Prisma migration files committed without the user first being asked and confirming.
 
 ---
 
@@ -175,4 +192,4 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Domain testing         | In-memory fakes                           | Every domain repository has an in-memory fake in the test suite        |
 | Infrastructure testing | testcontainers                            | Integration tests spin up real PostgreSQL/Docker containers            |
 
-**Version**: 2.3.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-03
+**Version**: 2.4.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-03
