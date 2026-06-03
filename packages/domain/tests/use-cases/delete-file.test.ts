@@ -330,3 +330,60 @@ describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {
     }
   });
 });
+
+describe('DeleteFileUseCase — yjsStateStore failure tolerance', () => {
+  let fileNodeRepo3: InMemoryFileNodeRepository;
+  let projectMemberRepo3: InMemoryProjectMemberRepository;
+  let auditLogRepo3: InMemoryAuditLogRepository;
+  let documentRepo3: InMemoryDocumentRepository;
+  let fileStore3: InMemoryProjectFileStore;
+
+  const actorId3 = UserId.create('550e8400-e29b-41d4-a716-220000000001');
+  const projectId3 = ProjectId.create('770e8400-e29b-41d4-a716-220000000003');
+  const rootFolderId3 = FileNodeId.create('880e8400-e29b-41d4-a716-220000000004');
+  const fileNodeId3 = FileNodeId.create('aa0e8400-e29b-41d4-a716-220000000006');
+
+  beforeEach(async () => {
+    fileNodeRepo3 = new InMemoryFileNodeRepository();
+    projectMemberRepo3 = new InMemoryProjectMemberRepository();
+    auditLogRepo3 = new InMemoryAuditLogRepository();
+    documentRepo3 = new InMemoryDocumentRepository();
+    fileStore3 = new InMemoryProjectFileStore();
+
+    const rootFolder3 = new FileNode(rootFolderId3, projectId3, null, 'root', FileNodeType.create('folder'), FilePath.create('/'));
+    await fileNodeRepo3.save(rootFolder3);
+
+    const fn3 = new FileNode(fileNodeId3, projectId3, rootFolderId3, 'doc.adoc', FileNodeType.create('file'), FilePath.create('/doc.adoc'));
+    await fileNodeRepo3.save(fn3);
+
+    const doc3 = new Document(
+      DocumentId.create('bb0e8400-e29b-41d4-a716-220000000007'),
+      fileNodeId3,
+      ContentId.create('cc0e8400-e29b-41d4-a716-220000000008'),
+      YjsStateId.create('dd0e8400-e29b-41d4-a716-220000000009'),
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo3.save(doc3);
+    await fileStore3.write(projectId3, FilePath.create('/doc.adoc'), Buffer.from('hello'));
+    await projectMemberRepo3.addMember(new ProjectMember(projectId3, actorId3, Role.create('editor')));
+  });
+
+  it('returns success even when yjsStateStore.delete throws — deletion is semantically complete once DB rows are gone', async () => {
+    const throwingYjsStore = {
+      delete: jest.fn().mockRejectedValue(new Error('Yjs store unavailable')),
+      deleteAllForProject: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const useCase3 = new DeleteFileUseCase(
+      projectMemberRepo3,
+      fileNodeRepo3,
+      documentRepo3,
+      auditLogRepo3,
+      fileStore3,
+      throwingYjsStore as never,
+    );
+
+    const result = await useCase3.execute(actorId3, fileNodeId3, projectId3);
+    expect(result.success).toBe(true);
+  });
+});

@@ -74,7 +74,12 @@ export class DeleteFileUseCase {
         await this.fileStore.remove(projectId, fileNode.path);
       }
       if (document && this.yjsStateStore) {
-        await this.yjsStateStore.delete(projectId, document.yjsStateId);
+        try {
+          await this.yjsStateStore.delete(projectId, document.yjsStateId);
+        } catch {
+          // Yjs state cleanup failed; DB records are already deleted so the deletion
+          // is semantically complete. The orphaned blob will need manual cleanup.
+        }
       }
     } else {
       await this.deleteFolderRecursively(fileNodeId, projectId);
