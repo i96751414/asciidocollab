@@ -89,14 +89,19 @@ export class UploadAssetUseCase {
       return { success: false, error: storeResult.error };
     }
 
-    const fileNodeId = FileNodeId.create(randomUUID());
-    const fileNode = new FileNode(fileNodeId, projectId, parentId, filename, FileNodeType.create('file'), filePath);
-    await this.fileNodeRepo.save(fileNode);
+    try {
+      const fileNodeId = FileNodeId.create(randomUUID());
+      const fileNode = new FileNode(fileNodeId, projectId, parentId, filename, FileNodeType.create('file'), filePath);
+      await this.fileNodeRepo.save(fileNode);
 
-    const assetId = AssetId.create(randomUUID());
-    const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
-    await this.assetRepo.save(asset);
+      const assetId = AssetId.create(randomUUID());
+      const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
+      await this.assetRepo.save(asset);
 
-    return { success: true, value: { assetId, fileNodeId, storagePath } };
+      return { success: true, value: { assetId, fileNodeId, storagePath } };
+    } catch (error) {
+      await this.fileStore.remove(projectId, filePath);
+      throw error;
+    }
   }
 }

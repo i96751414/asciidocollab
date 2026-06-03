@@ -274,4 +274,16 @@ describe('UploadAssetUseCase', () => {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
+
+  it('cleans up the disk file when assetRepo.save throws after createExclusive succeeds', async () => {
+    assetRepo.save = jest.fn().mockRejectedValue(new Error('DB down'));
+
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, 'fail.png', MimeType.create('image/png'), smallBytes)
+    ).rejects.toThrow('DB down');
+
+    // The file must have been cleaned up — no orphan on disk
+    const orphan = await fileStore.read(projectId, FilePath.create('/fail.png'));
+    expect(orphan).toBeNull();
+  });
 });

@@ -56,20 +56,25 @@ export class CreateFileUseCase {
       return { success: false, error: storeResult.error };
     }
 
-    const fileNodeId = FileNodeId.create(randomUUID());
-    const fileNode = new FileNode(fileNodeId, projectId, parentId, name, FileNodeType.create('file'), newPath);
-    await this.fileNodeRepo.save(fileNode);
+    try {
+      const fileNodeId = FileNodeId.create(randomUUID());
+      const fileNode = new FileNode(fileNodeId, projectId, parentId, name, FileNodeType.create('file'), newPath);
+      await this.fileNodeRepo.save(fileNode);
 
-    const documentId = DocumentId.create(randomUUID());
-    const document = new Document(
-      documentId,
-      fileNodeId,
-      ContentId.create(randomUUID()),
-      YjsStateId.create(randomUUID()),
-      mimeType,
-    );
-    await this.documentRepo.save(document);
+      const documentId = DocumentId.create(randomUUID());
+      const document = new Document(
+        documentId,
+        fileNodeId,
+        ContentId.create(randomUUID()),
+        YjsStateId.create(randomUUID()),
+        mimeType,
+      );
+      await this.documentRepo.save(document);
 
-    return { success: true, value: { fileNodeId, path: newPath } };
+      return { success: true, value: { fileNodeId, path: newPath } };
+    } catch (error) {
+      await this.fileStore.remove(projectId, newPath);
+      throw error;
+    }
   }
 }

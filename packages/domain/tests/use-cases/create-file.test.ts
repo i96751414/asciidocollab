@@ -90,3 +90,42 @@ describe('CreateFileUseCase', () => {
     }
   });
 });
+
+describe('CreateFileUseCase — orphan cleanup on DB failure', () => {
+  let projectMemberRepo2: InMemoryProjectMemberRepository;
+  let fileNodeRepo2: InMemoryFileNodeRepository;
+  let documentRepo2: InMemoryDocumentRepository;
+  let fileStore2: InMemoryProjectFileStore;
+
+  const actorId2 = UserId.create('550e8400-e29b-41d4-a716-330000000001');
+  const projectId2 = ProjectId.create('770e8400-e29b-41d4-a716-330000000003');
+  const rootFolderId2 = FileNodeId.create('880e8400-e29b-41d4-a716-330000000004');
+
+  beforeEach(async () => {
+    projectMemberRepo2 = new InMemoryProjectMemberRepository();
+    fileNodeRepo2 = new InMemoryFileNodeRepository();
+    documentRepo2 = new InMemoryDocumentRepository();
+    fileStore2 = new InMemoryProjectFileStore();
+
+    const rootFolder2 = new FileNode(
+      rootFolderId2, projectId2, null, 'root',
+      FileNodeType.create('folder'), FilePath.create('/'),
+    );
+    await fileNodeRepo2.save(rootFolder2);
+    await projectMemberRepo2.addMember(new ProjectMember(projectId2, actorId2, Role.create('editor')));
+  });
+
+  it('cleans up the disk file when fileNodeRepo.save throws after createExclusive succeeds', async () => {
+    fileNodeRepo2.save = jest.fn().mockRejectedValue(new Error('DB down'));
+
+    const useCase2 = new CreateFileUseCase(projectMemberRepo2, fileNodeRepo2, documentRepo2, fileStore2);
+
+    await expect(
+      useCase2.execute(actorId2, projectId2, rootFolderId2, 'new.adoc', MimeType.create('text/asciidoc'), Buffer.from(''))
+    ).rejects.toThrow('DB down');
+
+    // The file must have been cleaned up — no orphan on disk
+    const orphan = await fileStore2.read(projectId2, FilePath.create('/new.adoc'));
+    expect(orphan).toBeNull();
+  });
+});
