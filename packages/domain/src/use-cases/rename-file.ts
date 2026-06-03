@@ -86,7 +86,12 @@ export class RenameFileUseCase {
       }
     } catch (error) {
       if (this.fileStore) {
-        await this.fileStore.move(projectId, newPath, fileNode.path);
+        try {
+          await this.fileStore.move(projectId, newPath, fileNode.path);
+        } catch {
+          // Rollback failed — filesystem and DB are now inconsistent.
+          // The original error is re-thrown below.
+        }
       }
       throw error;
     }
