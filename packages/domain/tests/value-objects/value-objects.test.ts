@@ -4,12 +4,13 @@ import { FileNodeId } from '../../src/value-objects/file-node-id';
 import { DocumentId } from '../../src/value-objects/document-id';
 import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
 import { TemplateId } from '../../src/value-objects/template-id';
-import { ImageId } from '../../src/value-objects/image-id';
+import { AssetId } from '../../src/value-objects/asset-id';
 import { AuditLogId } from '../../src/value-objects/audit-log-id';
 import { ContentId } from '../../src/value-objects/content-id';
 import { YjsStateId } from '../../src/value-objects/yjs-state-id';
 import { Email } from '../../src/value-objects/email';
 import { FilePath } from '../../src/value-objects/file-path';
+import { FileName } from '../../src/value-objects/file-name';
 import { ProjectName } from '../../src/value-objects/project-name';
 import { Role } from '../../src/value-objects/role';
 import { GitProvider } from '../../src/value-objects/git-provider';
@@ -30,7 +31,7 @@ describe('Value Objects', () => {
       { name: 'DocumentId', Class: DocumentId },
       { name: 'GitRepositoryId', Class: GitRepositoryId },
       { name: 'TemplateId', Class: TemplateId },
-      { name: 'ImageId', Class: ImageId },
+      { name: 'AssetId', Class: AssetId },
       { name: 'AuditLogId', Class: AuditLogId },
       { name: 'ContentId', Class: ContentId },
       { name: 'YjsStateId', Class: YjsStateId },
@@ -95,12 +96,93 @@ describe('Value Objects', () => {
       expect(() => FilePath.create('/docs/./file.adoc')).toThrow();
     });
 
+    test('accepts paths with spaces in file name', () => {
+      const path = FilePath.create('/my document.adoc');
+      expect(path.value).toBe('/my document.adoc');
+    });
+
+    test('accepts paths with spaces in folder name', () => {
+      const path = FilePath.create('/my folder/document.adoc');
+      expect(path.value).toBe('/my folder/document.adoc');
+    });
+
+    test('rejects path with invalid characters', () => {
+      expect(() => FilePath.create('/docs/file?.adoc')).toThrow(ValidationError);
+      expect(() => FilePath.create('/docs/file#.adoc')).toThrow(ValidationError);
+    });
+
     test('implements equals()', () => {
       const a = FilePath.create('/docs/file.adoc');
       const b = FilePath.create('/docs/file.adoc');
       const c = FilePath.create('/other/file.adoc');
       expect(a.equals(b)).toBe(true);
       expect(a.equals(c)).toBe(false);
+    });
+  });
+
+  describe('FileName', () => {
+    test('accepts a plain file name', () => {
+      expect(FileName.create('document.adoc').value).toBe('document.adoc');
+    });
+
+    test('accepts a name with spaces', () => {
+      expect(FileName.create('my document.adoc').value).toBe('my document.adoc');
+    });
+
+    test('accepts a folder name with spaces', () => {
+      expect(FileName.create('my folder').value).toBe('my folder');
+    });
+
+    test('rejects empty string', () => {
+      expect(() => FileName.create('')).toThrow(ValidationError);
+    });
+
+    test('rejects whitespace-only name', () => {
+      expect(() => FileName.create('   ')).toThrow(ValidationError);
+    });
+
+    test('rejects name with leading whitespace', () => {
+      expect(() => FileName.create(' doc.adoc')).toThrow(ValidationError);
+    });
+
+    test('rejects name with trailing whitespace', () => {
+      expect(() => FileName.create('doc.adoc ')).toThrow(ValidationError);
+    });
+
+    test('rejects "."', () => {
+      expect(() => FileName.create('.')).toThrow(ValidationError);
+    });
+
+    test('rejects ".."', () => {
+      expect(() => FileName.create('..')).toThrow(ValidationError);
+    });
+
+    test('rejects name containing a forward slash', () => {
+      expect(() => FileName.create('a/b')).toThrow(ValidationError);
+    });
+
+    test('rejects name containing a backslash', () => {
+      expect(() => FileName.create('a\\b')).toThrow(ValidationError);
+    });
+
+    test('rejects name containing a null byte', () => {
+      expect(() => FileName.create('a\x00b')).toThrow(ValidationError);
+    });
+
+    test('rejects name containing a newline', () => {
+      expect(() => FileName.create('a\nb')).toThrow(ValidationError);
+    });
+
+    test('rejects name containing a carriage return', () => {
+      expect(() => FileName.create('a\rb')).toThrow(ValidationError);
+    });
+
+    test('rejects Windows reserved name CON', () => {
+      expect(() => FileName.create('CON')).toThrow(ValidationError);
+    });
+
+    test('rejects Windows reserved name NUL with extension', () => {
+      expect(() => FileName.create('NUL.txt')).toThrow(ValidationError);
     });
   });
 

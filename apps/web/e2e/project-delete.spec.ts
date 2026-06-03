@@ -51,13 +51,11 @@ test.describe('Project deletion', () => {
     const confirmButton = page.getByRole('button', { name: /delete project/i }).last();
     await confirmButton.click();
 
-    // Should redirect to /dashboard with ?deleted=1 (wait for the root dashboard, not a sub-path)
-    await page.waitForURL(url => url.pathname === '/dashboard');
-    const currentUrl = page.url();
-    const hasDeletedParameter = currentUrl.includes('deleted=1');
-    const hasSuccessText = await page.getByText('Project deleted successfully.').isVisible().catch(() => false);
-
-    expect(hasDeletedParameter || hasSuccessText).toBe(true);
+    // Must navigate to /dashboard — times out and fails if deletion didn't complete.
+    await page.waitForURL(url => url.pathname === '/dashboard', { timeout: 10_000 });
+    const hasDeletedParameter = page.url().includes('deleted=1');
+    const hasSuccessText = await page.getByText('Project deleted successfully.').isVisible();
+    expect(hasDeletedParameter || hasSuccessText, 'Expected a success indicator after deletion').toBe(true);
 
     // No afterEach cleanup needed — the project was deleted by this test
   });

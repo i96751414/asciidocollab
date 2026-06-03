@@ -1,0 +1,31 @@
+/** @file Barrel re-exports for all domain port interfaces. */
+
+// user/
+export { UserRepository } from './user/user.repository';
+export { SessionRepository } from './user/session.repository';
+export { KeyBindingRepository } from './user/key-binding.repository';
+export { UserInvitationRepository } from './user/user-invitation.repository';
+
+// project/
+export { ProjectRepository, PaginationParameters, PaginatedProjects } from './project/project.repository';
+export { ProjectMemberRepository } from './project/project-member.repository';
+export { TemplateRepository } from './project/template.repository';
+export { GitRepositoryRepository } from './project/git-repository.repository';
+
+// file-tree/
+export { FileNodeRepository } from './file-tree/file-node.repository';
+export { DocumentRepository } from './file-tree/document.repository';
+export { AssetRepository } from './file-tree/asset.repository';
+
+// storage/
+export { ProjectFileStore } from './storage/project-file-store';
+export { YjsStateStore } from './storage/yjs-state-store';
+
+// auth-tokens/
+export { EmailChangeTokenRepository } from './auth-tokens/email-change-token.repository';
+export { EmailVerificationTokenRepository } from './auth-tokens/email-verification-token.repository';
+export { PasswordResetTokenRepository } from './auth-tokens/password-reset-token.repository';
+
+// admin/
+export { AuditLogRepository } from './admin/audit-log.repository';
+export { SystemSettingRepository } from './admin/system-setting.repository';

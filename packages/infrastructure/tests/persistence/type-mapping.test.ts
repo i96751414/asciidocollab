@@ -1,15 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestImage, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { PrismaProjectMemberRepository } from '../../src/persistence/prisma-project-member.repository';
-import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
-import { PrismaDocumentRepository } from '../../src/persistence/prisma-document.repository';
-import { PrismaImageRepository } from '../../src/persistence/prisma-image.repository';
-import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
-import { PrismaGitRepositoryRepository } from '../../src/persistence/prisma-git-repository.repository';
-import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
+import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestAsset, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
+import { PrismaUserRepository } from '../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../src/persistence/project/prisma-project.repository';
+import { PrismaProjectMemberRepository } from '../../src/persistence/project/prisma-project-member.repository';
+import { PrismaFileNodeRepository } from '../../src/persistence/file-tree/prisma-file-node.repository';
+import { PrismaDocumentRepository } from '../../src/persistence/file-tree/prisma-document.repository';
+import { PrismaAssetRepository } from '../../src/persistence/file-tree/prisma-asset.repository';
+import { PrismaTemplateRepository } from '../../src/persistence/project/prisma-template.repository';
+import { PrismaGitRepositoryRepository } from '../../src/persistence/project/prisma-git-repository.repository';
+import { PrismaAuditLogRepository } from '../../src/persistence/admin/prisma-audit-log.repository';
 import { FileNodeType, FilePath, Role, TemplateCategory, GitProvider } from '@asciidocollab/domain';
 
 describe('Type mapping round-trip', () => {
@@ -20,7 +20,7 @@ describe('Type mapping round-trip', () => {
   let projectMemberRepo: PrismaProjectMemberRepository;
   let fileNodeRepo: PrismaFileNodeRepository;
   let documentRepo: PrismaDocumentRepository;
-  let imageRepo: PrismaImageRepository;
+  let assetRepo: PrismaAssetRepository;
   let templateRepo: PrismaTemplateRepository;
   let gitRepo: PrismaGitRepositoryRepository;
   let auditLogRepo: PrismaAuditLogRepository;
@@ -33,7 +33,7 @@ describe('Type mapping round-trip', () => {
     projectMemberRepo = new PrismaProjectMemberRepository(client);
     fileNodeRepo = new PrismaFileNodeRepository(client);
     documentRepo = new PrismaDocumentRepository(client);
-    imageRepo = new PrismaImageRepository(client);
+    assetRepo = new PrismaAssetRepository(client);
     templateRepo = new PrismaTemplateRepository(client);
     gitRepo = new PrismaGitRepositoryRepository(client);
     auditLogRepo = new PrismaAuditLogRepository(client);
@@ -47,7 +47,7 @@ describe('Type mapping round-trip', () => {
     // Delete in dependency order (children before parents)
     await client.auditLog.deleteMany();
     await client.document.deleteMany();
-    await client.image.deleteMany();
+    await client.asset.deleteMany();
     await client.gitRepository.deleteMany();
     await client.fileNode.deleteMany();
     await client.projectMember.deleteMany();
@@ -200,27 +200,27 @@ describe('Type mapping round-trip', () => {
     });
   });
 
-  describe('Image', () => {
+  describe('Asset', () => {
     it('should round-trip with version chain (parentId)', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
       const project = createTestProject();
       await projectRepo.save(project);
 
-      const original = createTestImage(project.id, { sizeBytes: 1024 });
-      await imageRepo.save(original);
-      const version = createTestImage(project.id, {
+      const original = createTestAsset(project.id, { sizeBytes: 1024n });
+      await assetRepo.save(original);
+      const version = createTestAsset(project.id, {
         parentId: original.id,
-        sizeBytes: 2048,
+        sizeBytes: 2048n,
       });
-      await imageRepo.save(version);
-      const foundOriginal = await imageRepo.findById(original.id);
-      const foundVersion = await imageRepo.findById(version.id);
+      await assetRepo.save(version);
+      const foundOriginal = await assetRepo.findById(original.id);
+      const foundVersion = await assetRepo.findById(version.id);
       expect(foundOriginal).not.toBeNull();
-      expect(foundOriginal!.sizeBytes).toBe(1024);
+      expect(foundOriginal!.sizeBytes).toBe(1024n);
       expect(foundOriginal!.parentId).toBeNull();
       expect(foundVersion).not.toBeNull();
-      expect(foundVersion!.sizeBytes).toBe(2048);
+      expect(foundVersion!.sizeBytes).toBe(2048n);
       expect(foundVersion!.parentId!.value).toBe(original.id.value);
     });
   });

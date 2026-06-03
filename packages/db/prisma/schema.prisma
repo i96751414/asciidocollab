@@ -29,26 +29,27 @@ enum GitProvider {
 }
 
 model User {
-  id              String   @id @default(uuid()) @db.Uuid
-  email           String   @unique
-  displayName     String
-  passwordHash    String?
-  passwordHistory String[]
-  samlSubject     String?
-  mfaSecret       String?
+  id                 String             @id @default(uuid()) @db.Uuid
+  email              String             @unique
+  displayName        String
+  passwordHash       String?
+  passwordHistory    String[]
+  samlSubject        String?
+  mfaSecret          String?
   isAdmin            Boolean            @default(false)
   emailVerified      Boolean            @default(true)
   registrationMethod RegistrationMethod @default(SELF_REGISTERED)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  memberships              ProjectMember[]
-  auditLogs                AuditLog[]
-  sessions                 Session[]
-  passwordResetTokens      PasswordResetToken[]
-  emailChangeTokens        EmailChangeToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-  sentInvitations          UserInvitation[]         @relation("InvitedBy")
+  memberships             ProjectMember[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  emailChangeTokens       EmailChangeToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  sentInvitations         UserInvitation[]         @relation("InvitedBy")
+  keyBindings             UserKeyBinding[]
 }
 
 model Project {
@@ -62,10 +63,10 @@ model Project {
 
   members       ProjectMember[]
   fileNodes     FileNode[]
-  images        Image[]
+  assets        Asset[]
   gitRepository GitRepository?
   auditLogs     AuditLog[]
-  templates     Template[]       @relation("TemplateSourceProject")
+  templates     Template[]      @relation("TemplateSourceProject")
 }
 
 model ProjectMember {
@@ -111,22 +112,23 @@ model Document {
   fileNode FileNode @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
 }
 
-model Image {
+model Asset {
   id          String    @id @default(uuid()) @db.Uuid
   projectId   String    @db.Uuid
   filename    String
   storagePath String
   mimeType    String
-  sizeBytes   Int
+  sizeBytes   BigInt
   parentId    String?   @db.Uuid
   uploadedAt  DateTime  @default(now())
   updatedAt   DateTime?
 
-  project  Project  @relation(fields: [projectId], references: [id])
-  parent   Image?   @relation("ImageVersion", fields: [parentId], references: [id])
-  versions Image[]  @relation("ImageVersion")
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Asset?  @relation("AssetVersion", fields: [parentId], references: [id])
+  versions Asset[] @relation("AssetVersion")
 
   @@index([projectId])
+  @@map("assets")
 }
 
 model Template {
@@ -171,13 +173,13 @@ model AuditLog {
 }
 
 model Session {
-  id        String    @id @default(uuid())
-  userId    String?   @db.Uuid
-  sid       String    @unique
+  id        String   @id @default(uuid())
+  userId    String?  @db.Uuid
+  sid       String   @unique
   data      Json
   expiresAt DateTime
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -247,4 +249,16 @@ model SystemSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model UserKeyBinding {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  action    String
+  keyCombo  String
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, action])
 }

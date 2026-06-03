@@ -18,3 +18,10 @@ Thumbs.db
 packages/shared/tests/**/*.d.ts
 packages/shared/tests/**/*.js
 packages/shared/tests/**/*.js.map
+
+# Project collaboration state (Yjs CRDT snapshots)
+.collab/
+apps/web/test-results/
+
+# Default local file storage (ASCIIDOCOLLAB_STORAGE_PATH default)
+apps/api/storage/

@@ -24,3 +24,5 @@ export { NotificationDeliveryError } from './notification-delivery';
 export { InvitationAlreadyPendingError } from './invitation-already-pending';
 export { CannotRemoveSelfError } from './cannot-remove-self';
 export { CannotModifySelfAdminError } from './cannot-modify-self-admin';
+export { ContentNotFoundError } from './content-not-found';
+export { KeyBindingConflictError } from './key-binding-conflict';

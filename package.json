@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test -- --coverage",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && pnpm --filter @asciidocollab/api typecheck && pnpm --filter @asciidocollab/web typecheck",
     "fresh-onion": "fresh-onion",
     "audit": "pnpm audit --audit-level=high"
   },

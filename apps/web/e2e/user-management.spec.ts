@@ -135,8 +135,11 @@ test.describe('Admin user management (US3)', () => {
       // Confirm the removal dialog
       await page.getByRole('button', { name: /confirm/i }).click();
 
-      // The user should no longer appear in the list
-      await expect(page.getByText(email)).not.toBeVisible({ timeout: 5000 });
+      // Positive anchor — the admin user's own row must still be visible, proving
+      // the list re-rendered after removal rather than silently erroring out.
+      await expect(page.getByText(TEST_USER.displayName)).toBeVisible({ timeout: 5000 });
+      // Now safe to assert the removed user is gone.
+      await expect(page.getByText(email)).not.toBeVisible();
     } finally {
       await loginAdminViaApi(page);
       await adminDeleteUserByEmail(page, email);

@@ -125,6 +125,10 @@ module.exports = tseslint.config(
           props: true,
           ref: true,
         },
+        replacements: {
+          // "AsciiDoc" is a brand name, not an abbreviation of "AsciiDocument"
+          doc: false,
+        },
       }],
     },
   },

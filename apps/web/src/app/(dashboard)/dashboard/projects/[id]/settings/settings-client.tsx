@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,12 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
+      <Link
+        href={`/dashboard/projects/${project.id}`}
+        className="text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← Back to project
+      </Link>
       {isArchived && (
         <div className="p-4 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium">
           This project is archived. Settings are read-only. Restore the project to make changes.

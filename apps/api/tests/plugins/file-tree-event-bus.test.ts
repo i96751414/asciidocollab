@@ -1,0 +1,72 @@
+import Fastify from 'fastify';
+import { fileTreeEventBusPlugin } from '../../src/plugins/file-tree-event-bus';
+import type { FileTreeEventDto } from '@asciidocollab/shared';
+
+const makeEvent = (overrides: Partial<FileTreeEventDto> = {}): FileTreeEventDto => ({
+  type: 'created',
+  fileNodeId: 'node-1',
+  nodeType: 'file',
+  name: 'test.txt',
+  path: '/test.txt',
+  parentId: 'folder-1',
+  ...overrides,
+});
+
+async function buildTestServer() {
+  const app = Fastify();
+  await app.register(fileTreeEventBusPlugin);
+  await app.ready();
+  return app;
+}
+
+describe('FileTreeEventBus', () => {
+  it('subscribed listener receives emitted event for same project', async () => {
+    const app = await buildTestServer();
+    const received: FileTreeEventDto[] = [];
+    app.fileTreeEventBus.subscribe('project-1', (event) => received.push(event));
+    app.fileTreeEventBus.emit('project-1', makeEvent());
+    expect(received).toHaveLength(1);
+    expect(received[0].type).toBe('created');
+    await app.close();
+  });
+
+  it('multiple listeners on same project all receive the event', async () => {
+    const app = await buildTestServer();
+    const received1: FileTreeEventDto[] = [];
+    const received2: FileTreeEventDto[] = [];
+    app.fileTreeEventBus.subscribe('project-1', (e) => received1.push(e));
+    app.fileTreeEventBus.subscribe('project-1', (e) => received2.push(e));
+    app.fileTreeEventBus.emit('project-1', makeEvent());
+    expect(received1).toHaveLength(1);
+    expect(received2).toHaveLength(1);
+    await app.close();
+  });
+
+  it('listener for project A does not receive events for project B', async () => {
+    const app = await buildTestServer();
+    const received: FileTreeEventDto[] = [];
+    app.fileTreeEventBus.subscribe('project-A', (e) => received.push(e));
+    app.fileTreeEventBus.emit('project-B', makeEvent());
+    expect(received).toHaveLength(0);
+    await app.close();
+  });
+
+  it('returned unsubscribe function stops delivery', async () => {
+    const app = await buildTestServer();
+    const received: FileTreeEventDto[] = [];
+    const unsubscribe = app.fileTreeEventBus.subscribe('project-1', (e) => received.push(e));
+    unsubscribe();
+    app.fileTreeEventBus.emit('project-1', makeEvent());
+    expect(received).toHaveLength(0);
+    await app.close();
+  });
+
+  it('emitter is cleaned up when last subscriber unsubscribes', async () => {
+    const app = await buildTestServer();
+    const unsub = app.fileTreeEventBus.subscribe('project-1', () => {});
+    unsub();
+    // No error when emitting after all listeners removed
+    expect(() => app.fileTreeEventBus.emit('project-1', makeEvent())).not.toThrow();
+    await app.close();
+  });
+});

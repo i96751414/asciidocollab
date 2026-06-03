@@ -10,7 +10,7 @@ import {
   PrismaProjectMemberRepository,
   PrismaGitRepositoryRepository,
   PrismaTemplateRepository,
-  PrismaImageRepository,
+  PrismaAssetRepository,
   PrismaAuditLogRepository,
   PrismaPasswordResetTokenRepository,
   PrismaEmailChangeTokenRepository,
@@ -30,6 +30,9 @@ import {
   SmtpEmailChangeNotifier,
   SmtpRegistrationInvitationNotifier,
   SmtpEmailVerificationNotifier,
+  FilesystemProjectFileStore,
+  FilesystemYjsStateStore,
+  PrismaKeyBindingRepository,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -39,7 +42,7 @@ import {
   ProjectMemberRepository,
   GitRepositoryRepository,
   TemplateRepository,
-  ImageRepository,
+  AssetRepository,
   AuditLogRepository,
   PasswordResetTokenRepository,
   EmailChangeTokenRepository,
@@ -47,6 +50,9 @@ import {
   EmailVerificationTokenRepository,
   SystemSettingRepository,
   SessionRepository,
+  KeyBindingRepository,
+  ProjectFileStore,
+  YjsStateStore,
   PasswordHasher,
   BreachChecker,
   CommonPasswordChecker,
@@ -91,6 +97,12 @@ import { verifyEmailRoute } from './routes/verify-email';
 import { resendVerificationRoute } from './routes/resend-verification';
 import { openRegistrationStatusRoute } from './routes/open-registration-status';
 import { adminSettingsRoute } from './routes/admin/settings';
+import { fileContentRoutes } from './routes/projects/file-content';
+import { fileTreeRoutes } from './routes/projects/file-tree';
+import { assetsRoutes } from './routes/projects/assets';
+import { eventsRoutes } from './routes/projects/events';
+import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
+import { keybindingsRoutes } from './routes/users/keybindings';
 import type { FastifyInstance } from 'fastify';
 
 /** Dependency container passed to `buildServer` to wire repositories and services. */
@@ -113,8 +125,8 @@ export interface AppContainer {
     gitRepository: GitRepositoryRepository;
     /** Repository for template persistence. */
     template: TemplateRepository;
-    /** Repository for image persistence. */
-    image: ImageRepository;
+    /** Repository for asset persistence. */
+    asset: AssetRepository;
     /** Repository for audit-log persistence. */
     auditLog: AuditLogRepository;
     /** Repository for password-reset-token persistence. */
@@ -129,6 +141,15 @@ export interface AppContainer {
     systemSetting: SystemSettingRepository;
     /** Repository for session persistence. */
     session: SessionRepository;
+    /** Repository for user key bindings. */
+    keyBinding: KeyBindingRepository;
+  };
+  /** Storage adapters for file and Yjs state persistence. */
+  stores?: {
+    /** Filesystem-backed store for user-visible project files. */
+    fileStore: ProjectFileStore;
+    /** Filesystem-backed store for Yjs collaborative state. */
+    yjsStateStore: YjsStateStore;
   };
   /** Collection of domain service implementations. */
   services: {
@@ -190,7 +211,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       projectMember: new PrismaProjectMemberRepository(app.prisma),
       gitRepository: new PrismaGitRepositoryRepository(app.prisma),
       template: new PrismaTemplateRepository(app.prisma),
-      image: new PrismaImageRepository(app.prisma),
+      asset: new PrismaAssetRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
       emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
@@ -198,6 +219,17 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       emailVerificationToken: new PrismaEmailVerificationTokenRepository(app.prisma),
       systemSetting: new PrismaSystemSettingRepository(app.prisma),
       session: new PrismaSessionRepository(app.prisma),
+      keyBinding: new PrismaKeyBindingRepository(app.prisma),
+    });
+  }
+
+  if (overrides?.stores) {
+    app.decorate('stores', overrides.stores);
+  } else {
+    const storagePath = appConfig.storage.path;
+    app.decorate('stores', {
+      fileStore: new FilesystemProjectFileStore(storagePath),
+      yjsStateStore: new FilesystemYjsStateStore(storagePath),
     });
   }
 
@@ -289,6 +321,8 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
     });
   }
 
+  await app.register(fileTreeEventBusPlugin);
+
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
 
@@ -340,6 +374,11 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(emailChangeRequestRoute);
       await innerApp.register(projectRoutes);
       await innerApp.register(memberRoutes);
+      await innerApp.register(fileContentRoutes);
+      await innerApp.register(fileTreeRoutes);
+      await innerApp.register(assetsRoutes);
+      await innerApp.register(eventsRoutes);
+      await innerApp.register(keybindingsRoutes);
       await innerApp.register(usersSearchRoute);
       await innerApp.register(usersInviteRoute);
       await innerApp.register(usersRoute);
@@ -381,7 +420,7 @@ declare module 'fastify' {
       projectMember: ProjectMemberRepository;
       gitRepository: GitRepositoryRepository;
       template: TemplateRepository;
-      image: ImageRepository;
+      asset: AssetRepository;
       auditLog: AuditLogRepository;
       passwordResetToken: PasswordResetTokenRepository;
       emailChangeToken: EmailChangeTokenRepository;
@@ -389,6 +428,11 @@ declare module 'fastify' {
       emailVerificationToken: EmailVerificationTokenRepository;
       systemSetting: SystemSettingRepository;
       session: SessionRepository;
+      keyBinding: KeyBindingRepository;
+    };
+    stores: {
+      fileStore: ProjectFileStore;
+      yjsStateStore: YjsStateStore;
     };
     services: {
       passwordHasher: PasswordHasher;
