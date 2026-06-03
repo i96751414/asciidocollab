@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rename, rm, open, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, rm, open, stat, link, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { ProjectFileStore } from '@asciidocollab/domain';
 import { ProjectId, FilePath, FileConflictError } from '@asciidocollab/domain';
@@ -71,21 +71,42 @@ export class FilesystemProjectFileStore implements ProjectFileStore {
     }
   }
 
-  /** Moves a file from fromPath to toPath, returning FileConflictError if toPath already exists. */
+  /** Moves a file or directory to toPath; returns FileConflictError if toPath already exists. */
   async move(projectId: ProjectId, fromPath: FilePath, toPath: FilePath): Promise<Result<void, FileConflictError>> {
     const absFrom = this.resolveSafe(projectId, fromPath);
     const absTo = this.resolveSafe(projectId, toPath);
 
-    // Check destination does not exist (exclusive move)
-    try {
-      await stat(absTo);
-      return { success: false, error: new FileConflictError(`File already exists at ${toPath.value}`) };
-    } catch (error: unknown) {
-      if (!isEnoent(error)) throw error;
+    await mkdir(path.dirname(absTo), { recursive: true });
+
+    // Determine if the source is a directory to choose the appropriate move strategy.
+    const srcStat = await stat(absFrom);
+
+    if (srcStat.isDirectory()) {
+      // For directories, use stat + rename.
+      // A narrow TOCTOU window remains but is acceptable: directory conflicts
+      // are protected at the DB layer (FileNode path uniqueness).
+      try {
+        await stat(absTo);
+        return { success: false, error: new FileConflictError(`File already exists at ${toPath.value}`) };
+      } catch (error: unknown) {
+        if (!isEnoent(error)) throw error;
+      }
+      await rename(absFrom, absTo);
+    } else {
+      // For regular files, use link(2) + unlink(2).
+      // link(2) is atomic: fails with EEXIST if the destination already exists,
+      // eliminating the TOCTOU race that existed with stat → rename.
+      try {
+        await link(absFrom, absTo);
+      } catch (error: unknown) {
+        if (isEexist(error)) {
+          return { success: false, error: new FileConflictError(`File already exists at ${toPath.value}`) };
+        }
+        throw error;
+      }
+      await unlink(absFrom);
     }
 
-    await mkdir(path.dirname(absTo), { recursive: true });
-    await rename(absFrom, absTo);
     return { success: true, value: undefined };
   }
 

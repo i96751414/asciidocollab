@@ -128,4 +128,22 @@ describe('FilesystemProjectFileStore', () => {
       await expect(store.read(projectId, FilePath.create('/valid.txt'))).resolves.toBeNull();
     });
   });
+
+  describe('move — concurrent exclusive moves to the same destination', () => {
+    it('when two moves race to the same destination, exactly one succeeds and one returns FileConflictError', async () => {
+      await store.write(projectId, FilePath.create('/a.txt'), Buffer.from('a'));
+      await store.write(projectId, FilePath.create('/b.txt'), Buffer.from('b'));
+
+      const [r1, r2] = await Promise.all([
+        store.move(projectId, FilePath.create('/a.txt'), FilePath.create('/dest.txt')),
+        store.move(projectId, FilePath.create('/b.txt'), FilePath.create('/dest.txt')),
+      ]);
+
+      const successes = [r1, r2].filter((r) => r.success).length;
+      const conflicts = [r1, r2].filter((r) => !r.success && r.error instanceof FileConflictError).length;
+
+      expect(successes).toBe(1);
+      expect(conflicts).toBe(1);
+    });
+  });
 });
