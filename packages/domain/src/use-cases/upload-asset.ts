@@ -63,13 +63,13 @@ export class UploadAssetUseCase {
       return { success: false, error: new ValidationError(`MIME type '${mimeType.value}' is not permitted`) };
     }
 
-    const stored = await this.systemSettingRepo.get(SETTING_MAX_UPLOAD_SIZE_BYTES);
-    const parsed = stored === null ? Number.NaN : Number(stored);
-    const effectiveLimit = Number.isNaN(parsed) || parsed <= 0 ? this.defaultMaxUploadSizeBytes : parsed;
-
     if (bytes.length === 0) {
       return { success: false, error: new ValidationError('File must not be empty') };
     }
+
+    const stored = await this.systemSettingRepo.get(SETTING_MAX_UPLOAD_SIZE_BYTES);
+    const parsed = stored === null ? Number.NaN : Number(stored);
+    const effectiveLimit = Number.isNaN(parsed) || parsed <= 0 ? this.defaultMaxUploadSizeBytes : parsed;
 
     if (bytes.length > effectiveLimit) {
       return { success: false, error: new ValidationError('File exceeds maximum permitted size') };
