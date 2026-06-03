@@ -26,7 +26,7 @@ export class Asset {
     /** MIME type of the asset. */
     public readonly mimeType: MimeType,
     /** File size in bytes. Must be >= 0. */
-    public readonly sizeBytes: number,
+    public readonly sizeBytes: bigint,
     /**
      * Identifier of a parent asset in a hierarchy, or null if top-level.
      */
@@ -36,7 +36,7 @@ export class Asset {
     /** Timestamp of the last metadata update, or null if never updated. */
     public readonly updatedAt: Date | null = null,
   ) {
-    if (this.sizeBytes < 0) {
+    if (this.sizeBytes < 0n) {
       throw new Error('Asset sizeBytes must be >= 0');
     }
   }

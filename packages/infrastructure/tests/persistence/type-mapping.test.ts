@@ -207,20 +207,20 @@ describe('Type mapping round-trip', () => {
       const project = createTestProject();
       await projectRepo.save(project);
 
-      const original = createTestAsset(project.id, { sizeBytes: 1024 });
+      const original = createTestAsset(project.id, { sizeBytes: 1024n });
       await assetRepo.save(original);
       const version = createTestAsset(project.id, {
         parentId: original.id,
-        sizeBytes: 2048,
+        sizeBytes: 2048n,
       });
       await assetRepo.save(version);
       const foundOriginal = await assetRepo.findById(original.id);
       const foundVersion = await assetRepo.findById(version.id);
       expect(foundOriginal).not.toBeNull();
-      expect(foundOriginal!.sizeBytes).toBe(1024);
+      expect(foundOriginal!.sizeBytes).toBe(1024n);
       expect(foundOriginal!.parentId).toBeNull();
       expect(foundVersion).not.toBeNull();
-      expect(foundVersion!.sizeBytes).toBe(2048);
+      expect(foundVersion!.sizeBytes).toBe(2048n);
       expect(foundVersion!.parentId!.value).toBe(original.id.value);
     });
   });

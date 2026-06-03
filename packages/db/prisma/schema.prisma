@@ -118,7 +118,7 @@ model Asset {
   filename    String
   storagePath String
   mimeType    String
-  sizeBytes   Int
+  sizeBytes   BigInt
   parentId    String?   @db.Uuid
   uploadedAt  DateTime  @default(now())
   updatedAt   DateTime?

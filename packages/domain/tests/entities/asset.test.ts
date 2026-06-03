@@ -15,7 +15,7 @@ describe('Asset entity', () => {
       'logo.png',
       '/uploads/logo.png',
       MimeType.create('image/png'),
-      1024,
+      1024n,
       null,
       uploadedAt,
       null,
@@ -25,42 +25,42 @@ describe('Asset entity', () => {
     expect(asset.filename).toBe('logo.png');
     expect(asset.storagePath).toBe('/uploads/logo.png');
     expect(asset.mimeType.value).toBe('image/png');
-    expect(asset.sizeBytes).toBe(1024);
+    expect(asset.sizeBytes).toBe(1024n);
     expect(asset.parentId).toBeNull();
     expect(asset.uploadedAt).toBe(uploadedAt);
     expect(asset.updatedAt).toBeNull();
   });
 
   test('rejects sizeBytes < 0', () => {
-    expect(() => new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), -1, null, uploadedAt, null)).toThrow();
+    expect(() => new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), -1n, null, uploadedAt, null)).toThrow();
   });
 
   test('accepts sizeBytes = 0 (zero-byte file)', () => {
-    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 0, null, uploadedAt, null);
-    expect(asset.sizeBytes).toBe(0);
+    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 0n, null, uploadedAt, null);
+    expect(asset.sizeBytes).toBe(0n);
   });
 
   test('accepts sizeBytes > 0', () => {
-    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 1, null, uploadedAt, null);
-    expect(asset.sizeBytes).toBe(1);
+    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 1n, null, uploadedAt, null);
+    expect(asset.sizeBytes).toBe(1n);
   });
 
   test('version chain via parentId', () => {
     const v1 = AssetId.create('550e8400-e29b-41d4-a716-446655440010');
     const v2Id = AssetId.create('550e8400-e29b-41d4-a716-446655440011');
-    const v2 = new Asset(v2Id, projectId, 'logo.png', '/uploads/logo.png', MimeType.create('image/png'), 2048, v1, uploadedAt, new Date());
+    const v2 = new Asset(v2Id, projectId, 'logo.png', '/uploads/logo.png', MimeType.create('image/png'), 2048n, v1, uploadedAt, new Date());
     expect(v2.parentId).toBe(v1);
     expect(v2.parentId).not.toBeNull();
   });
 
   test('uploadedAt is set on creation', () => {
     const now = new Date();
-    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 100, null, now, null);
+    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 100n, null, now, null);
     expect(asset.uploadedAt).toBe(now);
   });
 
   test('updatedAt is null initially and set on update', () => {
-    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 100, null, uploadedAt, null);
+    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 100n, null, uploadedAt, null);
     expect(asset.updatedAt).toBeNull();
   });
 });

@@ -91,7 +91,7 @@ export class UploadAssetUseCase {
       await this.fileNodeRepo.save(fileNode);
 
       const assetId = AssetId.create(randomUUID());
-      const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
+      const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, BigInt(bytes.length), null);
       await this.assetRepo.save(asset);
 
       return { success: true, value: { assetId, fileNodeId, storagePath } };

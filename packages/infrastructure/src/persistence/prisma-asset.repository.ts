@@ -55,7 +55,7 @@ export class PrismaAssetRepository implements AssetRepository {
 
 type AssetRecord = {
   id: string; projectId: string; filename: string; storagePath: string;
-  mimeType: string; sizeBytes: number; parentId: string | null;
+  mimeType: string; sizeBytes: bigint; parentId: string | null;
   uploadedAt: Date; updatedAt: Date | null;
 };
 

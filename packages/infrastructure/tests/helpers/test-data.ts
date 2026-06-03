@@ -72,14 +72,14 @@ export function createTestDocument(fileNodeId: FileNodeId, overrides?: { id?: Do
   );
 }
 
-export function createTestAsset(projectId: ProjectId, overrides?: { id?: AssetId; filename?: string; storagePath?: string; mimeType?: MimeType; sizeBytes?: number; parentId?: AssetId | null; uploadedAt?: Date; updatedAt?: Date | null }): Asset {
+export function createTestAsset(projectId: ProjectId, overrides?: { id?: AssetId; filename?: string; storagePath?: string; mimeType?: MimeType; sizeBytes?: bigint; parentId?: AssetId | null; uploadedAt?: Date; updatedAt?: Date | null }): Asset {
   return new Asset(
     overrides?.id ?? AssetId.create(randomUUID()),
     projectId,
     overrides?.filename ?? 'test-asset.png',
     overrides?.storagePath ?? '/assets/test-asset.png',
     overrides?.mimeType ?? MimeType.create('image/png'),
-    overrides?.sizeBytes ?? 1024,
+    overrides?.sizeBytes ?? 1024n,
     overrides?.parentId ?? null,
     overrides?.uploadedAt ?? new Date(),
     overrides?.updatedAt ?? null,
