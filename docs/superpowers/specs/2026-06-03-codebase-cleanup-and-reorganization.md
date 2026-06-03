@@ -197,6 +197,7 @@ ports/
     file-node.repository.ts
     document.repository.ts
     asset.repository.ts
+  storage/
     project-file-store.ts
     yjs-state-store.ts
   auth-tokens/
@@ -208,7 +209,7 @@ ports/
     system-setting.repository.ts
 ```
 
-**Domain test fakes** move from `packages/domain/tests/repositories/` + `packages/domain/tests/storage/` to `packages/domain/tests/ports/` with the same subfolder structure.
+**Domain test fakes** move from `packages/domain/tests/repositories/` + `packages/domain/tests/storage/` to `packages/domain/tests/ports/` with the same subfolder structure (including a `tests/ports/storage/` subfolder for the in-memory fakes).
 
 **Infrastructure persistence** gets matching subfolders under `packages/infrastructure/src/persistence/`:
 
@@ -229,6 +230,7 @@ persistence/
     prisma-file-node.repository.ts
     prisma-document.repository.ts
     prisma-asset.repository.ts
+  storage/
     filesystem-project-file-store.ts   ← moved from infrastructure/src/storage/
     filesystem-yjs-state-store.ts      ← moved from infrastructure/src/storage/
   auth-tokens/
@@ -240,9 +242,9 @@ persistence/
     prisma-system-setting.repository.ts
 ```
 
-Infrastructure test files in `packages/infrastructure/tests/persistence/` and `packages/infrastructure/tests/storage/` also reorganize to mirror the above.
+Infrastructure test files in `packages/infrastructure/tests/persistence/` and `packages/infrastructure/tests/storage/` also reorganize to mirror the above (including a `tests/persistence/storage/` subfolder).
 
-**The `packages/infrastructure/src/storage/` directory is deleted** after its files move to `persistence/file-tree/`.
+**The `packages/infrastructure/src/storage/` directory is deleted** after its files move to `persistence/storage/`.
 
 **Key constraint**: `packages/infrastructure/src/index.ts` re-exports everything from `persistence/`. No consumer changes needed outside the package.
 
