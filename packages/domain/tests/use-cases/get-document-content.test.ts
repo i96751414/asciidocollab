@@ -106,4 +106,47 @@ describe('GetDocumentContentUseCase', () => {
       expect(result.error).toBeInstanceOf(ContentNotFoundError);
     }
   });
+
+  it('rejects read when fileNodeId belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ee0e8400-e29b-41d4-a716-446655440099');
+    const otherRootFolderId = FileNodeId.create('ee4e8400-e29b-41d4-a716-446655440099');
+    const otherFileNodeId = FileNodeId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const foreignRootFolder = new FileNode(
+      otherRootFolderId,
+      otherProjectId,
+      null,
+      'OtherProject',
+      FileNodeType.create('folder'),
+      FilePath.create('/'),
+    );
+    await fileNodeRepo.save(foreignRootFolder);
+    const foreignNode = new FileNode(
+      otherFileNodeId,
+      otherProjectId,
+      otherRootFolderId,
+      'foreign.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/foreign.adoc'),
+    );
+    await fileNodeRepo.save(foreignNode);
+
+    // Also create a Document for the foreign node so execution reaches the ownership check
+    const foreignDoc = new Document(
+      DocumentId.create('ee1e8400-e29b-41d4-a716-446655440099'),
+      otherFileNodeId,
+      ContentId.create('ee2e8400-e29b-41d4-a716-446655440099'),
+      YjsStateId.create('ee3e8400-e29b-41d4-a716-446655440099'),
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo.save(foreignDoc);
+
+    // Put content at the foreign path in our project's store (the probe target)
+    await fileStore.write(projectId, FilePath.create('/foreign.adoc'), Buffer.from('secret'));
+
+    const result = await useCase.execute(actorId, projectId, otherFileNodeId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
 });

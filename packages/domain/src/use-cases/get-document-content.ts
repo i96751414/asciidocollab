@@ -34,7 +34,7 @@ export class GetDocumentContentUseCase {
     }
 
     const fileNode = await this.fileNodeRepo.findById(fileNodeId);
-    if (!fileNode) {
+    if (!fileNode || fileNode.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
