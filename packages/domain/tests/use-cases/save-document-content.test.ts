@@ -113,15 +113,15 @@ describe('SaveDocumentContentUseCase', () => {
       failingStore,
     );
 
-    const docBefore = await documentRepo.findByFileNodeId(fileNodeId);
-    const contentIdBefore = docBefore?.contentId.value;
+    const documentBefore = await documentRepo.findByFileNodeId(fileNodeId);
+    const contentIdBefore = documentBefore?.contentId.value;
 
     // Must return a Result, not throw
     const result = await useCaseWithFailingStore.execute(actorId, projectId, fileNodeId, newContent);
     expect(result.success).toBe(false);
 
     // DB ContentId must not have changed
-    const docAfter = await documentRepo.findByFileNodeId(fileNodeId);
-    expect(docAfter?.contentId.value).toBe(contentIdBefore);
+    const documentAfter = await documentRepo.findByFileNodeId(fileNodeId);
+    expect(documentAfter?.contentId.value).toBe(contentIdBefore);
   });
 });

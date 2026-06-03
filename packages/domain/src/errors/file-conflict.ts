@@ -8,6 +8,10 @@ import { DomainError } from './domain-error';
 export class FileConflictError extends DomainError {
   readonly name = 'FileConflictError';
 
+  /**
+   * @param message - Description of the conflict.
+   * @param existingId - ID of the already-existing entity, if known.
+   */
   constructor(message: string, public readonly existingId?: string) {
     super(message);
   }

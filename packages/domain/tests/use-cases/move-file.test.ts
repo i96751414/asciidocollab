@@ -13,7 +13,6 @@ import { ProjectName } from '../../src/value-objects/project-name';
 import { Role } from '../../src/value-objects/role';
 import { FileNodeType } from '../../src/value-objects/file-node-type';
 import { FilePath } from '../../src/value-objects/file-path';
-import { PermissionDeniedError } from '../../src/errors/permission-denied';
 import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
 import { FileConflictError } from '../../src/errors/file-conflict';
 import { CannotDeleteRootFolderError } from '../../src/errors/cannot-delete-root-folder';
@@ -91,32 +90,32 @@ describe('MoveFileUseCase', () => {
   });
 
   it('updates descendant FileNode paths in DB when moving a folder', async () => {
-    const srcId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440020');
-    const utilsId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440021');
-    const helperId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440022');
-    const libId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440023');
+    const sourceId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440020');
+    const utilitiesId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440021');
+    const helperFileId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440022');
+    const libraryId = FileNodeId.create('cc0e8400-e29b-41d4-a716-446655440023');
 
-    const srcFolder = new FileNode(srcId, projectId, rootFolderId, 'src', FileNodeType.create('folder'), FilePath.create('/src'));
-    await fileNodeRepo.save(srcFolder);
+    const sourceFolder = new FileNode(sourceId, projectId, rootFolderId, 'src', FileNodeType.create('folder'), FilePath.create('/src'));
+    await fileNodeRepo.save(sourceFolder);
     await fileStore.createDirectory(projectId, FilePath.create('/src'));
 
-    const utilsFolder = new FileNode(utilsId, projectId, srcId, 'utils', FileNodeType.create('folder'), FilePath.create('/src/utils'));
-    await fileNodeRepo.save(utilsFolder);
+    const utilitiesFolder = new FileNode(utilitiesId, projectId, sourceId, 'utils', FileNodeType.create('folder'), FilePath.create('/src/utils'));
+    await fileNodeRepo.save(utilitiesFolder);
     await fileStore.createDirectory(projectId, FilePath.create('/src/utils'));
 
-    const helperFile = new FileNode(helperId, projectId, utilsId, 'helper.adoc', FileNodeType.create('file'), FilePath.create('/src/utils/helper.adoc'));
+    const helperFile = new FileNode(helperFileId, projectId, utilitiesId, 'helper.adoc', FileNodeType.create('file'), FilePath.create('/src/utils/helper.adoc'));
     await fileNodeRepo.save(helperFile);
     await fileStore.write(projectId, FilePath.create('/src/utils/helper.adoc'), Buffer.from('helper'));
 
-    const libFolder = new FileNode(libId, projectId, rootFolderId, 'lib', FileNodeType.create('folder'), FilePath.create('/lib'));
-    await fileNodeRepo.save(libFolder);
+    const libraryFolder = new FileNode(libraryId, projectId, rootFolderId, 'lib', FileNodeType.create('folder'), FilePath.create('/lib'));
+    await fileNodeRepo.save(libraryFolder);
     await fileStore.createDirectory(projectId, FilePath.create('/lib'));
 
     // Move /src/utils -> /lib/utils
-    const result = await useCase.execute(actorId, projectId, utilsId, libId);
+    const result = await useCase.execute(actorId, projectId, utilitiesId, libraryId);
     expect(result.success).toBe(true);
 
-    const updatedHelper = await fileNodeRepo.findById(helperId);
+    const updatedHelper = await fileNodeRepo.findById(helperFileId);
     expect(updatedHelper?.path.value).toBe('/lib/utils/helper.adoc');
   });
 

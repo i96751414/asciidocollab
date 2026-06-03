@@ -181,18 +181,18 @@ describe('RenameFileUseCase with ProjectFileStore', () => {
     const fileStore = new InMemoryProjectFileStore();
     const useCaseWithStore = new RenameFileUseCase(projectMemberRepo, fileNodeRepo, auditLogRepo, fileStore);
 
-    const docsId = FileNodeId.create('dd0e8400-e29b-41d4-a716-446655440020');
+    const documentsFolderId = FileNodeId.create('dd0e8400-e29b-41d4-a716-446655440020');
     const introId = FileNodeId.create('dd0e8400-e29b-41d4-a716-446655440021');
 
-    const docsFolder = new FileNode(docsId, projectId, rootFolderId, 'docs', FileNodeType.create('folder'), FilePath.create('/docs'));
-    await fileNodeRepo.save(docsFolder);
+    const documentsFolder = new FileNode(documentsFolderId, projectId, rootFolderId, 'docs', FileNodeType.create('folder'), FilePath.create('/docs'));
+    await fileNodeRepo.save(documentsFolder);
     await fileStore.createDirectory(projectId, FilePath.create('/docs'));
 
-    const introFile = new FileNode(introId, projectId, docsId, 'intro.adoc', FileNodeType.create('file'), FilePath.create('/docs/intro.adoc'));
+    const introFile = new FileNode(introId, projectId, documentsFolderId, 'intro.adoc', FileNodeType.create('file'), FilePath.create('/docs/intro.adoc'));
     await fileNodeRepo.save(introFile);
     await fileStore.write(projectId, FilePath.create('/docs/intro.adoc'), Buffer.from('content'));
 
-    const result = await useCaseWithStore.execute(actorId, docsId, 'documentation', projectId);
+    const result = await useCaseWithStore.execute(actorId, documentsFolderId, 'documentation', projectId);
     expect(result.success).toBe(true);
 
     const updatedIntro = await fileNodeRepo.findById(introId);
