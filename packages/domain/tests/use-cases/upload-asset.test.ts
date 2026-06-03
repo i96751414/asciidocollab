@@ -203,6 +203,58 @@ describe('UploadAssetUseCase', () => {
     }
   });
 
+  it('falls back to defaultMaxUploadSizeBytes when DB setting is a non-numeric string', async () => {
+    await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, 'not-a-number');
+    const smallMax = new UploadAssetUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      assetRepo,
+      fileStore,
+      systemSettingRepo,
+      50, // tiny default — any file > 50 bytes must be rejected
+    );
+    const tooBig = Buffer.alloc(100, 0x42);
+    const result = await smallMax.execute(
+      actorId,
+      projectId,
+      rootFolderId,
+      'big.png',
+      MimeType.create('image/png'),
+      tooBig,
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
+  it('falls back to defaultMaxUploadSizeBytes when DB setting is an empty string', async () => {
+    await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '');
+    // Number('') === 0 — every non-empty upload would be rejected regardless of the default;
+    // with the fix, NaN/falsy parsed values fall back to the default.
+    const smallMax = new UploadAssetUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      assetRepo,
+      fileStore,
+      systemSettingRepo,
+      50,
+    );
+    const tooBig = Buffer.alloc(100, 0x42);
+    const result = await smallMax.execute(
+      actorId,
+      projectId,
+      rootFolderId,
+      'big.png',
+      MimeType.create('image/png'),
+      tooBig,
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
   it('returns FileNodeNotFoundError when parentId belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienFolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440014');
