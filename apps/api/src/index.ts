@@ -10,7 +10,7 @@ import {
   PrismaProjectMemberRepository,
   PrismaGitRepositoryRepository,
   PrismaTemplateRepository,
-  PrismaImageRepository,
+  PrismaAssetRepository,
   PrismaAuditLogRepository,
   PrismaPasswordResetTokenRepository,
   PrismaEmailChangeTokenRepository,
@@ -42,7 +42,7 @@ import {
   ProjectMemberRepository,
   GitRepositoryRepository,
   TemplateRepository,
-  ImageRepository,
+  AssetRepository,
   AuditLogRepository,
   PasswordResetTokenRepository,
   EmailChangeTokenRepository,
@@ -99,7 +99,7 @@ import { openRegistrationStatusRoute } from './routes/open-registration-status';
 import { adminSettingsRoute } from './routes/admin/settings';
 import { fileContentRoutes } from './routes/projects/file-content';
 import { fileTreeRoutes } from './routes/projects/file-tree';
-import { imagesRoutes } from './routes/projects/images';
+import { assetsRoutes } from './routes/projects/assets';
 import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
 import { keybindingsRoutes } from './routes/users/keybindings';
@@ -125,8 +125,8 @@ export interface AppContainer {
     gitRepository: GitRepositoryRepository;
     /** Repository for template persistence. */
     template: TemplateRepository;
-    /** Repository for image persistence. */
-    image: ImageRepository;
+    /** Repository for asset persistence. */
+    asset: AssetRepository;
     /** Repository for audit-log persistence. */
     auditLog: AuditLogRepository;
     /** Repository for password-reset-token persistence. */
@@ -211,7 +211,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       projectMember: new PrismaProjectMemberRepository(app.prisma),
       gitRepository: new PrismaGitRepositoryRepository(app.prisma),
       template: new PrismaTemplateRepository(app.prisma),
-      image: new PrismaImageRepository(app.prisma),
+      asset: new PrismaAssetRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
       emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
@@ -376,7 +376,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(memberRoutes);
       await innerApp.register(fileContentRoutes);
       await innerApp.register(fileTreeRoutes);
-      await innerApp.register(imagesRoutes);
+      await innerApp.register(assetsRoutes);
       await innerApp.register(eventsRoutes);
       await innerApp.register(keybindingsRoutes);
       await innerApp.register(usersSearchRoute);
@@ -420,7 +420,7 @@ declare module 'fastify' {
       projectMember: ProjectMemberRepository;
       gitRepository: GitRepositoryRepository;
       template: TemplateRepository;
-      image: ImageRepository;
+      asset: AssetRepository;
       auditLog: AuditLogRepository;
       passwordResetToken: PasswordResetTokenRepository;
       emailChangeToken: EmailChangeTokenRepository;

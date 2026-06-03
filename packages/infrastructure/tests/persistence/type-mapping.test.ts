@@ -1,12 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestImage, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
+import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestAsset as createTestImage, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
 import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
 import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
 import { PrismaProjectMemberRepository } from '../../src/persistence/prisma-project-member.repository';
 import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
 import { PrismaDocumentRepository } from '../../src/persistence/prisma-document.repository';
-import { PrismaImageRepository } from '../../src/persistence/prisma-image.repository';
+import { PrismaAssetRepository as PrismaImageRepository } from '../../src/persistence/prisma-asset.repository';
 import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
 import { PrismaGitRepositoryRepository } from '../../src/persistence/prisma-git-repository.repository';
 import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
@@ -47,7 +47,7 @@ describe('Type mapping round-trip', () => {
     // Delete in dependency order (children before parents)
     await client.auditLog.deleteMany();
     await client.document.deleteMany();
-    await client.image.deleteMany();
+    await client.asset.deleteMany();
     await client.gitRepository.deleteMany();
     await client.fileNode.deleteMany();
     await client.projectMember.deleteMany();
@@ -200,7 +200,7 @@ describe('Type mapping round-trip', () => {
     });
   });
 
-  describe('Image', () => {
+  describe('Asset', () => {
     it('should round-trip with version chain (parentId)', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);

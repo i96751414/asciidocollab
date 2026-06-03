@@ -1,15 +1,15 @@
 import { GetAssetContentUseCase } from '../../src/use-cases/get-asset-content';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryImageRepository } from '../repositories/in-memory-image.repository';
+import { InMemoryAssetRepository } from '../repositories/in-memory-asset.repository';
 import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';
-import { Image } from '../../src/entities/image';
+import { Asset } from '../../src/entities/asset';
 import { UserId } from '../../src/value-objects/user-id';
 import { ProjectId } from '../../src/value-objects/project-id';
 import { FileNodeId } from '../../src/value-objects/file-node-id';
-import { ImageId } from '../../src/value-objects/image-id';
+import { AssetId } from '../../src/value-objects/asset-id';
 import { Role } from '../../src/value-objects/role';
 import { FileNodeType } from '../../src/value-objects/file-node-type';
 import { FilePath } from '../../src/value-objects/file-path';
@@ -21,7 +21,7 @@ import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
 describe('GetAssetContentUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let fileNodeRepo: InMemoryFileNodeRepository;
-  let imageRepo: InMemoryImageRepository;
+  let assetRepo: InMemoryAssetRepository;
   let fileStore: InMemoryProjectFileStore;
   let useCase: GetAssetContentUseCase;
 
@@ -30,7 +30,7 @@ describe('GetAssetContentUseCase', () => {
   const projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
   const rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
   const fileNodeId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
-  const assetId = ImageId.create('bb0e8400-e29b-41d4-a716-446655440007');
+  const assetId = AssetId.create('bb0e8400-e29b-41d4-a716-446655440007');
   const filePath = FilePath.create('/photo.png');
   const fileBytes = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
   const mimeType = MimeType.create('image/png');
@@ -38,10 +38,10 @@ describe('GetAssetContentUseCase', () => {
   beforeEach(async () => {
     projectMemberRepo = new InMemoryProjectMemberRepository();
     fileNodeRepo = new InMemoryFileNodeRepository();
-    imageRepo = new InMemoryImageRepository();
+    assetRepo = new InMemoryAssetRepository();
     fileStore = new InMemoryProjectFileStore();
 
-    useCase = new GetAssetContentUseCase(projectMemberRepo, imageRepo, fileNodeRepo, fileStore);
+    useCase = new GetAssetContentUseCase(projectMemberRepo, assetRepo, fileNodeRepo, fileStore);
 
     const rootFolder = new FileNode(rootFolderId, projectId, null, 'Root', FileNodeType.create('folder'), FilePath.create('/'));
     await fileNodeRepo.save(rootFolder);
@@ -49,8 +49,8 @@ describe('GetAssetContentUseCase', () => {
     const fileNode = new FileNode(fileNodeId, projectId, rootFolderId, 'photo.png', FileNodeType.create('file'), filePath);
     await fileNodeRepo.save(fileNode);
 
-    const image = new Image(assetId, projectId, 'photo.png', filePath.value, mimeType, fileBytes.length, null);
-    await imageRepo.save(image);
+    const image = new Asset(assetId, projectId, 'photo.png', filePath.value, mimeType, fileBytes.length, null);
+    await assetRepo.save(image);
 
     await fileStore.write(projectId, filePath, fileBytes);
 
@@ -87,9 +87,9 @@ describe('GetAssetContentUseCase', () => {
 
   it('returns FileNodeNotFoundError when the image belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
-    const alienAssetId = ImageId.create('cc0e8400-e29b-41d4-a716-446655440010');
-    const alienImage = new Image(alienAssetId, otherProjectId, 'secret.png', '/secret.png', MimeType.create('image/png'), 100, null);
-    await imageRepo.save(alienImage);
+    const alienAssetId = AssetId.create('cc0e8400-e29b-41d4-a716-446655440010');
+    const alienImage = new Asset(alienAssetId, otherProjectId, 'secret.png', '/secret.png', MimeType.create('image/png'), 100, null);
+    await assetRepo.save(alienImage);
 
     // actor is a member of projectId, but alienImage belongs to otherProjectId
     const result = await useCase.execute(actorId, projectId, alienAssetId);

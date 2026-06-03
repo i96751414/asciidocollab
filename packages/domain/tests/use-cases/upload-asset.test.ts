@@ -1,7 +1,7 @@
 import { UploadAssetUseCase } from '../../src/use-cases/upload-asset';
 import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryImageRepository } from '../repositories/in-memory-image.repository';
+import { InMemoryAssetRepository } from '../repositories/in-memory-asset.repository';
 import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
 import { InMemorySystemSettingRepository } from '../repositories/in-memory-system-setting.repository';
 import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
@@ -28,7 +28,7 @@ describe('UploadAssetUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let fileNodeRepo: InMemoryFileNodeRepository;
-  let imageRepo: InMemoryImageRepository;
+  let assetRepo: InMemoryAssetRepository;
   let fileStore: InMemoryProjectFileStore;
   let systemSettingRepo: InMemorySystemSettingRepository;
   let useCase: UploadAssetUseCase;
@@ -43,11 +43,11 @@ describe('UploadAssetUseCase', () => {
     projectRepo = new InMemoryProjectRepository();
     projectMemberRepo = new InMemoryProjectMemberRepository();
     fileNodeRepo = new InMemoryFileNodeRepository();
-    imageRepo = new InMemoryImageRepository();
+    assetRepo = new InMemoryAssetRepository();
     fileStore = new InMemoryProjectFileStore();
     systemSettingRepo = new InMemorySystemSettingRepository();
 
-    useCase = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, imageRepo, fileStore, systemSettingRepo, DEFAULT_MAX);
+    useCase = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, DEFAULT_MAX);
 
     const project = new Project(projectId, ProjectName.create('Test'), null, [], rootFolderId);
     await projectRepo.save(project);
@@ -86,7 +86,7 @@ describe('UploadAssetUseCase', () => {
   });
 
   it('rejects bytes over defaultMaxUploadSizeBytes when no DB setting', async () => {
-    const smallMax = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, imageRepo, fileStore, systemSettingRepo, 50);
+    const smallMax = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50);
     const tooBig = Buffer.alloc(100, 0x00);
     const result = await smallMax.execute(actorId, projectId, rootFolderId, 'big.png', MimeType.create('image/png'), tooBig);
     expect(result.success).toBe(false);
@@ -97,7 +97,7 @@ describe('UploadAssetUseCase', () => {
 
   it('admin-set limit overrides the default', async () => {
     await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '200');
-    const smallDefault = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, imageRepo, fileStore, systemSettingRepo, 50);
+    const smallDefault = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50);
     const medBytes = Buffer.alloc(150, 0x00);
     const result = await smallDefault.execute(actorId, projectId, rootFolderId, 'med.png', MimeType.create('image/png'), medBytes);
     expect(result.success).toBe(true);

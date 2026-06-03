@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-describe('images route multipart limit', () => {
+describe('assets route multipart limit', () => {
   const source = readFileSync(
-    join(__dirname, '../../src/routes/projects/images.ts'),
+    join(__dirname, '../../src/routes/projects/assets.ts'),
     'utf8',
   );
 

@@ -20,7 +20,7 @@ export async function uploadAsset(projectId: string, parentId: string, file: Fil
   formData.append('file', file);
 
   const response = await fetch(
-    `${API_BASE_URL}/projects/${projectId}/images?parentId=${encodeURIComponent(parentId)}`,
+    `${API_BASE_URL}/projects/${projectId}/assets?parentId=${encodeURIComponent(parentId)}`,
     {
       method: 'POST',
       credentials: 'include',
@@ -48,5 +48,5 @@ export async function uploadAsset(projectId: string, parentId: string, file: Fil
 
 /** Returns the URL to retrieve an asset. */
 export function getAssetUrl(projectId: string, assetId: string): string {
-  return `${API_BASE_URL}/projects/${projectId}/images/${assetId}`;
+  return `${API_BASE_URL}/projects/${projectId}/assets/${assetId}`;
 }

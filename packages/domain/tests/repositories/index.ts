@@ -5,7 +5,7 @@ export { InMemoryDocumentRepository } from './in-memory-document.repository';
 export { InMemoryProjectMemberRepository } from './in-memory-project-member.repository';
 export { InMemoryGitRepositoryRepository } from './in-memory-git-repository.repository';
 export { InMemoryTemplateRepository } from './in-memory-template.repository';
-export { InMemoryImageRepository } from './in-memory-image.repository';
+export { InMemoryAssetRepository } from './in-memory-asset.repository';
 export { InMemoryAuditLogRepository } from './in-memory-audit-log.repository';
 export { InMemoryUserInvitationRepository } from './in-memory-user-invitation.repository';
 export { InMemoryEmailVerificationTokenRepository } from './in-memory-email-verification-token.repository';

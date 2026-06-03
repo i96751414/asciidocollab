@@ -9,7 +9,7 @@ export { PrismaDocumentRepository } from './persistence/prisma-document.reposito
 export { PrismaProjectMemberRepository } from './persistence/prisma-project-member.repository';
 export { PrismaGitRepositoryRepository } from './persistence/prisma-git-repository.repository';
 export { PrismaTemplateRepository } from './persistence/prisma-template.repository';
-export { PrismaImageRepository } from './persistence/prisma-image.repository';
+export { PrismaAssetRepository } from './persistence/prisma-asset.repository';
 export { PrismaAuditLogRepository } from './persistence/prisma-audit-log.repository';
 export { PrismaPasswordResetTokenRepository } from './persistence/prisma-password-reset-token.repository';
 export { PrismaEmailChangeTokenRepository } from './persistence/prisma-email-change-token.repository';

@@ -4,10 +4,10 @@ import { FileNodeId } from '../value-objects/file-node-id';
 import { FilePath } from '../value-objects/file-path';
 import { MimeType } from '../value-objects/mime-type';
 import { FileNodeType } from '../value-objects/file-node-type';
-import { ImageId } from '../value-objects/image-id';
+import { AssetId } from '../value-objects/asset-id';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
 import { FileNodeRepository } from '../repositories/file-node.repository';
-import { ImageRepository } from '../repositories/image.repository';
+import { AssetRepository } from '../repositories/asset.repository';
 import { SystemSettingRepository } from '../repositories/system-setting.repository';
 import { ProjectFileStore } from '../storage/project-file-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
@@ -16,7 +16,7 @@ import { ValidationError } from '../errors/validation-error';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '../types/result';
 import { FileNode } from '../entities/file-node';
-import { Image } from '../entities/image';
+import { Asset } from '../entities/asset';
 import { SETTING_MAX_UPLOAD_SIZE_BYTES } from '../constants';
 import { randomUUID } from 'crypto';
 
@@ -39,13 +39,13 @@ export class UploadAssetUseCase {
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
-    private readonly imageRepo: ImageRepository,
+    private readonly assetRepo: AssetRepository,
     private readonly fileStore: ProjectFileStore,
     private readonly systemSettingRepo: SystemSettingRepository,
     private readonly defaultMaxUploadSizeBytes: number,
   ) {}
 
-  /** Validates membership and file size, stores the bytes on disk, and creates the file node and image metadata records. */
+  /** Validates membership and file size, stores the bytes on disk, and creates the file node and asset metadata records. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,
@@ -53,7 +53,7 @@ export class UploadAssetUseCase {
     filename: string,
     mimeType: MimeType,
     bytes: Buffer,
-  ): Promise<Result<{ assetId: ImageId; fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
+  ): Promise<Result<{ assetId: AssetId; fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
@@ -92,9 +92,9 @@ export class UploadAssetUseCase {
     const fileNode = new FileNode(fileNodeId, projectId, parentId, filename, FileNodeType.create('file'), filePath);
     await this.fileNodeRepo.save(fileNode);
 
-    const assetId = ImageId.create(randomUUID());
-    const image = new Image(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
-    await this.imageRepo.save(image);
+    const assetId = AssetId.create(randomUUID());
+    const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, bytes.length, null);
+    await this.assetRepo.save(asset);
 
     return { success: true, value: { assetId, fileNodeId, storagePath } };
   }

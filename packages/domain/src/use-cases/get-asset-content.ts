@@ -1,10 +1,10 @@
 import { UserId } from '../value-objects/user-id';
 import { ProjectId } from '../value-objects/project-id';
-import { ImageId } from '../value-objects/image-id';
+import { AssetId } from '../value-objects/asset-id';
 import { FilePath } from '../value-objects/file-path';
 import { MimeType } from '../value-objects/mime-type';
 import { ProjectMemberRepository } from '../repositories/project-member.repository';
-import { ImageRepository } from '../repositories/image.repository';
+import { AssetRepository } from '../repositories/asset.repository';
 import { FileNodeRepository } from '../repositories/file-node.repository';
 import { ProjectFileStore } from '../storage/project-file-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
@@ -18,7 +18,7 @@ export class GetAssetContentUseCase {
   /** Initializes the use case with the repositories and file store needed to retrieve asset content. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
-    private readonly imageRepo: ImageRepository,
+    private readonly assetRepo: AssetRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly fileStore: ProjectFileStore,
   ) {}
@@ -27,24 +27,24 @@ export class GetAssetContentUseCase {
   async execute(
     actorId: UserId,
     projectId: ProjectId,
-    assetId: ImageId,
+    assetId: AssetId,
   ): Promise<Result<{ bytes: Buffer; mimeType: MimeType; filename: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    const image = await this.imageRepo.findById(assetId);
-    if (!image || image.projectId.value !== projectId.value) {
+    const asset = await this.assetRepo.findById(assetId);
+    if (!asset || asset.projectId.value !== projectId.value) {
       return { success: false, error: new FileNodeNotFoundError(assetId.value) };
     }
 
-    const filePath = FilePath.create(image.storagePath);
+    const filePath = FilePath.create(asset.storagePath);
     const bytes = await this.fileStore.read(projectId, filePath);
     if (!bytes) {
-      return { success: false, error: new ContentNotFoundError(image.storagePath) };
+      return { success: false, error: new ContentNotFoundError(asset.storagePath) };
     }
 
-    return { success: true, value: { bytes, mimeType: image.mimeType, filename: image.filename } };
+    return { success: true, value: { bytes, mimeType: asset.mimeType, filename: asset.filename } };
   }
 }

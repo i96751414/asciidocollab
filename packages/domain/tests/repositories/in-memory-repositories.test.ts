@@ -5,7 +5,7 @@ import { InMemoryDocumentRepository } from './in-memory-document.repository';
 import { InMemoryProjectMemberRepository } from './in-memory-project-member.repository';
 import { InMemoryGitRepositoryRepository } from './in-memory-git-repository.repository';
 import { InMemoryTemplateRepository } from './in-memory-template.repository';
-import { InMemoryImageRepository } from './in-memory-image.repository';
+import { InMemoryAssetRepository } from './in-memory-asset.repository';
 import { InMemoryAuditLogRepository } from './in-memory-audit-log.repository';
 import { Project } from '../../src/entities/project';
 import { User } from '../../src/entities/user';
@@ -14,7 +14,7 @@ import { Document } from '../../src/entities/document';
 import { ProjectMember } from '../../src/entities/project-member';
 import { GitRepository } from '../../src/entities/git-repository';
 import { Template } from '../../src/entities/template';
-import { Image } from '../../src/entities/image';
+import { Asset } from '../../src/entities/asset';
 import { AuditLog } from '../../src/entities/audit-log';
 import { UserId } from '../../src/value-objects/user-id';
 import { ProjectId } from '../../src/value-objects/project-id';
@@ -22,7 +22,7 @@ import { FileNodeId } from '../../src/value-objects/file-node-id';
 import { DocumentId } from '../../src/value-objects/document-id';
 import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
 import { TemplateId } from '../../src/value-objects/template-id';
-import { ImageId } from '../../src/value-objects/image-id';
+import { AssetId } from '../../src/value-objects/asset-id';
 import { AuditLogId } from '../../src/value-objects/audit-log-id';
 import { ProjectName } from '../../src/value-objects/project-name';
 import { Email } from '../../src/value-objects/email';
@@ -45,7 +45,7 @@ describe('In-Memory Repository Fakes', () => {
   const documentId = DocumentId.create('550e8400-e29b-41d4-a716-446655440030');
   const gitRepoId = GitRepositoryId.create('550e8400-e29b-41d4-a716-446655440040');
   const templateId = TemplateId.create('550e8400-e29b-41d4-a716-446655440050');
-  const imageId = ImageId.create('550e8400-e29b-41d4-a716-446655440060');
+  const assetId = AssetId.create('550e8400-e29b-41d4-a716-446655440060');
   const auditLogId = AuditLogId.create('550e8400-e29b-41d4-a716-446655440070');
 
   describe('InMemoryProjectRepository', () => {
@@ -264,20 +264,20 @@ describe('In-Memory Repository Fakes', () => {
     });
   });
 
-  describe('InMemoryImageRepository', () => {
+  describe('InMemoryAssetRepository', () => {
     it('saves and retrieves by id', async () => {
-      const repo = new InMemoryImageRepository();
-      const img = new Image(imageId, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 1024, null);
-      await repo.save(img);
-      const found = await repo.findById(imageId);
+      const repo = new InMemoryAssetRepository();
+      const asset = new Asset(assetId, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 1024, null);
+      await repo.save(asset);
+      const found = await repo.findById(assetId);
       expect(found).not.toBeNull();
     });
 
     it('finds by project id', async () => {
-      const repo = new InMemoryImageRepository();
-      await repo.save(new Image(imageId, projectId, 'a.png', '/a.png', MimeType.create('image/png'), 100, null));
-      const images = await repo.findByProjectId(projectId);
-      expect(images).toHaveLength(1);
+      const repo = new InMemoryAssetRepository();
+      await repo.save(new Asset(assetId, projectId, 'a.png', '/a.png', MimeType.create('image/png'), 100, null));
+      const assets = await repo.findByProjectId(projectId);
+      expect(assets).toHaveLength(1);
     });
   });
 

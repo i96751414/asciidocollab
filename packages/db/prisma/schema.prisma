@@ -63,7 +63,7 @@ model Project {
 
   members       ProjectMember[]
   fileNodes     FileNode[]
-  images        Image[]
+  assets        Asset[]
   gitRepository GitRepository?
   auditLogs     AuditLog[]
   templates     Template[]       @relation("TemplateSourceProject")
@@ -112,7 +112,7 @@ model Document {
   fileNode FileNode @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
 }
 
-model Image {
+model Asset {
   id          String    @id @default(uuid()) @db.Uuid
   projectId   String    @db.Uuid
   filename    String
@@ -123,11 +123,12 @@ model Image {
   uploadedAt  DateTime  @default(now())
   updatedAt   DateTime?
 
-  project  Project  @relation(fields: [projectId], references: [id])
-  parent   Image?   @relation("ImageVersion", fields: [parentId], references: [id])
-  versions Image[]  @relation("ImageVersion")
+  project  Project @relation(fields: [projectId], references: [id])
+  parent   Asset?  @relation("AssetVersion", fields: [parentId], references: [id])
+  versions Asset[] @relation("AssetVersion")
 
   @@index([projectId])
+  @@map("assets")
 }
 
 model Template {
