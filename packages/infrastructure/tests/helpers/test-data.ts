@@ -86,9 +86,6 @@ export function createTestAsset(projectId: ProjectId, overrides?: { id?: AssetId
   );
 }
 
-/** @deprecated Use createTestAsset instead. */
-export const createTestImage = createTestAsset;
-
 export function createTestTemplate(overrides?: { id?: TemplateId; name?: string; description?: string | null; category?: TemplateCategory; sourceProjectId?: ProjectId | null; createdAt?: Date }): Template {
   return new Template(
     overrides?.id ?? TemplateId.create(randomUUID()),

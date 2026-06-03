@@ -1,12 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestAsset as createTestImage, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
+import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestAsset, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
 import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
 import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
 import { PrismaProjectMemberRepository } from '../../src/persistence/prisma-project-member.repository';
 import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
 import { PrismaDocumentRepository } from '../../src/persistence/prisma-document.repository';
-import { PrismaAssetRepository as PrismaImageRepository } from '../../src/persistence/prisma-asset.repository';
+import { PrismaAssetRepository } from '../../src/persistence/prisma-asset.repository';
 import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
 import { PrismaGitRepositoryRepository } from '../../src/persistence/prisma-git-repository.repository';
 import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
@@ -20,7 +20,7 @@ describe('Type mapping round-trip', () => {
   let projectMemberRepo: PrismaProjectMemberRepository;
   let fileNodeRepo: PrismaFileNodeRepository;
   let documentRepo: PrismaDocumentRepository;
-  let imageRepo: PrismaImageRepository;
+  let assetRepo: PrismaAssetRepository;
   let templateRepo: PrismaTemplateRepository;
   let gitRepo: PrismaGitRepositoryRepository;
   let auditLogRepo: PrismaAuditLogRepository;
@@ -33,7 +33,7 @@ describe('Type mapping round-trip', () => {
     projectMemberRepo = new PrismaProjectMemberRepository(client);
     fileNodeRepo = new PrismaFileNodeRepository(client);
     documentRepo = new PrismaDocumentRepository(client);
-    imageRepo = new PrismaImageRepository(client);
+    assetRepo = new PrismaAssetRepository(client);
     templateRepo = new PrismaTemplateRepository(client);
     gitRepo = new PrismaGitRepositoryRepository(client);
     auditLogRepo = new PrismaAuditLogRepository(client);
@@ -207,15 +207,15 @@ describe('Type mapping round-trip', () => {
       const project = createTestProject();
       await projectRepo.save(project);
 
-      const original = createTestImage(project.id, { sizeBytes: 1024 });
-      await imageRepo.save(original);
-      const version = createTestImage(project.id, {
+      const original = createTestAsset(project.id, { sizeBytes: 1024 });
+      await assetRepo.save(original);
+      const version = createTestAsset(project.id, {
         parentId: original.id,
         sizeBytes: 2048,
       });
-      await imageRepo.save(version);
-      const foundOriginal = await imageRepo.findById(original.id);
-      const foundVersion = await imageRepo.findById(version.id);
+      await assetRepo.save(version);
+      const foundOriginal = await assetRepo.findById(original.id);
+      const foundVersion = await assetRepo.findById(version.id);
       expect(foundOriginal).not.toBeNull();
       expect(foundOriginal!.sizeBytes).toBe(1024);
       expect(foundOriginal!.parentId).toBeNull();
