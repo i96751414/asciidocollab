@@ -199,6 +199,39 @@ describe('RenameFileUseCase with ProjectFileStore', () => {
     expect(updatedIntro?.path.value).toBe('/documentation/intro.adoc');
   });
 
+  it('updates deeply nested descendants (3 levels) when renaming a folder', async () => {
+    const levelOneStore = new InMemoryProjectFileStore();
+    const useCaseDeep = new RenameFileUseCase(projectMemberRepo, fileNodeRepo, auditLogRepo, levelOneStore);
+
+    const topId = FileNodeId.create('a10e8400-e29b-41d4-a716-446655440040');
+    const midId = FileNodeId.create('b10e8400-e29b-41d4-a716-446655440041');
+    const leafId = FileNodeId.create('c10e8400-e29b-41d4-a716-446655440042');
+
+    await fileNodeRepo.save(new FileNode(topId, projectId, rootFolderId, 'top', FileNodeType.create('folder'), FilePath.create('/top')));
+    await fileNodeRepo.save(new FileNode(midId, projectId, topId, 'mid', FileNodeType.create('folder'), FilePath.create('/top/mid')));
+    await fileNodeRepo.save(new FileNode(leafId, projectId, midId, 'leaf.adoc', FileNodeType.create('file'), FilePath.create('/top/mid/leaf.adoc')));
+    await levelOneStore.createDirectory(projectId, FilePath.create('/top'));
+    await levelOneStore.createDirectory(projectId, FilePath.create('/top/mid'));
+    await levelOneStore.write(projectId, FilePath.create('/top/mid/leaf.adoc'), Buffer.from('leaf'));
+
+    const result = await useCaseDeep.execute(actorId, topId, 'root', projectId);
+    expect(result.success).toBe(true);
+
+    const updatedMid = await fileNodeRepo.findById(midId);
+    const updatedLeaf = await fileNodeRepo.findById(leafId);
+    expect(updatedMid?.path.value).toBe('/root/mid');
+    expect(updatedLeaf?.path.value).toBe('/root/mid/leaf.adoc');
+  });
+
+  it('returns PermissionDeniedError (not FileNodeNotFoundError) when actor is not a member', async () => {
+    const nonMember = UserId.create('000e8400-e29b-41d4-a716-446655440099');
+    const result = await useCase.execute(nonMember, fileNodeId, 'any.adoc', projectId);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.name).toBe('PermissionDeniedError');
+    }
+  });
+
   it('returns FileNodeNotFoundError when the file node belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440013');

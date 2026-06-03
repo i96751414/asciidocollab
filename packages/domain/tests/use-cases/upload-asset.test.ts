@@ -175,6 +175,34 @@ describe('UploadAssetUseCase', () => {
     }
   });
 
+  it('accepts a file exactly at the configured size limit', async () => {
+    await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '100');
+    const exactBytes = Buffer.alloc(100, 0x42);
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'exact.png', MimeType.create('image/png'), exactBytes);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a file one byte over the configured size limit', async () => {
+    await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '100');
+    const overBytes = Buffer.alloc(101, 0x42);
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'over.png', MimeType.create('image/png'), overBytes);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+    }
+  });
+
+  it('stores asset bytes so they can be read back after upload', async () => {
+    const bytes = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), bytes);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const stored = await fileStore.read(projectId, FilePath.create(`/${result.value.storagePath.replace(/^\//, '')}`));
+      const storedAlt = await fileStore.read(projectId, FilePath.create(result.value.storagePath));
+      expect(stored ?? storedAlt).toEqual(bytes);
+    }
+  });
+
   it('returns FileNodeNotFoundError when parentId belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienFolderId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440014');
