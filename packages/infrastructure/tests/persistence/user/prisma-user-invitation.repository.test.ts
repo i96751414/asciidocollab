@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { Email, UserInvitation, UserInvitationId, UserId } from '@asciidocollab/domain';
-import { PrismaUserInvitationRepository } from '../../src/persistence/prisma-user-invitation.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser } from '../helpers/test-data';
+import { PrismaUserInvitationRepository } from '../../../src/persistence/user/prisma-user-invitation.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser } from '../../helpers/test-data';
 import { randomUUID } from 'crypto';
 
 function makeInvitation(recipientEmail: string, invitedByUserId: UserId | null = null, overrides?: { expiresAt?: Date; acceptedAt?: Date | null }) {

@@ -1,10 +1,10 @@
 import { AuditLogRepository, UserRepository, ProjectRepository } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestAuditLog } from '../helpers/test-data';
+import { PrismaAuditLogRepository } from '../../../src/persistence/admin/prisma-audit-log.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser, createTestProject, createTestAuditLog } from '../../helpers/test-data';
 
 describe('PrismaAuditLogRepository', () => {
   let container: TestContainer;

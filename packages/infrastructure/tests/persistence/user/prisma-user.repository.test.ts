@@ -1,8 +1,8 @@
 import { UserRepository } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser } from '../helpers/test-data';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser } from '../../helpers/test-data';
 import { UserId, Email } from '@asciidocollab/domain';
 
 describe('PrismaUserRepository', () => {

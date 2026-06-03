@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaSessionRepository } from '../../src/persistence/prisma-session.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser } from '../helpers/test-data';
+import { PrismaSessionRepository } from '../../../src/persistence/user/prisma-session.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser } from '../../helpers/test-data';
 import { UserId } from '@asciidocollab/domain';
 import { randomUUID } from 'crypto';
 

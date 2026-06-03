@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FilesystemProjectFileStore } from '../../src/storage/filesystem-project-file-store';
+import { FilesystemProjectFileStore } from '../../../src/persistence/storage/filesystem-project-file-store';
 import { ProjectId } from '@asciidocollab/domain';
 import { FilePath } from '@asciidocollab/domain';
 import { FileConflictError } from '@asciidocollab/domain';

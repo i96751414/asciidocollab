@@ -1,10 +1,10 @@
 import { FileNodeRepository, UserRepository, ProjectRepository, FileNodeType, FilePath, Project } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestFileNode } from '../helpers/test-data';
+import { PrismaFileNodeRepository } from '../../../src/persistence/file-tree/prisma-file-node.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser, createTestProject, createTestFileNode } from '../../helpers/test-data';
 import { FileNodeId } from '@asciidocollab/domain';
 
 describe('PrismaFileNodeRepository', () => {

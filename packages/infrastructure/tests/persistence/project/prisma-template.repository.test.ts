@@ -1,8 +1,8 @@
 import { TemplateRepository } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestTemplate } from '../helpers/test-data';
+import { PrismaTemplateRepository } from '../../../src/persistence/project/prisma-template.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestTemplate } from '../../helpers/test-data';
 import { TemplateId } from '@asciidocollab/domain';
 
 describe('PrismaTemplateRepository', () => {

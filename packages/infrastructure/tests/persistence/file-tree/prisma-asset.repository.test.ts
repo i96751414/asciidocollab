@@ -1,10 +1,10 @@
 import { AssetRepository, UserRepository, ProjectRepository, AssetId, Project } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaAssetRepository } from '../../src/persistence/prisma-asset.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestAsset } from '../helpers/test-data';
+import { PrismaAssetRepository } from '../../../src/persistence/file-tree/prisma-asset.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser, createTestProject, createTestAsset } from '../../helpers/test-data';
 
 describe('PrismaAssetRepository', () => {
   let container: TestContainer;

@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaKeyBindingRepository } from '../../src/persistence/prisma-key-binding.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser } from '../helpers/test-data';
+import { PrismaKeyBindingRepository } from '../../../src/persistence/user/prisma-key-binding.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser } from '../../helpers/test-data';
 
 describe('PrismaKeyBindingRepository', () => {
   let container: TestContainer;

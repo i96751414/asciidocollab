@@ -1,15 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
 import { createTestUser, createTestProject, createTestProjectMember, createTestFileNode, createTestDocument, createTestAsset, createTestTemplate, createTestGitRepository, createTestAuditLog } from '../helpers/test-data';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { PrismaProjectMemberRepository } from '../../src/persistence/prisma-project-member.repository';
-import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
-import { PrismaDocumentRepository } from '../../src/persistence/prisma-document.repository';
-import { PrismaAssetRepository } from '../../src/persistence/prisma-asset.repository';
-import { PrismaTemplateRepository } from '../../src/persistence/prisma-template.repository';
-import { PrismaGitRepositoryRepository } from '../../src/persistence/prisma-git-repository.repository';
-import { PrismaAuditLogRepository } from '../../src/persistence/prisma-audit-log.repository';
+import { PrismaUserRepository } from '../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../src/persistence/project/prisma-project.repository';
+import { PrismaProjectMemberRepository } from '../../src/persistence/project/prisma-project-member.repository';
+import { PrismaFileNodeRepository } from '../../src/persistence/file-tree/prisma-file-node.repository';
+import { PrismaDocumentRepository } from '../../src/persistence/file-tree/prisma-document.repository';
+import { PrismaAssetRepository } from '../../src/persistence/file-tree/prisma-asset.repository';
+import { PrismaTemplateRepository } from '../../src/persistence/project/prisma-template.repository';
+import { PrismaGitRepositoryRepository } from '../../src/persistence/project/prisma-git-repository.repository';
+import { PrismaAuditLogRepository } from '../../src/persistence/admin/prisma-audit-log.repository';
 import { FileNodeType, FilePath, Role, TemplateCategory, GitProvider } from '@asciidocollab/domain';
 
 describe('Type mapping round-trip', () => {

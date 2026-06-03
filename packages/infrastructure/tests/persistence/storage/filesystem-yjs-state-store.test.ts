@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FilesystemYjsStateStore } from '../../src/storage/filesystem-yjs-state-store';
+import { FilesystemYjsStateStore } from '../../../src/persistence/storage/filesystem-yjs-state-store';
 import { ProjectId, YjsStateId } from '@asciidocollab/domain';
 
 describe('FilesystemYjsStateStore', () => {

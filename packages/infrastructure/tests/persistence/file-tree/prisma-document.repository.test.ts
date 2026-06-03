@@ -1,11 +1,11 @@
 import { DocumentRepository, UserRepository, ProjectRepository, FileNodeRepository, DocumentId, FilePath, FileNode, FileNodeType } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
-import { PrismaDocumentRepository } from '../../src/persistence/prisma-document.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { PrismaProjectRepository } from '../../src/persistence/prisma-project.repository';
-import { PrismaFileNodeRepository } from '../../src/persistence/prisma-file-node.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser, createTestProject, createTestFileNode, createTestDocument } from '../helpers/test-data';
+import { PrismaDocumentRepository } from '../../../src/persistence/file-tree/prisma-document.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
+import { PrismaFileNodeRepository } from '../../../src/persistence/file-tree/prisma-file-node.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser, createTestProject, createTestFileNode, createTestDocument } from '../../helpers/test-data';
 
 describe('PrismaDocumentRepository', () => {
   let container: TestContainer;

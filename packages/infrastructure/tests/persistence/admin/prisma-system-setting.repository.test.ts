@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaSystemSettingRepository } from '../../src/persistence/prisma-system-setting.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
+import { PrismaSystemSettingRepository } from '../../../src/persistence/admin/prisma-system-setting.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
 
 describe('PrismaSystemSettingRepository', () => {
   let container: TestContainer;

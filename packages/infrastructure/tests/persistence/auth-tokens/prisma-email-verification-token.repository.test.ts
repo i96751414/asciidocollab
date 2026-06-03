@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { EmailVerificationToken, EmailVerificationTokenId, UserId } from '@asciidocollab/domain';
-import { PrismaEmailVerificationTokenRepository } from '../../src/persistence/prisma-email-verification-token.repository';
-import { PrismaUserRepository } from '../../src/persistence/prisma-user.repository';
-import { startTestContainer, stopTestContainer, TestContainer } from '../helpers/prisma-test-container';
-import { createTestUser } from '../helpers/test-data';
+import { PrismaEmailVerificationTokenRepository } from '../../../src/persistence/auth-tokens/prisma-email-verification-token.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
+import { createTestUser } from '../../helpers/test-data';
 import { randomUUID } from 'crypto';
 
 function makeToken(userId: UserId, tokenHash?: string): EmailVerificationToken {
