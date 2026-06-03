@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 describe('file-tree route — combined rename+move PATCH', () => {
   const source = readFileSync(
-    join(__dirname, '../../src/routes/projects/file-tree.ts'),
+    join(__dirname, '../../src/routes/projects/file-tree-patch.ts'),
     'utf8',
   );
 
