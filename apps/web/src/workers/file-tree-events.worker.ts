@@ -39,7 +39,7 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
   return source;
 }
 
-// @ts-expect-error SharedWorkerGlobalScope
+declare const self: SharedWorkerGlobalScope;
 self.addEventListener('connect', (connectEvent: MessageEvent) => {
   const port: MessagePort = connectEvent.ports[0];
 

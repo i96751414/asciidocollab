@@ -31,11 +31,8 @@ async function* walkEntry(
 }
 
 function getEntry(item: DataTransferItem): FileSystemEntry | null {
-  // Use unprefixed getAsEntry first (standards), then webkit-prefixed for Safari
-  if ('getAsEntry' in item && typeof item.getAsEntry === 'function') {
-    return item.getAsEntry() ?? null;
-  }
-  return item.webkitGetAsEntry?.() ?? null;
+  const extItem = item as DataTransferItem & { getAsEntry?: () => FileSystemEntry | null };
+  return extItem.getAsEntry?.() ?? item.webkitGetAsEntry?.() ?? null;
 }
 
 function isFileEntry(entry: FileSystemEntry): entry is FileSystemFileEntry {
