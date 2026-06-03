@@ -7,7 +7,7 @@
 ```
 apps/           ← Delivery (Fastify API, Next.js frontend)
 packages/
-  domain/       ← Business logic, entities, use cases, repository interfaces
+  domain/       ← Business logic, entities, use cases, port interfaces (repositories + storage)
   application/  ← Orchestration, DTOs, service coordination
   infrastructure/ ← Prisma repos, external adapters, Docker wrappers
   shared/       ← DTOs, error types, value objects crossing package boundaries
@@ -31,8 +31,8 @@ Domain ← Application ← Infrastructure ← Delivery
 - All cross-boundary communication MUST use DTOs defined in `packages/shared`.
 - Dependency injection MUST wire concrete implementations to domain interfaces at the
   composition root in `apps/` — no service locators, no static singletons.
-- The domain layer MUST define repository interfaces; infrastructure provides
-  implementations.
+- The domain layer MUST define port interfaces (repositories and storage contracts)
+  under `packages/domain/src/ports/`; infrastructure provides implementations.
 - Use cases in the domain layer MUST orchestrate business logic without knowing the
   delivery mechanism (HTTP, WebSocket, CLI, etc.).
 
@@ -64,9 +64,12 @@ Domain ← Application ← Infrastructure ← Delivery
 - Database access via Prisma ORM only. The Prisma schema lives in `packages/db`.
 - All queries use the generated Prisma client — raw SQL or untyped queries are not
   permitted without documented justification.
-- Repository interfaces are defined in `packages/domain`. Infrastructure provides
-  Prisma-backed implementations.
-- Every repository interface MUST have a corresponding in-memory fake in the test suite.
+- Port interfaces (repositories and storage contracts) are defined in
+  `packages/domain/src/ports/` grouped by domain area (user/, project/, file-tree/,
+  storage/, auth-tokens/, admin/).
+  Infrastructure provides Prisma-backed and filesystem implementations.
+- Every port interface MUST have a corresponding in-memory fake in
+  `packages/domain/tests/ports/` mirroring the same subfolder structure.
 
 ---
 
@@ -105,6 +108,14 @@ Tests MUST live in a dedicated `tests/` directory at the package or app root, mi
 ### Structure mirrors source
 
 A test for `apps/api/src/routes/users/keybindings.ts` lives at `apps/api/tests/routes/keybindings.test.ts`. A test for `apps/web/src/hooks/useKeyBindings.ts` lives at `apps/web/tests/hooks/useKeyBindings.test.ts`. The `src/` segment is dropped; the rest of the path is preserved.
+
+### Subfolder conventions (domain package)
+
+| Layer | Source path | Test path |
+|---|---|---|
+| Domain use cases | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/` | `packages/domain/tests/use-cases/{subfolder}/` |
+| Domain ports | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/domain/tests/ports/{subfolder}/` |
+| Infrastructure persistence | `packages/infrastructure/src/persistence/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/infrastructure/tests/persistence/{subfolder}/` |
 
 ### Rules
 
@@ -164,4 +175,4 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Domain testing         | In-memory fakes                           | Every domain repository has an in-memory fake in the test suite        |
 | Infrastructure testing | testcontainers                            | Integration tests spin up real PostgreSQL/Docker containers            |
 
-**Version**: 2.2.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-02
+**Version**: 2.3.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-03

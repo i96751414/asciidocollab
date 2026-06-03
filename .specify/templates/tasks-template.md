@@ -34,6 +34,18 @@ A test for `apps/api/src/routes/users/profile.ts` → `apps/api/tests/routes/pro
 
 Source paths follow the architecture: `packages/domain/src/`, `packages/infrastructure/src/`, `apps/api/src/`, `apps/web/src/`.
 
+### Domain-package subfolder conventions
+
+After the 2026-06-03 codebase reorganization, the domain package uses grouped subfolders:
+
+| Layer | Source paths | Test paths |
+|---|---|---|
+| Use cases | `packages/domain/src/use-cases/{auth,project,file-tree,content,settings,members}/` | `packages/domain/tests/use-cases/{subfolder}/` |
+| Port interfaces | `packages/domain/src/ports/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/domain/tests/ports/{subfolder}/` |
+| Infrastructure | `packages/infrastructure/src/persistence/{user,project,file-tree,storage,auth-tokens,admin}/` | `packages/infrastructure/tests/persistence/{subfolder}/` |
+
+All public APIs remain stable — consumers import from `@asciidocollab/domain` (not from internal subfolder paths).
+
 <!--
   ============================================================================
   IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
