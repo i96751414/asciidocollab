@@ -29,27 +29,27 @@ enum GitProvider {
 }
 
 model User {
-  id              String   @id @default(uuid()) @db.Uuid
-  email           String   @unique
-  displayName     String
-  passwordHash    String?
-  passwordHistory String[]
-  samlSubject     String?
-  mfaSecret       String?
+  id                 String             @id @default(uuid()) @db.Uuid
+  email              String             @unique
+  displayName        String
+  passwordHash       String?
+  passwordHistory    String[]
+  samlSubject        String?
+  mfaSecret          String?
   isAdmin            Boolean            @default(false)
   emailVerified      Boolean            @default(true)
   registrationMethod RegistrationMethod @default(SELF_REGISTERED)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  memberships              ProjectMember[]
-  auditLogs                AuditLog[]
-  sessions                 Session[]
-  passwordResetTokens      PasswordResetToken[]
-  emailChangeTokens        EmailChangeToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-  sentInvitations          UserInvitation[]         @relation("InvitedBy")
-  keyBindings              UserKeyBinding[]
+  memberships             ProjectMember[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  emailChangeTokens       EmailChangeToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  sentInvitations         UserInvitation[]         @relation("InvitedBy")
+  keyBindings             UserKeyBinding[]
 }
 
 model Project {
@@ -66,7 +66,7 @@ model Project {
   assets        Asset[]
   gitRepository GitRepository?
   auditLogs     AuditLog[]
-  templates     Template[]       @relation("TemplateSourceProject")
+  templates     Template[]      @relation("TemplateSourceProject")
 }
 
 model ProjectMember {
@@ -123,7 +123,7 @@ model Asset {
   uploadedAt  DateTime  @default(now())
   updatedAt   DateTime?
 
-  project  Project @relation(fields: [projectId], references: [id])
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   parent   Asset?  @relation("AssetVersion", fields: [parentId], references: [id])
   versions Asset[] @relation("AssetVersion")
 
@@ -173,13 +173,13 @@ model AuditLog {
 }
 
 model Session {
-  id        String    @id @default(uuid())
-  userId    String?   @db.Uuid
-  sid       String    @unique
+  id        String   @id @default(uuid())
+  userId    String?  @db.Uuid
+  sid       String   @unique
   data      Json
   expiresAt DateTime
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
