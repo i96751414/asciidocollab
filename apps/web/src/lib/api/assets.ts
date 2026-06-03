@@ -45,8 +45,3 @@ export async function uploadAsset(projectId: string, parentId: string, file: Fil
     mimeType: file.type,
   };
 }
-
-/** Returns the URL to retrieve an asset. */
-export function getAssetUrl(projectId: string, assetId: string): string {
-  return `${API_BASE_URL}/projects/${projectId}/assets/${assetId}`;
-}
