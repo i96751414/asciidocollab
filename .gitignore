@@ -21,3 +21,4 @@ packages/shared/tests/**/*.js.map
 
 # Project collaboration state (Yjs CRDT snapshots)
 .collab/
+apps/web/test-results/
