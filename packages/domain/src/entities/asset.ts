@@ -8,11 +8,11 @@ import { MimeType } from '../value-objects/mime-type';
  * Assets are stored at a configurable storage path. An asset must always have
  * a positive size and a permitted MIME type.
  *
- * @invariant `sizeBytes` must be greater than 0.
+ * @invariant `sizeBytes` must be >= 0 (zero-byte files are permitted).
  */
 export class Asset {
   /**
-   * @throws {Error} If `sizeBytes` is not greater than 0.
+   * @throws {Error} If `sizeBytes` is negative.
    */
   constructor(
     /** Unique identifier for this asset. */
@@ -25,7 +25,7 @@ export class Asset {
     public readonly storagePath: string,
     /** MIME type of the asset. */
     public readonly mimeType: MimeType,
-    /** File size in bytes. Must be > 0. */
+    /** File size in bytes. Must be >= 0. */
     public readonly sizeBytes: number,
     /**
      * Identifier of a parent asset in a hierarchy, or null if top-level.
@@ -36,8 +36,8 @@ export class Asset {
     /** Timestamp of the last metadata update, or null if never updated. */
     public readonly updatedAt: Date | null = null,
   ) {
-    if (this.sizeBytes <= 0) {
-      throw new Error('Asset sizeBytes must be > 0');
+    if (this.sizeBytes < 0) {
+      throw new Error('Asset sizeBytes must be >= 0');
     }
   }
 }

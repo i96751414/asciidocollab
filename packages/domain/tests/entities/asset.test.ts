@@ -31,9 +31,13 @@ describe('Asset entity', () => {
     expect(asset.updatedAt).toBeNull();
   });
 
-  test('rejects sizeBytes <= 0', () => {
-    expect(() => new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 0, null, uploadedAt, null)).toThrow();
+  test('rejects sizeBytes < 0', () => {
     expect(() => new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), -1, null, uploadedAt, null)).toThrow();
+  });
+
+  test('accepts sizeBytes = 0 (zero-byte file)', () => {
+    const asset = new Asset(assetId, projectId, 'file.png', '/file.png', MimeType.create('image/png'), 0, null, uploadedAt, null);
+    expect(asset.sizeBytes).toBe(0);
   });
 
   test('accepts sizeBytes > 0', () => {

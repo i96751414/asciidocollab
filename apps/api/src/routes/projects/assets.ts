@@ -58,9 +58,6 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
           if (result.error.message.includes('MIME type')) {
             return reply.status(415).send({ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: result.error.message } });
           }
-          if (result.error.message.includes('File must not be empty')) {
-            return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: result.error.message } });
-          }
           return reply.status(413).send({ error: { code: 'FILE_TOO_LARGE', message: 'File exceeds maximum permitted size' } });
         }
         if (result.error instanceof FileConflictError) {

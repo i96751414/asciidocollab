@@ -160,21 +160,6 @@ describe('UploadAssetUseCase', () => {
     expect(result.success).toBe(true);
   });
 
-  it('returns ValidationError when bytes is empty (zero-byte file)', async () => {
-    const result = await useCase.execute(
-      actorId,
-      projectId,
-      rootFolderId,
-      'empty.png',
-      MimeType.create('image/png'),
-      Buffer.alloc(0),
-    );
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(ValidationError);
-    }
-  });
-
   it('accepts a file exactly at the configured size limit', async () => {
     await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '100');
     const exactBytes = Buffer.alloc(100, 0x42);
@@ -273,6 +258,18 @@ describe('UploadAssetUseCase', () => {
     if (!result.success) {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
+  });
+
+  it('accepts a zero-byte (empty) file upload', async () => {
+    const result = await useCase.execute(
+      actorId,
+      projectId,
+      rootFolderId,
+      'empty.adoc',
+      MimeType.create('text/plain'),
+      Buffer.alloc(0),
+    );
+    expect(result.success).toBe(true);
   });
 
   it('cleans up the disk file when assetRepo.save throws after createExclusive succeeds', async () => {
