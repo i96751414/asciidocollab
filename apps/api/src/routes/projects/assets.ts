@@ -26,6 +26,9 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const actorId = UserId.create(getAuthenticatedUserId(request));
       const projectId = ProjectId.create(request.params.projectId);
+      if (!request.query.parentId) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'parentId query parameter is required' } });
+      }
       const parentId = FileNodeId.create(request.query.parentId);
 
       const data = await request.file();
@@ -54,6 +57,9 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
         if (result.error instanceof ValidationError) {
           if (result.error.message.includes('MIME type')) {
             return reply.status(415).send({ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: result.error.message } });
+          }
+          if (result.error.message.includes('File must not be empty')) {
+            return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: result.error.message } });
           }
           return reply.status(413).send({ error: { code: 'FILE_TOO_LARGE', message: 'File exceeds maximum permitted size' } });
         }
