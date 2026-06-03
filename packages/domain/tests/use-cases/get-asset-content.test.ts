@@ -1,8 +1,8 @@
 import { GetAssetContentUseCase } from '../../src/use-cases/get-asset-content';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryAssetRepository } from '../repositories/in-memory-asset.repository';
-import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryFileNodeRepository } from '../ports/file-tree/in-memory-file-node.repository';
+import { InMemoryAssetRepository } from '../ports/file-tree/in-memory-asset.repository';
+import { InMemoryProjectFileStore } from '../ports/storage/in-memory-project-file-store';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';
 import { Asset } from '../../src/entities/asset';

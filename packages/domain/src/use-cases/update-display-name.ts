@@ -1,6 +1,6 @@
 import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository } from '../ports/user/user.repository';
 import { DomainError } from '../errors/domain-error';
 import { ValidationError } from '../errors/validation-error';
 import { UserNotFoundError } from '../errors/user-not-found';

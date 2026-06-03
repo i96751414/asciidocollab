@@ -1,7 +1,7 @@
 import { RegisterUseCase } from '../../src/use-cases/register-user';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemorySystemSettingRepository } from '../repositories/in-memory-system-setting.repository';
-import { InMemoryEmailVerificationTokenRepository } from '../repositories/in-memory-email-verification-token.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemorySystemSettingRepository } from '../ports/admin/in-memory-system-setting.repository';
+import { InMemoryEmailVerificationTokenRepository } from '../ports/auth-tokens/in-memory-email-verification-token.repository';
 import { Email } from '../../src/value-objects/email';
 import { PasswordPolicy } from '../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../src/services/password-hasher';

@@ -1,5 +1,5 @@
 import { ListUserProjectsUseCase } from '../../src/use-cases/list-user-projects';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
 import { Project } from '../../src/entities/project';
 import { ProjectId } from '../../src/value-objects/project-id';
 import { UserId } from '../../src/value-objects/user-id';

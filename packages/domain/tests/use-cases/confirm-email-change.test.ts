@@ -6,8 +6,8 @@ import { Email } from '../../src/value-objects/email';
 import { Timestamps } from '../../src/value-objects/timestamps';
 import { EmailChangeToken } from '../../src/entities/email-change-token';
 import { EmailChangeTokenId } from '../../src/value-objects/email-change-token-id';
-import { InMemoryEmailChangeTokenRepository } from '../repositories/in-memory-email-change-token.repository';
-import { UserRepository } from '../../src/repositories/user.repository';
+import { InMemoryEmailChangeTokenRepository } from '../ports/auth-tokens/in-memory-email-change-token.repository';
+import { UserRepository } from '../../src/ports/user/user.repository';
 import { TokenGenerator } from '../../src/services/token-generator';
 
 const USER_ID = UserId.create('550e8400-e29b-41d4-a716-446655440000');

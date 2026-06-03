@@ -1,8 +1,8 @@
 import { RestoreProjectUseCase } from '../../src/use-cases/restore-project';
 import { ArchiveProjectUseCase } from '../../src/use-cases/archive-project';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { ProjectId } from '../../src/value-objects/project-id';

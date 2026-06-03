@@ -1,8 +1,8 @@
 import { ProjectId } from '../value-objects/project-id';
 import { UserId } from '../value-objects/user-id';
-import { ProjectRepository } from '../repositories/project.repository';
-import { ProjectMemberRepository } from '../repositories/project-member.repository';
-import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { ProjectRepository } from '../ports/project/project.repository';
+import { ProjectMemberRepository } from '../ports/project/project-member.repository';
+import { AuditLogRepository } from '../ports/admin/audit-log.repository';
 import { AuditLog } from '../entities/audit-log';
 import { AuditLogId } from '../value-objects/audit-log-id';
 import { PermissionDeniedError } from '../errors/permission-denied';

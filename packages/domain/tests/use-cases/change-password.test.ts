@@ -1,5 +1,5 @@
 import { ChangePasswordUseCase } from '../../src/use-cases/change-password';
-import { UserRepository } from '../../src/repositories/user.repository';
+import { UserRepository } from '../../src/ports/user/user.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

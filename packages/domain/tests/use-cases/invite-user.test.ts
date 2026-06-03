@@ -1,7 +1,7 @@
 import { InviteUserUseCase } from '../../src/use-cases/invite-user';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { ProjectMember } from '../../src/entities/project-member';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';

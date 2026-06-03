@@ -1,9 +1,9 @@
 import { DeleteProjectUseCase } from '../../src/use-cases/delete-project';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
-import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
-import { InMemoryYjsStateStore } from '../storage/in-memory-yjs-state-store';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
+import { InMemoryProjectFileStore } from '../ports/storage/in-memory-project-file-store';
+import { InMemoryYjsStateStore } from '../ports/storage/in-memory-yjs-state-store';
 import { FilePath } from '../../src/value-objects/file-path';
 import { YjsStateId } from '../../src/value-objects/yjs-state-id';
 import { Project } from '../../src/entities/project';

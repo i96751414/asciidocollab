@@ -4,7 +4,7 @@ import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';
 import { Timestamps } from '../../src/value-objects/timestamps';
-import { UserRepository } from '../../src/repositories/user.repository';
+import { UserRepository } from '../../src/ports/user/user.repository';
 
 function createTestUser(displayName = 'Original Name'): User {
   return new User(

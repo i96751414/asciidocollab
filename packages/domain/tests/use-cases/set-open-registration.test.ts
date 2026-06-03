@@ -1,7 +1,7 @@
 import { GetOpenRegistrationUseCase, SetOpenRegistrationUseCase } from '../../src/use-cases/get-open-registration';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemorySystemSettingRepository } from '../repositories/in-memory-system-setting.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemorySystemSettingRepository } from '../ports/admin/in-memory-system-setting.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

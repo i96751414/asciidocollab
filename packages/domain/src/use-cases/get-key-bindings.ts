@@ -1,4 +1,4 @@
-import { KeyBindingRepository } from '../repositories/key-binding.repository';
+import { KeyBindingRepository } from '../ports/user/key-binding.repository';
 import { DEFAULT_KEY_BINDINGS } from '../constants/key-bindings';
 
 /** Represents a resolved key binding with its current combo and whether it is the default. */

@@ -1,10 +1,10 @@
 import { RenameFileUseCase } from '../../src/use-cases/rename-file';
 import { FileNodeNotFoundError } from '../../src/errors/file-node-not-found';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
-import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryFileNodeRepository } from '../ports/file-tree/in-memory-file-node.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
+import { InMemoryProjectFileStore } from '../ports/storage/in-memory-project-file-store';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';

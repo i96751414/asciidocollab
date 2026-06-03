@@ -1,6 +1,6 @@
 import { ResendVerificationEmailUseCase } from '../../src/use-cases/resend-verification-email';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryEmailVerificationTokenRepository } from '../repositories/in-memory-email-verification-token.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryEmailVerificationTokenRepository } from '../ports/auth-tokens/in-memory-email-verification-token.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

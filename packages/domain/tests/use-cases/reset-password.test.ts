@@ -1,6 +1,6 @@
 import { ResetPasswordUseCase } from '../../src/use-cases/reset-password';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryPasswordResetTokenRepository } from '../repositories/in-memory-password-reset-token.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryPasswordResetTokenRepository } from '../ports/auth-tokens/in-memory-password-reset-token.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

@@ -1,4 +1,4 @@
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository } from '../ports/user/user.repository';
 
 /** Returns whether the system has been set up (i.e., at least one user exists). */
 export class CheckSystemSetupUseCase {

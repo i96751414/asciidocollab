@@ -1,7 +1,7 @@
 import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
-import { UserRepository } from '../repositories/user.repository';
-import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
+import { UserRepository } from '../ports/user/user.repository';
+import { PasswordResetTokenRepository } from '../ports/auth-tokens/password-reset-token.repository';
 import { DomainError } from '../errors/domain-error';
 import { InvalidTokenError } from '../errors/invalid-token';
 import { PasswordReuseError } from '../errors/password-reuse';

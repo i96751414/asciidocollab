@@ -1,5 +1,5 @@
 import { UpdateKeyBindingUseCase } from '../../src/use-cases/update-key-binding';
-import { InMemoryKeyBindingRepository } from '../repositories/in-memory-key-binding.repository';
+import { InMemoryKeyBindingRepository } from '../ports/user/in-memory-key-binding.repository';
 import { KeyBindingConflictError } from '../../src/errors/key-binding-conflict';
 import { ValidationError } from '../../src/errors/validation-error';
 

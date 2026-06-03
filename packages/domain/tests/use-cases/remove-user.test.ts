@@ -1,8 +1,8 @@
 import { RemoveUserUseCase } from '../../src/use-cases/remove-user';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemorySessionRepository } from '../repositories/in-memory-session.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemorySessionRepository } from '../ports/user/in-memory-session.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

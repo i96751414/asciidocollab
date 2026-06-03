@@ -1,8 +1,8 @@
 import { PasswordResetToken } from '../entities/password-reset-token';
 import { PasswordResetTokenId } from '../value-objects/password-reset-token-id';
 import { Email } from '../value-objects/email';
-import { UserRepository } from '../repositories/user.repository';
-import { PasswordResetTokenRepository } from '../repositories/password-reset-token.repository';
+import { UserRepository } from '../ports/user/user.repository';
+import { PasswordResetTokenRepository } from '../ports/auth-tokens/password-reset-token.repository';
 import { Result } from '../types/result';
 import { randomUUID } from 'crypto';
 import { TokenGenerator } from '../services/token-generator';

@@ -1,5 +1,5 @@
 import { Email } from '../value-objects/email';
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository } from '../ports/user/user.repository';
 import { Result } from '../types/result';
 import { PasswordHasher } from '../services/password-hasher';
 import { LOGIN_DELAY_MS } from '../constants';

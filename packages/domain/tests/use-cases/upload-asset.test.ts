@@ -1,10 +1,10 @@
 import { UploadAssetUseCase } from '../../src/use-cases/upload-asset';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryAssetRepository } from '../repositories/in-memory-asset.repository';
-import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
-import { InMemorySystemSettingRepository } from '../repositories/in-memory-system-setting.repository';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryFileNodeRepository } from '../ports/file-tree/in-memory-file-node.repository';
+import { InMemoryAssetRepository } from '../ports/file-tree/in-memory-asset.repository';
+import { InMemoryProjectFileStore } from '../ports/storage/in-memory-project-file-store';
+import { InMemorySystemSettingRepository } from '../ports/admin/in-memory-system-setting.repository';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';

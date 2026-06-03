@@ -1,6 +1,6 @@
 import { Project } from '../entities/project';
 import { UserId } from '../value-objects/user-id';
-import { ProjectRepository, PaginationParameters } from '../repositories/project.repository';
+import { ProjectRepository, PaginationParameters } from '../ports/project/project.repository';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '../types/result';
 

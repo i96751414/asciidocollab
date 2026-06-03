@@ -1,4 +1,4 @@
-import { KeyBindingRepository } from '../repositories/key-binding.repository';
+import { KeyBindingRepository } from '../ports/user/key-binding.repository';
 import { DEFAULT_KEY_BINDINGS, RESERVED_KEY_COMBOS } from '../constants/key-bindings';
 import { KeyBindingConflictError } from '../errors/key-binding-conflict';
 import { ValidationError } from '../errors/validation-error';

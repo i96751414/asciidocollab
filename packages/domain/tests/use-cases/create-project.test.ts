@@ -1,8 +1,8 @@
 import { CreateProjectUseCase } from '../../src/use-cases/create-project';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
-import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
+import { InMemoryFileNodeRepository } from '../ports/file-tree/in-memory-file-node.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { UserId } from '../../src/value-objects/user-id';
 import { ProjectName } from '../../src/value-objects/project-name';
 import { InvalidProjectNameError } from '../../src/errors/invalid-project-name';

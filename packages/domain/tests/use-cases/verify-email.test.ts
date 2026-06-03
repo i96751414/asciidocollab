@@ -1,7 +1,7 @@
 import { VerifyEmailUseCase } from '../../src/use-cases/verify-email';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryEmailVerificationTokenRepository } from '../repositories/in-memory-email-verification-token.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryEmailVerificationTokenRepository } from '../ports/auth-tokens/in-memory-email-verification-token.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { EmailVerificationToken } from '../../src/entities/email-verification-token';
 import { EmailVerificationTokenId } from '../../src/value-objects/email-verification-token-id';
 import { User } from '../../src/entities/user';

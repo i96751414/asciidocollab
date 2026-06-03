@@ -1,6 +1,6 @@
 import { User } from '../entities/user';
 import { UserId } from '../value-objects/user-id';
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository } from '../ports/user/user.repository';
 import { DomainError } from '../errors/domain-error';
 import { InvalidPasswordError } from '../errors/invalid-password';
 import { PasswordReuseError } from '../errors/password-reuse';

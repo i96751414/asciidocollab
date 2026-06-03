@@ -1,7 +1,7 @@
 import { SetAdminStatusUseCase } from '../../src/use-cases/set-admin-status';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
-import { InMemorySessionRepository } from '../repositories/in-memory-session.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
+import { InMemorySessionRepository } from '../ports/user/in-memory-session.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

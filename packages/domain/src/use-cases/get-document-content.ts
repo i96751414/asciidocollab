@@ -1,10 +1,10 @@
 import { UserId } from '../value-objects/user-id';
 import { ProjectId } from '../value-objects/project-id';
 import { FileNodeId } from '../value-objects/file-node-id';
-import { ProjectMemberRepository } from '../repositories/project-member.repository';
-import { FileNodeRepository } from '../repositories/file-node.repository';
-import { DocumentRepository } from '../repositories/document.repository';
-import { ProjectFileStore } from '../storage/project-file-store';
+import { ProjectMemberRepository } from '../ports/project/project-member.repository';
+import { FileNodeRepository } from '../ports/file-tree/file-node.repository';
+import { DocumentRepository } from '../ports/file-tree/document.repository';
+import { ProjectFileStore } from '../ports/storage/project-file-store';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { FileNodeNotFoundError } from '../errors/file-node-not-found';
 import { ContentNotFoundError } from '../errors/content-not-found';

@@ -1,6 +1,6 @@
 import { ResetKeyBindingUseCase } from '../../src/use-cases/reset-key-binding';
 import { GetKeyBindingsUseCase } from '../../src/use-cases/get-key-bindings';
-import { InMemoryKeyBindingRepository } from '../repositories/in-memory-key-binding.repository';
+import { InMemoryKeyBindingRepository } from '../ports/user/in-memory-key-binding.repository';
 import { ValidationError } from '../../src/errors/validation-error';
 
 const userId = '550e8400-e29b-41d4-a716-446655440001';

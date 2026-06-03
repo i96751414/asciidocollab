@@ -1,5 +1,5 @@
 import { CheckSystemSetupUseCase } from '../../src/use-cases/check-system-setup';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
 import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';

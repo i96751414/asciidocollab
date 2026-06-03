@@ -1,8 +1,8 @@
 import { MoveFileUseCase } from '../../src/use-cases/move-file';
-import { InMemoryProjectMemberRepository } from '../repositories/in-memory-project-member.repository';
-import { InMemoryFileNodeRepository } from '../repositories/in-memory-file-node.repository';
-import { InMemoryProjectFileStore } from '../storage/in-memory-project-file-store';
-import { InMemoryProjectRepository } from '../repositories/in-memory-project.repository';
+import { InMemoryProjectMemberRepository } from '../ports/project/in-memory-project-member.repository';
+import { InMemoryFileNodeRepository } from '../ports/file-tree/in-memory-file-node.repository';
+import { InMemoryProjectFileStore } from '../ports/storage/in-memory-project-file-store';
+import { InMemoryProjectRepository } from '../ports/project/in-memory-project.repository';
 import { Project } from '../../src/entities/project';
 import { ProjectMember } from '../../src/entities/project-member';
 import { FileNode } from '../../src/entities/file-node';

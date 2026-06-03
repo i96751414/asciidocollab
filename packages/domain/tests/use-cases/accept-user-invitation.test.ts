@@ -1,7 +1,7 @@
 import { AcceptUserInvitationUseCase } from '../../src/use-cases/accept-user-invitation';
-import { InMemoryUserRepository } from '../repositories/in-memory-user.repository';
-import { InMemoryUserInvitationRepository } from '../repositories/in-memory-user-invitation.repository';
-import { InMemoryAuditLogRepository } from '../repositories/in-memory-audit-log.repository';
+import { InMemoryUserRepository } from '../ports/user/in-memory-user.repository';
+import { InMemoryUserInvitationRepository } from '../ports/user/in-memory-user-invitation.repository';
+import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { UserInvitation } from '../../src/entities/user-invitation';
 import { UserInvitationId } from '../../src/value-objects/user-invitation-id';
 import { Email } from '../../src/value-objects/email';

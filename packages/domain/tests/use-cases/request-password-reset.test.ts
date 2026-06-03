@@ -3,10 +3,10 @@ import { User } from '../../src/entities/user';
 import { UserId } from '../../src/value-objects/user-id';
 import { Email } from '../../src/value-objects/email';
 import { Timestamps } from '../../src/value-objects/timestamps';
-import { UserRepository } from '../../src/repositories/user.repository';
+import { UserRepository } from '../../src/ports/user/user.repository';
 import { TokenGenerator } from '../../src/services/token-generator';
 import { PasswordResetNotifier } from '../../src/services/password-reset-notifier';
-import { InMemoryPasswordResetTokenRepository } from '../repositories/in-memory-password-reset-token.repository';
+import { InMemoryPasswordResetTokenRepository } from '../ports/auth-tokens/in-memory-password-reset-token.repository';
 
 const USER_ID = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 const TEST_EMAIL = 'user@example.com';

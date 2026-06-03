@@ -1,4 +1,4 @@
-import { KeyBindingRepository } from '../repositories/key-binding.repository';
+import { KeyBindingRepository } from '../ports/user/key-binding.repository';
 import { DEFAULT_KEY_BINDINGS } from '../constants/key-bindings';
 import { ValidationError } from '../errors/validation-error';
 import { DomainError } from '../errors/domain-error';

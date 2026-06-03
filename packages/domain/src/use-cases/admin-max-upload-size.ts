@@ -1,9 +1,9 @@
 import { UserId } from '../value-objects/user-id';
 import { AuditLog } from '../entities/audit-log';
 import { AuditLogId } from '../value-objects/audit-log-id';
-import { SystemSettingRepository } from '../repositories/system-setting.repository';
-import { UserRepository } from '../repositories/user.repository';
-import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { SystemSettingRepository } from '../ports/admin/system-setting.repository';
+import { UserRepository } from '../ports/user/user.repository';
+import { AuditLogRepository } from '../ports/admin/audit-log.repository';
 import { PermissionDeniedError } from '../errors/permission-denied';
 import { DomainError } from '../errors/domain-error';
 import { Result } from '../types/result';
