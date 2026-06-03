@@ -101,6 +101,46 @@ describe('SaveDocumentContentUseCase', () => {
     }
   });
 
+  it('rejects write when fileNodeId belongs to a different project', async () => {
+    const otherProjectId = ProjectId.create('ee0e8400-e29b-41d4-a716-446655440099');
+    const otherRootId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440098');
+    const otherFileNodeId = FileNodeId.create('ff0e8400-e29b-41d4-a716-446655440099');
+    const foreignRoot = new FileNode(
+      otherRootId,
+      otherProjectId,
+      null,
+      'Other',
+      FileNodeType.create('folder'),
+      FilePath.create('/'),
+    );
+    await fileNodeRepo.save(foreignRoot);
+    const foreignNode = new FileNode(
+      otherFileNodeId,
+      otherProjectId,
+      otherRootId,
+      'foreign.adoc',
+      FileNodeType.create('file'),
+      FilePath.create('/foreign.adoc'),
+    );
+    await fileNodeRepo.save(foreignNode);
+    // Also create a Document for the foreign node so the use case can reach the
+    // ownership check (without this the document lookup returns null first).
+    const foreignDocument = new Document(
+      DocumentId.create('ee0e8400-e29b-41d4-a716-446655440097'),
+      otherFileNodeId,
+      ContentId.create('ee0e8400-e29b-41d4-a716-446655440096'),
+      YjsStateId.create('ee0e8400-e29b-41d4-a716-446655440095'),
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo.save(foreignDocument);
+
+    const result = await useCase.execute(actorId, projectId, otherFileNodeId, newContent);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
+    }
+  });
+
   it('returns a failed Result (not throws) and does not update DB ContentId when disk write fails', async () => {
     const failingStore = {
       write: jest.fn().mockRejectedValue(new Error('disk full')),
