@@ -28,10 +28,12 @@ interface Properties {
   nodeName: string;
   hasChildren: boolean;
   onUpdate: () => void;
+  /** When true, hides Rename and Delete — used for the root folder. */
+  isRoot?: boolean;
 }
 
 /** Renders the context-menu action buttons (create, rename, delete) for a file tree node. */
-export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, hasChildren, onUpdate }: Properties) {
+export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, hasChildren, onUpdate, isRoot = false }: Properties) {
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [inputValue, setInputValue] = useState('');
@@ -97,21 +99,29 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => openDialog({ type: 'create-file' })}>
-            New File
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openDialog({ type: 'create-folder' })}>
-            New Folder
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openDialog({ type: 'rename', currentName: nodeName })}>
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-destructive"
-            onSelect={() => openDialog({ type: 'delete' })}
-          >
-            Delete
-          </DropdownMenuItem>
+          {nodeType === 'folder' && (
+            <DropdownMenuItem onSelect={() => openDialog({ type: 'create-file' })}>
+              New File
+            </DropdownMenuItem>
+          )}
+          {nodeType === 'folder' && (
+            <DropdownMenuItem onSelect={() => openDialog({ type: 'create-folder' })}>
+              New Folder
+            </DropdownMenuItem>
+          )}
+          {!isRoot && (
+            <DropdownMenuItem onSelect={() => openDialog({ type: 'rename', currentName: nodeName })}>
+              Rename
+            </DropdownMenuItem>
+          )}
+          {!isRoot && (
+            <DropdownMenuItem
+              className="text-destructive"
+              onSelect={() => openDialog({ type: 'delete' })}
+            >
+              Delete
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

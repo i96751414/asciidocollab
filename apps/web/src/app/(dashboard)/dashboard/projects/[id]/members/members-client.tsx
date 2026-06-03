@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ProjectMember, ProjectMemberRole } from "@/lib/api";
 import { MemberList } from "@/components/member-list";
 import { InviteMemberForm } from "@/components/invite-member-form";
@@ -45,6 +46,12 @@ export function MembersClient({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <Link
+        href={`/dashboard/projects/${projectId}`}
+        className="text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← Back to project
+      </Link>
       {isArchived && (
         <div className="p-4 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium">
           This project is archived. Member management is read-only.

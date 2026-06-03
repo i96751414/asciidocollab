@@ -5,6 +5,7 @@ import { UserId } from '../../value-objects/user-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
 import { ProjectId } from '../../value-objects/project-id';
 import { FilePath } from '../../value-objects/file-path';
+import { FileName } from '../../value-objects/file-name';
 import { AuditLogId } from '../../value-objects/audit-log-id';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
@@ -56,6 +57,7 @@ export class RenameFileUseCase {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
+    FileName.create(newName); // throws ValidationError for invalid names
     const pathString = fileNode.path.value;
     const lastSlash = pathString.lastIndexOf('/');
     const parentPath = pathString.slice(0, lastSlash + 1);

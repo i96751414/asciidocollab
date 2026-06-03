@@ -91,13 +91,17 @@ export class GetProjectTreeUseCase {
     }
 
     const rootNode = nodes.find(n => (n.parentId?.value ?? null) === null);
-    const rootChildren = rootNode ? buildTree(nodes, rootNode.id.value, documentsMap) : [];
+    if (!rootNode) {
+      return { success: false, error: new ProjectNotFoundError(projectId.value) };
+    }
+
+    const rootChildren = buildTree(nodes, rootNode.id.value, documentsMap);
 
     const root: FileTreeNode = {
-      id: project.rootFolderId!.value,
-      name: rootNode ? rootNode.name : project.name.value,
+      id: rootNode.id.value,
+      name: rootNode.name,
       type: 'folder',
-      path: '/',
+      path: rootNode.path.value,
       children: rootChildren,
     };
 

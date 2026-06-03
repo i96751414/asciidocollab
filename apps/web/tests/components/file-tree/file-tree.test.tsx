@@ -25,10 +25,12 @@ jest.mock('@/components/file-tree/file-tree-node', () => ({
     node,
     isOwner,
     onSelect,
+    onUpdate,
   }: {
     node: { name: string; id: string; path: string; type: string };
     isOwner?: boolean;
     onSelect?: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
+    onUpdate?: () => void;
   }) => (
     <div
       data-testid={`node-${node.name}`}
@@ -36,7 +38,7 @@ jest.mock('@/components/file-tree/file-tree-node', () => ({
       onClick={() => node.type === 'file' && onSelect?.(node.id, node.name, node.path, node.type as 'file' | 'folder')}
     >
       {node.name}
-      {isOwner && <button data-testid={`actions-${node.name}`}>Actions</button>}
+      {isOwner && <button data-testid={`actions-${node.name}`} onClick={() => onUpdate?.()}>Actions</button>}
     </div>
   ),
 }));
@@ -165,6 +167,14 @@ describe('FileTree', () => {
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
+  // C5b: HTTP error response (e.g. 404 for empty project) must not leave the tree stuck on "Loading..."
+  it('shows an error state when the initial fetch returns a non-ok HTTP status', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 } as Response);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
   it('reconnect triggers a full re-fetch', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
@@ -180,5 +190,55 @@ describe('FileTree', () => {
     });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  // BUG: tree does not update after file creation because onUpdate is () => {}
+  // Fix: onUpdate should trigger fetchTree so the tree re-fetches even if SSE is delayed
+  it('refetches and shows new file when a node mutation completes (onUpdate)', async () => {
+    const treeWithNew = {
+      ...rootNode,
+      children: [
+        ...rootNode.children,
+        { id: 'file-2', name: 'new.adoc', type: 'file' as const, path: '/new.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(rootNode) } as Response)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(treeWithNew) } as Response);
+    globalThis.fetch = fetchMock;
+
+    render(<FileTree projectId={projectId} isOwner={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => screen.getByTestId('node-doc.adoc'));
+
+    // Trigger onUpdate as FileTreeActions would after a successful file creation
+    act(() => {
+      fireEvent.click(screen.getByTestId('actions-doc.adoc'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('node-new.adoc')).toBeInTheDocument());
+  });
+
+  // Idempotency: if SSE 'created' event arrives after fetchTree already returned the new node,
+  // applyEvent must not add a duplicate.
+  it('applyEvent created event is idempotent — no duplicate when node already in tree', async () => {
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => screen.getByTestId('node-doc.adoc'));
+
+    const createdEvent: FileTreeEventDto = {
+      type: 'created',
+      fileNodeId: 'file-2',
+      nodeType: 'file',
+      name: 'new.adoc',
+      path: '/new.adoc',
+      parentId: 'root-1',
+    };
+
+    // First SSE event — adds the node
+    act(() => { (globalThis as unknown as Record<string, (event: FileTreeEventDto) => void>).__lastOnEvent(createdEvent); });
+    await waitFor(() => expect(screen.getByTestId('node-new.adoc')).toBeInTheDocument());
+
+    // Second SSE event with the same fileNodeId — must not add a duplicate
+    act(() => { (globalThis as unknown as Record<string, (event: FileTreeEventDto) => void>).__lastOnEvent(createdEvent); });
+    await waitFor(() => expect(screen.getAllByTestId('node-new.adoc')).toHaveLength(1));
   });
 });

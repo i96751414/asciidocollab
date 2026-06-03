@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FileTreeNode } from './file-tree-node';
+import { FileTreeActions } from './file-tree-actions';
 import { DragDropZone } from './drag-drop-zone';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import { useKeyBindings } from '@/hooks/use-key-bindings';
@@ -21,6 +22,11 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
   if (!tree) return tree;
 
   if (event.type === 'created') {
+    // Idempotency: skip if the node already exists (e.g., fetchTree beat SSE delivery)
+    const hasNode = (node: FileTreeNodeType): boolean =>
+      node.id === event.fileNodeId || node.children.some(hasNode);
+    if (hasNode(tree)) return tree;
+
     const addNode = (node: FileTreeNodeType): FileTreeNodeType => {
       if (node.id === event.parentId) {
         const newNode: FileTreeNodeType = {
@@ -98,6 +104,8 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: P
       if (response.ok) {
         const data = await response.json();
         setTree(data);
+      } else {
+        setFetchError(true);
       }
     } catch {
       setFetchError(true);
@@ -139,6 +147,20 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: P
 
   return (
     <div ref={containerReference} tabIndex={0} className="outline-none">
+      {isOwner && (
+        <div data-testid="tree-root-actions" className="flex justify-end px-2 py-0.5 border-b">
+          <FileTreeActions
+            projectId={projectId}
+            fileNodeId={rootId}
+            parentId=""
+            nodeType="folder"
+            nodeName="root"
+            hasChildren={tree.children.length > 0}
+            isRoot
+            onUpdate={fetchTree}
+          />
+        </div>
+      )}
       <DragDropZone targetFolderId={rootId} projectId={projectId}>
         {tree.children.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
@@ -153,6 +175,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: P
               selectedNodeId={selectedNodeId}
               onSelect={onSelectFile}
               onContextMenu={() => {}}
+              onUpdate={fetchTree}
             />
           ))
         )}

@@ -22,7 +22,7 @@ export function errorHandler(
   reply: FastifyReply,
 ): void {
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
-  request.log.error({ err: { type: error.constructor.name, statusCode } }, 'Unhandled error in route');
+  request.log.error({ err: error, statusCode }, 'Unhandled error in route');
 
   if (statusCode === 429) {
     const retryAfter = extractRetryAfterSeconds(error);

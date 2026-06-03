@@ -14,10 +14,11 @@ interface Properties {
   selectedNodeId: string | null;
   onSelect: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
   onContextMenu: (event: React.MouseEvent, nodeId: string) => void;
+  onUpdate?: () => void;
 }
 
 /** Renders a single file or folder node in the file tree, with expand/collapse and drag-drop support. */
-export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, onSelect, onContextMenu }: Properties) {
+export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, onSelect, onContextMenu, onUpdate }: Properties) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleClick = () => {
@@ -37,6 +38,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
 
   const nodeContent = (
     <div
+      data-testid={`tree-node-${node.name}`}
       className={cn(
         'flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
         isSelected && 'bg-accent',
@@ -65,7 +67,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
           nodeType={node.type}
           nodeName={node.name}
           hasChildren={hasChildren}
-          onUpdate={() => {}}
+          onUpdate={onUpdate ?? (() => {})}
         />
       )}
     </div>
@@ -85,6 +87,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
             selectedNodeId={selectedNodeId}
             onSelect={onSelect}
             onContextMenu={onContextMenu}
+            onUpdate={onUpdate}
           />
         ))}
       </DragDropZone>

@@ -70,7 +70,21 @@ describe('ProjectEditorLayout', () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
     expect(screen.getByTestId('content-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
+    // preview-panel is only rendered when an AsciiDoc file is selected
+    expect(screen.queryByTestId('preview-panel')).not.toBeInTheDocument();
+  });
+
+  it('preview panel appears when an AsciiDoc file is selected', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'f1', nodeName: 'doc.adoc', nodePath: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: '= Hello', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('preview-panel')).toBeInTheDocument());
   });
 
   // T010: sidebar panel toggle

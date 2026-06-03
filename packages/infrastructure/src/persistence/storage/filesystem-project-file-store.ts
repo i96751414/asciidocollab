@@ -10,7 +10,7 @@ export class FilesystemProjectFileStore implements ProjectFileStore {
   constructor(private readonly storageRoot: string) {}
 
   private projectDirectory(projectId: ProjectId): string {
-    return path.join(this.storageRoot, projectId.value);
+    return path.resolve(this.storageRoot, projectId.value);
   }
 
   private resolveSafe(projectId: ProjectId, filePath: FilePath): string {

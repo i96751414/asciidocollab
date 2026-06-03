@@ -133,8 +133,15 @@ test.describe('Self-registration with email verification (US2)', () => {
   });
 
   test('register page not accessible when open registration is disabled', async ({ page }) => {
+    // Explicitly set state — do not rely on prior test cleanup.
+    await loginAdminViaApi(page);
+    await adminSetOpenRegistration(page, false);
+    await page.context().clearCookies();
+
     await page.goto('/register');
-    const url = page.url();
-    expect(url).toMatch(/\/(register|login)/);
+    // Must redirect to /login — /register itself is not acceptable because that
+    // would mean registration is open, which is the opposite of what we're testing.
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 });

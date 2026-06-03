@@ -73,6 +73,8 @@ test.describe('Open registration toggle (US4)', () => {
 
     await page.context().clearCookies();
     await page.goto('/login');
+    // Positive anchor — proves the login form rendered before checking the link is absent.
+    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /create an account/i })).not.toBeVisible();
   });
 

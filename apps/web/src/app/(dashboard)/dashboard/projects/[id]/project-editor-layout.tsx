@@ -79,7 +79,7 @@ export function ProjectEditorLayout({
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
             <button
               aria-label="collapse sidebar"
-              className="text-muted-foreground hover:text-foreground"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => setSidebarOpen(false)}
             >
               ‹
@@ -96,7 +96,7 @@ export function ProjectEditorLayout({
         {!sidebarOpen && (
           <button
             aria-label="expand sidebar"
-            className="w-6 shrink-0 border-r flex items-center justify-center text-muted-foreground hover:text-foreground"
+            className="w-6 shrink-0 border-r flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground"
             onClick={() => setSidebarOpen(true)}
           >
             ›
@@ -108,20 +108,26 @@ export function ProjectEditorLayout({
           <FileContentPanel selectedFile={selectedFile} contentState={contentState} />
         </div>
 
-        {/* Preview panel */}
-        <div data-testid="preview-panel" className="w-80 shrink-0 border-l overflow-hidden">
-          {showPreview ? (
+        {/* Preview panel — full when open, narrow strip when collapsed */}
+        {showPreview && previewOpen && (
+          <div data-testid="preview-panel" className="w-80 shrink-0 border-l overflow-hidden">
             <AsciiDocPreview
               content={contentState.content ?? ''}
               isOpen={previewOpen}
               onToggle={togglePreview}
             />
-          ) : (
-            <div className="p-4">
-              <p className="text-muted-foreground text-sm">Preview not available for this file type.</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+        {showPreview && !previewOpen && (
+          <button
+            data-testid="preview-panel"
+            aria-label="expand preview"
+            className="w-6 shrink-0 border-l flex items-center justify-center cursor-pointer text-muted-foreground hover:bg-accent hover:text-foreground"
+            onClick={togglePreview}
+          >
+            ‹
+          </button>
+        )}
       </div>
     </div>
   );

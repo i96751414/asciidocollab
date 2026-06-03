@@ -89,6 +89,40 @@ describe('CreateFileUseCase', () => {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
+
+  it('throws ValidationError for a name with path traversal (..)', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, '../secret.adoc', mimeType, initialContent),
+    ).rejects.toThrow();
+  });
+
+  it('throws ValidationError for a name containing a newline', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, 'bad\nname.adoc', mimeType, initialContent),
+    ).rejects.toThrow();
+  });
+
+  it('throws ValidationError for a name with a forward slash', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, 'a/b.adoc', mimeType, initialContent),
+    ).rejects.toThrow();
+  });
+
+  it('throws ValidationError for an empty name', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, '', mimeType, initialContent),
+    ).rejects.toThrow();
+  });
+
+  it('creates a file with spaces in the name', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'my document.adoc', mimeType, initialContent);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.path.value).toBe('/my document.adoc');
+      const fileNode = await fileNodeRepo.findById(result.value.fileNodeId);
+      expect(fileNode?.name).toBe('my document.adoc');
+    }
+  });
 });
 
 describe('CreateFileUseCase — orphan cleanup on DB failure', () => {

@@ -12,6 +12,7 @@ export { ContentId } from './content-id';
 export { YjsStateId } from './yjs-state-id';
 export { Email } from './email';
 export { FilePath } from './file-path';
+export { FileName } from './file-name';
 export { ProjectName } from './project-name';
 export { Role } from './role';
 export { GitProvider } from './git-provider';

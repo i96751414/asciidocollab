@@ -54,7 +54,7 @@ export function AsciiDocPreview({ content, isOpen, onToggle }: AsciiDocPreviewPr
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
         <button
           onClick={onToggle}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           aria-label={isOpen ? 'collapse preview' : 'expand preview'}
         >
           {isOpen ? '›' : '‹'}

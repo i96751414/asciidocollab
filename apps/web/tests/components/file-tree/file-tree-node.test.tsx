@@ -9,8 +9,8 @@ jest.mock('@/components/file-tree/drag-drop-zone', () => ({
 }));
 
 jest.mock('@/components/file-tree/file-tree-actions', () => ({
-  FileTreeActions: ({ nodeType }: { nodeType: string }) => (
-    <button data-testid="file-tree-actions">{nodeType} actions</button>
+  FileTreeActions: ({ nodeType, onUpdate }: { nodeType: string; onUpdate?: () => void }) => (
+    <button data-testid="file-tree-actions" onClick={onUpdate}>{nodeType} actions</button>
   ),
 }));
 
@@ -186,5 +186,25 @@ describe('FileTreeNode', () => {
       />,
     );
     expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
+  });
+
+  // BUG: FileTreeNode hardcodes onUpdate={() => {}} so mutations never propagate up
+  // Fix: FileTreeNode must accept and forward an onUpdate prop to FileTreeActions
+  it('forwards onUpdate prop to FileTreeActions — calling it invokes the prop', () => {
+    const onUpdate = jest.fn();
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={true}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onUpdate={onUpdate}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('file-tree-actions'));
+    expect(onUpdate).toHaveBeenCalledTimes(1);
   });
 });

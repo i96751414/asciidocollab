@@ -2,6 +2,7 @@ import { UserId } from '../../value-objects/user-id';
 import { ProjectId } from '../../value-objects/project-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
 import { FilePath } from '../../value-objects/file-path';
+import { FileName } from '../../value-objects/file-name';
 import { MimeType } from '../../value-objects/mime-type';
 import { ContentId } from '../../value-objects/content-id';
 import { YjsStateId } from '../../value-objects/yjs-state-id';
@@ -48,6 +49,7 @@ export class CreateFileUseCase {
       return { success: false, error: new FileNodeNotFoundError(parentId.value) };
     }
 
+    FileName.create(name); // throws ValidationError for invalid names
     const parentPath = parent.path.value === '/' ? '/' : `${parent.path.value}/`;
     const newPath = FilePath.create(`${parentPath}${name}`);
 

@@ -71,7 +71,27 @@ describe('FileTreeActions', () => {
     jest.clearAllMocks();
   });
 
-  it('menu items are present (no Move, no immediate window.prompt)', () => {
+  it('folder node shows New File, New Folder, Rename, Delete (no Move)', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="src"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/New File/i)).toBeInTheDocument();
+    expect(screen.getByText(/New Folder/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rename/i)).toBeInTheDocument();
+    expect(screen.getByText(/Delete/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Move$/i)).not.toBeInTheDocument();
+  });
+
+  it('file node shows Rename and Delete but not New File or New Folder', () => {
     render(
       <FileTreeActions
         projectId={projectId}
@@ -84,12 +104,10 @@ describe('FileTreeActions', () => {
       />,
     );
 
-    expect(screen.getByText(/New File/i)).toBeInTheDocument();
-    expect(screen.getByText(/New Folder/i)).toBeInTheDocument();
+    expect(screen.queryByText(/New File/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/New Folder/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Rename/i)).toBeInTheDocument();
     expect(screen.getByText(/Delete/i)).toBeInTheDocument();
-    // Move has been removed
-    expect(screen.queryByText(/^Move$/i)).not.toBeInTheDocument();
   });
 
   // T019: Rename uses Dialog, NOT window.prompt

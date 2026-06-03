@@ -73,6 +73,44 @@ describe('CreateFolderUseCase', () => {
     }
   });
 
+  it('throws ValidationError for a folder name with path traversal (..)', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, '..'),
+    ).rejects.toThrow();
+  });
+
+  it('throws ValidationError for a folder name with a forward slash', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, 'a/b'),
+    ).rejects.toThrow();
+  });
+
+  it('throws ValidationError for an empty folder name', async () => {
+    await expect(
+      useCase.execute(actorId, projectId, rootFolderId, ''),
+    ).rejects.toThrow();
+  });
+
+  it('creates a folder with spaces in the name', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'my folder');
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.path.value).toBe('/my folder');
+    }
+  });
+
+  it('creates a nested folder whose parent has spaces in its name', async () => {
+    const parent = await useCase.execute(actorId, projectId, rootFolderId, 'my docs');
+    expect(parent.success).toBe(true);
+    if (!parent.success) return;
+
+    const child = await useCase.execute(actorId, projectId, parent.value.fileNodeId, 'sub folder');
+    expect(child.success).toBe(true);
+    if (child.success) {
+      expect(child.value.path.value).toBe('/my docs/sub folder');
+    }
+  });
+
   it('returns FileConflictError with existingId when folder with same name already exists under same parent', async () => {
     const first = await useCase.execute(actorId, projectId, rootFolderId, 'docs');
     expect(first.success).toBe(true);

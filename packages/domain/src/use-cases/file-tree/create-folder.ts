@@ -2,6 +2,7 @@ import { UserId } from '../../value-objects/user-id';
 import { ProjectId } from '../../value-objects/project-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
 import { FilePath } from '../../value-objects/file-path';
+import { FileName } from '../../value-objects/file-name';
 import { FileNodeType } from '../../value-objects/file-node-type';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
@@ -46,6 +47,7 @@ export class CreateFolderUseCase {
       return { success: false, error: new FileConflictError(`Folder '${name}' already exists`, duplicate.id.value) };
     }
 
+    FileName.create(name); // throws ValidationError for invalid names
     const parentPath = parent.path.value === '/' ? '/' : `${parent.path.value}/`;
     const newPath = FilePath.create(`${parentPath}${name}`);
 

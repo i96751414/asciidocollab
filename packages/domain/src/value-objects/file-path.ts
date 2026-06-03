@@ -1,7 +1,7 @@
 import { ValidationError } from '../errors/validation-error';
 
 const TRAVERSAL = /(^|\/|\\)(\.\.|\.)(\/|\\|$)/;
-const VALID_PATH = /^\/[a-zA-Z0-9_\-./]*$/;
+const VALID_PATH = /^\/[a-zA-Z0-9_\-. /]*$/;
 
 /**
  * Represents a file path with security validation.
