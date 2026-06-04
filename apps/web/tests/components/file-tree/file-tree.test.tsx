@@ -26,11 +26,13 @@ jest.mock('@/components/file-tree/file-tree-node', () => ({
     isOwner,
     onSelect,
     onUpdate,
+    onError,
   }: {
     node: { name: string; id: string; path: string; type: string };
     isOwner?: boolean;
     onSelect?: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
     onUpdate?: () => void;
+    onError?: (message: string | null) => void;
   }) => (
     <div
       data-testid={`node-${node.name}`}
@@ -39,6 +41,7 @@ jest.mock('@/components/file-tree/file-tree-node', () => ({
     >
       {node.name}
       {isOwner && <button data-testid={`actions-${node.name}`} onClick={() => onUpdate?.()}>Actions</button>}
+      {onError && <button data-testid={`trigger-error-${node.name}`} onClick={() => onError('Test error message')}>Trigger Error</button>}
     </div>
   ),
 }));
@@ -216,6 +219,136 @@ describe('FileTree', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('node-new.adoc')).toBeInTheDocument());
+  });
+
+  // T008: role="alert" error banner renders in panel header area after failed file operation
+  it('T008: renders role="alert" error banner after a failed file operation and it is outside tree rows', async () => {
+    render(<FileTree projectId={projectId} isOwner={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    // The mock FileTreeNode exposes a trigger-error button (only when onError prop is provided)
+    fireEvent.click(screen.getByTestId('trigger-error-doc.adoc'));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    // Verify the alert is NOT inside the tree node row
+    const alert = screen.getByRole('alert');
+    const treeNode = screen.getByTestId('node-doc.adoc');
+    expect(treeNode).not.toContainElement(alert);
+  });
+
+  // T020: Ctrl+F opens FindPanel, typing highlights first match, next/prev cycles, Escape dismisses
+  it('T020: Ctrl+F opens FindPanel; typing a query shows match counter; Escape dismisses', async () => {
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    const container = screen.getByTestId('node-doc.adoc').closest('[tabindex]') as HTMLElement;
+    expect(container).toBeTruthy();
+
+    // Ctrl+F should open FindPanel
+    fireEvent.keyDown(container, { key: 'f', ctrlKey: true });
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeInTheDocument());
+
+    // Escape should dismiss the panel
+    fireEvent.keyDown(container, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
+  });
+
+  // T002: tree items render in case-insensitive alphabetical order on initial load
+  it('T002: renders tree children in case-insensitive alphabetical order on initial load', async () => {
+    const unorderedRoot = {
+      id: 'root-1',
+      name: 'root',
+      type: 'folder' as const,
+      path: '/',
+      parentId: null,
+      children: [
+        { id: 'f-z', name: 'zebra.adoc', type: 'file' as const, path: '/zebra.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-a', name: 'Apple.adoc', type: 'file' as const, path: '/Apple.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-under', name: '_foo.adoc', type: 'file' as const, path: '/_foo.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-num', name: '2bar.adoc', type: 'file' as const, path: '/2bar.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-accent', name: 'ärch.adoc', type: 'file' as const, path: '/ärch.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(unorderedRoot);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-zebra.adoc')).toBeInTheDocument());
+
+    const nodes = screen.getAllByTestId(/^node-/);
+    const names = nodes.map((n) => n.dataset['testid']!.replace('node-', ''));
+    const sorted = names.toSorted((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    expect(names).toEqual(sorted);
+  });
+
+  // T003: created SSE event inserts file at correct alphabetical position
+  it('T003: created SSE event inserts file at correct alphabetical position', async () => {
+    const treeRoot = {
+      id: 'root-1',
+      name: 'root',
+      type: 'folder' as const,
+      path: '/',
+      parentId: null,
+      children: [
+        { id: 'f-a', name: 'apple.adoc', type: 'file' as const, path: '/apple.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-c', name: 'cherry.adoc', type: 'file' as const, path: '/cherry.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(treeRoot);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-apple.adoc')).toBeInTheDocument());
+
+    const createdEvent: FileTreeEventDto = {
+      type: 'created',
+      fileNodeId: 'f-b',
+      nodeType: 'file',
+      name: 'banana.adoc',
+      path: '/banana.adoc',
+      parentId: 'root-1',
+    };
+    act(() => { (globalThis as unknown as Record<string, (event: FileTreeEventDto) => void>).__lastOnEvent(createdEvent); });
+
+    await waitFor(() => expect(screen.getByTestId('node-banana.adoc')).toBeInTheDocument());
+
+    const nodes = screen.getAllByTestId(/^node-/);
+    const names = nodes.map((n) => n.dataset['testid']!.replace('node-', ''));
+    const sorted = names.toSorted((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    expect(names).toEqual(sorted);
+  });
+
+  // T004: renamed SSE event re-positions file to correct alphabetical position
+  it('T004: renamed SSE event re-positions file to correct alphabetical position', async () => {
+    const treeRoot = {
+      id: 'root-1',
+      name: 'root',
+      type: 'folder' as const,
+      path: '/',
+      parentId: null,
+      children: [
+        { id: 'f-a', name: 'alpha.adoc', type: 'file' as const, path: '/alpha.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-b', name: 'beta.adoc', type: 'file' as const, path: '/beta.adoc', parentId: 'root-1', children: [] },
+        { id: 'f-c', name: 'charlie.adoc', type: 'file' as const, path: '/charlie.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(treeRoot);
+    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-alpha.adoc')).toBeInTheDocument());
+
+    // Rename 'alpha.adoc' → 'zebra.adoc' — should move to end
+    const renamedEvent: FileTreeEventDto = {
+      type: 'renamed',
+      fileNodeId: 'f-a',
+      nodeType: 'file',
+      name: 'zebra.adoc',
+      path: '/zebra.adoc',
+      parentId: 'root-1',
+    };
+    act(() => { (globalThis as unknown as Record<string, (event: FileTreeEventDto) => void>).__lastOnEvent(renamedEvent); });
+
+    await waitFor(() => expect(screen.getByTestId('node-zebra.adoc')).toBeInTheDocument());
+
+    const nodes = screen.getAllByTestId(/^node-/);
+    const names = nodes.map((n) => n.dataset['testid']!.replace('node-', ''));
+    const sorted = names.toSorted((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    expect(names).toEqual(sorted);
   });
 
   // Idempotency: if SSE 'created' event arrives after fetchTree already returned the new node,

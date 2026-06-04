@@ -12,10 +12,18 @@ describe('GetKeyBindingsUseCase', () => {
     useCase = new GetKeyBindingsUseCase(repo);
   });
 
-  it('returns all four actions merged with defaults when no DB rows exist', async () => {
+  it('returns all actions merged with defaults when no DB rows exist', async () => {
     const result = await useCase.execute(userId);
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(5);
     expect(result.every((r) => r.isDefault)).toBe(true);
+  });
+
+  it('each result includes the human-readable label from the definition', async () => {
+    const result = await useCase.execute(userId);
+    const findBinding = result.find((r) => r.action === 'file-tree:find');
+    expect(findBinding?.label).toBe('Find File');
+    const renameBinding = result.find((r) => r.action === 'file-tree:rename');
+    expect(renameBinding?.label).toBe('Rename');
   });
 
   it('returns custom combo when DB row present', async () => {
@@ -41,6 +49,6 @@ describe('GetKeyBindingsUseCase', () => {
   it('optional namespace filter returns only matching actions', async () => {
     const result = await useCase.execute(userId, 'file-tree');
     expect(result.every((r) => r.action.startsWith('file-tree:'))).toBe(true);
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(5);
   });
 });

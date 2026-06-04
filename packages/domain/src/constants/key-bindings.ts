@@ -14,6 +14,7 @@ export const DEFAULT_KEY_BINDINGS: Record<string, KeyBindingDefinition> = {
   'file-tree:delete': { namespace: 'file-tree', label: 'Delete', defaultCombo: 'Delete' },
   'file-tree:new-file': { namespace: 'file-tree', label: 'New File', defaultCombo: 'Ctrl+N' },
   'file-tree:new-folder': { namespace: 'file-tree', label: 'New Folder', defaultCombo: 'Ctrl+Shift+N' },
+  'file-tree:find': { namespace: 'file-tree', label: 'Find File', defaultCombo: 'Ctrl+F' },
 };
 
 /**

@@ -1,5 +1,4 @@
 'use client';
-import { useState } from 'react';
 import { ChevronRight, ChevronDown, File, Folder } from 'lucide-react';
 import { cn } from '@/lib/utilities';
 import { DragDropZone } from './drag-drop-zone';
@@ -15,15 +14,17 @@ interface Properties {
   onSelect: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
   onContextMenu: (event: React.MouseEvent, nodeId: string) => void;
   onUpdate?: () => void;
+  onError?: (message: string | null) => void;
+  isExpanded?: boolean;
+  onToggle?: (nodeId: string) => void;
+  expandedState?: Map<string, boolean>;
 }
 
 /** Renders a single file or folder node in the file tree, with expand/collapse and drag-drop support. */
-export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, onSelect, onContextMenu, onUpdate }: Properties) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, onSelect, onContextMenu, onUpdate, onError, isExpanded = false, onToggle, expandedState }: Properties) {
   const handleClick = () => {
     if (node.type === 'folder') {
-      setIsExpanded((previous) => !previous);
+      onToggle?.(node.id);
     }
     onSelect(node.id, node.name, node.path, node.type);
   };
@@ -40,7 +41,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
     <div
       data-testid={`tree-node-${node.name}`}
       className={cn(
-        'flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
+        'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
         isSelected && 'bg-accent',
       )}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
@@ -49,26 +50,29 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
     >
       {node.type === 'folder' ? (
         <>
-          {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+          {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
           <Folder className="h-4 w-4 shrink-0 text-primary" />
         </>
       ) : (
         <>
-          <span className="w-3" />
+          <span className="w-4" />
           <File className="h-4 w-4 shrink-0 text-muted-foreground" />
         </>
       )}
       <span className="truncate text-sm flex-1">{node.name}</span>
       {isOwner && (
-        <FileTreeActions
-          projectId={projectId}
-          fileNodeId={node.id}
-          parentId={node.parentId ?? ''}
-          nodeType={node.type}
-          nodeName={node.name}
-          hasChildren={hasChildren}
-          onUpdate={onUpdate ?? (() => {})}
-        />
+        <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0">
+          <FileTreeActions
+            projectId={projectId}
+            fileNodeId={node.id}
+            parentId={node.parentId ?? ''}
+            nodeType={node.type}
+            nodeName={node.name}
+            hasChildren={hasChildren}
+            onUpdate={onUpdate ?? (() => {})}
+            onError={onError ?? (() => {})}
+          />
+        </span>
       )}
     </div>
   );
@@ -88,6 +92,10 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
             onSelect={onSelect}
             onContextMenu={onContextMenu}
             onUpdate={onUpdate}
+            onError={onError}
+            isExpanded={expandedState?.get(child.id) ?? false}
+            onToggle={onToggle}
+            expandedState={expandedState}
           />
         ))}
       </DragDropZone>

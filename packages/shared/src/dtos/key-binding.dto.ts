@@ -2,6 +2,8 @@
 export interface KeyBindingDto {
   /** The action identifier this binding applies to (e.g., 'file-tree:rename'). */
   action: string;
+  /** Human-readable label for this action (e.g., 'Rename'). */
+  label: string;
   /** The active key combination string for this action. */
   keyCombo: string;
   /** True if the user has not customized this binding and the default is in use. */

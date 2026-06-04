@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { FileContentPanel } from '@/components/file-content-panel';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
@@ -75,32 +77,25 @@ export function ProjectEditorLayout({
           data-testid="file-tree-panel"
           className={sidebarOpen ? 'w-64 shrink-0 border-r overflow-y-auto' : 'hidden'}
         >
-          <div className="flex items-center justify-between p-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
-            <button
-              aria-label="collapse sidebar"
-              className="cursor-pointer text-muted-foreground hover:text-foreground"
-              onClick={() => setSidebarOpen(false)}
-            >
-              ‹
-            </button>
-          </div>
           <FileTree
             projectId={projectId}
             isOwner={isOwner}
             onSelectFile={(nodeId, nodeName, nodePath, nodeType) => selectFile(nodeId, nodeName, nodePath, nodeType)}
             selectedNodeId={selectedFile?.nodeId ?? null}
+            onCollapse={() => setSidebarOpen(false)}
           />
         </div>
 
         {!sidebarOpen && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="expand sidebar"
-            className="w-6 shrink-0 border-r flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground"
+            className="w-6 h-full shrink-0 border-r rounded-none"
             onClick={() => setSidebarOpen(true)}
           >
-            ›
-          </button>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         )}
 
         {/* Content panel */}
@@ -119,14 +114,16 @@ export function ProjectEditorLayout({
           </div>
         )}
         {showPreview && !previewOpen && (
-          <button
+          <Button
             data-testid="preview-panel"
+            variant="ghost"
+            size="icon"
             aria-label="expand preview"
-            className="w-6 shrink-0 border-l flex items-center justify-center cursor-pointer text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="w-6 h-full shrink-0 border-l rounded-none"
             onClick={togglePreview}
           >
-            ‹
-          </button>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         )}
       </div>
     </div>

@@ -81,6 +81,7 @@ describe('FileTreeActions', () => {
         nodeName="src"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -101,6 +102,7 @@ describe('FileTreeActions', () => {
         nodeName="test.adoc"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -123,6 +125,7 @@ describe('FileTreeActions', () => {
         nodeName="test.adoc"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -152,6 +155,7 @@ describe('FileTreeActions', () => {
         nodeName="test.adoc"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -176,6 +180,7 @@ describe('FileTreeActions', () => {
         nodeName="test.adoc"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -200,6 +205,7 @@ describe('FileTreeActions', () => {
         nodeName="test.adoc"
         hasChildren={false}
         onUpdate={onUpdate}
+        onError={jest.fn()}
       />,
     );
 
@@ -225,6 +231,7 @@ describe('FileTreeActions', () => {
         nodeName="src"
         hasChildren={true}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -246,6 +253,7 @@ describe('FileTreeActions', () => {
         nodeName="src"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 
@@ -259,6 +267,70 @@ describe('FileTreeActions', () => {
     await waitFor(() => expect(createFileNode).toHaveBeenCalledWith(projectId, fileNodeId, 'new-document.adoc'));
   });
 
+  // T007: invalid-name operation calls onError prop (not renders inline span)
+  it('T007: failed rename calls onError prop with error message and does not render inline error span', async () => {
+    const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+    renameFileNode.mockRejectedValueOnce(new Error('Name is invalid.'));
+    const onError = jest.fn();
+
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="test.adoc"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+        onError={onError}
+      />,
+    );
+
+    fireEvent.click(screen.getByText(/Rename/i));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('Name is invalid.'));
+    expect(screen.queryByText('Name is invalid.')).not.toBeInTheDocument();
+  });
+
+  it('shows "Find File…" menu item when onFind prop is provided', () => {
+    const onFind = jest.fn();
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+        onError={jest.fn()}
+        isRoot
+        onFind={onFind}
+      />,
+    );
+    expect(screen.getByText(/Find File…/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Find File…/i));
+    expect(onFind).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show "Find File…" menu item when onFind prop is absent', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+        onError={jest.fn()}
+        isRoot
+      />,
+    );
+    expect(screen.queryByText(/Find File…/i)).not.toBeInTheDocument();
+  });
+
   it('clicking New Folder opens Dialog with default folder name input', async () => {
     const { createFolder } = jest.requireMock('@/lib/api/file-tree');
     render(
@@ -270,6 +342,7 @@ describe('FileTreeActions', () => {
         nodeName="src"
         hasChildren={false}
         onUpdate={jest.fn()}
+        onError={jest.fn()}
       />,
     );
 

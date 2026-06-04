@@ -127,6 +127,49 @@ describe('ProjectEditorLayout', () => {
     expect(backLink).toHaveAttribute('href', '/dashboard');
   });
 
+  // T022: collapse/expand buttons use Lucide icons, not raw unicode ‹/›
+  it('T022: sidebar collapse/expand buttons render SVG icons, not raw unicode ‹ or › characters', async () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
+
+    const collapseButton = screen.getByRole('button', { name: /collapse sidebar/i });
+    // Should not contain raw unicode characters
+    expect(collapseButton.textContent?.trim()).not.toBe('‹');
+    expect(collapseButton.textContent?.trim()).not.toBe('›');
+    // Should contain an SVG (Lucide icon)
+    expect(collapseButton.querySelector('svg')).toBeInTheDocument();
+
+    // Click to collapse, then check expand button also uses SVG
+    fireEvent.click(collapseButton);
+    const expandButton = screen.getByRole('button', { name: /expand sidebar/i });
+    expect(expandButton.textContent?.trim()).not.toBe('›');
+    expect(expandButton.querySelector('svg')).toBeInTheDocument();
+  });
+
+  // T022b: all header navigation links have text-sm and text-muted-foreground
+  it('T022b: all header navigation links use text-sm and text-muted-foreground class tokens', async () => {
+    render(<ProjectEditorLayout {...defaultProps} isOwner={true} />);
+    await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
+
+    const backLink = screen.getByRole('link', { name: /back to projects/i });
+    const settingsLink = screen.getByRole('link', { name: /settings/i });
+    const membersLink = screen.getByRole('link', { name: /members/i });
+
+    for (const link of [backLink, settingsLink, membersLink]) {
+      expect(link).toHaveClass('text-sm');
+      expect(link).toHaveClass('text-muted-foreground');
+    }
+  });
+
+  // T022c: content panel has p-4 class; preview empty-state has text-sm and text-muted-foreground
+  it('T022c: content panel has p-4 class', async () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('content-panel')).toBeInTheDocument());
+
+    const contentPanel = screen.getByTestId('content-panel');
+    expect(contentPanel).toHaveClass('p-4');
+  });
+
   // T025: SSE wiring — useFileTreeEvents called with correct projectId and events propagate
   it('calls useFileTreeEvents with correct projectId and tree updates on SSE event', async () => {
     const treeWithFile = {

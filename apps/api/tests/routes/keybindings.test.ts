@@ -39,7 +39,7 @@ describe('Keybindings routes', () => {
     const response = await app.inject({ method: 'GET', url: '/users/me/keybindings' });
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toHaveLength(4);
+    expect(body).toHaveLength(5);
     expect(body.every((b: { isDefault: boolean }) => b.isDefault)).toBe(true);
     await app.close();
   });

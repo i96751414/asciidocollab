@@ -1,21 +1,37 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { FileTreeNode } from './file-tree-node';
 import { FileTreeActions } from './file-tree-actions';
 import { DragDropZone } from './drag-drop-zone';
+import { FindPanel } from './find-panel';
+import { Button } from '@/components/ui/button';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import { useKeyBindings } from '@/hooks/use-key-bindings';
 import { useFileTreeKeyHandler } from '@/hooks/use-file-tree-key-handler';
+import { useFileTreeUIState } from '@/hooks/use-file-tree-ui-state';
 import type { FileTreeNode as FileTreeNodeType } from './types';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+const sortComparator = (a: FileTreeNodeType, b: FileTreeNodeType) =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+function sortChildren(node: FileTreeNodeType): FileTreeNodeType {
+  return {
+    ...node,
+    children: node.children.toSorted(sortComparator).map(sortChildren),
+  };
+}
 
 interface Properties {
   projectId: string;
   isOwner: boolean;
   onSelectFile: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
   selectedNodeId: string | null;
+  /** When provided, renders a collapse button in the header and calls this on click. */
+  onCollapse?: () => void;
 }
 
 function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): FileTreeNodeType | null {
@@ -37,7 +53,8 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
           parentId: event.parentId,
           children: [],
         };
-        return { ...node, children: [...node.children, newNode] };
+        const updated = { ...node, children: [...node.children, newNode] };
+        return { ...updated, children: updated.children.toSorted(sortComparator) };
       }
       return { ...node, children: node.children.map(addNode) };
     };
@@ -59,7 +76,10 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
       if (node.id === event.fileNodeId) {
         return { ...node, name: event.name, path: event.path };
       }
-      return { ...node, children: node.children.map(renameNode) };
+      const mapped = node.children.map(renameNode);
+      const hasChange = mapped.some((c, index) => c !== node.children[index]);
+      if (!hasChange) return node;
+      return { ...node, children: mapped.toSorted(sortComparator) };
     };
     return renameNode(tree);
   }
@@ -79,7 +99,8 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
     if (movedNode) {
       const addNode = (node: FileTreeNodeType): FileTreeNodeType => {
         if (node.id === event.parentId) {
-          return { ...node, children: [...node.children, movedNode!] };
+          const children = [...node.children, movedNode!].toSorted(sortComparator);
+          return { ...node, children };
         }
         return { ...node, children: node.children.map(addNode) };
       };
@@ -92,10 +113,28 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
 }
 
 /** Renders the full file tree for a project, with real-time SSE updates and keyboard shortcut support. */
-export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: Properties) {
+export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onCollapse }: Properties) {
   const [tree, setTree] = useState<FileTreeNodeType | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const containerReference = useRef<HTMLDivElement>(null);
+
+  const userBindings = useKeyBindings('file-tree');
+  const bindings = useMemo(() => new Map(userBindings), [userBindings]);
+
+  const {
+    expandedState,
+    toggleExpand,
+    operationError,
+    setOperationError,
+    findOpen,
+    openFind,
+    find,
+    handleKeyDown,
+    handleDismissFind,
+    handleNext,
+    handlePrevious,
+    handleQueryChange,
+  } = useFileTreeUIState(tree, onSelectFile, bindings);
 
   const fetchTree = useCallback(async () => {
     try {
@@ -103,7 +142,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: P
       const response = await fetch(`${API_BASE}/projects/${projectId}/files`, { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
-        setTree(data);
+        setTree(sortChildren(data));
       } else {
         setFetchError(true);
       }
@@ -126,60 +165,99 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId }: P
 
   useFileTreeEvents(projectId, onEvent, onReconnect);
 
-  const bindings = useKeyBindings('file-tree');
-  useFileTreeKeyHandler(containerReference, selectedNodeId, bindings, {
-    onRename: useCallback(() => {}, []),
-    onDelete: useCallback(() => {}, []),
-    onNewFile: useCallback(() => {}, []),
-    onNewFolder: useCallback(() => {}, []),
+  useFileTreeKeyHandler(containerReference, bindings, {
+    'file-tree:rename': selectedNodeId ? () => {} : undefined,
+    'file-tree:delete': selectedNodeId ? () => {} : undefined,
+    'file-tree:new-file': selectedNodeId ? () => {} : undefined,
+    'file-tree:new-folder': selectedNodeId ? () => {} : undefined,
+    'file-tree:find': openFind,
   });
 
-  if (fetchError) return (
-    <div className="p-4 text-sm text-muted-foreground">
-      <p>Failed to load files.</p>
-      <button onClick={fetchTree} className="underline" aria-label="retry">Retry</button>
-    </div>
-  );
-
-  if (!tree) return <div className="p-4 text-sm text-muted-foreground">Loading...</div>;
-
-  const rootId = tree.id;
-
   return (
-    <div ref={containerReference} tabIndex={0} className="outline-none">
-      {isOwner && (
-        <div data-testid="tree-root-actions" className="flex justify-end px-2 py-0.5 border-b">
-          <FileTreeActions
-            projectId={projectId}
-            fileNodeId={rootId}
-            parentId=""
-            nodeType="folder"
-            nodeName="root"
-            hasChildren={tree.children.length > 0}
-            isRoot
-            onUpdate={fetchTree}
-          />
+    <div ref={containerReference} tabIndex={0} className="outline-none" onKeyDown={handleKeyDown}>
+      {/* Header row: Files label + root actions (owner-only) + optional collapse button */}
+      <div className="flex items-center justify-between px-2 py-1.5 border-b shrink-0">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
+        <div className="flex items-center gap-0.5">
+          {isOwner && tree && (
+            <span data-testid="tree-root-actions">
+              <FileTreeActions
+                projectId={projectId}
+                fileNodeId={tree.id}
+                parentId=""
+                nodeType="folder"
+                nodeName="root"
+                hasChildren={tree.children.length > 0}
+                isRoot
+                onUpdate={fetchTree}
+                onError={setOperationError}
+                onFind={openFind}
+              />
+            </span>
+          )}
+          {onCollapse && (
+            <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="collapse sidebar" onClick={onCollapse}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {fetchError && (
+        <div className="p-4 text-sm text-muted-foreground">
+          <p>Failed to load files.</p>
+          <button onClick={fetchTree} className="underline" aria-label="retry">Retry</button>
         </div>
       )}
-      <DragDropZone targetFolderId={rootId} projectId={projectId}>
-        {tree.children.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
-        ) : (
-          tree.children.map((node) => (
-            <FileTreeNode
-              key={node.id}
-              node={node}
-              depth={0}
-              projectId={projectId}
-              isOwner={isOwner}
-              selectedNodeId={selectedNodeId}
-              onSelect={onSelectFile}
-              onContextMenu={() => {}}
-              onUpdate={fetchTree}
+
+      {!fetchError && !tree && (
+        <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+      )}
+
+      {tree && (
+        <>
+          {findOpen && (
+            <FindPanel
+              query={find.query}
+              onQueryChange={handleQueryChange}
+              matchCount={find.matchCount}
+              currentMatchIndex={find.currentMatchIndex}
+              onNext={handleNext}
+              onPrev={handlePrevious}
+              onDismiss={handleDismissFind}
             />
-          ))
-        )}
-      </DragDropZone>
+          )}
+          {operationError && (
+            <div role="alert" className="flex items-center justify-between px-2 py-1 text-xs text-destructive border-b bg-destructive/10">
+              <span>{operationError}</span>
+              <button onClick={() => setOperationError(null)} aria-label="dismiss error" className="ml-2 underline">Dismiss</button>
+            </div>
+          )}
+          <DragDropZone targetFolderId={tree.id} projectId={projectId}>
+            {tree.children.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
+            ) : (
+              tree.children.map((node) => (
+                <FileTreeNode
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  projectId={projectId}
+                  isOwner={isOwner}
+                  selectedNodeId={selectedNodeId}
+                  onSelect={onSelectFile}
+                  onContextMenu={() => {}}
+                  onUpdate={fetchTree}
+                  onError={setOperationError}
+                  isExpanded={expandedState.get(node.id) ?? false}
+                  onToggle={toggleExpand}
+                  expandedState={expandedState}
+                />
+              ))
+            )}
+          </DragDropZone>
+        </>
+      )}
     </div>
   );
 }

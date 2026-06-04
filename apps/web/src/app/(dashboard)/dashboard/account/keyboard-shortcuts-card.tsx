@@ -5,12 +5,6 @@ import { Button } from '@/components/ui/button';
 import { useKeyBindingSettings } from '@/hooks/use-key-binding-settings';
 
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta']);
-const ACTION_LABELS: Record<string, string> = {
-  'file-tree:rename': 'Rename',
-  'file-tree:delete': 'Delete',
-  'file-tree:new-file': 'New File',
-  'file-tree:new-folder': 'New Folder',
-};
 
 function canonicalCombo(event: React.KeyboardEvent): string {
   if (MODIFIER_KEYS.has(event.key)) return '';
@@ -68,11 +62,10 @@ export function KeyboardShortcutsCard() {
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{group.label}</h3>
             <div className="space-y-2">
               {group.bindings.map((binding) => {
-                const label = ACTION_LABELS[binding.action] ?? binding.action;
                 const isCapturing = capturingAction === binding.action;
                 return (
                   <div key={binding.action} className="flex items-center gap-3">
-                    <span className="flex-1 text-sm">{label}</span>
+                    <span className="flex-1 text-sm">{binding.label}</span>
                     {isCapturing ? (
                       <input
                         autoFocus

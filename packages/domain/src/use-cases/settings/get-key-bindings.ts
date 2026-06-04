@@ -5,6 +5,8 @@ import { DEFAULT_KEY_BINDINGS } from '../../constants/key-bindings';
 export interface KeyBindingResult {
   /** The action identifier for this binding (e.g., 'file-tree:rename'). */
   action: string;
+  /** Human-readable label for this action (e.g., 'Rename'). */
+  label: string;
   /** The active key combination, either the user's custom value or the system default. */
   keyCombo: string;
   /** True if no custom binding has been saved and the default combo is in use. */
@@ -30,6 +32,7 @@ export class GetKeyBindingsUseCase {
       const stored = storedMap.get(action);
       return {
         action,
+        label: definition.label,
         keyCombo: stored ?? definition.defaultCombo,
         isDefault: stored === undefined,
       };

@@ -9,8 +9,14 @@ jest.mock('@/components/file-tree/drag-drop-zone', () => ({
 }));
 
 jest.mock('@/components/file-tree/file-tree-actions', () => ({
-  FileTreeActions: ({ nodeType, onUpdate }: { nodeType: string; onUpdate?: () => void }) => (
-    <button data-testid="file-tree-actions" onClick={onUpdate}>{nodeType} actions</button>
+  FileTreeActions: ({ nodeType, onUpdate, onError }: { nodeType: string; onUpdate?: () => void; onError?: (m: string | null) => void }) => (
+    <button
+      data-testid="file-tree-actions"
+      data-has-on-error={String(typeof onError === 'function')}
+      onClick={onUpdate}
+    >
+      {nodeType} actions
+    </button>
   ),
 }));
 
@@ -48,8 +54,10 @@ describe('FileTreeNode', () => {
     expect(screen.getByText('document.adoc')).toBeInTheDocument();
   });
 
-  it('renders folder node as collapsible (click toggles children)', () => {
-    render(
+  it('renders folder node as collapsible via controlled isExpanded/onToggle props', () => {
+    const onToggle = jest.fn();
+
+    const { rerender } = render(
       <FileTreeNode
         node={folderNode}
         depth={0}
@@ -58,19 +66,33 @@ describe('FileTreeNode', () => {
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
+        isExpanded={false}
+        onToggle={onToggle}
       />,
     );
 
-    // Initially collapsed
+    // Initially collapsed (isExpanded=false)
     expect(screen.queryByText('document.adoc')).not.toBeInTheDocument();
 
-    // Click to expand
+    // Click fires onToggle, not internal state
     fireEvent.click(screen.getByText('src'));
+    expect(onToggle).toHaveBeenCalledWith(folderNode.id);
+
+    // Parent re-renders with isExpanded=true
+    rerender(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isExpanded={true}
+        onToggle={onToggle}
+      />,
+    );
     expect(screen.getByText('document.adoc')).toBeInTheDocument();
-
-    // Click to collapse
-    fireEvent.click(screen.getByText('src'));
-    expect(screen.queryByText('document.adoc')).not.toBeInTheDocument();
   });
 
   it('calls onSelect on click with nodeId, nodeName, nodePath, nodeType', () => {
@@ -186,6 +208,27 @@ describe('FileTreeNode', () => {
       />,
     );
     expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
+  });
+
+  // T009: onError prop is threaded through FileTreeNode to FileTreeActions
+  it('T009: passes onError prop through to FileTreeActions', () => {
+    const onError = jest.fn();
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={true}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onError={onError}
+      />,
+    );
+    // FileTreeActions mock renders a button; clicking it calls onUpdate (not onError directly)
+    // We need the mock to also surface onError — update the mock to pass onError as data
+    const actionsButton = screen.getByTestId('file-tree-actions');
+    expect(actionsButton).toHaveAttribute('data-has-on-error', 'true');
   });
 
   // BUG: FileTreeNode hardcodes onUpdate={() => {}} so mutations never propagate up

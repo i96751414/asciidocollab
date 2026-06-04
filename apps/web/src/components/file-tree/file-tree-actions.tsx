@@ -28,27 +28,29 @@ interface Properties {
   nodeName: string;
   hasChildren: boolean;
   onUpdate: () => void;
+  onError: (message: string | null) => void;
   /** When true, hides Rename and Delete — used for the root folder. */
   isRoot?: boolean;
+  /** When provided, shows a "Find File…" item at the top of the menu. */
+  onFind?: () => void;
 }
 
 /** Renders the context-menu action buttons (create, rename, delete) for a file tree node. */
-export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, hasChildren, onUpdate, isRoot = false }: Properties) {
-  const [error, setError] = useState<string | null>(null);
+export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, hasChildren, onUpdate, onError, isRoot = false, onFind }: Properties) {
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [inputValue, setInputValue] = useState('');
 
   const handleAction = async (action: () => Promise<void>): Promise<boolean> => {
     try {
-      setError(null);
+      onError(null);
       await action();
       onUpdate();
       return true;
     } catch (error_) {
       if (error_ instanceof FileTreeApiError && error_.status === 409) {
-        setError('A file or folder with that name already exists.');
+        onError('A file or folder with that name already exists.');
       } else {
-        setError(error_ instanceof Error ? error_.message : 'An error occurred.');
+        onError(error_ instanceof Error ? error_.message : 'An error occurred.');
       }
       return false;
     }
@@ -99,6 +101,11 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onFind && (
+            <DropdownMenuItem onSelect={onFind}>
+              Find File…
+            </DropdownMenuItem>
+          )}
           {nodeType === 'folder' && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'create-file' })}>
               New File
@@ -167,7 +174,6 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
         }}
       />
 
-      {error && <span className="text-xs text-destructive">{error}</span>}
     </>
   );
 }

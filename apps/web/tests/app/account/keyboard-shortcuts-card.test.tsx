@@ -12,8 +12,8 @@ const defaultGroups = [{
   namespace: 'file-tree',
   label: 'File Tree',
   bindings: [
-    { action: 'file-tree:rename', keyCombo: 'F2', isDefault: true },
-    { action: 'file-tree:delete', keyCombo: 'Delete', isDefault: true },
+    { action: 'file-tree:rename', label: 'Rename', keyCombo: 'F2', isDefault: true },
+    { action: 'file-tree:delete', label: 'Delete', keyCombo: 'Delete', isDefault: true },
   ],
 }];
 
@@ -80,7 +80,7 @@ describe('KeyboardShortcutsCard', () => {
         namespace: 'file-tree',
         label: 'File Tree',
         bindings: [
-          { action: 'file-tree:rename', keyCombo: 'F3', isDefault: false },
+          { action: 'file-tree:rename', label: 'Rename', keyCombo: 'F3', isDefault: false },
         ],
       }],
       updateBinding: mockUpdate,

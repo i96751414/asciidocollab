@@ -1,14 +1,13 @@
 import React, { useRef } from 'react';
 import { render, fireEvent } from '@testing-library/react';
-import { useFileTreeKeyHandler } from '@/hooks/use-file-tree-key-handler';
+import { useFileTreeKeyHandler, type FileTreeKeyCallbacks } from '@/hooks/use-file-tree-key-handler';
 
-function TestComponent({ bindings, callbacks, selectedNodeId }: {
+function TestComponent({ bindings, callbacks }: {
   bindings: Map<string, string>;
-  callbacks: Parameters<typeof useFileTreeKeyHandler>[3];
-  selectedNodeId: string | null;
+  callbacks: FileTreeKeyCallbacks;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  useFileTreeKeyHandler(ref, selectedNodeId, bindings, callbacks);
+  useFileTreeKeyHandler(ref, bindings, callbacks);
   return <div ref={ref} tabIndex={0} data-testid="container" />;
 }
 
@@ -20,49 +19,60 @@ const defaultBindings = new Map([
 ]);
 
 describe('useFileTreeKeyHandler', () => {
-  it('F2 fires onRename when selectedNodeId non-null', () => {
+  it('F2 fires the rename callback', () => {
     const onRename = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename, onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': onRename, 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />,
     );
     fireEvent.keyDown(getByTestId('container'), { key: 'F2' });
     expect(onRename).toHaveBeenCalledTimes(1);
   });
 
-  it('Delete fires onDelete', () => {
+  it('Delete fires the delete callback', () => {
     const onDelete = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename: jest.fn(), onDelete, onNewFile: jest.fn(), onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': jest.fn(), 'file-tree:delete': onDelete, 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />,
     );
     fireEvent.keyDown(getByTestId('container'), { key: 'Delete' });
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it('Ctrl+N fires onNewFile', () => {
+  it('Ctrl+N fires the new-file callback', () => {
     const onNewFile = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename: jest.fn(), onDelete: jest.fn(), onNewFile, onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': jest.fn(), 'file-tree:delete': jest.fn(), 'file-tree:new-file': onNewFile, 'file-tree:new-folder': jest.fn() }} />,
     );
     fireEvent.keyDown(getByTestId('container'), { key: 'n', ctrlKey: true });
     expect(onNewFile).toHaveBeenCalledTimes(1);
   });
 
-  it('Ctrl+Shift+N fires onNewFolder', () => {
+  it('Ctrl+Shift+N fires the new-folder callback', () => {
     const onNewFolder = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename: jest.fn(), onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': jest.fn(), 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': onNewFolder }} />,
     );
     fireEvent.keyDown(getByTestId('container'), { key: 'N', ctrlKey: true, shiftKey: true });
     expect(onNewFolder).toHaveBeenCalledTimes(1);
   });
 
-  it('no callback fires when selectedNodeId is null', () => {
-    const onRename = jest.fn();
+  it('bound key does not fire when its callback is undefined', () => {
+    const onDelete = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId={null} callbacks={{ onRename, onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': undefined, 'file-tree:delete': onDelete, 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />,
     );
+    // F2 (rename) has no callback — must not crash or fire anything
     fireEvent.keyDown(getByTestId('container'), { key: 'F2' });
-    expect(onRename).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+F fires the find callback', () => {
+    const onFind = jest.fn();
+    const findBindings = new Map([...defaultBindings, ['file-tree:find', 'Ctrl+F']]);
+    const { getByTestId } = render(
+      <TestComponent bindings={findBindings} callbacks={{ 'file-tree:rename': jest.fn(), 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn(), 'file-tree:find': onFind }} />,
+    );
+    fireEvent.keyDown(getByTestId('container'), { key: 'f', ctrlKey: true });
+    expect(onFind).toHaveBeenCalledTimes(1);
   });
 
   it('remapped binding fires correct callback after bindings prop changes', () => {
@@ -70,14 +80,14 @@ describe('useFileTreeKeyHandler', () => {
     const newBindings = new Map([...defaultBindings, ['file-tree:rename', 'F3']]);
 
     const { getByTestId, rerender } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename, onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': onRename, 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />,
     );
 
     // F2 should fire rename with default bindings
     fireEvent.keyDown(getByTestId('container'), { key: 'F2' });
     expect(onRename).toHaveBeenCalledTimes(1);
 
-    rerender(<TestComponent bindings={newBindings} selectedNodeId="node-1" callbacks={{ onRename, onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder: jest.fn() }} />);
+    rerender(<TestComponent bindings={newBindings} callbacks={{ 'file-tree:rename': onRename, 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />);
 
     // After remap, F3 fires rename
     fireEvent.keyDown(getByTestId('container'), { key: 'F3' });
@@ -92,7 +102,7 @@ describe('useFileTreeKeyHandler', () => {
   it('pressing a lone modifier key does not fire any callback', () => {
     const onRename = jest.fn();
     const { getByTestId } = render(
-      <TestComponent bindings={defaultBindings} selectedNodeId="node-1" callbacks={{ onRename, onDelete: jest.fn(), onNewFile: jest.fn(), onNewFolder: jest.fn() }} />,
+      <TestComponent bindings={defaultBindings} callbacks={{ 'file-tree:rename': onRename, 'file-tree:delete': jest.fn(), 'file-tree:new-file': jest.fn(), 'file-tree:new-folder': jest.fn() }} />,
     );
     fireEvent.keyDown(getByTestId('container'), { key: 'Shift' });
     fireEvent.keyDown(getByTestId('container'), { key: 'Control' });

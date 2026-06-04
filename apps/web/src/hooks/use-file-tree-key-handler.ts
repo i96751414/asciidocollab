@@ -16,22 +16,16 @@ function canonicalCombo(event: KeyboardEvent): string {
   return parts.join('+');
 }
 
-/** Callback handlers invoked by file tree keyboard shortcut actions. */
-export interface FileTreeKeyCallbacks {
-  /** Called when the rename shortcut is triggered. */
-  onRename: () => void;
-  /** Called when the delete shortcut is triggered. */
-  onDelete: () => void;
-  /** Called when the new-file shortcut is triggered. */
-  onNewFile: () => void;
-  /** Called when the new-folder shortcut is triggered. */
-  onNewFolder: () => void;
-}
+/**
+ * Maps action identifiers to their handler functions.
+ * Pass `undefined` for actions that are currently inactive — the hook only fires a handler
+ * when it is defined, so callers control availability without coupling the hook to domain state.
+ */
+export type FileTreeKeyCallbacks = Record<string, (() => void) | undefined>;
 
 /** Attaches a scoped keydown listener to a container for file tree keyboard shortcuts. */
 export function useFileTreeKeyHandler(
   containerReference: RefObject<HTMLElement | null>,
-  selectedNodeId: string | null,
   bindings: Map<string, string>,
   callbacks: FileTreeKeyCallbacks,
 ): void {
@@ -48,40 +42,18 @@ export function useFileTreeKeyHandler(
     if (!element) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!selectedNodeId) return;
-
       const combo = canonicalCombo(event);
       if (!combo) return;
-
       const action = invertedBindings.get(combo);
       if (!action) return;
-
+      const callback = callbacks[action];
+      if (!callback) return;
       event.preventDefault();
       event.stopPropagation();
-
-      switch (action) {
-      case 'file-tree:rename': {
-      callbacks.onRename();
-      break;
-      }
-      case 'file-tree:delete': {
-      callbacks.onDelete();
-      break;
-      }
-      case 'file-tree:new-file': {
-      callbacks.onNewFile();
-      break;
-      }
-      case 'file-tree:new-folder': { {
-      callbacks.onNewFolder();
-      // No default
-      }
-      break;
-      }
-      }
+      callback();
     };
 
     element.addEventListener('keydown', handleKeyDown);
     return () => element.removeEventListener('keydown', handleKeyDown);
-  }, [containerReference, selectedNodeId, invertedBindings, callbacks]);
+  }, [containerReference, invertedBindings, callbacks]);
 }
