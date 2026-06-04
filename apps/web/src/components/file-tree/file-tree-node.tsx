@@ -71,6 +71,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
             nodeType={node.type}
             nodeName={node.name}
             hasChildren={hasChildren}
+            canCreate={node.type === 'folder'}
             onUpdate={onUpdate}
             onError={onError}
           />
