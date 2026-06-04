@@ -8,9 +8,10 @@ jest.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
     asChild ? <>{children}</> : <div>{children}</div>,
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children, onSelect, className }: { children: React.ReactNode; onSelect?: () => void; className?: string }) => (
-    <button onClick={onSelect} className={className}>{children}</button>
+  DropdownMenuItem: ({ children, onSelect, className, disabled }: { children: React.ReactNode; onSelect?: () => void; className?: string; disabled?: boolean }) => (
+    <button onClick={onSelect} className={className} disabled={disabled}>{children}</button>
   ),
+  DropdownMenuSeparator: () => <hr />,
   DropdownMenuPortal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
@@ -71,7 +72,7 @@ describe('FileTreeActions', () => {
     jest.clearAllMocks();
   });
 
-  it('folder node shows New File, New Folder, Rename, Delete (no Move)', () => {
+  it('folder node with canCreate shows New File, New Folder, Rename, Delete (no Move)', () => {
     render(
       <FileTreeActions
         projectId={projectId}
@@ -80,6 +81,7 @@ describe('FileTreeActions', () => {
         nodeType="folder"
         nodeName="src"
         hasChildren={false}
+        canCreate
         onUpdate={jest.fn()}
         onError={jest.fn()}
       />,
@@ -252,6 +254,7 @@ describe('FileTreeActions', () => {
         nodeType="folder"
         nodeName="src"
         hasChildren={false}
+        canCreate
         onUpdate={jest.fn()}
         onError={jest.fn()}
       />,
@@ -293,8 +296,7 @@ describe('FileTreeActions', () => {
     expect(screen.queryByText('Name is invalid.')).not.toBeInTheDocument();
   });
 
-  it('shows "Find File…" menu item when onFind prop is provided', () => {
-    const onFind = jest.fn();
+  it('shows navigation items when their callbacks are provided', () => {
     render(
       <FileTreeActions
         projectId={projectId}
@@ -303,18 +305,25 @@ describe('FileTreeActions', () => {
         nodeType="folder"
         nodeName="root"
         hasChildren={false}
-        onUpdate={jest.fn()}
-        onError={jest.fn()}
         isRoot
-        onFind={onFind}
+        onFind={jest.fn()}
+        onCollapseAll={jest.fn()}
+        onExpandAll={jest.fn()}
+        onRevealInTree={jest.fn()}
+        hasSelection
       />,
     );
     expect(screen.getByText(/Find File…/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/Find File…/i));
-    expect(onFind).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Collapse All/i)).toBeInTheDocument();
+    expect(screen.getByText(/Expand All/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reveal in Tree/i)).toBeInTheDocument();
   });
 
-  it('does not show "Find File…" menu item when onFind prop is absent', () => {
+  it('calls each navigation callback when its item is clicked', () => {
+    const onFind = jest.fn();
+    const onCollapseAll = jest.fn();
+    const onExpandAll = jest.fn();
+    const onRevealInTree = jest.fn();
     render(
       <FileTreeActions
         projectId={projectId}
@@ -323,12 +332,56 @@ describe('FileTreeActions', () => {
         nodeType="folder"
         nodeName="root"
         hasChildren={false}
-        onUpdate={jest.fn()}
-        onError={jest.fn()}
         isRoot
+        onFind={onFind}
+        onCollapseAll={onCollapseAll}
+        onExpandAll={onExpandAll}
+        onRevealInTree={onRevealInTree}
+        hasSelection
       />,
     );
-    expect(screen.queryByText(/Find File…/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Find File…/i));
+    fireEvent.click(screen.getByText(/Collapse All/i));
+    fireEvent.click(screen.getByText(/Expand All/i));
+    fireEvent.click(screen.getByText(/Reveal in Tree/i));
+    expect(onFind).toHaveBeenCalledTimes(1);
+    expect(onCollapseAll).toHaveBeenCalledTimes(1);
+    expect(onExpandAll).toHaveBeenCalledTimes(1);
+    expect(onRevealInTree).toHaveBeenCalledTimes(1);
+  });
+
+  it('"Reveal in Tree" is disabled when hasSelection is false', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        isRoot
+        onRevealInTree={jest.fn()}
+        hasSelection={false}
+      />,
+    );
+    expect(screen.getByText(/Reveal in Tree/i).closest('button')).toBeDisabled();
+  });
+
+  it('"Reveal in Tree" is enabled when hasSelection is true', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        isRoot
+        onRevealInTree={jest.fn()}
+        hasSelection
+      />,
+    );
+    expect(screen.getByText(/Reveal in Tree/i).closest('button')).not.toBeDisabled();
   });
 
   it('clicking New Folder opens Dialog with default folder name input', async () => {
@@ -341,6 +394,7 @@ describe('FileTreeActions', () => {
         nodeType="folder"
         nodeName="src"
         hasChildren={false}
+        canCreate
         onUpdate={jest.fn()}
         onError={jest.fn()}
       />,

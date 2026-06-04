@@ -39,6 +39,21 @@ const folderNode = {
 };
 
 describe('FileTreeNode', () => {
+  it('renders with data-node-id attribute matching node id', () => {
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        isOwner={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('tree-node-document.adoc')).toHaveAttribute('data-node-id', fileNode.id);
+  });
+
   it('renders file node name', () => {
     render(
       <FileTreeNode
@@ -112,8 +127,9 @@ describe('FileTreeNode', () => {
     expect(onSelect).toHaveBeenCalledWith(fileNode.id, fileNode.name, fileNode.path, 'file');
   });
 
-  it('calls onSelect with nodeType=folder when a folder node is clicked', () => {
+  it('does NOT call onSelect when a folder node is clicked — only toggles expand', () => {
     const onSelect = jest.fn();
+    const onToggle = jest.fn();
     render(
       <FileTreeNode
         node={folderNode}
@@ -123,10 +139,12 @@ describe('FileTreeNode', () => {
         selectedNodeId={null}
         onSelect={onSelect}
         onContextMenu={jest.fn()}
+        onToggle={onToggle}
       />,
     );
     fireEvent.click(screen.getByText('src'));
-    expect(onSelect).toHaveBeenCalledWith(folderNode.id, folderNode.name, folderNode.path, 'folder');
+    expect(onToggle).toHaveBeenCalledWith(folderNode.id);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it('calls onContextMenu on right-click', () => {

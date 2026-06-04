@@ -124,6 +124,9 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
   const {
     expandedState,
     toggleExpand,
+    collapseAll,
+    expandAll,
+    revealSelected,
     operationError,
     setOperationError,
     findOpen,
@@ -135,6 +138,15 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
     handlePrevious,
     handleQueryChange,
   } = useFileTreeUIState(tree, onSelectFile, bindings);
+
+  const handleRevealFile = useCallback(() => {
+    if (!selectedNodeId) return;
+    revealSelected(selectedNodeId);
+    setTimeout(() => {
+      const element = containerReference.current?.querySelector(`[data-node-id="${selectedNodeId}"]`);
+      element?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 0);
+  }, [selectedNodeId, revealSelected]);
 
   const fetchTree = useCallback(async () => {
     try {
@@ -179,7 +191,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
       <div className="flex items-center justify-between px-2 py-1.5 border-b shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
         <div className="flex items-center gap-0.5">
-          {isOwner && tree && (
+          {tree && (
             <span data-testid="tree-root-actions">
               <FileTreeActions
                 projectId={projectId}
@@ -189,9 +201,14 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
                 nodeName="root"
                 hasChildren={tree.children.length > 0}
                 isRoot
+                canCreate={isOwner}
                 onUpdate={fetchTree}
                 onError={setOperationError}
                 onFind={openFind}
+                onCollapseAll={collapseAll}
+                onExpandAll={expandAll}
+                onRevealInTree={handleRevealFile}
+                hasSelection={!!selectedNodeId}
               />
             </span>
           )}

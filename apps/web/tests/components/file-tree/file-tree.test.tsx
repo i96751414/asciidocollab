@@ -374,4 +374,5 @@ describe('FileTree', () => {
     act(() => { (globalThis as unknown as Record<string, (event: FileTreeEventDto) => void>).__lastOnEvent(createdEvent); });
     await waitFor(() => expect(screen.getAllByTestId('node-new.adoc')).toHaveLength(1));
   });
+
 });

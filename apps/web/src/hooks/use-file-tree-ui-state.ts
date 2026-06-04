@@ -16,9 +16,29 @@ function matchKeyCombo(event: React.KeyboardEvent, combo: string): boolean {
     && event.altKey === parts.includes('Alt');
 }
 
+function collectFolderIds(node: FileTreeNode): string[] {
+  return node.children.flatMap((child) =>
+    child.type === 'folder' ? [child.id, ...collectFolderIds(child)] : [],
+  );
+}
+
+function findAncestors(node: FileTreeNode, targetId: string): string[] | null {
+  for (const child of node.children) {
+    if (child.id === targetId) return [];
+    if (child.type === 'folder') {
+      const result = findAncestors(child, targetId);
+      if (result !== null) return [child.id, ...result];
+    }
+  }
+  return null;
+}
+
 interface FileTreeUIState {
   expandedState: Map<string, boolean>;
   toggleExpand: (nodeId: string) => void;
+  collapseAll: () => void;
+  expandAll: () => void;
+  revealSelected: (nodeId: string) => void;
   operationError: string | null;
   setOperationError: (error: string | null) => void;
   findOpen: boolean;
@@ -52,6 +72,27 @@ export function useFileTreeUIState(
       return next;
     });
   }, []);
+
+  const collapseAll = useCallback(() => {
+    setExpandedStateRaw(new Map());
+  }, []);
+
+  const expandAll = useCallback(() => {
+    if (!tree) return;
+    const folderIds = collectFolderIds(tree);
+    setExpandedStateRaw(new Map(folderIds.map((nodeId) => [nodeId, true])));
+  }, [tree]);
+
+  const revealSelected = useCallback((nodeId: string) => {
+    if (!tree) return;
+    const ancestors = findAncestors(tree, nodeId) ?? [];
+    if (ancestors.length === 0) return;
+    setExpandedStateRaw((previous) => {
+      const next = new Map(previous);
+      for (const ancestorId of ancestors) next.set(ancestorId, true);
+      return next;
+    });
+  }, [tree]);
 
   const find = useFindInTree(tree, expandedState, setExpandedStateRaw);
 
@@ -99,6 +140,9 @@ export function useFileTreeUIState(
   return {
     expandedState,
     toggleExpand,
+    collapseAll,
+    expandAll,
+    revealSelected,
     operationError,
     setOperationError,
     findOpen,

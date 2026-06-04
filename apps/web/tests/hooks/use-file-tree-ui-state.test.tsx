@@ -128,6 +128,53 @@ describe('useFileTreeUIState', () => {
     expect(onSelectFile).not.toHaveBeenCalled();
   });
 
+  it('collapseAll resets all expanded nodes', () => {
+    const { result } = renderHook(() => useFileTreeUIState(tree, jest.fn()));
+
+    act(() => { result.current.toggleExpand('f1'); });
+    expect(result.current.expandedState.get('f1')).toBe(true);
+
+    act(() => { result.current.collapseAll(); });
+    expect(result.current.expandedState.size).toBe(0);
+  });
+
+  it('expandAll expands every folder in the tree', () => {
+    const nestedTree: FileTreeNode = {
+      id: 'root', name: 'root', type: 'folder', path: '/', parentId: null,
+      children: [
+        {
+          id: 'dir1', name: 'src', type: 'folder', path: '/src', parentId: 'root',
+          children: [
+            { id: 'dir2', name: 'components', type: 'folder', path: '/src/components', parentId: 'dir1', children: [] },
+          ],
+        },
+      ],
+    };
+    const { result } = renderHook(() => useFileTreeUIState(nestedTree, jest.fn()));
+
+    act(() => { result.current.expandAll(); });
+    expect(result.current.expandedState.get('dir1')).toBe(true);
+    expect(result.current.expandedState.get('dir2')).toBe(true);
+  });
+
+  it('revealSelected expands all ancestor folders of the target file', () => {
+    const nestedTree: FileTreeNode = {
+      id: 'root', name: 'root', type: 'folder', path: '/', parentId: null,
+      children: [
+        {
+          id: 'dir1', name: 'src', type: 'folder', path: '/src', parentId: 'root',
+          children: [
+            { id: 'file1', name: 'index.ts', type: 'file', path: '/src/index.ts', parentId: 'dir1', children: [] },
+          ],
+        },
+      ],
+    };
+    const { result } = renderHook(() => useFileTreeUIState(nestedTree, jest.fn()));
+
+    act(() => { result.current.revealSelected('file1'); });
+    expect(result.current.expandedState.get('dir1')).toBe(true);
+  });
+
   it('operationError state is managed correctly', () => {
     const { result } = renderHook(() => useFileTreeUIState(tree, jest.fn()));
 

@@ -25,8 +25,9 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
   const handleClick = () => {
     if (node.type === 'folder') {
       onToggle?.(node.id);
+    } else {
+      onSelect(node.id, node.name, node.path, node.type);
     }
-    onSelect(node.id, node.name, node.path, node.type);
   };
 
   const handleContextMenu = (event: React.MouseEvent) => {
@@ -40,6 +41,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
   const nodeContent = (
     <div
       data-testid={`tree-node-${node.name}`}
+      data-node-id={node.id}
       className={cn(
         'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
         isSelected && 'bg-accent',

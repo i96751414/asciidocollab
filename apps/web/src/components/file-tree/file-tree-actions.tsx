@@ -1,6 +1,16 @@
 'use client';
 import { useState } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Search,
+  FilePlus,
+  FolderPlus,
+  Pencil,
+  Trash2,
+  FoldVertical,
+  UnfoldVertical,
+  LocateFixed,
+} from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
@@ -27,30 +38,44 @@ interface Properties {
   nodeType: 'file' | 'folder';
   nodeName: string;
   hasChildren: boolean;
-  onUpdate: () => void;
-  onError: (message: string | null) => void;
+  onUpdate?: () => void;
+  onError?: (message: string | null) => void;
   /** When true, hides Rename and Delete — used for the root folder. */
   isRoot?: boolean;
+  /** When true, shows New File and New Folder — pass only for owners. */
+  canCreate?: boolean;
   /** When provided, shows a "Find File…" item at the top of the menu. */
   onFind?: () => void;
+  /** When provided, shows a "Collapse All" item. */
+  onCollapseAll?: () => void;
+  /** When provided, shows an "Expand All" item. */
+  onExpandAll?: () => void;
+  /** When provided, shows a "Reveal in Tree" item. */
+  onRevealInTree?: () => void;
+  /** Controls whether "Reveal in Tree" is enabled (requires a selected file). */
+  hasSelection?: boolean;
 }
 
-/** Renders the context-menu action buttons (create, rename, delete) for a file tree node. */
-export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, hasChildren, onUpdate, onError, isRoot = false, onFind }: Properties) {
+/** Renders the context-menu action buttons (create, rename, delete, tree navigation) for a file tree node. */
+export function FileTreeActions({
+  projectId, fileNodeId, nodeType, nodeName, hasChildren,
+  onUpdate, onError, isRoot = false, canCreate = false,
+  onFind, onCollapseAll, onExpandAll, onRevealInTree, hasSelection = false,
+}: Properties) {
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [inputValue, setInputValue] = useState('');
 
   const handleAction = async (action: () => Promise<void>): Promise<boolean> => {
     try {
-      onError(null);
+      onError?.(null);
       await action();
-      onUpdate();
+      onUpdate?.();
       return true;
     } catch (error_) {
       if (error_ instanceof FileTreeApiError && error_.status === 409) {
-        onError('A file or folder with that name already exists.');
+        onError?.('A file or folder with that name already exists.');
       } else {
-        onError(error_ instanceof Error ? error_.message : 'An error occurred.');
+        onError?.(error_ instanceof Error ? error_.message : 'An error occurred.');
       }
       return false;
     }
@@ -71,17 +96,17 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
     switch (dialog.type) {
     case 'rename': {
       ok = await handleAction(() => renameFileNode(projectId, fileNodeId, inputValue));
-    
+
     break;
     }
     case 'create-file': {
       ok = await handleAction(async () => { await createFileNode(projectId, fileNodeId, inputValue); });
-    
+
     break;
     }
     case 'create-folder': {
       ok = await handleAction(async () => { await createFolder(projectId, fileNodeId, inputValue); });
-    
+
     break;
     }
     // No default
@@ -92,6 +117,9 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
   const isInputDialog = dialog?.type === 'rename' || dialog?.type === 'create-file' || dialog?.type === 'create-folder';
   const isDeleteDialog = dialog?.type === 'delete';
 
+  const hasNavActions = onFind ?? onCollapseAll ?? onExpandAll ?? onRevealInTree;
+  const hasMutationActions = (canCreate && nodeType === 'folder') || !isRoot;
+
   return (
     <>
       <DropdownMenu>
@@ -101,23 +129,53 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {/* Navigation actions */}
           {onFind && (
             <DropdownMenuItem onSelect={onFind}>
+              <Search className="h-4 w-4 mr-2 shrink-0" />
               Find File…
             </DropdownMenuItem>
           )}
-          {nodeType === 'folder' && (
+          {onCollapseAll && (
+            <DropdownMenuItem onSelect={onCollapseAll}>
+              <FoldVertical className="h-4 w-4 mr-2 shrink-0" />
+              Collapse All
+            </DropdownMenuItem>
+          )}
+          {onExpandAll && (
+            <DropdownMenuItem onSelect={onExpandAll}>
+              <UnfoldVertical className="h-4 w-4 mr-2 shrink-0" />
+              Expand All
+            </DropdownMenuItem>
+          )}
+          {onRevealInTree && (
+            <DropdownMenuItem onSelect={onRevealInTree} disabled={!hasSelection}>
+              <LocateFixed className="h-4 w-4 mr-2 shrink-0" />
+              Reveal in Tree
+            </DropdownMenuItem>
+          )}
+
+          {/* Separator between navigation and mutation groups */}
+          {hasNavActions && hasMutationActions && <DropdownMenuSeparator />}
+
+          {/* File / folder creation */}
+          {canCreate && nodeType === 'folder' && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'create-file' })}>
+              <FilePlus className="h-4 w-4 mr-2 shrink-0" />
               New File
             </DropdownMenuItem>
           )}
-          {nodeType === 'folder' && (
+          {canCreate && nodeType === 'folder' && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'create-folder' })}>
+              <FolderPlus className="h-4 w-4 mr-2 shrink-0" />
               New Folder
             </DropdownMenuItem>
           )}
+
+          {/* Node-level actions (hidden for root) */}
           {!isRoot && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'rename', currentName: nodeName })}>
+              <Pencil className="h-4 w-4 mr-2 shrink-0" />
               Rename
             </DropdownMenuItem>
           )}
@@ -126,6 +184,7 @@ export function FileTreeActions({ projectId, fileNodeId, nodeType, nodeName, has
               className="text-destructive"
               onSelect={() => openDialog({ type: 'delete' })}
             >
+              <Trash2 className="h-4 w-4 mr-2 shrink-0" />
               Delete
             </DropdownMenuItem>
           )}
