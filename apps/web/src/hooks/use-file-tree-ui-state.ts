@@ -86,6 +86,7 @@ export function useFileTreeUIState(
   const revealSelected = useCallback((nodeId: string) => {
     if (!tree) return;
     const ancestors = findAncestors(tree, nodeId) ?? [];
+    // Root-level nodes have no ancestors to expand; callers are still responsible for scrolling.
     if (ancestors.length === 0) return;
     setExpandedStateRaw((previous) => {
       const next = new Map(previous);

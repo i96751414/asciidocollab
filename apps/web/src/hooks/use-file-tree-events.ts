@@ -9,13 +9,13 @@ let workerInstance: SharedWorker | null = null;
 function getWorker(): SharedWorker | null {
   if (typeof SharedWorker === 'undefined') return null;
   if (!workerInstance) {
-    workerInstance = new SharedWorker('/workers/file-tree-events.worker.js', { type: 'module', name: 'file-tree-events' });
+    workerInstance = new SharedWorker('/workers/file-tree-events.worker.js', { type: 'classic', name: 'file-tree-events' });
     workerInstance.port.start();
   }
   return workerInstance;
 }
 
-/** Subscribes to file tree SSE events for a project via a SharedWorker. */
+/** Subscribes to file tree SSE events for a project via a SharedWorker (one SSE connection shared across all tabs). */
 export function useFileTreeEvents(
   projectId: string,
   onEvent: (event: FileTreeEventDto) => void,
@@ -45,6 +45,7 @@ export function useFileTreeEvents(
 
     return () => {
       worker.port.removeEventListener('message', handleMessage);
+      worker.port.postMessage({ type: 'unsubscribe', projectId });
     };
   }, [projectId]);
 }

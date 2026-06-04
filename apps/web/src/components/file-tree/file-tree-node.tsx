@@ -71,8 +71,8 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
             nodeType={node.type}
             nodeName={node.name}
             hasChildren={hasChildren}
-            onUpdate={onUpdate ?? (() => {})}
-            onError={onError ?? (() => {})}
+            onUpdate={onUpdate}
+            onError={onError}
           />
         </span>
       )}
@@ -81,7 +81,7 @@ export function FileTreeNode({ node, depth, projectId, isOwner, selectedNodeId, 
 
   if (node.type === 'folder') {
     return (
-      <DragDropZone targetFolderId={node.id} projectId={projectId}>
+      <DragDropZone targetFolderId={node.id} projectId={projectId} onComplete={onUpdate}>
         {nodeContent}
         {isExpanded && node.children.map((child) => (
           <FileTreeNode

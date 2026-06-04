@@ -2,13 +2,11 @@ import { renderHook, act } from '@testing-library/react';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
-// Mock SharedWorker port using addEventListener/removeEventListener
 let capturedMessageHandler: ((event: MessageEvent) => void) | null = null;
 
 const mockPort = {
   postMessage: jest.fn(),
   start: jest.fn(),
-  close: jest.fn(),
   addEventListener: jest.fn((type: string, handler: (event: MessageEvent) => void) => {
     if (type === 'message') capturedMessageHandler = handler;
   }),
@@ -48,7 +46,6 @@ describe('useFileTreeEvents', () => {
 
   it('calls onEvent callback when file-tree-change message received', () => {
     renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
-
     const event: FileTreeEventDto = {
       type: 'created',
       fileNodeId: 'node-1',
@@ -57,7 +54,6 @@ describe('useFileTreeEvents', () => {
       path: '/test.txt',
       parentId: null,
     };
-
     act(() => triggerMessage({ type: 'file-tree-change', event }));
     expect(onEvent).toHaveBeenCalledWith(event);
   });
@@ -68,10 +64,15 @@ describe('useFileTreeEvents', () => {
     expect(onReconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('removes message listener on unmount', () => {
+  it('posts unsubscribe message on unmount', () => {
     const { unmount } = renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
     unmount();
-    // After unmount, messages should not trigger callbacks
+    expect(mockPort.postMessage).toHaveBeenCalledWith({ type: 'unsubscribe', projectId });
+  });
+
+  it('removes message listener on unmount so events stop firing', () => {
+    const { unmount } = renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    unmount();
     act(() => triggerMessage({ type: 'reconnect' }));
     expect(onReconnect).not.toHaveBeenCalled();
   });

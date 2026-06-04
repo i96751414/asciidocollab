@@ -177,13 +177,15 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
 
   useFileTreeEvents(projectId, onEvent, onReconnect);
 
-  useFileTreeKeyHandler(containerReference, bindings, {
+  const keyCallbacks = useMemo(() => ({
     'file-tree:rename': selectedNodeId ? () => {} : undefined,
     'file-tree:delete': selectedNodeId ? () => {} : undefined,
     'file-tree:new-file': selectedNodeId ? () => {} : undefined,
     'file-tree:new-folder': selectedNodeId ? () => {} : undefined,
     'file-tree:find': openFind,
-  });
+  }), [selectedNodeId, openFind]);
+
+  useFileTreeKeyHandler(containerReference, bindings, keyCallbacks);
 
   return (
     <div ref={containerReference} tabIndex={0} className="outline-none" onKeyDown={handleKeyDown}>
@@ -250,7 +252,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
               <button onClick={() => setOperationError(null)} aria-label="dismiss error" className="ml-2 underline">Dismiss</button>
             </div>
           )}
-          <DragDropZone targetFolderId={tree.id} projectId={projectId}>
+          <DragDropZone targetFolderId={tree.id} projectId={projectId} onComplete={fetchTree}>
             {tree.children.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
             ) : (

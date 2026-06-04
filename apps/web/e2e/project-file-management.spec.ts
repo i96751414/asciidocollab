@@ -35,9 +35,14 @@ async function openRootActions(page: Page) {
   await page.getByTestId('tree-root-actions').getByRole('button', { name: /actions/i }).click();
 }
 
-/** Opens the actions dropdown for a named node. */
+/**
+ * Opens the actions dropdown for a named node.
+ * Hovers the row first so the opacity-0 button becomes visible.
+ */
 async function openNodeActions(page: Page, name: string) {
-  await page.getByTestId(`tree-node-${name}`).getByRole('button', { name: /actions/i }).click();
+  const node = page.getByTestId(`tree-node-${name}`);
+  await node.hover();
+  await node.getByRole('button', { name: /actions/i }).click();
 }
 
 /** Fills a name dialog and confirms. */

@@ -27,7 +27,7 @@ export function UploadProgressPanel({ progress, onDismiss }: Properties) {
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
   return (
-    <div className="absolute bottom-2 left-2 right-2 rounded-md border bg-background p-3 shadow-lg z-10">
+    <div className="fixed bottom-4 right-4 w-72 rounded-md border bg-background p-3 shadow-lg z-50">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium">{doneCount} / {total} files</span>
         {hasError && (

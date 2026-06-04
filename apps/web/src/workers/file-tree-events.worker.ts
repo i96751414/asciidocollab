@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-// SharedWorker: holds one EventSource per project, fans out events to all tabs
+// SharedWorker: holds one EventSource per project, fans out events to all connected tabs.
 
 interface SubscribeMessage {
   type: 'subscribe';
@@ -8,8 +8,15 @@ interface SubscribeMessage {
   apiBase: string;
 }
 
-interface WorkerMessage {
-  data: SubscribeMessage;
+interface UnsubscribeMessage {
+  type: 'unsubscribe';
+  projectId: string;
+}
+
+type WorkerMessage = SubscribeMessage | UnsubscribeMessage;
+
+interface WorkerMessageEvent {
+  data: WorkerMessage;
 }
 
 const sources = new Map<string, EventSource>();
@@ -39,33 +46,44 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
   return source;
 }
 
-// instanceof narrows globalThis to SharedWorkerGlobalScope, giving us the
-// typed 'connect' overload without any type assertions.
+function removePort(projectId: string, port: MessagePort): void {
+  const projectPorts = ports.get(projectId);
+  if (!projectPorts) return;
+  const index = projectPorts.indexOf(port);
+  if (index !== -1) projectPorts.splice(index, 1);
+  if (projectPorts.length === 0) {
+    ports.delete(projectId);
+    sources.get(projectId)?.close();
+    sources.delete(projectId);
+  }
+}
+
 if (globalThis instanceof SharedWorkerGlobalScope) {
   globalThis.addEventListener('connect', (connectEvent) => {
     if (!(connectEvent instanceof MessageEvent)) return;
     const port: MessagePort = connectEvent.ports[0];
 
-    port.addEventListener('message', (event: WorkerMessage) => {
-      const { type, projectId, apiBase } = event.data;
+    port.addEventListener('message', (event: WorkerMessageEvent) => {
+      const message = event.data;
 
-      if (type === 'subscribe') {
+      if (message.type === 'subscribe') {
+        const { projectId, apiBase } = message;
         if (!ports.has(projectId)) ports.set(projectId, []);
-        ports.get(projectId)!.push(port);
-
+        const projectPorts = ports.get(projectId)!;
+        // Guard against duplicate subscriptions (e.g. React Strict Mode double-invoke)
+        if (!projectPorts.includes(port)) {
+          projectPorts.push(port);
+        }
         getOrOpenSource(projectId, apiBase);
+      } else {
+        const { projectId } = message;
+        removePort(projectId, port);
+      }
+    });
 
-        port.addEventListener('close', () => {
-          const projectPorts = ports.get(projectId);
-          if (!projectPorts) return;
-          const index = projectPorts.indexOf(port);
-          if (index !== -1) projectPorts.splice(index, 1);
-          if (projectPorts.length === 0) {
-            ports.delete(projectId);
-            sources.get(projectId)?.close();
-            sources.delete(projectId);
-          }
-        });
+    port.addEventListener('close', () => {
+      for (const projectId of ports.keys()) {
+        removePort(projectId, port);
       }
     });
 

@@ -22,7 +22,7 @@ export interface UploadProgress {
 }
 
 /** React hook that handles drag-and-drop file uploads into a project folder. */
-export function useDropUpload(targetFolderId: string, projectId: string) {
+export function useDropUpload(targetFolderId: string, projectId: string, onComplete?: () => void) {
   const [progress, setProgress] = useState<UploadProgress[]>([]);
 
   const updateItem = useCallback((id: string, update: Partial<UploadProgress>) => {
@@ -97,7 +97,13 @@ export function useDropUpload(targetFolderId: string, projectId: string) {
         updateItem(item.id, { status: 'error', errorMessage: message });
       }
     }
-  }, [targetFolderId, projectId, updateItem]);
 
-  return { onDrop, progress };
+    onComplete?.();
+  }, [targetFolderId, projectId, updateItem, onComplete]);
+
+  const clearProgress = useCallback(() => {
+    setProgress([]);
+  }, []);
+
+  return { onDrop, progress, clearProgress };
 }

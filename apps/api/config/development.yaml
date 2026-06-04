@@ -8,6 +8,7 @@ api:
   trustProxy: false
   httpsRedirect: false
   frontendUrl: "http://localhost:3000"
+  corsOrigins: "http://localhost:3000"
 
 auth:
   session:

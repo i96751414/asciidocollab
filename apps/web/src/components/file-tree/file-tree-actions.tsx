@@ -117,7 +117,7 @@ export function FileTreeActions({
   const isInputDialog = dialog?.type === 'rename' || dialog?.type === 'create-file' || dialog?.type === 'create-folder';
   const isDeleteDialog = dialog?.type === 'delete';
 
-  const hasNavActions = onFind ?? onCollapseAll ?? onExpandAll ?? onRevealInTree;
+  const hasNavActions = !!(onFind || onCollapseAll || onExpandAll || onRevealInTree);
   const hasMutationActions = (canCreate && nodeType === 'folder') || !isRoot;
 
   return (

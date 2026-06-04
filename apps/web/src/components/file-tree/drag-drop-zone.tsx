@@ -9,38 +9,35 @@ interface Properties {
   projectId: string;
   children: ReactNode;
   className?: string;
+  /** Called after all uploads in a drop batch finish (success or error). Use to refresh the tree. */
+  onComplete?: () => void;
 }
 
 /** Wraps content in a drag-and-drop zone that uploads dropped files into the target folder. */
-export function DragDropZone({ targetFolderId, projectId, children, className }: Properties) {
+export function DragDropZone({ targetFolderId, projectId, children, className, onComplete }: Properties) {
   const [isDragging, setIsDragging] = useState(false);
-  const { onDrop, progress } = useDropUpload(targetFolderId, projectId);
-  const [currentProgress, setCurrentProgress] = useState(progress);
+  const { onDrop, progress, clearProgress } = useDropUpload(targetFolderId, projectId, onComplete);
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
   }, []);
 
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
     if (event.dataTransfer?.items) {
       onDrop(event.dataTransfer.items);
     }
   }, [onDrop]);
-
-  const clearProgress = useCallback(() => {
-    setCurrentProgress([]);
-  }, []);
-
-  // Sync external progress changes
-  const displayProgress = progress.length > 0 ? progress : currentProgress;
 
   return (
     <div
@@ -54,8 +51,8 @@ export function DragDropZone({ targetFolderId, projectId, children, className }:
       onDrop={handleDrop}
     >
       {children}
-      {displayProgress.length > 0 && (
-        <UploadProgressPanel progress={displayProgress} onDismiss={clearProgress} />
+      {progress.length > 0 && (
+        <UploadProgressPanel progress={progress} onDismiss={clearProgress} />
       )}
     </div>
   );

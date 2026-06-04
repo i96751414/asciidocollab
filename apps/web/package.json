@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build:worker": "tsc --project src/workers/tsconfig.json",
+    "predev": "pnpm run build:worker",
+    "prebuild": "pnpm run build:worker",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -133,6 +133,53 @@ describe('useDropUpload', () => {
     expect(mockUploadAsset).toHaveBeenCalledWith(projectId, existingFolderId, expect.any(File));
   });
 
+  it('calls onComplete after all uploads finish', async () => {
+    const onComplete = jest.fn();
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('a.txt'), relativePath: 'a.txt' },
+    ]));
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'a.txt', storagePath: '/a.txt', sizeBytes: 10, mimeType: 'text/plain' });
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId, onComplete));
+    await act(async () => {
+      await result.current.onDrop({} as DataTransferItemList);
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onComplete even when some uploads fail', async () => {
+    const onComplete = jest.fn();
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('fail.txt'), relativePath: 'fail.txt' },
+    ]));
+    mockUploadAsset.mockRejectedValue(new Error('Network error'));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId, onComplete));
+    await act(async () => {
+      await result.current.onDrop({} as DataTransferItemList);
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('clearProgress resets progress to empty', async () => {
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('a.txt'), relativePath: 'a.txt' },
+    ]));
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'a.txt', storagePath: '/a.txt', sizeBytes: 10, mimeType: 'text/plain' });
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => {
+      await result.current.onDrop({} as DataTransferItemList);
+    });
+
+    expect(result.current.progress.length).toBeGreaterThan(0);
+
+    act(() => { result.current.clearProgress(); });
+    expect(result.current.progress).toHaveLength(0);
+  });
+
   it('one item failure sets status to error and does not cancel remaining items', async () => {
     const file1 = makeFile('fail.txt');
     const file2 = makeFile('ok.txt');

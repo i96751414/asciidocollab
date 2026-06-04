@@ -23,7 +23,7 @@ Project metadata:
 
 ## FR-002 Multifile Project Structure
 
-Support hierarchical projects strcutures
+Support hierarchical projects structures
 
 Capabilities:
 
@@ -54,7 +54,7 @@ Language Features
 - Attribute completion
 - Include resolution
 - Cross-reference validation
-- Section navugation
+- Section navigation
 
 Accessibility
 
@@ -64,13 +64,13 @@ Accessibility
 
 ## FR-004 Search
 
-Support search accross:
+Support search across:
 
 - current file
 - current project
 
 
-## FR-005 Real-time collabolation
+## FR-005 Real-time collaboration
 
 Multiple users may edit simultaneously
 
@@ -158,12 +158,12 @@ Capabilities:
 - pull updates
 - branch switch
 - merge requests
-- pull requets
+- pull requests
 
 
 ## FR-011 Project Sandbox
 
-Each project shall be processed indenpendently and have no access to files of other projects or the system unless explicitly allowed.
+Each project shall be processed independently and have no access to files of other projects or the system unless explicitly allowed.
 
 ## FR-012 User Management
 

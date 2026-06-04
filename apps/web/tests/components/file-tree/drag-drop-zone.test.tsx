@@ -29,10 +29,11 @@ function makeProgress(overrides: Partial<UploadProgress> = {}): UploadProgress {
 
 describe('DragDropZone', () => {
   const mockOnDrop = jest.fn();
+  const mockClearProgress = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseDropUpload.mockReturnValue({ onDrop: mockOnDrop, progress: [] });
+    mockUseDropUpload.mockReturnValue({ onDrop: mockOnDrop, progress: [], clearProgress: mockClearProgress });
   });
 
   it('drop highlight appears on dragOver', () => {
@@ -91,5 +92,43 @@ describe('DragDropZone', () => {
       </DragDropZone>,
     );
     expect(screen.queryByTestId('upload-panel')).not.toBeInTheDocument();
+  });
+
+  it('drop on a nested zone does not trigger the parent zone upload', () => {
+    const parentDrop = jest.fn();
+    const childDrop = jest.fn();
+
+    mockUseDropUpload
+      .mockReturnValueOnce({ onDrop: parentDrop, progress: [], clearProgress: jest.fn() })
+      .mockReturnValueOnce({ onDrop: childDrop, progress: [], clearProgress: jest.fn() });
+
+    const { container } = render(
+      <DragDropZone targetFolderId="parent" projectId="proj-1">
+        <DragDropZone targetFolderId="child" projectId="proj-1">
+          <span />
+        </DragDropZone>
+      </DragDropZone>,
+    );
+
+    const childZone = container.firstChild!.firstChild as HTMLElement;
+    fireEvent.drop(childZone, { dataTransfer: { items: {} as DataTransferItemList } });
+
+    expect(childDrop).toHaveBeenCalledTimes(1);
+    expect(parentDrop).not.toHaveBeenCalled();
+  });
+
+  it('dismiss button passes clearProgress from hook as onDismiss to UploadProgressPanel', () => {
+    mockUseDropUpload.mockReturnValue({
+      onDrop: mockOnDrop,
+      progress: [makeProgress()],
+      clearProgress: mockClearProgress,
+    });
+    render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1">
+        <div>content</div>
+      </DragDropZone>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(mockClearProgress).toHaveBeenCalledTimes(1);
   });
 });
