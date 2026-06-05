@@ -162,7 +162,7 @@ jobs:
         run: docker compose up -d postgres mailpit --wait
 
       - name: Apply database schema
-        run: pnpm --filter @asciidocollab/db exec prisma db push --skip-generate
+        run: pnpm --filter @asciidocollab/db exec prisma db push
         env:
           ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
 
