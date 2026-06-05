@@ -66,9 +66,7 @@ jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: t
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));
-/* eslint-disable unicorn/consistent-function-scoping */
-jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => () => null }));
-/* eslint-enable unicorn/consistent-function-scoping */
+jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => jest.fn() }));
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));
