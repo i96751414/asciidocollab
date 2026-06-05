@@ -3,5 +3,5 @@ export interface EditorPreferencesDto {
   /** Font size in pixels. */
   fontSize: number;
   /** Editor colour theme identifier. */
-  theme: 'default' | 'high-contrast';
+  theme: 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
 }

@@ -1,5 +1,6 @@
 import * as Select from '@radix-ui/react-select';
 import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
+import { isEditorThemeValue } from '@/hooks/use-editor-preferences';
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/editor-config';
 
 interface EditorSettingsPanelProperties {
@@ -8,6 +9,14 @@ interface EditorSettingsPanelProperties {
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
 }
+
+const THEME_OPTIONS: { value: EditorThemeValue; label: string }[] = [
+  { value: 'default',       label: 'Default' },
+  { value: 'tomorrow',      label: 'Tomorrow' },
+  { value: 'dracula',       label: 'Dracula' },
+  { value: 'espresso',      label: 'Espresso' },
+  { value: 'high-contrast', label: 'High Contrast' },
+];
 
 /** Font size stepper and theme selector for the AsciiDoc editor. */
 export function EditorSettingsPanel({ fontSize, theme, setFontSize, setTheme }: EditorSettingsPanelProperties) {
@@ -54,7 +63,7 @@ export function EditorSettingsPanel({ fontSize, theme, setFontSize, setTheme }: 
         <Select.Root
           value={theme}
           onValueChange={(value) => {
-            if (value === 'default' || value === 'high-contrast') setTheme(value);
+            if (isEditorThemeValue(value)) setTheme(value);
           }}
         >
           <Select.Trigger className="flex h-8 w-full items-center justify-between rounded border px-2 text-sm">
@@ -64,14 +73,16 @@ export function EditorSettingsPanel({ fontSize, theme, setFontSize, setTheme }: 
           <Select.Portal>
             <Select.Content className="rounded border bg-popover shadow-md z-50">
               <Select.Viewport>
-                <Select.Item value="default" className="px-2 py-1 text-sm cursor-pointer hover:bg-muted flex items-center gap-1">
-                  <Select.ItemText>Default</Select.ItemText>
-                  <Select.ItemIndicator>✓</Select.ItemIndicator>
-                </Select.Item>
-                <Select.Item value="high-contrast" className="px-2 py-1 text-sm cursor-pointer hover:bg-muted flex items-center gap-1">
-                  <Select.ItemText>High Contrast</Select.ItemText>
-                  <Select.ItemIndicator>✓</Select.ItemIndicator>
-                </Select.Item>
+                {THEME_OPTIONS.map(({ value, label }) => (
+                  <Select.Item
+                    key={value}
+                    value={value}
+                    className="px-2 py-1 text-sm cursor-pointer hover:bg-muted flex items-center gap-1"
+                  >
+                    <Select.ItemText>{label}</Select.ItemText>
+                    <Select.ItemIndicator>✓</Select.ItemIndicator>
+                  </Select.Item>
+                ))}
               </Select.Viewport>
             </Select.Content>
           </Select.Portal>

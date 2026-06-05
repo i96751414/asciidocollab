@@ -2,9 +2,15 @@ import type { Result } from '../types/result';
 import { ValidationError } from '../errors/validation-error';
 
 /** The set of supported editor theme identifiers. */
-export type EditorThemeValue = 'default' | 'high-contrast';
+export type EditorThemeValue = 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
 
-const VALID_THEMES: readonly string[] = ['default', 'high-contrast'] satisfies EditorThemeValue[];
+const VALID_THEMES: readonly string[] = [
+  'default',
+  'high-contrast',
+  'dracula',
+  'tomorrow',
+  'espresso',
+] satisfies EditorThemeValue[];
 
 function isEditorThemeValue(value: string): value is EditorThemeValue {
   return VALID_THEMES.includes(value);

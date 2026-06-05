@@ -12,7 +12,7 @@ const putBodySchema = {
   required: ['fontSize', 'theme'],
   properties: {
     fontSize: { type: 'integer', minimum: 8, maximum: 32 },
-    theme: { type: 'string', enum: ['default', 'high-contrast'] },
+    theme: { type: 'string', enum: ['default', 'high-contrast', 'dracula', 'tomorrow', 'espresso'] },
   },
   additionalProperties: false,
 };
