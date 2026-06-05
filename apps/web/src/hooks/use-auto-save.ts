@@ -3,7 +3,7 @@ import {
   AUTOSAVE_DEBOUNCE_MS,
   EXTERNAL_CHANGE_POLL_INTERVAL_MS,
   OFFLINE_QUEUE_KEY_PREFIX,
-} from '@/lib/codemirror/constants';
+} from '@/lib/editor-config';
 import { saveDocumentContent, fileContentUrl } from '@/lib/api/file-content';
 
 /** Represents the current document save state in the editor. */

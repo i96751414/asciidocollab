@@ -1,6 +1,6 @@
 import * as Select from '@radix-ui/react-select';
 import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
-import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/codemirror/constants';
+import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/editor-config';
 
 interface EditorSettingsPanelProperties {
   fontSize: number;

@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useAutoSave } from '@/hooks/use-auto-save';
-import { AUTOSAVE_DEBOUNCE_MS, EXTERNAL_CHANGE_POLL_INTERVAL_MS, OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/codemirror/constants';
+import { AUTOSAVE_DEBOUNCE_MS, EXTERNAL_CHANGE_POLL_INTERVAL_MS, OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 
 // --- Mocks ---
 
