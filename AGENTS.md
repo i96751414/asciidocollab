@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active implementation plan: specs/012-project-page-editor/plan.md
+No active implementation plan.
 <!-- SPECKIT END -->
 
 ## Agent Instructions
@@ -14,9 +14,9 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-t
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 5 complete — file management (file tree CRUD, SSE real-time updates, project page editor with
-AsciiDoc preview). Active branch: `012-project-page-editor`.
-See `specs/012-project-page-editor/plan.md` for the implementation plan.
+**Status:** Phase 6 complete — CodeMirror editor with auto-save, AsciiDoc syntax highlighting, table editing,
+autocomplete, block title captions, image/include macros with file-path autocomplete, and Dracula/Tomorrow/Espresso
+themes. All branches merged to `main`.
 
 ## Tech Stack
 
@@ -461,6 +461,68 @@ Phase 5 (File management + project page editor) is **complete** (active branch: 
 | `apps/api`        | 140   |
 | `packages/domain` | 431   |
 
+## Phase 5+ Implementation Summary (spec 013)
+
+Phase 5+ (File tree UX improvements) is **complete and merged to main** (`013-file-tree-ux`).
+
+### What was built
+
+- **Find-in-tree** — keyboard-shortcut-driven search within the file tree (debounced filter, highlight match)
+- **Sort** — alphabetical sort toggle for folder contents
+- **Error area** — dedicated UI zone for tree-level error messages (not inline toasts)
+- **Keybinding** — configurable keyboard shortcut to open the file tree
+- **Tree actions consolidation** — New File, New Folder, Rename, Delete collapsed into a single context menu per node;
+  Create actions shown only on folder nodes
+- **SSE real-time sync** — fixed reconnect and upload-bubble edge cases; drag-drop triggers tree refresh
+- **Code quality** — ESLint cleanup, missing `DialogDescription` warning suppressed
+
+## Phase 6 Implementation Summary (specs 014, 015)
+
+Phase 6 (Code editor) is **complete and merged to main** across two branches: `014-codemirror-editor` and
+`015-editor-tables-autocomplete`.
+
+### What was built — 014
+
+**Editor (`apps/web/src/`)**
+
+- `AsciiDocEditor` — full CodeMirror 6 editor replacing the read-only content panel for editable (`.adoc`) files
+- AsciiDoc Lezer grammar — syntax highlighting for headings, bold/italic, delimited blocks, tables, attribute
+  references, macros, footnotes, STEM blocks, inline code; grammar tokenises `.adoc` files live
+- Auto-save — 4-second debounce; `SaveIndicator` component shows `saved / unsaved changes / saving… / error` states;
+  `beforeunload` guard prevents navigation with unsaved content
+- Editor preferences — theme selector (Default, Dracula, Tomorrow, Espresso), line numbers toggle, word wrap toggle,
+  font size control; preferences persisted to user settings via API
+- `useEditorMount` hook — bootstraps the CodeMirror `EditorView`, wires extensions, and registers auto-save
+- `EditorBanners` component — non-blocking notification when a file is externally updated while the editor is open
+- Collaborative-ready — Yjs document slot reserved; `y-codemirror.next` extension scaffold in place for Phase 8
+
+**API (`apps/api/src/routes/projects/`)**
+
+- `GET /projects/:id/files/:nodeId/content` — already existed; confirmed used by editor for initial load
+- `PUT /projects/:id/files/:nodeId/content` — new route; accepts raw text body, writes to `ProjectFileStore`,
+  emits SSE `updated` event
+
+### What was built — 015
+
+- **Table autocomplete** — typing `|===` offers a snippet with header row + data row; `|` at line start inside a
+  table block offers a new cell/row completion
+- **Context toolbar** — when cursor is inside a `|===` block: Add row above/below, Remove row, Add column
+  left/right, Remove column, Move column left/right; rewrites table text in-place, preserving column spec
+- **Block title captions** — `.` prefix autocomplete for block titles (`.Caption text` before any delimited block)
+- **Image/include macro autocomplete** — `image::`, `image:`, `include::` trigger file-path completion sourced from
+  the project's file tree; only image extensions shown for `image::` macros
+- **Editor themes** — Dracula, Tomorrow, and Espresso themes added as separate CM6 theme extensions; split into
+  individual files under `src/lib/editor/themes/`
+- **Dark-theme fix** — block macro tokens (image, include, xref) were invisible in dark themes; tokeniser updated
+
+### Test counts (as of Phase 6)
+
+| Package           | Tests |
+|-------------------|-------|
+| `apps/web`        | 454   |
+| `apps/api`        | 149   |
+| `packages/domain` | 594   |
+
 ## Key Architectural Decisions
 
 **Git sandboxing (FR-011):** Each git operation spawns a short-lived Docker container from `docker/git-sandbox`. The
@@ -531,7 +593,9 @@ Key outputs:
 | 4     | Project management CRUD + member management (API + dashboard UI)                                  | ✅ **Complete** |
 | 4+    | Auth UI, account forms, user registration/management, key bindings (specs 007–010)                | ✅ **Complete** |
 | 5     | File management: file tree CRUD, SSE real-time updates, project page editor, AsciiDoc preview     | ✅ **Complete** |
-| 6     | Code editor (CodeMirror 6, AsciiDoc Lezer grammar, editor chrome)                                 | ⬜ Pending      |
+| 5+    | File tree UX: find-in-tree, sort, consolidated actions menu, SSE fixes (spec 013)                 | ✅ **Complete** |
+| 6     | Code editor: CodeMirror 6, AsciiDoc syntax highlighting, auto-save, themes (spec 014)             | ✅ **Complete** |
+| 6+    | Editor tables, context toolbar, block captions, image/include autocomplete (spec 015)             | ✅ **Complete** |
 | 7     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
 | 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
 | 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |

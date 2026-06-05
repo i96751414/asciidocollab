@@ -111,7 +111,7 @@ jobs:
         run: pnpm -r build
 
       - name: Infrastructure integration tests
-        run: pnpm --filter @asciidocollab/infrastructure test --passWithNoTests
+        run: pnpm --filter @asciidocollab/infrastructure test -- --passWithNoTests
         env:
           # Testcontainers uses Docker — make sure it's available and doesn't time out
           TESTCONTAINERS_RYUK_DISABLED: 'true'
