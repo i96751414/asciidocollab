@@ -20,8 +20,10 @@ export async function getDocumentContent(projectId: string, fileNodeId: string):
   return response.text();
 }
 
-/** Saves updated text content for a document file.
- *  Returns the ETag from the response so callers can seed external-change polling. */
+/**
+ * Saves updated text content for a document file.
+ *  Returns the ETag from the response so callers can seed external-change polling.
+ */
 export async function saveDocumentContent(
   projectId: string,
   fileNodeId: string,

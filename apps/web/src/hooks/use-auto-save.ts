@@ -12,8 +12,10 @@ export type EditorSaveState = 'saved' | 'saving' | 'unsaved' | 'error';
 interface UseAutoSaveOptions {
   projectId: string;
   fileNodeId: string;
-  /** Seed the ETag from the initial GET /content response so external-change
-   *  polling works from first load, without requiring a save first. */
+  /**
+   * Seed the ETag from the initial GET /content response so external-change
+   *  polling works from first load, without requiring a save first.
+   */
   initialEtag?: string;
   onExternalChange?: () => void;
   onDraftRecovered?: (content: string) => void;

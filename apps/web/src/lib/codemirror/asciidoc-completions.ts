@@ -86,9 +86,11 @@ export const xrefCompletionSource: CompletionSource = (context: CompletionContex
   };
 };
 
-/** Include path completion source factory — triggers after "include::".
+/**
+ * Include path completion source factory — triggers after "include::".
  *  Accepts a static array or a getter so callers can pass a ref and always
- *  read the latest paths without recreating the completion source. */
+ *  read the latest paths without recreating the completion source.
+ */
 export function createIncludeCompletionSource(paths: string[] | (() => string[])): CompletionSource {
   return (context: CompletionContext): CompletionResult | null => {
     const match = context.matchBefore(/include::[^\n[]*/);

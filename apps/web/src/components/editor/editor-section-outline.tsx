@@ -6,9 +6,11 @@ interface EditorSectionOutlineProperties {
   onHeadingClick: (entry: SectionOutlineEntry) => void;
 }
 
-/** Renders a hierarchical section outline for the current AsciiDoc document.
+/**
+ * Renders a hierarchical section outline for the current AsciiDoc document.
  *  Wrapped in React.memo so cursor-move re-renders of the parent editor do not
- *  cascade here when entries and the callback are referentially stable. */
+ *  cascade here when entries and the callback are referentially stable.
+ */
 export const EditorSectionOutline = React.memo(function EditorSectionOutline({ entries, onHeadingClick }: EditorSectionOutlineProperties) {
   if (entries.length === 0) {
     return (

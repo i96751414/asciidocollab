@@ -18,8 +18,10 @@ interface AsciiDocEditorProperties {
   canEdit: boolean;
   projectId?: string;
   fileNodeId?: string;
-  /** ETag from the initial GET /content response — seeds external-change polling
-   *  so it works from first load without requiring a save first. */
+  /**
+   * ETag from the initial GET /content response — seeds external-change polling
+   *  so it works from first load without requiring a save first.
+   */
   initialEtag?: string | null;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
