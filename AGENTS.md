@@ -7,6 +7,7 @@ No active implementation plan.
 - **Do not create CLAUDE.md.** This project uses `AGENTS.md` as the single agent context file. If you find yourself
   about to write `CLAUDE.md`, write to `AGENTS.md` instead or update the relevant section here.
 - All quality gate commands, project conventions, and architectural rules live in this file.
+- **Never `git push` or `git merge` without explicit user consent.** Commit freely, but always ask before pushing or merging.
 
 ## Project
 
