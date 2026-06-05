@@ -14,6 +14,8 @@ export interface ProjectAccess {
   currentUserId: string;
   /** Role of the currently authenticated user within this project. */
   currentUserRole: ProjectMemberRole;
+  /** Whether the current user has admin privileges. */
+  isAdmin: boolean;
 }
 
 async function fetchJson<T>(response: Response): Promise<T> {
@@ -49,7 +51,7 @@ export async function getProjectAccess(
   if (projectResponse.status === 404) redirect('/404');
   if (!meResponse.ok || !projectResponse.ok || !membersResponse.ok) redirect('/403');
 
-  const me = await fetchJson<{ userId: string; displayName: string; email: string }>(meResponse);
+  const me = await fetchJson<{ userId: string; displayName: string; email: string; isAdmin: boolean }>(meResponse);
   const { data: project } = await fetchJson<{ data: Project }>(projectResponse);
   const { data: { members } } = await fetchJson<{ data: { members: ProjectMember[] } }>(membersResponse);
 
@@ -67,5 +69,6 @@ export async function getProjectAccess(
     members,
     currentUserId: me.userId,
     currentUserRole: currentMember.role,
+    isAdmin: me.isAdmin ?? false,
   };
 }

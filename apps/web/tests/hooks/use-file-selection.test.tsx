@@ -170,3 +170,17 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.isBinary).toBe(false);
   });
 });
+
+// Issue 3: use-file-selection must not define its own API_BASE — it must use
+// fileContentUrl from lib/api/file-content so the content URL stays in sync.
+describe('use-file-selection URL must match fileContentUrl', () => {
+  test('use-file-selection.ts does not define its own NEXT_PUBLIC_API_URL constant', () => {
+    const fs = require('node:fs');
+    const source: string = fs.readFileSync(
+      require.resolve('@/hooks/use-file-selection'),
+      'utf8',
+    );
+    expect(source).not.toContain('process.env.NEXT_PUBLIC_API_URL');
+    expect(source).toContain('fileContentUrl');
+  });
+});

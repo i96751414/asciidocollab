@@ -5,6 +5,7 @@ export { UserRepository } from './user/user.repository';
 export { SessionRepository } from './user/session.repository';
 export { KeyBindingRepository } from './user/key-binding.repository';
 export { UserInvitationRepository } from './user/user-invitation.repository';
+export type { EditorPreferencesRepository } from './user/editor-preferences.repository';
 
 // project/
 export { ProjectRepository, PaginationParameters, PaginatedProjects } from './project/project.repository';

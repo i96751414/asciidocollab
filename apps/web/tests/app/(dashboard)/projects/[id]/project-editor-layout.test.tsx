@@ -3,6 +3,18 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
+// Mock the AsciiDocEditor so tests don't depend on CodeMirror/Lezer
+jest.mock('@/components/editor/asciidoc-editor', () => ({
+  AsciiDocEditor: ({ content, canEdit, projectId, fileNodeId }: { content: string; canEdit: boolean; projectId?: string; fileNodeId?: string }) => (
+    <div
+      data-testid="asciidoc-editor"
+      data-can-edit={String(canEdit)}
+      data-project-id={projectId ?? ''}
+      data-file-node-id={fileNodeId ?? ''}
+    >{content}</div>
+  ),
+}));
+
 // Mock file-tree-node so rendered nodes are simple divs
 jest.mock('@/components/file-tree/file-tree-node', () => ({
   FileTreeNode: ({ node }: { node: { name: string; id: string } }) => (
@@ -57,6 +69,7 @@ const defaultProps = {
   projectName: 'My Project',
   projectDescription: null,
   isOwner: true,
+  canEdit: true,
 };
 
 describe('ProjectEditorLayout', () => {
@@ -198,5 +211,83 @@ describe('ProjectEditorLayout', () => {
     act(() => { onEvent(createdEvent); });
 
     await waitFor(() => expect(screen.getByTestId('node-new-file.adoc')).toBeInTheDocument());
+  });
+
+  // Issue C2: switching files must mount a fresh editor (new DOM element) so internal
+  // state (including any stale closures over fileNodeId) is completely reset.
+  it('creates a new AsciiDocEditor DOM element when switching to a different file', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-1', nodeName: 'first.adoc', path: '/first.adoc', nodeType: 'file' },
+      contentState: { content: 'First file', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} projectId="proj-1" />);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument());
+    const firstEditorElement = screen.getByTestId('asciidoc-editor');
+
+    // Simulate switching to a different file
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-2', nodeName: 'second.adoc', path: '/second.adoc', nodeType: 'file' },
+      contentState: { content: 'Second file', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+    rerender(<ProjectEditorLayout {...defaultProps} projectId="proj-1" />);
+
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toHaveAttribute('data-file-node-id', 'file-2'));
+    const secondEditorElement = screen.getByTestId('asciidoc-editor');
+    // Verify it is a NEW DOM element (not the same reference reused),
+    // which proves the editor remounted and reset its internal state.
+    expect(secondEditorElement).not.toBe(firstEditorElement);
+  });
+
+  // Issue C8: when content prop changes for the same file (e.g. external-change reload),
+  // AsciiDocEditor must display the new content. With key=fileNodeId this only applies
+  // when content updates for the same file without a file switch. We verify the rendered
+  // content always matches the current contentState.
+  it('AsciiDocEditor displays updated content when contentState changes for the same file', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-x', nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: 'original content', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} projectId="p1" />);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument());
+    expect(screen.getByTestId('asciidoc-editor')).toHaveTextContent('original content');
+
+    // Simulate external change: same file, new content
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-x', nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: 'updated content', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+    rerender(<ProjectEditorLayout {...defaultProps} projectId="p1" />);
+
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toHaveTextContent('updated content'));
+  });
+
+  // Issue C1: AsciiDocEditor must receive projectId and fileNodeId for auto-save to work
+  it('passes projectId and fileNodeId to AsciiDocEditor when a file is selected', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-abc', nodeName: 'chapter.adoc', path: '/chapter.adoc', nodeType: 'file' },
+      contentState: { content: '= Chapter', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    render(<ProjectEditorLayout {...defaultProps} projectId="proj-123" />);
+
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument());
+    const editor = screen.getByTestId('asciidoc-editor');
+    expect(editor).toHaveAttribute('data-project-id', 'proj-123');
+    expect(editor).toHaveAttribute('data-file-node-id', 'file-abc');
   });
 });

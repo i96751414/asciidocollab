@@ -50,6 +50,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   sentInvitations         UserInvitation[]         @relation("InvitedBy")
   keyBindings             UserKeyBinding[]
+  editorPreferences       EditorPreferences?
 }
 
 model Project {
@@ -261,4 +262,17 @@ model UserKeyBinding {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, action])
+}
+
+model EditorPreferences {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  fontSize  Int      @default(14)
+  theme     String   @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("editor_preferences")
 }

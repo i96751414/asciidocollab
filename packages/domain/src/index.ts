@@ -8,3 +8,4 @@ export * from './errors';
 export * from './services';
 export * from './constants';
 export * from './constants/key-bindings';
+export * from './constants/editor-preferences';

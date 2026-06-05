@@ -1,7 +1,6 @@
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fileContentUrl } from '@/lib/api/file-content';
 
 /** Represents the currently selected file node in the editor layout. */
 export interface SelectedFile {
@@ -19,6 +18,8 @@ export interface SelectedFile {
 export interface FileContentState {
   /** Raw file text; null while loading or on error. */
   content: string | null;
+  /** ETag from the GET /content response; null before first load or on error. */
+  etag: string | null;
   /** True while a content fetch is in-flight. */
   isLoading: boolean;
   /** Error message if the last fetch failed; null otherwise. */
@@ -29,6 +30,7 @@ export interface FileContentState {
 
 const initialContentState: FileContentState = {
   content: null,
+  etag: null,
   isLoading: false,
   error: null,
   isBinary: false,
@@ -56,26 +58,28 @@ export function useFileSelection(projectId: string) {
 
       const controller = new AbortController();
       abortReference.current = controller;
-      setContentState({ content: null, isLoading: true, error: null, isBinary: false });
+      setContentState({ content: null, etag: null, isLoading: true, error: null, isBinary: false });
 
       try {
         const response = await fetch(
-          `${API_BASE}/projects/${projectId}/files/${nodeId}/content`,
+          fileContentUrl(projectId, nodeId),
           { credentials: 'include', signal: controller.signal },
         );
 
         const contentType = response.headers.get('Content-Type') ?? '';
         if (!contentType.startsWith('text/')) {
-          setContentState({ content: null, isLoading: false, error: null, isBinary: true });
+          setContentState({ content: null, etag: null, isLoading: false, error: null, isBinary: true });
           return;
         }
 
+        const etag = response.headers.get('ETag');
         const text = await response.text();
-        setContentState({ content: text, isLoading: false, error: null, isBinary: false });
+        setContentState({ content: text, etag, isLoading: false, error: null, isBinary: false });
       } catch (error_) {
         if (error_ instanceof DOMException && error_.name === 'AbortError') return;
         setContentState({
           content: null,
+          etag: null,
           isLoading: false,
           error: error_ instanceof Error ? error_.message : 'An error occurred.',
           isBinary: false,

@@ -46,3 +46,5 @@ export { GetAssetContentUseCase } from './content/get-asset-content';
 export { GetKeyBindingsUseCase } from './settings/get-key-bindings';
 export { UpdateKeyBindingUseCase } from './settings/update-key-binding';
 export { ResetKeyBindingUseCase } from './settings/reset-key-binding';
+export { GetEditorPreferencesUseCase } from './settings/get-editor-preferences';
+export { SaveEditorPreferencesUseCase } from './settings/save-editor-preferences';

@@ -1,0 +1,32 @@
+/* AsciiDoc Editor theme overrides */
+
+/* Apply font size CSS custom property to the editor content */
+.asciidoc-editor .cm-editor {
+  font-size: var(--editor-font-size, 14px);
+}
+
+/* High-contrast theme — all colors meet WCAG AA (≥ 4.5:1) contrast ratio */
+.asciidoc-editor[data-theme="high-contrast"] {
+  --editor-bg: #000000;
+  --editor-fg: #ffffff;
+  --editor-heading: #ffff00;
+  --editor-comment: #7fc97f;
+  --editor-keyword: #ff6666;
+  --editor-string: #a8d8a8;
+  --editor-link: #80d8ff;
+  --editor-attribute: #ffd700;
+  --editor-macro: #ff9966;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-editor {
+  background: #000000;
+  color: #ffffff;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-content {
+  color: #ffffff;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-line {
+  color: #ffffff;
+}

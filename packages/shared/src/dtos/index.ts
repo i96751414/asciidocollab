@@ -37,3 +37,4 @@ export {
 } from './admin.dto';
 export { FileTreeEventDto } from './file-tree-event.dto';
 export { KeyBindingDto } from './key-binding.dto';
+export { EditorPreferencesDto, UpdateEditorPreferencesDto } from './editor-preferences.dto';

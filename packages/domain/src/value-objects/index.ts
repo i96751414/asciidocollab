@@ -26,3 +26,7 @@ export { validatePassword } from './password-policy';
 export type { PasswordPolicy } from './password-policy';
 export { UserInvitationId } from './user-invitation-id';
 export { EmailVerificationTokenId } from './email-verification-token-id';
+
+export { EditorPreferencesId } from './editor-preferences-id';
+export { EditorTheme } from './editor-theme';
+export type { EditorThemeValue } from './editor-theme';

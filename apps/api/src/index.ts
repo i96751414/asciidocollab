@@ -33,6 +33,7 @@ import {
   FilesystemProjectFileStore,
   FilesystemYjsStateStore,
   PrismaKeyBindingRepository,
+  PrismaEditorPreferencesRepository,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -51,6 +52,7 @@ import {
   SystemSettingRepository,
   SessionRepository,
   KeyBindingRepository,
+  EditorPreferencesRepository,
   ProjectFileStore,
   YjsStateStore,
   PasswordHasher,
@@ -103,6 +105,7 @@ import { assetsRoutes } from './routes/projects/assets';
 import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
 import { keybindingsRoutes } from './routes/users/keybindings';
+import { editorPreferencesRoutes } from './routes/editor-preferences';
 import type { FastifyInstance } from 'fastify';
 
 /** Dependency container passed to `buildServer` to wire repositories and services. */
@@ -143,6 +146,8 @@ export interface AppContainer {
     session: SessionRepository;
     /** Repository for user key bindings. */
     keyBinding: KeyBindingRepository;
+    /** Repository for editor preferences. */
+    editorPreferences: EditorPreferencesRepository;
   };
   /** Storage adapters for file and Yjs state persistence. */
   stores?: {
@@ -220,6 +225,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       systemSetting: new PrismaSystemSettingRepository(app.prisma),
       session: new PrismaSessionRepository(app.prisma),
       keyBinding: new PrismaKeyBindingRepository(app.prisma),
+      editorPreferences: new PrismaEditorPreferencesRepository(app.prisma),
     });
   }
 
@@ -379,6 +385,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(assetsRoutes);
       await innerApp.register(eventsRoutes);
       await innerApp.register(keybindingsRoutes);
+      await innerApp.register(editorPreferencesRoutes);
       await innerApp.register(usersSearchRoute);
       await innerApp.register(usersInviteRoute);
       await innerApp.register(usersRoute);
@@ -429,6 +436,7 @@ declare module 'fastify' {
       systemSetting: SystemSettingRepository;
       session: SessionRepository;
       keyBinding: KeyBindingRepository;
+      editorPreferences: EditorPreferencesRepository;
     };
     stores: {
       fileStore: ProjectFileStore;

@@ -27,7 +27,7 @@ export class GetDocumentContentUseCase {
     actorId: UserId,
     projectId: ProjectId,
     fileNodeId: FileNodeId,
-  ): Promise<Result<{ content: Buffer; mimeType: MimeType }, DomainError>> {
+  ): Promise<Result<{ content: Buffer; mimeType: MimeType; contentId: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
@@ -48,6 +48,6 @@ export class GetDocumentContentUseCase {
       return { success: false, error: new ContentNotFoundError(fileNode.path.value) };
     }
 
-    return { success: true, value: { content, mimeType: document.mimeType } };
+    return { success: true, value: { content, mimeType: document.mimeType, contentId: document.contentId.value } };
   }
 }

@@ -149,4 +149,14 @@ describe('GetDocumentContentUseCase', () => {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
   });
+
+  // Issue C10: the use case must expose contentId so the route can use it as
+  // an ETag without recomputing an MD5 hash on every GET.
+  it('includes contentId in the success result for use as a stable ETag', async () => {
+    const result = await useCase.execute(actorId, projectId, fileNodeId);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.contentId).toBe('cc0e8400-e29b-41d4-a716-446655440008');
+    }
+  });
 });

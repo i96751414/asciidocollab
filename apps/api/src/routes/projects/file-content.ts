@@ -45,6 +45,7 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
       return reply
         .status(200)
         .header('Content-Type', result.value.mimeType.value)
+        .header('ETag', `"${result.value.contentId}"`)
         .send(result.value.content);
     },
   );
@@ -80,7 +81,7 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
       }
 
-      return reply.status(204).send();
+      return reply.status(204).header('ETag', `"${result.value.contentId}"`).send();
     },
   );
 }

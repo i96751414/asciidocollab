@@ -33,3 +33,4 @@ export { PrismaAuditLogRepository } from './persistence/admin/prisma-audit-log.r
 export { PrismaSystemSettingRepository } from './persistence/admin/prisma-system-setting.repository';
 
 export * from './services';
+export { PrismaEditorPreferencesRepository } from './persistence/user/prisma-editor-preferences.repository';

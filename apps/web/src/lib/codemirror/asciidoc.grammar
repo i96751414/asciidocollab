@@ -1,0 +1,142 @@
+// AsciiDoc Lezer Grammar — FR-ED-002 token subset
+// Block-level detection is handled by the external blockTokenizer (line-start aware).
+// Inline markup is handled by the regular @tokens section.
+@top Document { block* }
+
+@skip {}
+
+@external tokens blockTokenizer from "./asciidoc-block-tokens" {
+  docTitleToken,
+  heading1Token, heading2Token, heading3Token, heading4Token, heading5Token,
+  attrEntryToken,
+  commentBlockDelim, commentLineToken,
+  admonitionLineToken,
+  blockMacroToken,
+  descListToken,
+  listingDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
+  stemAttrToken, admonAttrToken,
+  checklistMarker, unorderedMarker, orderedMarker,
+  inlineMacroToken, footnoteToken
+}
+
+block {
+  DocumentTitle |
+  Heading5 | Heading4 | Heading3 | Heading2 | Heading1 |
+  AttributeEntry |
+  CommentBlock |
+  CommentLine |
+  StemBlock |
+  ListingBlock |
+  ExampleBlock |
+  SidebarBlock |
+  QuoteBlock |
+  PassthroughBlock |
+  OpenBlock |
+  AdmonitionBlock |
+  TableBlock |
+  BlockMacro |
+  ChecklistItem |
+  UnorderedListItem |
+  OrderedListItem |
+  DescriptionList |
+  AdmonitionParagraph |
+  blankLine |
+  Paragraph
+}
+
+// ── Single-line block constructs ──────────────────────────────────────────────
+DocumentTitle     { docTitleToken }
+Heading1          { heading1Token }
+Heading2          { heading2Token }
+Heading3          { heading3Token }
+Heading4          { heading4Token }
+Heading5          { heading5Token }
+AttributeEntry    { attrEntryToken }
+CommentLine       { commentLineToken }
+AdmonitionParagraph { admonitionLineToken }
+BlockMacro        { blockMacroToken }
+DescriptionList   { descListToken }
+
+// ── List items ────────────────────────────────────────────────────────────────
+ChecklistItem     { checklistMarker inlineContent nl }
+UnorderedListItem { unorderedMarker inlineContent nl }
+OrderedListItem   { orderedMarker   inlineContent nl }
+
+// ── Delimited blocks ──────────────────────────────────────────────────────────
+ListingBlock     { listingDelim     blockBody listingDelim }
+ExampleBlock     { exampleDelim     blockBody exampleDelim }
+SidebarBlock     { sidebarDelim     blockBody sidebarDelim }
+QuoteBlock       { quoteDelim       blockBody quoteDelim }
+PassthroughBlock { passthroughDelim blockBody passthroughDelim }
+OpenBlock        { openDelim        blockBody openDelim }
+CommentBlock     { commentBlockDelim blockBody commentBlockDelim }
+
+StemBlock        { stemAnnotation   passthroughDelim blockBody passthroughDelim }
+AdmonitionBlock  { admonAnnotation  exampleDelim     blockBody exampleDelim }
+
+TableBlock       { tableDelim tableBody tableDelim }
+
+stemAnnotation  { stemAttrToken }
+admonAnnotation { admonAttrToken }
+
+blockBody   { bodyLine* }
+bodyLine    { rawBodyLine | blankLine }
+
+tableBody   { tableRow* }
+tableRow    { tableCellMark inlineContent nl }
+
+blankLine   { nl }
+
+// ── Paragraphs with inline markup ─────────────────────────────────────────────
+Paragraph     { inlineContent nl }
+inlineContent { inline+ }
+
+inline {
+  Bold | Italic | Monospace | Highlight | Subscript | Superscript |
+  AttributeReference | CrossReference | Footnote | InlineMacro |
+  inlineWord | spaceTok
+}
+
+Bold       { boldDoubleMark   innerContent boldDoubleMark   |
+             boldSingleMark   innerContent boldSingleMark }
+Italic     { italicDoubleMark innerContent italicDoubleMark |
+             italicSingleMark innerContent italicSingleMark }
+Monospace  { backtickMark     innerContent backtickMark }
+Highlight  { hashMark         innerContent hashMark }
+Subscript  { tildeMark        innerContent tildeMark }
+Superscript { caretMark       innerContent caretMark }
+
+innerContent { (inlineWord | spaceTok)+ }
+
+AttributeReference { attrRef }
+CrossReference     { xref }
+Footnote           { footnoteToken }
+InlineMacro        { inlineMacroToken }
+
+@tokens {
+  // Raw body line — any non-empty line inside delimited blocks
+  rawBodyLine { ![\n]+ "\n" }
+
+  // Table cell start (inline in table rows)
+  tableCellMark { "|" }
+
+  // Inline markup delimiters
+  boldDoubleMark   { "**" }
+  boldSingleMark   { "*" }
+  italicDoubleMark { "__" }
+  italicSingleMark { "_" }
+  backtickMark     { "`" }
+  hashMark         { "#" }
+  tildeMark        { "~" }
+  caretMark        { "^" }
+
+  // Inline construct tokens
+  attrRef { "{" $[a-zA-Z0-9_] $[a-zA-Z0-9_-]* "}" }
+  xref    { "<<" ![\n>]* ">>" }
+
+  // Generic inline word — excludes markup starters, whitespace, newlines
+  inlineWord { ![\n *\t_`#~^{<\\]+ }
+  spaceTok   { $[ \t]+ }
+
+  nl { "\n" }
+}

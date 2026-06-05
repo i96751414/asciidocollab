@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+export { API_BASE_URL } from '@/lib/api/file-content';
+import { API_BASE_URL } from '@/lib/api/file-content';
 
 /** Error thrown when a file tree API request fails with a structured error response. */
 export class FileTreeApiError extends Error {

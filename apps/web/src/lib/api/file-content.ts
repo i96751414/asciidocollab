@@ -1,9 +1,14 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+/** Builds the canonical content URL for a project file. */
+export function fileContentUrl(projectId: string, fileNodeId: string): string {
+  return `${API_BASE_URL}/projects/${projectId}/files/${fileNodeId}/content`;
+}
 
 /** Fetches the raw text content of a document file. */
 export async function getDocumentContent(projectId: string, fileNodeId: string): Promise<string> {
   const response = await fetch(
-    `${API_BASE_URL}/projects/${projectId}/files/${fileNodeId}/content`,
+    fileContentUrl(projectId, fileNodeId),
     { credentials: 'include' },
   );
 
@@ -15,10 +20,15 @@ export async function getDocumentContent(projectId: string, fileNodeId: string):
   return response.text();
 }
 
-/** Saves updated text content for a document file. */
-export async function saveDocumentContent(projectId: string, fileNodeId: string, content: string): Promise<void> {
+/** Saves updated text content for a document file.
+ *  Returns the ETag from the response so callers can seed external-change polling. */
+export async function saveDocumentContent(
+  projectId: string,
+  fileNodeId: string,
+  content: string,
+): Promise<{ etag: string | null }> {
   const response = await fetch(
-    `${API_BASE_URL}/projects/${projectId}/files/${fileNodeId}/content`,
+    fileContentUrl(projectId, fileNodeId),
     {
       method: 'PUT',
       credentials: 'include',
@@ -31,4 +41,6 @@ export async function saveDocumentContent(projectId: string, fileNodeId: string,
     const body = await response.json().catch(() => ({}));
     throw new Error(body?.error?.message ?? `Failed to save content: ${response.status}`);
   }
+
+  return { etag: response.headers.get('ETag') };
 }

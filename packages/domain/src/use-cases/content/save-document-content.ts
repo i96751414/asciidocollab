@@ -30,7 +30,7 @@ export class SaveDocumentContentUseCase {
     projectId: ProjectId,
     fileNodeId: FileNodeId,
     content: Buffer,
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ contentId: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
@@ -62,6 +62,6 @@ export class SaveDocumentContentUseCase {
     );
     await this.documentRepo.save(updated);
 
-    return { success: true, value: undefined };
+    return { success: true, value: { contentId: updated.contentId.value } };
   }
 }

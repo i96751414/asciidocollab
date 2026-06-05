@@ -4,23 +4,64 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileTree } from '@/components/file-tree/file-tree';
-import { FileContentPanel } from '@/components/file-content-panel';
+import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
+
+import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
+
+interface ContentAreaProperties {
+  selectedFile: SelectedFile | null;
+  contentState: FileContentState;
+  canEdit: boolean;
+  projectId: string;
+}
+
+function ContentArea({ selectedFile, contentState, canEdit, projectId }: ContentAreaProperties) {
+  if (selectedFile === null) {
+    return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
+  }
+  if (contentState.isLoading) {
+    return (
+      <div className="p-4 space-y-2">
+        <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+        <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
+      </div>
+    );
+  }
+  if (contentState.isBinary) {
+    return <p className="text-muted-foreground text-sm p-4">Preview not available for binary files.</p>;
+  }
+  if (contentState.error) {
+    return <p className="text-destructive text-sm p-4">{contentState.error}</p>;
+  }
+  return (
+    <AsciiDocEditor
+      key={selectedFile.nodeId}
+      content={contentState.content ?? ''}
+      canEdit={canEdit}
+      projectId={projectId}
+      fileNodeId={selectedFile.nodeId}
+      initialEtag={contentState.etag}
+    />
+  );
+}
 
 interface ProjectEditorLayoutProperties {
   projectId: string;
   projectName: string;
   projectDescription: string | null;
   isOwner: boolean;
+  canEdit: boolean;
 }
 
-/** Three-panel editor layout: collapsible file tree, read-only content viewer, AsciiDoc preview. */
+/** Three-panel editor layout: collapsible file tree, CM6 editor, AsciiDoc preview. */
 export function ProjectEditorLayout({
   projectId,
   projectName,
   projectDescription,
   isOwner,
+  canEdit,
 }: ProjectEditorLayoutProperties) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -99,8 +140,13 @@ export function ProjectEditorLayout({
         )}
 
         {/* Content panel */}
-        <div data-testid="content-panel" className="flex-1 overflow-auto p-4">
-          <FileContentPanel selectedFile={selectedFile} contentState={contentState} />
+        <div data-testid="content-panel" className="flex-1 overflow-hidden flex flex-col p-4">
+          <ContentArea
+            selectedFile={selectedFile}
+            contentState={contentState}
+            canEdit={canEdit}
+            projectId={projectId}
+          />
         </div>
 
         {/* Preview panel — full when open, narrow strip when collapsed */}
