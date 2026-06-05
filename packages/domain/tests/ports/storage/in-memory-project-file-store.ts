@@ -47,12 +47,12 @@ export class InMemoryProjectFileStore implements ProjectFileStore {
     return { success: true, value: undefined };
   }
 
-  async createDirectory(_projectId: ProjectId, _dirPath: FilePath): Promise<void> {
+  async createDirectory(_projectId: ProjectId, _directoryPath: FilePath): Promise<void> {
     // Directories are implicit in the in-memory store; no-op.
   }
 
-  async removeDirectory(projectId: ProjectId, dirPath: FilePath): Promise<void> {
-    const prefix = `${projectId.value}:${dirPath.value}`;
+  async removeDirectory(projectId: ProjectId, directoryPath: FilePath): Promise<void> {
+    const prefix = `${projectId.value}:${directoryPath.value}`;
     for (const key of this.storage.keys()) {
       if (key.startsWith(prefix)) {
         this.storage.delete(key);

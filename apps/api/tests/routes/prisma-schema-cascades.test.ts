@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import path from 'node:path';
 
 describe('Prisma schema — cascade delete invariants', () => {
   const schema = readFileSync(
-    join(__dirname, '../../../../packages/db/prisma/schema.prisma'),
+    path.join(__dirname, '../../../../packages/db/prisma/schema.prisma'),
     'utf8',
   );
 

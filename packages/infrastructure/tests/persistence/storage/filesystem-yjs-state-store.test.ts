@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import path from 'node:path';
 import { FilesystemYjsStateStore } from '../../../src/persistence/storage/filesystem-yjs-state-store';
 import { ProjectId, YjsStateId } from '@asciidocollab/domain';
 
@@ -12,7 +12,7 @@ describe('FilesystemYjsStateStore', () => {
   const state = Buffer.from([1, 2, 3, 4, 5]);
 
   beforeEach(async () => {
-    storageRoot = await mkdtemp(join(tmpdir(), 'asciidocollab-yjs-test-'));
+    storageRoot = await mkdtemp(path.join(tmpdir(), 'asciidocollab-yjs-test-'));
     store = new FilesystemYjsStateStore(storageRoot);
   });
 

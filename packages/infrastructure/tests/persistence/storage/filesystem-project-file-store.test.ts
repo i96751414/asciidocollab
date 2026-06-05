@@ -1,6 +1,6 @@
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import path from 'node:path';
 import { FilesystemProjectFileStore } from '../../../src/persistence/storage/filesystem-project-file-store';
 import { ProjectId } from '@asciidocollab/domain';
 import { FilePath } from '@asciidocollab/domain';
@@ -14,7 +14,7 @@ describe('FilesystemProjectFileStore', () => {
   const content = Buffer.from('Hello, world!');
 
   beforeEach(async () => {
-    storageRoot = await mkdtemp(join(tmpdir(), 'asciidocollab-test-'));
+    storageRoot = await mkdtemp(path.join(tmpdir(), 'asciidocollab-test-'));
     store = new FilesystemProjectFileStore(storageRoot);
   });
 
@@ -92,17 +92,17 @@ describe('FilesystemProjectFileStore', () => {
 
   describe('createDirectory', () => {
     it('creates directory structure', async () => {
-      const dirPath = FilePath.create('/mydir');
-      await store.createDirectory(projectId, dirPath);
+      const directoryPath = FilePath.create('/mydir');
+      await store.createDirectory(projectId, directoryPath);
       const filePath2 = FilePath.create('/mydir/file.txt');
       await store.write(projectId, filePath2, content);
       expect(await store.read(projectId, filePath2)).toEqual(content);
     });
 
     it('is a no-op when directory already exists', async () => {
-      const dirPath = FilePath.create('/existing');
-      await store.createDirectory(projectId, dirPath);
-      await expect(store.createDirectory(projectId, dirPath)).resolves.not.toThrow();
+      const directoryPath = FilePath.create('/existing');
+      await store.createDirectory(projectId, directoryPath);
+      await expect(store.createDirectory(projectId, directoryPath)).resolves.not.toThrow();
     });
   });
 

@@ -32,7 +32,7 @@ export async function eventsRoutes(app: FastifyInstance): Promise<void> {
       const fastifyHeaders = reply.getHeaders();
       for (const [name, value] of Object.entries(fastifyHeaders)) {
         if (value !== undefined) {
-          reply.raw.setHeader(name, value as string | string[] | number);
+          reply.raw.setHeader(name, value);
         }
       }
 

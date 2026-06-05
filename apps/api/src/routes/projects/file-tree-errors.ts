@@ -6,10 +6,12 @@ import {
   CannotDeleteRootFolderError,
 } from '@asciidocollab/domain';
 
+/** Maps a string value to the `'file'` or `'folder'` node type union. */
 export function toNodeType(value: string): 'file' | 'folder' {
   return value === 'folder' ? 'folder' : 'file';
 }
 
+/** Translates a domain error into the appropriate HTTP error response. */
 export function sendFileTreeError(reply: FastifyReply, error: Error) {
   if (error instanceof PermissionDeniedError) {
     return reply.status(403).send({ error: { code: 'FORBIDDEN', message: error.message } });

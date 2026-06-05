@@ -13,7 +13,7 @@ import { sendFileTreeError } from './file-tree-errors';
 
 type CreateBody = { type: 'file' | 'folder'; parentId: string; name: string; mimeType?: string };
 
-/** Registers POST /projects/:projectId/files */
+/** Registers POST /projects/:projectId/files. */
 export async function fileTreeCreateRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { projectId: string }; Body: CreateBody }>(
     '/projects/:projectId/files',
