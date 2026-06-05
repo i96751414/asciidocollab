@@ -16,7 +16,8 @@
   listingDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
   stemAttrToken, admonAttrToken,
   checklistMarker, unorderedMarker, orderedMarker,
-  inlineMacroToken, footnoteToken
+  inlineMacroToken, footnoteToken,
+  blockTitleToken
 }
 
 block {
@@ -34,6 +35,7 @@ block {
   OpenBlock |
   AdmonitionBlock |
   TableBlock |
+  BlockTitle |
   BlockMacro |
   ChecklistItem |
   UnorderedListItem |
@@ -56,6 +58,7 @@ CommentLine       { commentLineToken }
 AdmonitionParagraph { admonitionLineToken }
 BlockMacro        { blockMacroToken }
 DescriptionList   { descListToken }
+BlockTitle        { blockTitleToken }
 
 // ── List items ────────────────────────────────────────────────────────────────
 ChecklistItem     { checklistMarker inlineContent nl }
@@ -82,7 +85,7 @@ admonAnnotation { admonAttrToken }
 blockBody   { bodyLine* }
 bodyLine    { rawBodyLine | blankLine }
 
-tableBody   { tableRow* }
+tableBody   { (tableRow | blankLine)* }
 tableRow    { tableCellMark inlineContent nl }
 
 blankLine   { nl }

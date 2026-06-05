@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { useIncludeCompletions } from '@/hooks/use-include-completions';
+import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
 
 const mockFetch = jest.fn();
 globalThis.fetch = mockFetch;
@@ -82,6 +82,29 @@ describe('useIncludeCompletions', () => {
   test('returns empty array before fetch completes', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
     const { result } = renderHook(() => useIncludeCompletions('proj-1'));
+    expect(result.current).toEqual([]);
+  });
+});
+
+describe('useImagePaths', () => {
+  test('accepts a pre-fetched paths array and does not trigger an additional fetch', async () => {
+    const allPaths = ['images/logo.png', 'docs/intro.adoc', 'assets/banner.svg'];
+    renderHook(() => useImagePaths(allPaths));
+
+    // The fetch mock should NOT have been called since useImagePaths receives paths directly
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('filters the provided paths to image extensions only', () => {
+    const allPaths = ['images/logo.png', 'docs/intro.adoc', 'assets/banner.svg', 'photo.jpg'];
+    const { result } = renderHook(() => useImagePaths(allPaths));
+
+    expect(result.current).toEqual(['images/logo.png', 'assets/banner.svg', 'photo.jpg']);
+    expect(result.current).not.toContain('docs/intro.adoc');
+  });
+
+  test('returns empty array when no image paths are present', () => {
+    const { result } = renderHook(() => useImagePaths(['docs/intro.adoc', 'chapters/ch1.adoc']));
     expect(result.current).toEqual([]);
   });
 });

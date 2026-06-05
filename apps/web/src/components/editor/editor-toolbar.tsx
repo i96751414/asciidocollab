@@ -1,10 +1,19 @@
 'use client';
+import { useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { EditorView } from '@codemirror/view';
 import { EditorToolbarButton } from './editor-toolbar-button';
+import { EditorSettingsPanel } from './editor-settings-panel';
+import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
+import { TABLE_SKELETON } from '@/lib/codemirror/asciidoc-completions';
 
 interface EditorToolbarProperties {
   view: EditorView | null;
+  canEdit?: boolean;
+  fontSize?: number;
+  theme?: EditorThemeValue;
+  setFontSize?: (size: number) => void;
+  setTheme?: (theme: EditorThemeValue) => void;
 }
 
 // Wrap selected text or insert at cursor
@@ -24,6 +33,28 @@ function insertSnippet(view: EditorView, snippet: string) {
   view.dispatch({
     changes: { from, to: from, insert: snippet },
     selection: { anchor: from + snippet.length },
+  });
+  view.focus();
+}
+
+// Insert a snippet at cursor with cursor positioned at a specific offset within the snippet
+function insertSnippetAt(view: EditorView, snippet: string, cursorOffset: number) {
+  const { from } = view.state.selection.main;
+  view.dispatch({
+    changes: { from, to: from, insert: snippet },
+    selection: { anchor: from + cursorOffset },
+  });
+  view.focus();
+}
+
+// Insert a caption on the line immediately before the current cursor line
+function insertCaption(view: EditorView) {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const captionText = '.Block title';
+  view.dispatch({
+    changes: { from: line.from, to: line.from, insert: `${captionText}\n` },
+    selection: { anchor: line.from + 1, head: line.from + captionText.length },
   });
   view.focus();
 }
@@ -78,6 +109,18 @@ const BLOCKS: ToolbarAction[] = [
   { label: 'CAUTION',    shortcut: '', icon: 'C', action: (v) => insertSnippet(v, '[CAUTION]\n====\n\n====\n') },
   { label: 'STEM Block', shortcut: '', icon: '∑', action: (v) => insertSnippet(v, '[stem]\n++++\n\n++++\n') },
   { label: 'Comment Block', shortcut: '', icon: '//', action: (v) => insertSnippet(v, '////\n\n////\n') },
+  {
+    label: 'Table',
+    shortcut: '',
+    icon: '⊞',
+    action: (v) => insertSnippetAt(v, TABLE_SKELETON, '|===\n|'.length),
+  },
+  {
+    label: 'Caption',
+    shortcut: '',
+    icon: '.T',
+    action: (v) => insertCaption(v),
+  },
 ];
 
 const INLINE_REFS: ToolbarAction[] = [
@@ -110,8 +153,17 @@ function ToolbarGroup({
   );
 }
 
-/** Toolbar with formatting actions grouped into Text Formatting, Structure, Blocks, and Inline/References. */
-export function EditorToolbar({ view }: EditorToolbarProperties) {
+/** Toolbar with formatting actions and editor settings. */
+export function EditorToolbar({
+  view,
+  canEdit = true,
+  fontSize = 14,
+  theme = 'default',
+  setFontSize = () => {},
+  setTheme = () => {},
+}: EditorToolbarProperties) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <Tooltip.Provider>
       <div
@@ -119,11 +171,33 @@ export function EditorToolbar({ view }: EditorToolbarProperties) {
         aria-label="Editor toolbar"
         className="flex items-center flex-wrap gap-0 px-2 py-1 border-b bg-background"
       >
-        <ToolbarGroup label="Text Formatting"    actions={TEXT_FORMATTING} view={view} />
-        <ToolbarGroup label="Structure"          actions={STRUCTURE}       view={view} />
-        <ToolbarGroup label="Blocks"             actions={BLOCKS}          view={view} />
-        <ToolbarGroup label="Inline/References"  actions={INLINE_REFS}     view={view} />
+        {canEdit && (
+          <>
+            <ToolbarGroup label="Text Formatting"    actions={TEXT_FORMATTING} view={view} />
+            <ToolbarGroup label="Structure"          actions={STRUCTURE}       view={view} />
+            <ToolbarGroup label="Blocks"             actions={BLOCKS}          view={view} />
+            <ToolbarGroup label="Inline/References"  actions={INLINE_REFS}     view={view} />
+          </>
+        )}
+        <button
+          type="button"
+          aria-label="Editor settings"
+          className="ml-auto px-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setSettingsOpen((previous) => !previous)}
+        >
+          ⚙
+        </button>
       </div>
+      {settingsOpen && (
+        <div className="border-b bg-background shadow-lg">
+          <EditorSettingsPanel
+            fontSize={fontSize}
+            theme={theme}
+            setFontSize={setFontSize}
+            setTheme={setTheme}
+          />
+        </div>
+      )}
     </Tooltip.Provider>
   );
 }

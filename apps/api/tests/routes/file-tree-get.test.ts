@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { fileTreeGetRoutes } from '../../src/routes/projects/file-tree-get';
 
 jest.mock('../../src/plugins/require-auth', () => ({
-  requireAuth: jest.fn((_req: unknown, _rep: unknown, done: () => void) => done()),
+  requireAuth: jest.fn((_request: unknown, _rep: unknown, done: () => void) => done()),
   getAuthenticatedUserId: jest.fn(() => '550e8400-e29b-41d4-a716-446655440001'),
 }));
 

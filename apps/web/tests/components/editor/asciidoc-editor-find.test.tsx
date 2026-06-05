@@ -45,6 +45,7 @@ jest.mock('@codemirror/state', () => ({
     readOnly: { of: () => ({}) },
   },
   StateField: { define: () => ({ field: true }) },
+  StateEffect: { appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) }, define: () => ({ of: (v: unknown) => ({ value: v }) }) },
   Compartment: class { of(extension: unknown) { return extension; } reconfigure(extension: unknown) { return extension; } },
 }));
 
@@ -66,11 +67,13 @@ jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: t
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));
-jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => jest.fn() }));
+jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => jest.fn(), createImageCompletionSource: () => jest.fn() }));
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
-jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [] }));
+jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({ asciidocFold: {} }));
+jest.mock('@/lib/codemirror/asciidoc-table-context', () => ({ tableContextField: { field: true } }));
+jest.mock('@/hooks/use-table-context', () => ({ useTableContext: () => null }));
 jest.mock('@/hooks/use-auto-save', () => ({
   useAutoSave: () => ({ saveState: 'saved', save: jest.fn() }),
 }));

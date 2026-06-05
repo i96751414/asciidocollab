@@ -91,7 +91,7 @@ export function createConfig() {
         env: 'ASCIIDOCOLLAB_AUTH_COOKIE_SECURE',
       },
       encryptionKey: {
-        doc: 'AES-256 key for session data encryption at rest. Must be set via environment variable.',
+        doc: 'AES-256 key for session data encryption at rest. Must be a base64-encoded 32-byte string (e.g. openssl rand -base64 32).',
         format: 'required-string',
         default: '',
         sensitive: true,

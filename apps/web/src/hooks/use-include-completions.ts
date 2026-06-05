@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '@/lib/api/file-tree';
+import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
 
 interface TreeNode {
   id: string;
@@ -37,4 +38,9 @@ export function useIncludeCompletions(projectId: string): string[] {
   }, [projectId]);
 
   return paths;
+}
+
+/** Filters a pre-fetched paths list to image extensions only — no additional fetch. */
+export function useImagePaths(allPaths: string[]): string[] {
+  return allPaths.filter(isImageFile);
 }

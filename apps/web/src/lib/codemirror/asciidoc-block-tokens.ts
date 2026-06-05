@@ -26,6 +26,7 @@ import {
   orderedMarker,
   inlineMacroToken,
   footnoteToken,
+  blockTitleToken,
 } from './asciidoc-parser.terms.js';
 
 const NEWLINE = 10, SPACE = 32, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
@@ -161,13 +162,21 @@ export const blockTokenizer = new ExternalTokenizer(
       return;
     }
 
-    // ── '.' : orderedMarker ───────────────────────────────────────────────────
+    // ── '.' : blockTitleToken, orderedMarker ─────────────────────────────────
     if (ch === DOT) {
       let count = 0;
       while (input.peek(count) === DOT) count++;
       if (input.peek(count) === SPACE) {
         for (let index = 0; index <= count; index++) input.advance();
         input.acceptToken(orderedMarker); return;
+      }
+      // Block title: single '.' followed by non-whitespace, non-'.', non-'['
+      if (count === 1) {
+        const afterDot = input.peek(1);
+        if (afterDot !== SPACE && afterDot !== 9 /* TAB */ && afterDot !== DOT &&
+            afterDot !== LBRACK && afterDot !== NEWLINE && afterDot !== -1) {
+          consumeToEOL(input); input.acceptToken(blockTitleToken); return;
+        }
       }
       return;
     }

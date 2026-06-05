@@ -395,6 +395,20 @@ describe('AsciiDoc Lezer Grammar', () => {
       const tree = parseDocument('|===\n| Col1 | Col2\n| a | b\n|===\n');
       expect(hasNode(tree, 'TableBlock')).toBe(true);
     });
+
+    test('spans the full table when a blank line separates header from body rows', () => {
+      // |===\n        offsets 0-4
+      // |H1 |H2\n    offsets 5-12
+      // \n            offset  13 (blank line — header/body separator)
+      // |C1 |C2\n    offsets 14-21
+      // |===\n        offsets 22-26
+      const document = '|===\n|H1 |H2\n\n|C1 |C2\n|===\n';
+      const tree = parseDocument(document);
+      const blocks = collectNodes(tree, 'TableBlock');
+      expect(blocks).toHaveLength(1);
+      // Body row starts at offset 14; the TableBlock node must cover that position.
+      expect(nodeAt(tree, 'TableBlock', 15)).toBe(true);
+    });
   });
 
   // ── Admonitions ──────────────────────────────────────────────────────────────
