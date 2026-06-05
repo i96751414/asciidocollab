@@ -38,8 +38,14 @@ jobs:
       - name: Lint
         run: npx eslint .
 
+      - name: Type-check — shared
+        run: npx tsc -p packages/shared/tsconfig.json --noEmit
+
       - name: Type-check — domain
         run: npx tsc -p packages/domain/tsconfig.json --noEmit
+
+      - name: Type-check — infrastructure
+        run: npx tsc -p packages/infrastructure/tsconfig.json --noEmit
 
       - name: Type-check — API
         run: npx tsc -p apps/api/tsconfig.json --noEmit
@@ -74,9 +80,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Shared unit tests
+        run: pnpm --filter @asciidocollab/shared test
+
       - name: Domain unit tests with coverage
         working-directory: packages/domain
         run: npx jest --coverage --coverageReporters=text lcov
+
+      - name: API unit tests
+        run: pnpm --filter @asciidocollab/api test
+
+      - name: Web unit tests
+        run: pnpm --filter @asciidocollab/web test
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
