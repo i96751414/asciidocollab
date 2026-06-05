@@ -12,9 +12,18 @@ interface SaveEditorPreferencesInput {
   theme: string;
 }
 
+/** Validates and persists updated editor preferences for a user. */
 export class SaveEditorPreferencesUseCase {
+  /** @param repo - The editor preferences repository. */
   constructor(private readonly repo: EditorPreferencesRepository) {}
 
+  /**
+   * Executes the use case.
+   *
+   * @param userId - The user whose preferences to update.
+   * @param input - The new preference values to apply.
+   * @returns A successful result, or a failure with a validation error.
+   */
   async execute(
     userId: UserId,
     input: SaveEditorPreferencesInput,
@@ -29,11 +38,11 @@ export class SaveEditorPreferencesUseCase {
       const existing = await this.repo.findByUserId(userId);
       const id = existing?.id ?? EditorPreferencesId.create(randomUUID());
       prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, existing?.timestamps);
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        return { success: false, error: err };
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { success: false, error: error };
       }
-      throw err;
+      throw error;
     }
 
     await this.repo.save(prefs);

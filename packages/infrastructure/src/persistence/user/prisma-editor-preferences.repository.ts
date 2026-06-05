@@ -8,9 +8,12 @@ import {
 } from '@asciidocollab/domain';
 import type { EditorPreferencesRepository } from '@asciidocollab/domain';
 
+/** Prisma-backed implementation of EditorPreferencesRepository. */
 export class PrismaEditorPreferencesRepository implements EditorPreferencesRepository {
+  /** @param prisma - The Prisma client instance. */
   constructor(private readonly prisma: PrismaClient) {}
 
+  /** @inheritdoc */
   async findByUserId(userId: UserId): Promise<EditorPreferences | null> {
     const row = await this.prisma.editorPreferences.findUnique({
       where: { userId: userId.value },
@@ -19,6 +22,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     return this.toDomain(row);
   }
 
+  /** @inheritdoc */
   async save(prefs: EditorPreferences): Promise<void> {
     await this.prisma.editorPreferences.upsert({
       where: { userId: prefs.userId.value },

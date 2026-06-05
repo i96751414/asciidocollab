@@ -18,6 +18,7 @@ const sharedTransform = {
 
 const sharedModuleNameMapper = {
   '^@/(.*)$': '<rootDir>/src/$1',
+  '\\.css$': '<rootDir>/tests/__mocks__/fileMock.cjs',
 };
 
 const config = {

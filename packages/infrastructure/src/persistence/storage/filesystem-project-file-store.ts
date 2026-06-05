@@ -79,9 +79,9 @@ export class FilesystemProjectFileStore implements ProjectFileStore {
     await mkdir(path.dirname(absTo), { recursive: true });
 
     // Determine if the source is a directory to choose the appropriate move strategy.
-    const srcStat = await stat(absFrom);
+    const sourceStat = await stat(absFrom);
 
-    if (srcStat.isDirectory()) {
+    if (sourceStat.isDirectory()) {
       // For directories, use stat + rename.
       // A narrow TOCTOU window remains but is acceptable: directory conflicts
       // are protected at the DB layer (FileNode path uniqueness).

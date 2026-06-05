@@ -1,0 +1,18 @@
+/* ─── Default (light) ────────────────────────────────────────────────────── */
+
+.asciidoc-editor {
+  --ad-heading:     #2563eb;
+  --ad-heading-dim: #60a5fa;
+  --ad-mono-bg:     rgba(0, 0, 0, 0.07);
+  --ad-comment:     #6b7280;
+  --ad-keyword:     #dc2626;
+  --ad-macro:       #0d9488;   /* teal   — block/inline macros (image::, include::, …) */
+  --ad-link:        #0ea5e9;
+  --ad-string:      #059669;
+  --ad-meta:        #9333ea;
+  --ad-number:      #d97706;
+  --ad-label:       #9333ea;
+  --ad-attr:        #7c3aed;
+  --ad-type:        #0284c7;
+  --ad-special:     #d97706;
+}

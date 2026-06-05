@@ -14,15 +14,21 @@ import {
   attributeCompletionSource,
   xrefCompletionSource,
   createIncludeCompletionSource,
+  createImageCompletionSource,
+  tableSnippetCompletionSource,
+  tableCellCompletionSource,
+  captionCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
 
 interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
   includePaths: string[];
+  imagePaths?: string[];
   onDocChange: (content: string) => void;
   onCursorChange: (pos: { line: number; col: number; totalLines: number }) => void;
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
@@ -35,6 +41,7 @@ export function useEditorMount({
   content,
   canEdit,
   includePaths,
+  imagePaths = [],
   onDocChange,
   onCursorChange,
   onOutlineChange,
@@ -44,9 +51,10 @@ export function useEditorMount({
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
-  // Ref so the mount-time effect always reads the latest paths without recreating the view.
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
+  const imagePathsReference = useRef<string[]>(imagePaths);
+  useEffect(() => { imagePathsReference.current = imagePaths; }, [imagePaths]);
 
   // Stable heading-click callback — viewReference is a ref, so no deps needed.
   const handleHeadingClick = useCallback((entry: { from: number }) => {
@@ -88,12 +96,17 @@ export function useEditorMount({
         asciidocFold,
         foldGutter(),
         outlineField,
+        tableContextField,
         showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),
         autocompletion({
           override: [
             attributeCompletionSource,
-            createIncludeCompletionSource(() => includePathsReference.current),
             xrefCompletionSource,
+            createIncludeCompletionSource(() => includePathsReference.current),
+            createImageCompletionSource(() => imagePathsReference.current),
+            tableSnippetCompletionSource,
+            tableCellCompletionSource,
+            captionCompletionSource,
           ],
         }),
         updateListener,

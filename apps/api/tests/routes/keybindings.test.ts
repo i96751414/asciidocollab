@@ -1,6 +1,5 @@
 import Fastify from 'fastify';
 import { keybindingsRoutes } from '../../src/routes/users/keybindings';
-import { GetKeyBindingsUseCase, UpdateKeyBindingUseCase, ResetKeyBindingUseCase } from '@asciidocollab/domain';
 
 // Mock requireAuth
 jest.mock('../../src/plugins/require-auth', () => ({

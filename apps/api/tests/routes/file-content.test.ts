@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { fileContentRoutes } from '../../src/routes/projects/file-content';
 
 jest.mock('../../src/plugins/require-auth', () => ({
-  requireAuth: jest.fn((_req: unknown, _rep: unknown, done: () => void) => done()),
+  requireAuth: jest.fn((_request: unknown, _rep: unknown, done: () => void) => done()),
   getAuthenticatedUserId: jest.fn(() => '550e8400-e29b-41d4-a716-446655440001'),
 }));
 
@@ -12,7 +12,7 @@ const CONTENT_ID = '660e8400-e29b-41d4-a716-446655440004';
 const DOC_ID = '770e8400-e29b-41d4-a716-446655440005';
 const YJS_STATE_ID = '880e8400-e29b-41d4-a716-446655440006';
 
-function buildTestServer(opts: { contentId?: string } = {}) {
+function buildTestServer(options: { contentId?: string } = {}) {
   const app = Fastify();
   app.decorate('repos', {
     projectMember: { findByCompositeKey: jest.fn().mockResolvedValue({ role: { value: 'viewer' } }) },
@@ -21,7 +21,7 @@ function buildTestServer(opts: { contentId?: string } = {}) {
       findByFileNodeId: jest.fn().mockResolvedValue({
         id: { value: DOC_ID },
         fileNodeId: { value: FILE_NODE_ID },
-        contentId: { value: opts.contentId ?? CONTENT_ID },
+        contentId: { value: options.contentId ?? CONTENT_ID },
         yjsStateId: { value: YJS_STATE_ID },
         mimeType: { value: 'text/asciidoc' },
         createdAt: new Date('2024-01-01'),
@@ -36,7 +36,7 @@ function buildTestServer(opts: { contentId?: string } = {}) {
       write: jest.fn().mockResolvedValue(undefined),
     },
   });
-  app.addContentTypeParser('text/plain', { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
+  app.addContentTypeParser('text/plain', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
   app.register(fileContentRoutes);
   return app;
 }

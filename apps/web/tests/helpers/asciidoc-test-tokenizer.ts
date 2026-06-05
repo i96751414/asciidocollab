@@ -173,6 +173,13 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
           for (let index = 0; index <= count; index++) input.advance();
           input.acceptToken(terms['orderedMarker']); return;
         }
+        if (count === 1) {
+          const afterDot = input.peek(1);
+          if (afterDot !== SPACE && afterDot !== 9 && afterDot !== DOT &&
+              afterDot !== LBRACK && afterDot !== NEWLINE && afterDot !== -1) {
+            consumeToEOL(input); input.acceptToken(terms['blockTitleToken']); return;
+          }
+        }
         return;
       }
 

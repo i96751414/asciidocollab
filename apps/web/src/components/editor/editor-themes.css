@@ -1,32 +1,25 @@
-/* AsciiDoc Editor theme overrides */
+/* AsciiDoc Editor theme system
+ *
+ * Token colours are expressed as CSS custom properties (--ad-*) on the
+ * .asciidoc-editor element so that asciidoc-highlight.ts can reference them
+ * without knowing which theme is active.  Swapping data-theme re-colours
+ * all tokens instantly without reloading any CodeMirror extensions.
+ *
+ * Editor chrome (background, gutters, selection, cursor) is handled with
+ * direct .cm-* selectors scoped under each theme block.
+ *
+ * Each theme lives in its own file under themes/.
+ */
 
-/* Apply font size CSS custom property to the editor content */
+@import './themes/theme-default.css';
+@import './themes/theme-high-contrast.css';
+@import './themes/theme-dracula.css';
+@import './themes/theme-tomorrow.css';
+@import './themes/theme-espresso.css';
+
+/* ─── Base layout ────────────────────────────────────────────────────────── */
+
 .asciidoc-editor .cm-editor {
   font-size: var(--editor-font-size, 14px);
-}
-
-/* High-contrast theme — all colors meet WCAG AA (≥ 4.5:1) contrast ratio */
-.asciidoc-editor[data-theme="high-contrast"] {
-  --editor-bg: #000000;
-  --editor-fg: #ffffff;
-  --editor-heading: #ffff00;
-  --editor-comment: #7fc97f;
-  --editor-keyword: #ff6666;
-  --editor-string: #a8d8a8;
-  --editor-link: #80d8ff;
-  --editor-attribute: #ffd700;
-  --editor-macro: #ff9966;
-}
-
-.asciidoc-editor[data-theme="high-contrast"] .cm-editor {
-  background: #000000;
-  color: #ffffff;
-}
-
-.asciidoc-editor[data-theme="high-contrast"] .cm-content {
-  color: #ffffff;
-}
-
-.asciidoc-editor[data-theme="high-contrast"] .cm-line {
-  color: #ffffff;
+  height: 100%;
 }

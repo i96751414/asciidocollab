@@ -12,7 +12,7 @@ import { sendFileTreeError, toNodeType } from './file-tree-errors';
 
 type PatchBody = { name?: string; parentId?: string };
 
-/** Registers PATCH /projects/:projectId/files/:fileNodeId */
+/** Registers PATCH /projects/:projectId/files/:fileNodeId. */
 export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { projectId: string; fileNodeId: string }; Body: PatchBody }>(
     '/projects/:projectId/files/:fileNodeId',

@@ -1,16 +1,34 @@
 import type { Result } from '../types/result';
 import { ValidationError } from '../errors/validation-error';
 
-export type EditorThemeValue = 'default' | 'high-contrast';
+/** The set of supported editor theme identifiers. */
+export type EditorThemeValue = 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
 
-const VALID_THEMES: readonly EditorThemeValue[] = ['default', 'high-contrast'];
+const VALID_THEMES: readonly string[] = [
+  'default',
+  'high-contrast',
+  'dracula',
+  'tomorrow',
+  'espresso',
+] satisfies EditorThemeValue[];
 
+function isEditorThemeValue(value: string): value is EditorThemeValue {
+  return VALID_THEMES.includes(value);
+}
+
+/** Validated value object representing an editor colour theme. */
 export class EditorTheme {
   private constructor(public readonly value: EditorThemeValue) {}
 
+  /**
+   * Parses a raw string into an EditorTheme, returning a failure result if unrecognised.
+   *
+   * @param raw - The raw theme string to validate.
+   * @returns A Result containing the EditorTheme on success, or a ValidationError on failure.
+   */
   static parse(raw: string): Result<EditorTheme, ValidationError> {
-    if (VALID_THEMES.includes(raw as EditorThemeValue)) {
-      return { success: true, value: new EditorTheme(raw as EditorThemeValue) };
+    if (isEditorThemeValue(raw)) {
+      return { success: true, value: new EditorTheme(raw) };
     }
     return {
       success: false,

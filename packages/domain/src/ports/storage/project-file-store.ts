@@ -10,6 +10,7 @@ export interface ProjectFileStore {
    *
    * @param projectId - The project that owns the file.
    * @param filePath - The absolute path of the file within the project.
+   * @returns The file contents, or null if not found.
    */
   read(projectId: ProjectId, filePath: FilePath): Promise<Buffer | null>;
 
@@ -19,6 +20,7 @@ export interface ProjectFileStore {
    * @param projectId - The project that owns the file.
    * @param filePath - The absolute path of the file within the project.
    * @param content - The new content to write.
+   * @returns A promise that resolves when the write is complete.
    */
   write(projectId: ProjectId, filePath: FilePath, content: Buffer): Promise<void>;
 
@@ -28,6 +30,7 @@ export interface ProjectFileStore {
    * @param projectId - The project that owns the file.
    * @param filePath - The absolute path of the file within the project.
    * @param content - The initial content to write.
+   * @returns A successful result, or a FileConflictError if the path is already occupied.
    */
   createExclusive(projectId: ProjectId, filePath: FilePath, content: Buffer): Promise<Result<void, FileConflictError>>;
 
@@ -36,6 +39,7 @@ export interface ProjectFileStore {
    *
    * @param projectId - The project that owns the file.
    * @param filePath - The absolute path of the file within the project.
+   * @returns A promise that resolves when the removal is complete.
    */
   remove(projectId: ProjectId, filePath: FilePath): Promise<void>;
 
@@ -45,6 +49,7 @@ export interface ProjectFileStore {
    * @param projectId - The project that owns the file.
    * @param fromPath - The current absolute path of the file.
    * @param toPath - The destination absolute path.
+   * @returns A successful result, or a FileConflictError if toPath is already occupied.
    */
   move(projectId: ProjectId, fromPath: FilePath, toPath: FilePath): Promise<Result<void, FileConflictError>>;
 
@@ -53,6 +58,7 @@ export interface ProjectFileStore {
    *
    * @param projectId - The project that owns the directory.
    * @param directoryPath - The absolute path of the directory to create.
+   * @returns A promise that resolves when the directory exists.
    */
   createDirectory(projectId: ProjectId, directoryPath: FilePath): Promise<void>;
 
@@ -61,6 +67,7 @@ export interface ProjectFileStore {
    *
    * @param projectId - The project that owns the directory.
    * @param directoryPath - The absolute path of the directory to remove.
+   * @returns A promise that resolves when the directory has been removed.
    */
   removeDirectory(projectId: ProjectId, directoryPath: FilePath): Promise<void>;
 
@@ -68,6 +75,7 @@ export interface ProjectFileStore {
    * Removes the entire project directory tree (called on project deletion).
    *
    * @param projectId - The project whose storage tree should be deleted.
+   * @returns A promise that resolves when the project tree has been removed.
    */
   removeProject(projectId: ProjectId): Promise<void>;
 }

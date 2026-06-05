@@ -1,6 +1,5 @@
 import { DeleteFileUseCase } from '../../../src/use-cases/file-tree/delete-file';
 import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
@@ -278,7 +277,7 @@ describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {
 
   it('cleans up Yjs state for all documents inside a deleted folder', async () => {
     const childFileId = FileNodeId.create('ff0e8400-e29b-41d4-a716-446655440030');
-    const childDocId = DocumentId.create('ff0e8400-e29b-41d4-a716-446655440031');
+    const childDocumentId = DocumentId.create('ff0e8400-e29b-41d4-a716-446655440031');
     const childYjsStateId = YjsStateId.create('ff0e8400-e29b-41d4-a716-446655440032');
 
     const childFile = new FileNode(
@@ -291,14 +290,14 @@ describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {
     );
     await fileNodeRepo.save(childFile);
 
-    const childDoc = new Document(
-      childDocId,
+    const childDocument = new Document(
+      childDocumentId,
       childFileId,
       ContentId.create('aa0e8400-e29b-41d4-a716-446655440033'),
       childYjsStateId,
       MimeType.create('text/asciidoc'),
     );
-    await documentRepo.save(childDoc);
+    await documentRepo.save(childDocument);
 
     await yjsStateStore.save(projectId, childYjsStateId, Buffer.from('yjs-data'));
     expect(await yjsStateStore.load(projectId, childYjsStateId)).not.toBeNull();
@@ -353,17 +352,17 @@ describe('DeleteFileUseCase — yjsStateStore failure tolerance', () => {
     const rootFolder3 = new FileNode(rootFolderId3, projectId3, null, 'root', FileNodeType.create('folder'), FilePath.create('/'));
     await fileNodeRepo3.save(rootFolder3);
 
-    const fn3 = new FileNode(fileNodeId3, projectId3, rootFolderId3, 'doc.adoc', FileNodeType.create('file'), FilePath.create('/doc.adoc'));
-    await fileNodeRepo3.save(fn3);
+    const function3 = new FileNode(fileNodeId3, projectId3, rootFolderId3, 'doc.adoc', FileNodeType.create('file'), FilePath.create('/doc.adoc'));
+    await fileNodeRepo3.save(function3);
 
-    const doc3 = new Document(
+    const document3 = new Document(
       DocumentId.create('bb0e8400-e29b-41d4-a716-220000000007'),
       fileNodeId3,
       ContentId.create('cc0e8400-e29b-41d4-a716-220000000008'),
       YjsStateId.create('dd0e8400-e29b-41d4-a716-220000000009'),
       MimeType.create('text/asciidoc'),
     );
-    await documentRepo3.save(doc3);
+    await documentRepo3.save(document3);
     await fileStore3.write(projectId3, FilePath.create('/doc.adoc'), Buffer.from('hello'));
     await projectMemberRepo3.addMember(new ProjectMember(projectId3, actorId3, Role.create('editor')));
   });
@@ -397,14 +396,14 @@ describe('DeleteFileUseCase — yjsStateStore failure tolerance', () => {
     const childFile = new FileNode(childFileNodeId, projectId3, subfolderId, 'child.adoc', FileNodeType.create('file'), FilePath.create('/sub/child.adoc'));
     await fileNodeRepo3.save(childFile);
 
-    const childDoc = new Document(
+    const childDocument = new Document(
       DocumentId.create('110e8400-e29b-41d4-a716-220000000012'),
       childFileNodeId,
       ContentId.create('120e8400-e29b-41d4-a716-220000000013'),
       YjsStateId.create('130e8400-e29b-41d4-a716-220000000014'),
       MimeType.create('text/asciidoc'),
     );
-    await documentRepo3.save(childDoc);
+    await documentRepo3.save(childDocument);
 
     const throwingYjsStore2 = {
       delete: jest.fn().mockRejectedValue(new Error('Yjs store unavailable')),

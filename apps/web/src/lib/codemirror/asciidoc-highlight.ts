@@ -2,32 +2,42 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 import type { Extension } from '@codemirror/state';
 
+/**
+ * AsciiDoc syntax highlight style using CSS custom properties (--ad-*).
+ * Each editor theme defines these variables on .asciidoc-editor[data-theme="..."],
+ * so swapping `data-theme` instantly re-colours all tokens with no extension reload.
+ */
 export const asciidocHighlightStyle = HighlightStyle.define([
-  // Document structure
-  { tag: t.heading1,        color: '#2563eb', fontWeight: 'bold', fontSize: '1.4em' },
-  { tag: t.heading2,        color: '#2563eb', fontWeight: 'bold', fontSize: '1.2em' },
-  { tag: t.heading3,        color: '#2563eb', fontWeight: 'bold', fontSize: '1.1em' },
-  { tag: t.heading4,        color: '#3b82f6', fontWeight: 'bold' },
-  { tag: t.heading5,        color: '#60a5fa', fontWeight: 'bold' },
-  { tag: t.heading6,        color: '#93c5fd', fontWeight: 'bold' },
+  // Document structure — headings
+  { tag: t.heading1, color: 'var(--ad-heading)', fontWeight: 'bold', fontSize: '1.4em' },
+  { tag: t.heading2, color: 'var(--ad-heading)', fontWeight: 'bold', fontSize: '1.2em' },
+  { tag: t.heading3, color: 'var(--ad-heading)', fontWeight: 'bold', fontSize: '1.1em' },
+  { tag: t.heading4, color: 'var(--ad-heading-dim)', fontWeight: 'bold' },
+  { tag: t.heading5, color: 'var(--ad-heading-dim)', fontWeight: 'bold' },
+  { tag: t.heading6, color: 'var(--ad-heading-dim)', fontWeight: 'bold' },
   // Inline marks
-  { tag: t.strong,          fontWeight: 'bold' },
-  { tag: t.emphasis,        fontStyle: 'italic' },
-  { tag: t.monospace,       fontFamily: 'monospace', backgroundColor: 'rgba(0,0,0,0.07)' },
-  // Blocks
-  { tag: t.blockComment,    color: '#6b7280', fontStyle: 'italic' },
-  { tag: t.lineComment,     color: '#6b7280', fontStyle: 'italic' },
-  { tag: t.meta,            color: '#9333ea' },
-  { tag: t.keyword,         color: '#dc2626', fontWeight: 'bold' },
-  { tag: t.link,            color: '#0ea5e9', textDecoration: 'underline' },
-  { tag: t.string,          color: '#059669' },
-  { tag: t.number,          color: '#d97706' },
-  { tag: t.labelName,       color: '#9333ea' },
-  { tag: t.attributeName,   color: '#7c3aed' },
-  { tag: t.attributeValue,  color: '#059669' },
-  { tag: t.typeName,        color: '#0284c7' },
-  { tag: t.className,       color: '#0284c7', fontWeight: 'bold' },
-  { tag: t.special(t.string), color: '#d97706' },
+  { tag: t.strong,     fontWeight: 'bold' },
+  { tag: t.emphasis,   fontStyle: 'italic' },
+  { tag: t.monospace,  fontFamily: 'monospace', backgroundColor: 'var(--ad-mono-bg)' },
+  // Comments
+  { tag: t.blockComment, color: 'var(--ad-comment)', fontStyle: 'italic' },
+  { tag: t.lineComment,  color: 'var(--ad-comment)', fontStyle: 'italic' },
+  // Document directives and block markers
+  { tag: t.meta,          color: 'var(--ad-meta)' },
+  { tag: t.keyword,       color: 'var(--ad-keyword)', fontWeight: 'bold' },
+  // Block / inline macros (image::, include::, video::, image:, …)
+  { tag: t.macroName,     color: 'var(--ad-macro)', fontWeight: 'bold' },
+  // Links and references
+  { tag: t.link,          color: 'var(--ad-link)', textDecoration: 'underline' },
+  // Values and identifiers
+  { tag: t.string,        color: 'var(--ad-string)' },
+  { tag: t.number,        color: 'var(--ad-number)' },
+  { tag: t.labelName,     color: 'var(--ad-label)' },
+  { tag: t.attributeName, color: 'var(--ad-attr)' },
+  { tag: t.attributeValue, color: 'var(--ad-string)' },
+  { tag: t.typeName,      color: 'var(--ad-type)' },
+  { tag: t.className,     color: 'var(--ad-type)', fontWeight: 'bold' },
+  { tag: t.special(t.string), color: 'var(--ad-special)' },
 ]);
 
 /** Returns a CM6 Extension that applies AsciiDoc syntax highlighting. */

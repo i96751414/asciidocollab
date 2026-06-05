@@ -8,7 +8,7 @@ const KEY_LENGTH = 32;
  * Configuration for session encryption.
  */
 export interface SessionEncryptionConfig {
-  /** 64-character hex string for the encryption key, or empty for random ephemeral key. */
+  /** Base64-encoded 32-byte key (e.g. `openssl rand -base64 32`), or empty for random ephemeral key. */
   encryptionKey: string;
 }
 
@@ -30,7 +30,7 @@ export class SessionEncryption {
    * Gets or generates the encryption key.
    *
    * @returns The 32-byte encryption key.
-   * @throws {Error} If the key is defined but not a valid 64-character hexadecimal string.
+   * @throws {Error} If the key is defined but does not decode to exactly 32 bytes.
    */
   private getEncryptionKey(): Buffer {
     if (this.cachedKey) {
@@ -38,10 +38,21 @@ export class SessionEncryption {
     }
     const raw = this.config.encryptionKey;
     if (raw) {
-      if (!/^[0-9a-f]{64}$/i.test(raw)) {
-        throw new Error('Encryption key must be a 64-character hexadecimal string');
+      // Validate before decoding: Buffer.from silently strips whitespace in base64 strings,
+      // so a key with a trailing newline (e.g. copied from a terminal) would decode to
+      // exactly 32 bytes and pass the length check — but it is not the key the operator intended.
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(raw)) {
+        throw new Error(
+          'Encryption key must be a base64-encoded 32-byte string (e.g. openssl rand -base64 32)',
+        );
       }
-      this.cachedKey = Buffer.from(raw, 'hex');
+      const keyBuffer = Buffer.from(raw, 'base64');
+      if (keyBuffer.length !== KEY_LENGTH) {
+        throw new Error(
+          'Encryption key must be a base64-encoded 32-byte string (e.g. openssl rand -base64 32)',
+        );
+      }
+      this.cachedKey = keyBuffer;
     } else {
       this.cachedKey = randomBytes(KEY_LENGTH);
     }

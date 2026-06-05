@@ -162,11 +162,11 @@ describe('Value Objects', () => {
     });
 
     test('rejects name containing a backslash', () => {
-      expect(() => FileName.create('a\\b')).toThrow(ValidationError);
+      expect(() => FileName.create(String.raw`a\b`)).toThrow(ValidationError);
     });
 
     test('rejects name containing a null byte', () => {
-      expect(() => FileName.create('a\x00b')).toThrow(ValidationError);
+      expect(() => FileName.create('a\u0000b')).toThrow(ValidationError);
     });
 
     test('rejects name containing a newline', () => {

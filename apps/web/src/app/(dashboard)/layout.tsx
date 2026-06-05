@@ -33,11 +33,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
 
   return (
     <CurrentUserProvider user={profile}>
-    <div className="min-h-screen bg-background">
-      <div className="flex">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
-        <div className="hidden w-64 border-r bg-muted/40 lg:block">
-          <div className="flex h-16 items-center border-b px-6">
+        <div className="hidden w-64 shrink-0 border-r bg-muted/40 lg:flex lg:flex-col overflow-y-auto">
+          <div className="flex h-16 shrink-0 items-center border-b px-6">
             <Link href="/dashboard" className="text-xl font-semibold">
               AsciiDoCollab
             </Link>
@@ -59,8 +59,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
         </div>
 
         {/* Main content */}
-        <div className="flex-1">
-          <div className="flex h-16 items-center justify-between border-b px-6">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <div className="flex h-16 shrink-0 items-center justify-between border-b px-6">
             <h1 className="text-lg font-semibold">Dashboard</h1>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{profile.displayName}</span>
@@ -73,7 +73,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
               <SignOutButton />
             </div>
           </div>
-          <main className="p-6">{children}</main>
+          <main className="flex-1 overflow-auto p-6">{children}</main>
         </div>
       </div>
     </div>

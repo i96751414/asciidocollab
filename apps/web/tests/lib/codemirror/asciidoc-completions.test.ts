@@ -8,6 +8,10 @@ import {
   attributeCompletionSource,
   xrefCompletionSource,
   createIncludeCompletionSource,
+  tableSnippetCompletionSource,
+  tableCellCompletionSource,
+  captionCompletionSource,
+  createImageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
@@ -158,6 +162,333 @@ describe('AsciiDoc Completion Sources', () => {
       paths = ['chapters/intro.adoc', 'chapters/setup.adoc'];
       const after = await getCompletions(source, 'include::', 'include::'.length);
       expect(after?.options.some((o) => o.label.includes('intro'))).toBe(true);
+    });
+
+    // T030: mid-path narrowing tests
+    describe('mid-path narrowing', () => {
+      test('narrows to files under typed prefix after /', async () => {
+        const paths = ['docs/intro.adoc', 'docs/setup.adoc', 'chapters/ch1.adoc'];
+        const source = createIncludeCompletionSource(paths);
+        const document = 'include::docs/';
+        const result = await getCompletions(source, document, document.length);
+        expect(result).not.toBeNull();
+        expect(result?.options.every((o) => o.label.startsWith('docs/'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('intro'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('setup'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('ch1'))).toBe(false);
+      });
+
+      test('narrows to nested sub-directory paths', async () => {
+        const paths = ['chapters/intro/part1.adoc', 'chapters/intro/part2.adoc', 'chapters/outro.adoc'];
+        const source = createIncludeCompletionSource(paths);
+        const document = 'include::chapters/intro/';
+        const result = await getCompletions(source, document, document.length);
+        expect(result).not.toBeNull();
+        expect(result?.options.every((o) => o.label.startsWith('chapters/intro/'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('part1'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('part2'))).toBe(true);
+        expect(result?.options.some((o) => o.label.includes('outro'))).toBe(false);
+      });
+
+      test('completion apply function appends [] and positions cursor between them', async () => {
+        const paths = ['docs/intro.adoc'];
+        const source = createIncludeCompletionSource(paths);
+        const document = 'include::docs/';
+        const result = await getCompletions(source, document, document.length);
+        expect(result).not.toBeNull();
+        const option = result?.options[0];
+        expect(option).toBeDefined();
+        expect(typeof option?.apply).toBe('function');
+      });
+    });
+  });
+
+  // T002: table skeleton and cell completion tests
+  describe('tableSnippetCompletionSource', () => {
+    test('triggers after |=== at column 0', async () => {
+      const document = '|===';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.length).toBeGreaterThan(0);
+    });
+
+    test('does not trigger when |=== is not at column 0', async () => {
+      const document = 'Some text\n |===';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('does not trigger on partial |== (not full delimiter)', async () => {
+      const document = '|==';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('offered option inserts a 2-column table skeleton', async () => {
+      const document = '|===';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      const option = result!.options[0];
+      expect(option).toBeDefined();
+      expect(typeof option.apply).toBe('function');
+    });
+  });
+
+  describe('tableCellCompletionSource', () => {
+    test('triggers when | is at line start inside a table block', async () => {
+      const document = '|===\n|col1 |col2\n\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.length).toBeGreaterThan(0);
+    });
+
+    test('does not trigger when | is inside a table block but not at line start', async () => {
+      const document = '|===\n|col1 |';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('does not trigger outside a table block', async () => {
+      const document = 'Some paragraph\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('does not trigger when table is closed', async () => {
+      const document = '|===\n|cell\n|===\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+  });
+
+  // T019: caption completion tests
+  describe('captionCompletionSource', () => {
+    test('triggers when . is at column 0 on a blank line', async () => {
+      const document = '.';
+      const result = await getCompletions(captionCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.length).toBeGreaterThan(0);
+    });
+
+    test('offers a .Caption text placeholder', async () => {
+      const document = '.';
+      const result = await getCompletions(captionCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      const option = result!.options[0];
+      expect(option.label).toMatch(/\./);
+    });
+
+    test('completion apply positions cursor on caption text', async () => {
+      const document = '.';
+      const result = await getCompletions(captionCompletionSource, document, document.length);
+      const option = result?.options[0];
+      expect(option).toBeDefined();
+      expect(typeof option?.apply).toBe('function');
+    });
+
+    test('does not trigger when . is not at column 0', async () => {
+      const document = 'Some text .';
+      const result = await getCompletions(captionCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('does not trigger after a non-empty line', async () => {
+      const document = 'Some content\n.';
+      const result = await getCompletions(captionCompletionSource, document, document.length);
+      // Should still trigger since . is at column 0 of its line
+      expect(result).not.toBeNull();
+    });
+  });
+
+  // T026: image path completion tests
+  describe('createImageCompletionSource', () => {
+    test('triggers after image:: and returns image files', async () => {
+      const paths = ['images/logo.png', 'docs/intro.adoc', 'assets/banner.svg'];
+      const source = createImageCompletionSource(paths);
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.some((o) => o.label.includes('logo.png'))).toBe(true);
+      expect(result?.options.some((o) => o.label.includes('banner.svg'))).toBe(true);
+      expect(result?.options.some((o) => o.label.includes('intro.adoc'))).toBe(false);
+    });
+
+    test('triggers after image: (single colon) and returns image files', async () => {
+      const paths = ['images/photo.jpg', 'docs/readme.adoc'];
+      const source = createImageCompletionSource(paths);
+      const document = 'See image:';
+      const result = await getCompletions(source, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.some((o) => o.label.includes('photo.jpg'))).toBe(true);
+      expect(result?.options.some((o) => o.label.includes('readme.adoc'))).toBe(false);
+    });
+
+    test('filters to image extensions only (.png .jpg .jpeg .gif .svg .webp)', async () => {
+      const paths = ['a.png', 'b.jpg', 'c.jpeg', 'd.gif', 'e.svg', 'f.webp', 'g.adoc', 'h.pdf', 'i.txt'];
+      const source = createImageCompletionSource(paths);
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      expect(result).not.toBeNull();
+      const labels = result!.options.map((o) => o.label);
+      expect(labels).toContain('a.png');
+      expect(labels).toContain('b.jpg');
+      expect(labels).toContain('c.jpeg');
+      expect(labels).toContain('d.gif');
+      expect(labels).toContain('e.svg');
+      expect(labels).toContain('f.webp');
+      expect(labels).not.toContain('g.adoc');
+      expect(labels).not.toContain('h.pdf');
+      expect(labels).not.toContain('i.txt');
+    });
+
+    test('completion apply function positions cursor between [ and ]', async () => {
+      const paths = ['images/logo.png'];
+      const source = createImageCompletionSource(paths);
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      const option = result?.options[0];
+      expect(option).toBeDefined();
+      expect(typeof option?.apply).toBe('function');
+    });
+
+    test('returns empty list when no image files match', async () => {
+      const paths = ['docs/intro.adoc', 'chapters/ch1.adoc'];
+      const source = createImageCompletionSource(paths);
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      expect(result?.options.length ?? 0).toBe(0);
+    });
+
+    test('accepts a getter function for dynamic path list', async () => {
+      let paths: string[] = [];
+      const source = createImageCompletionSource(() => paths);
+      const document = 'image::';
+
+      const before = await getCompletions(source, document, document.length);
+      expect(before?.options.length ?? 0).toBe(0);
+
+      paths = ['images/logo.png'];
+      const after = await getCompletions(source, document, document.length);
+      expect(after?.options.some((o) => o.label.includes('logo.png'))).toBe(true);
+    });
+
+    // Issue: word boundary — should not fire on identifiers containing "image:"
+    test('does not trigger when image: appears inside a longer identifier', async () => {
+      const source = createImageCompletionSource(['images/logo.png']);
+      // "notimage::" — the regex should not match because a word char precedes "image"
+      const document = 'notimage::';
+      const result = await getCompletions(source, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('does not trigger when image: appears after an alphanumeric identifier', async () => {
+      const source = createImageCompletionSource(['photo.jpg']);
+      const document = 'myimage:photo.jpg';
+      const result = await getCompletions(source, document, document.length);
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── Issue: tableSnippetCompletionSource fires inside existing table ───────────
+
+  describe('tableSnippetCompletionSource: no trigger inside an existing table', () => {
+    test('does not trigger when |=== is typed at column 0 inside an already-open table', async () => {
+      // User is inside a table and types |=== at the start of a line (closing delimiter)
+      // The skeleton completion must NOT fire, otherwise it would corrupt the table.
+      const document = '|===\n|col1 |col2\n|===';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('triggers normally when |=== is typed outside any table', async () => {
+      const document = 'Some paragraph\n|===';
+      const result = await getCompletions(tableSnippetCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+    });
+  });
+
+  // ── Issue: tableCellCompletionSource fires on closing |=== delimiter ──────────
+
+  describe('tableCellCompletionSource: no trigger on closing delimiter line', () => {
+    test('does not trigger when cursor is right after | of a closing |=== line', async () => {
+      // |===\n|col1 |col2\n|===
+      // Positions: opening |=== ends at 4, row at 5-16, closing | at 17, cursor at 18
+      const document = '|===\n|col1 |col2\n|===';
+      // closingPipePos = 17, so cursor = 18 (right after the |)
+      const closingPipePos = document.lastIndexOf('|===');
+      const result = await getCompletions(tableCellCompletionSource, document, closingPipePos + 1);
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── Issue: tableCellCompletionSource inserts hardcoded 2-column row ───────────
+
+  describe('tableCellCompletionSource: column count matches actual table', () => {
+    test('inserted row has the same number of cells as the table', async () => {
+      // 3-column table; cursor after | at start of new line inside it
+      const document = '|===\n|A |B |C\n\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      const option = result!.options[0];
+      expect(typeof option.apply).toBe('function');
+
+      // Call apply with a mock view and capture the inserted text
+      let insertedText = '';
+      const mockView = {
+        dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+        focus: jest.fn(),
+      };
+      (option.apply as (...arguments_: unknown[]) => void)(mockView, option, document.length - 1, document.length);
+      // A 3-column row should have 3 | characters
+      const cellCount = (insertedText.match(/\|/g) ?? []).length;
+      expect(cellCount).toBe(3);
+    });
+
+    test('2-column table still inserts a 2-cell row', async () => {
+      const document = '|===\n|A |B\n\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      let insertedText = '';
+      const mockView = {
+        dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+        focus: jest.fn(),
+      };
+      (result!.options[0].apply as (...arguments_: unknown[]) => void)(mockView, result!.options[0], document.length - 1, document.length);
+      expect((insertedText.match(/\|/g) ?? []).length).toBe(2);
+    });
+  });
+
+  // ── Issue: delimiter regex matches mixed-character strings like "--==" ─────────
+
+  describe('tableCellCompletionSource: delimiter regex requires all-same characters', () => {
+    test('does not treat "--==" as a block-delimiter opener (mixed chars)', async () => {
+      // The old regex /^([-=.*_/+]{4,})$/ matched '--==' because the character
+      // class allows any combination of those chars. '--==' was then stored as
+      // currentBlockDelimiter, causing the following |=== to be skipped instead
+      // of counted, so isInsideTableBlockByText returned false (no completion).
+      const document = '--==\n|===\n|col1 |col2\n\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+    });
+  });
+
+  // ── Issue: isInsideTableBlock false positive from code block delimiters ───────
+
+  describe('tableCellCompletionSource: no false positive from |=== inside code blocks', () => {
+    test('does not trigger in a paragraph after a listing block that contained |===', async () => {
+      // Code block with an |=== inside it (example table in docs).
+      // After the code block, we have a paragraph where the user types |.
+      // The old string-based delimiter count includes the |=== inside the listing block.
+      const document = '----\n|===\n|col\n----\nParagraph\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+
+    test('still triggers correctly inside a real table that follows a listing block', async () => {
+      // Listing block followed by a real table — cursor in the real table body
+      const document = '----\n|===\n|example\n----\n|===\n|real col\n\n|';
+      const result = await getCompletions(tableCellCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
     });
   });
 });

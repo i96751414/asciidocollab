@@ -8,6 +8,7 @@ export interface YjsStateStore {
    *
    * @param projectId - The project that owns the document.
    * @param yjsStateId - The unique identifier for the Yjs state file.
+   * @returns The serialized Yjs state, or null if not yet persisted.
    */
   load(projectId: ProjectId, yjsStateId: YjsStateId): Promise<Buffer | null>;
 
@@ -17,6 +18,7 @@ export interface YjsStateStore {
    * @param projectId - The project that owns the document.
    * @param yjsStateId - The unique identifier for the Yjs state file.
    * @param state - The serialized Yjs state bytes to persist.
+   * @returns A promise that resolves when the state has been saved.
    */
   save(projectId: ProjectId, yjsStateId: YjsStateId, state: Buffer): Promise<void>;
 
@@ -25,6 +27,7 @@ export interface YjsStateStore {
    *
    * @param projectId - The project that owns the document.
    * @param yjsStateId - The unique identifier for the Yjs state file to remove.
+   * @returns A promise that resolves when the state file has been removed.
    */
   delete(projectId: ProjectId, yjsStateId: YjsStateId): Promise<void>;
 
@@ -32,6 +35,7 @@ export interface YjsStateStore {
    * Removes all Yjs states for the project (called on project deletion).
    *
    * @param projectId - The project whose Yjs state directory should be deleted.
+   * @returns A promise that resolves when all project states have been removed.
    */
   deleteAllForProject(projectId: ProjectId): Promise<void>;
 }

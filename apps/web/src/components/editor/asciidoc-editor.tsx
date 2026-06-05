@@ -1,17 +1,19 @@
 'use client';
+import './editor-themes.css';
 import React from 'react';
 import { useState, useCallback } from 'react';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
-import { useIncludeCompletions } from '@/hooks/use-include-completions';
+import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
 import { useEditorMount } from '@/hooks/use-editor-mount';
+import { useTableContext } from '@/hooks/use-table-context';
 import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { EditorToolbar } from './editor-toolbar';
+import { EditorTableContextToolbar } from './editor-table-context-toolbar';
 import { EditorSectionOutline } from './editor-section-outline';
-import { EditorSettingsPanel } from './editor-settings-panel';
 
 interface AsciiDocEditorProperties {
   content: string;
@@ -50,10 +52,10 @@ export function AsciiDocEditor({
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { fontSize, theme, setFontSize, setTheme } = useEditorPreferences();
   const includePaths = useIncludeCompletions(projectId ?? '');
+  const imagePaths = useImagePaths(includePaths);
 
   const handleExternalChange = useCallback(() => setExternalChangeBanner(true), []);
   const handleDraftRecovered = useCallback((draft: string) => setDraftContent(draft), []);
@@ -75,12 +77,15 @@ export function AsciiDocEditor({
     content,
     canEdit,
     includePaths,
+    imagePaths,
     onDocChange: handleChange,
     onCursorChange: setCursorPos,
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
     onOpenUrl,
   });
+
+  const tableContext = useTableContext(viewReference.current);
 
   function handleRetry() {
     const currentContent = viewReference.current?.state.doc.toString() ?? '';
@@ -107,7 +112,22 @@ export function AsciiDocEditor({
       style={editorStyle(fontSize)}
       data-theme={theme}
     >
-      {canEdit && <EditorToolbar view={viewReference.current} />}
+      <EditorToolbar
+        view={viewReference.current}
+        canEdit={canEdit}
+        fontSize={fontSize}
+        theme={theme}
+        setFontSize={setFontSize}
+        setTheme={setTheme}
+      />
+      {canEdit && tableContext !== null && viewReference.current !== null && (
+        <EditorTableContextToolbar
+          view={viewReference.current}
+          context={tableContext}
+          tableText={viewReference.current.state.doc.sliceString(tableContext.tableFrom, tableContext.tableTo)}
+          tableFrom={tableContext.tableFrom}
+        />
+      )}
       <EditorBanners
         externalChange={externalChangeBanner}
         draftContent={draftContent}
@@ -147,34 +167,14 @@ export function AsciiDocEditor({
           </button>
         )}
       </div>
-      <div className="flex items-center border-t">
-        {(projectId && fileNodeId) ? (
-          <div className="flex-1">
-            <EditorStatusBar
-              line={cursorPos.line}
-              col={cursorPos.col}
-              totalLines={cursorPos.totalLines}
-              saveState={saveState}
-              onRetry={handleRetry}
-            />
-          </div>
-        ) : <div className="flex-1" />}
-        <button
-          type="button"
-          aria-label="Editor settings"
-          className="px-2 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setSettingsOpen((previous) => !previous)}
-        >
-          ⚙
-        </button>
-      </div>
-      {settingsOpen && (
-        <div className="border-t bg-background shadow-lg">
-          <EditorSettingsPanel
-            fontSize={fontSize}
-            theme={theme}
-            setFontSize={setFontSize}
-            setTheme={setTheme}
+      {(projectId && fileNodeId) && (
+        <div className="border-t">
+          <EditorStatusBar
+            line={cursorPos.line}
+            col={cursorPos.col}
+            totalLines={cursorPos.totalLines}
+            saveState={saveState}
+            onRetry={handleRetry}
           />
         </div>
       )}

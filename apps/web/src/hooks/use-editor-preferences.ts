@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 /** Valid editor theme values. */
-export type EditorThemeValue = 'default' | 'high-contrast';
+export type EditorThemeValue = 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
+
+const VALID_THEMES: readonly string[] = [
+  'default',
+  'high-contrast',
+  'dracula',
+  'tomorrow',
+  'espresso',
+] satisfies EditorThemeValue[];
+
+/** Returns true when `value` is a recognised EditorThemeValue. */
+export function isEditorThemeValue(value: string): value is EditorThemeValue {
+  return VALID_THEMES.includes(value);
+}
 
 const LS_KEY = 'asciidocollab:editor-preferences';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -24,9 +37,10 @@ function loadFromStorage(): EditorPrefs {
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
       if (isStoredPrefs(parsed)) {
+        const rawTheme = parsed.theme;
         return {
           fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : DEFAULT_PREFS.fontSize,
-          theme: (parsed.theme === 'default' || parsed.theme === 'high-contrast') ? parsed.theme : DEFAULT_PREFS.theme,
+          theme: typeof rawTheme === 'string' && isEditorThemeValue(rawTheme) ? rawTheme : DEFAULT_PREFS.theme,
         };
       }
     }

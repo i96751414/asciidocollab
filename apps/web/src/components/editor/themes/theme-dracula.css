@@ -1,0 +1,65 @@
+/* ─── Dracula (dark) ─────────────────────────────────────────────────────── */
+/*
+ * Palette: bg #282a36  fg #f8f8f2  selection #44475a
+ *   comment #6272a4  cyan #8be9fd  green #50fa7b  orange #ffb86c
+ *   pink #ff79c6     purple #bd93f9  red #ff5555  yellow #f1fa8c
+ */
+
+.asciidoc-editor[data-theme="dracula"] {
+  --ad-heading:     #bd93f9;   /* purple  — main structural headings */
+  --ad-heading-dim: #ff79c6;   /* pink    — sub-headings h4-h6 */
+  --ad-mono-bg:     rgba(68, 71, 90, 0.55);
+  --ad-comment:     #6272a4;   /* muted blue-grey */
+  --ad-keyword:     #ff79c6;   /* pink    — admonitions, block delimiters */
+  --ad-macro:       #50fa7b;   /* green   — block/inline macros (image::, include::, …) */
+  --ad-link:        #8be9fd;   /* cyan */
+  --ad-string:      #f1fa8c;   /* yellow  — attribute values, strings */
+  --ad-meta:        #ffb86c;   /* orange  — document attributes */
+  --ad-number:      #bd93f9;   /* purple */
+  --ad-label:       #ff79c6;   /* pink */
+  --ad-attr:        #ffb86c;   /* orange */
+  --ad-type:        #8be9fd;   /* cyan */
+  --ad-special:     #ffb86c;   /* orange */
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-editor {
+  background: #282a36;
+  color: #f8f8f2;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-content {
+  color: #f8f8f2;
+  caret-color: #f8f8f2;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-gutters {
+  background: #21222c;
+  color: #6272a4;
+  border-right-color: #44475a;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-activeLineGutter {
+  background: #44475a;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-activeLine {
+  background: rgba(68, 71, 90, 0.35);
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-selectionBackground,
+.asciidoc-editor[data-theme="dracula"] .cm-editor .cm-selectionBackground {
+  background: #44475a !important;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-cursor {
+  border-left-color: #f8f8f2;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-searchMatch {
+  background: rgba(241, 250, 140, 0.25);
+  outline: 1px solid #f1fa8c;
+}
+
+.asciidoc-editor[data-theme="dracula"] .cm-searchMatch-selected {
+  background: rgba(241, 250, 140, 0.45);
+}

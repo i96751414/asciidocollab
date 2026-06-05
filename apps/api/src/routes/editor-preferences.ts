@@ -12,11 +12,12 @@ const putBodySchema = {
   required: ['fontSize', 'theme'],
   properties: {
     fontSize: { type: 'integer', minimum: 8, maximum: 32 },
-    theme: { type: 'string', enum: ['default', 'high-contrast'] },
+    theme: { type: 'string', enum: ['default', 'high-contrast', 'dracula', 'tomorrow', 'espresso'] },
   },
   additionalProperties: false,
 };
 
+/** Registers GET and PUT routes for authenticated user editor preferences. */
 export async function editorPreferencesRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/auth/me/editor-preferences',
@@ -32,7 +33,7 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
 
       const dto: EditorPreferencesDto = {
         fontSize: result.value.fontSize,
-        theme: result.value.theme.value as 'default' | 'high-contrast',
+        theme: result.value.theme.value,
       };
       return reply.status(200).send(dto);
     }

@@ -12,6 +12,12 @@ jest.mock('@radix-ui/react-tooltip', () => ({
   Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock('@/components/editor/editor-settings-panel', () => ({
+  EditorSettingsPanel: ({ fontSize }: { fontSize: number; theme: string }) => (
+    <div data-testid="settings-panel">font={fontSize}</div>
+  ),
+}));
+
 jest.mock('@radix-ui/react-dropdown-menu', () => ({
   Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Trigger: ({ children }: { children: React.ReactNode }) => <button data-testid="more-btn">{children}</button>,
@@ -96,5 +102,65 @@ describe('EditorToolbar', () => {
       const name = button.getAttribute('aria-label') ?? button.textContent ?? '';
       expect(name.length).toBeGreaterThan(0);
     }
+  });
+
+  describe('settings gear in toolbar', () => {
+    test('settings gear button is always visible in the toolbar', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} />);
+      expect(screen.getByRole('button', { name: /editor settings/i })).toBeInTheDocument();
+    });
+
+    test('settings panel is hidden by default', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} />);
+      expect(screen.queryByTestId('settings-panel')).toBeNull();
+    });
+
+    test('clicking the gear opens the settings panel', () => {
+      const view = createMockView('');
+      render(
+        <EditorToolbar
+          view={view}
+          fontSize={16}
+          theme="default"
+          setFontSize={jest.fn()}
+          setTheme={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /editor settings/i }));
+      expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
+    });
+
+    test('clicking the gear a second time closes the settings panel', () => {
+      const view = createMockView('');
+      render(
+        <EditorToolbar
+          view={view}
+          fontSize={16}
+          theme="default"
+          setFontSize={jest.fn()}
+          setTheme={jest.fn()}
+        />
+      );
+      const gear = screen.getByRole('button', { name: /editor settings/i });
+      fireEvent.click(gear);
+      expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
+      fireEvent.click(gear);
+      expect(screen.queryByTestId('settings-panel')).toBeNull();
+    });
+
+    test('action groups are hidden when canEdit is false', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} canEdit={false} />);
+      expect(screen.queryByRole('group', { name: /text formatting/i })).toBeNull();
+      expect(screen.queryByRole('group', { name: /structure/i })).toBeNull();
+    });
+
+    test('action groups are visible when canEdit is true (default)', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} canEdit={true} />);
+      expect(screen.getByRole('group', { name: /text formatting/i })).toBeInTheDocument();
+    });
   });
 });

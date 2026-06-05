@@ -123,6 +123,10 @@ jest.mock('@codemirror/state', () => {
     StateField: {
       define: () => ({ field: true }),
     },
+    StateEffect: {
+      appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) },
+      define: () => ({ of: (value: unknown) => ({ value }) }),
+    },
     Compartment: class {
       of(extension: unknown) { return extension; }
       reconfigure(extension: unknown) { return extension; }
@@ -162,6 +166,7 @@ jest.mock('@/lib/codemirror/asciidoc-completions', () => {
     attributeCompletionSource: noopSource,
     xrefCompletionSource: noopSource,
     createIncludeCompletionSource: jest.fn(() => noopSource),
+    createImageCompletionSource: jest.fn(() => noopSource),
   };
 });
 
@@ -171,6 +176,7 @@ jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({
 
 jest.mock('@/hooks/use-include-completions', () => ({
   useIncludeCompletions: () => [],
+  useImagePaths: () => [],
 }));
 
 jest.mock('@/hooks/use-section-outline', () => ({
@@ -186,7 +192,7 @@ jest.mock('@replit/codemirror-minimap', () => ({
 }));
 
 jest.mock('@/hooks/use-editor-preferences', () => ({
-  useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }),
+  useEditorPreferences: jest.fn(() => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() })),
 }));
 
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({
@@ -198,8 +204,17 @@ jest.mock('@/lib/codemirror/asciidoc-fold', () => ({
   asciidocFold: {},
 }));
 
+jest.mock('@/lib/codemirror/asciidoc-table-context', () => ({
+  tableContextField: { field: true },
+}));
+
+jest.mock('@/hooks/use-table-context', () => ({
+  useTableContext: () => null,
+}));
+
 // Import after mocks
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
+import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 
 describe('AsciiDocEditor', () => {
   test('renders a CM6 editor element (not a <pre>) when given text content', () => {
@@ -277,5 +292,61 @@ describe('AsciiDocEditor', () => {
     );
     expect(source).not.toContain("'asciidocollab:editor-draft:'");
     expect(source).toContain('OFFLINE_QUEUE_KEY_PREFIX');
+  });
+
+  describe('font size and theme preferences', () => {
+    const mockUseEditorPreferences = useEditorPreferences as jest.MockedFunction<typeof useEditorPreferences>;
+
+    afterEach(() => {
+      mockUseEditorPreferences.mockReset();
+      mockUseEditorPreferences.mockImplementation(() => ({
+        fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn(),
+      }));
+    });
+
+    // This test verifies the CSS rules that apply font-size and theme styles are
+    // loaded.  Without the import, var(--editor-font-size) and [data-theme] have
+    // no effect even though the DOM attributes are correctly set.
+    test('editor-themes.css is imported so its CSS rules are active', () => {
+      const fs = require('node:fs');
+      const source: string = fs.readFileSync(
+        require.resolve('@/components/editor/asciidoc-editor'),
+        'utf8',
+      );
+      expect(source).toContain("import './editor-themes.css'");
+    });
+
+    test('editor wrapper applies --editor-font-size CSS variable from preference', () => {
+      mockUseEditorPreferences.mockReturnValue({
+        fontSize: 20, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn(),
+      });
+      const { container } = render(<AsciiDocEditor content="test" canEdit={true} />);
+      const wrapper = container.querySelector('.asciidoc-editor');
+      expect(wrapper).not.toBeNull();
+      expect((wrapper as HTMLElement).style.getPropertyValue('--editor-font-size')).toBe('20px');
+    });
+
+    test('editor wrapper applies data-theme attribute from preference', () => {
+      mockUseEditorPreferences.mockReturnValue({
+        fontSize: 14, theme: 'high-contrast', setFontSize: jest.fn(), setTheme: jest.fn(),
+      });
+      const { container } = render(<AsciiDocEditor content="test" canEdit={true} />);
+      const wrapper = container.querySelector('.asciidoc-editor');
+      expect(wrapper).toHaveAttribute('data-theme', 'high-contrast');
+    });
+
+    test('editor wrapper updates --editor-font-size when font size preference changes', () => {
+      mockUseEditorPreferences.mockReturnValue({
+        fontSize: 16, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn(),
+      });
+      const { rerender, container } = render(<AsciiDocEditor content="test" canEdit={true} />);
+      expect((container.querySelector('.asciidoc-editor') as HTMLElement).style.getPropertyValue('--editor-font-size')).toBe('16px');
+
+      mockUseEditorPreferences.mockReturnValue({
+        fontSize: 24, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn(),
+      });
+      rerender(<AsciiDocEditor content="test" canEdit={true} />);
+      expect((container.querySelector('.asciidoc-editor') as HTMLElement).style.getPropertyValue('--editor-font-size')).toBe('24px');
+    });
   });
 });

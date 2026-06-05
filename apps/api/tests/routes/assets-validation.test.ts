@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import path from 'node:path';
 import Fastify from 'fastify';
 import { assetsRoutes } from '../../src/routes/projects/assets';
 
 jest.mock('../../src/plugins/require-auth', () => ({
-  requireAuth: jest.fn((_req: unknown, _reply: unknown, done: () => void) => done()),
+  requireAuth: jest.fn((_request: unknown, _reply: unknown, done: () => void) => done()),
   getAuthenticatedUserId: jest.fn(() => '550e8400-e29b-41d4-a716-446655440001'),
 }));
 
@@ -48,7 +48,7 @@ describe('assets route — runtime validation', () => {
 
   it('route validates parentId presence before passing to FileNodeId.create', () => {
     const source = readFileSync(
-      join(__dirname, '../../src/routes/projects/assets.ts'),
+      path.join(__dirname, '../../src/routes/projects/assets.ts'),
       'utf8',
     );
     const hasGuard =

@@ -9,7 +9,7 @@ import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
 import { sendFileTreeError, toNodeType } from './file-tree-errors';
 
-/** Registers DELETE /projects/:projectId/files/:fileNodeId */
+/** Registers DELETE /projects/:projectId/files/:fileNodeId. */
 export async function fileTreeDeleteRoutes(app: FastifyInstance): Promise<void> {
   app.delete<{ Params: { projectId: string; fileNodeId: string } }>(
     '/projects/:projectId/files/:fileNodeId',

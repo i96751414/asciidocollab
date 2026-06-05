@@ -131,14 +131,14 @@ describe('GetDocumentContentUseCase', () => {
     await fileNodeRepo.save(foreignNode);
 
     // Also create a Document for the foreign node so execution reaches the ownership check
-    const foreignDoc = new Document(
+    const foreignDocument = new Document(
       DocumentId.create('ee1e8400-e29b-41d4-a716-446655440099'),
       otherFileNodeId,
       ContentId.create('ee2e8400-e29b-41d4-a716-446655440099'),
       YjsStateId.create('ee3e8400-e29b-41d4-a716-446655440099'),
       MimeType.create('text/asciidoc'),
     );
-    await documentRepo.save(foreignDoc);
+    await documentRepo.save(foreignDocument);
 
     // Put content at the foreign path in our project's store (the probe target)
     await fileStore.write(projectId, FilePath.create('/foreign.adoc'), Buffer.from('secret'));

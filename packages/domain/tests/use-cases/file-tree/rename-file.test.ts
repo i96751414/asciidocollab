@@ -301,8 +301,8 @@ describe('RenameFileUseCase with fileStore — filesystem rollback on DB failure
     let caughtError: unknown = null;
     try {
       await useCase2.execute(actorId2, fileNodeId2, 'renamed.txt', projectId2);
-    } catch (err) {
-      caughtError = err;
+    } catch (error) {
+      caughtError = error;
     }
     expect(caughtError).not.toBeNull();
 

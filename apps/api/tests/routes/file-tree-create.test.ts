@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import path from 'node:path';
 import { FilePath } from '@asciidocollab/domain';
 
 describe('file-tree route — POST /projects/:projectId/files', () => {
   const source = readFileSync(
-    join(__dirname, '../../src/routes/projects/file-tree-create.ts'),
+    path.join(__dirname, '../../src/routes/projects/file-tree-create.ts'),
     'utf8',
   );
 
