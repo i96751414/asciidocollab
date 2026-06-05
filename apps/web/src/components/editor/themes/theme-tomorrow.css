@@ -1,0 +1,62 @@
+/* ─── Tomorrow (light) ───────────────────────────────────────────────────── */
+/*
+ * Palette (Chris Kempson's Tomorrow):
+ *   bg #ffffff  fg #4d4d4c  comment #8e908c  red #c82829
+ *   orange #f5871f  yellow #eab700  green #718c00
+ *   aqua #3e999f   blue #4271ae    purple #8959a8
+ */
+
+.asciidoc-editor[data-theme="tomorrow"] {
+  --ad-heading:     #4271ae;   /* blue    — primary headings */
+  --ad-heading-dim: #8959a8;   /* purple  — h4-h6 */
+  --ad-mono-bg:     rgba(0, 0, 0, 0.04);
+  --ad-comment:     #8e908c;   /* grey */
+  --ad-keyword:     #c82829;   /* red     — admonitions, markers */
+  --ad-macro:       #f5871f;   /* orange  — block/inline macros (image::, include::, …) */
+  --ad-link:        #3e999f;   /* aqua */
+  --ad-string:      #718c00;   /* green   — attribute values */
+  --ad-meta:        #8959a8;   /* purple  — document attributes */
+  --ad-number:      #f5871f;   /* orange */
+  --ad-label:       #8959a8;   /* purple */
+  --ad-attr:        #8959a8;   /* purple */
+  --ad-type:        #3e999f;   /* aqua */
+  --ad-special:     #f5871f;   /* orange */
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-editor {
+  background: #ffffff;
+  color: #4d4d4c;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-content {
+  color: #4d4d4c;
+  caret-color: #4d4d4c;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-gutters {
+  background: #f5f5f5;
+  color: #969896;
+  border-right-color: #e0e0e0;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-activeLineGutter {
+  background: #efefef;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-activeLine {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-selectionBackground,
+.asciidoc-editor[data-theme="tomorrow"] .cm-editor .cm-selectionBackground {
+  background: #d6d6d6 !important;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-searchMatch {
+  background: rgba(234, 183, 0, 0.3);
+  outline: 1px solid #eab700;
+}
+
+.asciidoc-editor[data-theme="tomorrow"] .cm-searchMatch-selected {
+  background: rgba(234, 183, 0, 0.55);
+}

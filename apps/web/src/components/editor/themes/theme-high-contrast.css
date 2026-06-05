@@ -1,0 +1,47 @@
+/* ─── High Contrast (dark) — WCAG AA ≥ 4.5:1 ────────────────────────────── */
+
+.asciidoc-editor[data-theme="high-contrast"] {
+  --ad-heading:     #ffff00;
+  --ad-heading-dim: #ffff88;
+  --ad-mono-bg:     rgba(255, 255, 255, 0.15);
+  --ad-comment:     #7fc97f;
+  --ad-keyword:     #ff6666;
+  --ad-macro:       #7dffb3;   /* mint green — block/inline macros */
+  --ad-link:        #80d8ff;
+  --ad-string:      #a8d8a8;
+  --ad-meta:        #ffd700;
+  --ad-number:      #ffd700;
+  --ad-label:       #ffd700;
+  --ad-attr:        #ffd700;
+  --ad-type:        #80d8ff;
+  --ad-special:     #ffb347;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-editor {
+  background: #000000;
+  color: #ffffff;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-content {
+  color: #ffffff;
+  caret-color: #ffffff;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-gutters {
+  background: #000000;
+  color: #7fc97f;
+  border-right-color: #333333;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-activeLineGutter {
+  background: #1a1a1a;
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-activeLine {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.asciidoc-editor[data-theme="high-contrast"] .cm-selectionBackground,
+.asciidoc-editor[data-theme="high-contrast"] .cm-editor .cm-selectionBackground {
+  background: #005f87 !important;
+}

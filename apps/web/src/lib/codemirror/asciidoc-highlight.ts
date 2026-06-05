@@ -25,6 +25,8 @@ export const asciidocHighlightStyle = HighlightStyle.define([
   // Document directives and block markers
   { tag: t.meta,          color: 'var(--ad-meta)' },
   { tag: t.keyword,       color: 'var(--ad-keyword)', fontWeight: 'bold' },
+  // Block / inline macros (image::, include::, video::, image:, …)
+  { tag: t.macroName,     color: 'var(--ad-macro)', fontWeight: 'bold' },
   // Links and references
   { tag: t.link,          color: 'var(--ad-link)', textDecoration: 'underline' },
   // Values and identifiers

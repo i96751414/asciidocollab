@@ -1,0 +1,66 @@
+/* ─── Espresso (dark, TextMate-inspired) ─────────────────────────────────── */
+/*
+ * Palette:
+ *   bg #2b2b2b   fg #ced4cf   comment #7c7c7c   keyword #fc6a5d
+ *   string #61ce3c  number #d6c864  type #5dd8ff  label #fec601
+ *   attr #d6c864   heading #5dd8ff   dim #c5af75
+ */
+
+.asciidoc-editor[data-theme="espresso"] {
+  --ad-heading:     #5dd8ff;   /* sky blue    — primary headings */
+  --ad-heading-dim: #c5af75;   /* warm tan    — h4-h6 */
+  --ad-mono-bg:     rgba(255, 255, 255, 0.08);
+  --ad-comment:     #7c7c7c;   /* medium grey */
+  --ad-keyword:     #fc6a5d;   /* coral red   — admonitions, markers */
+  --ad-macro:       #ff9d68;   /* light salmon — block/inline macros (image::, include::, …) */
+  --ad-link:        #61ce3c;   /* lime green */
+  --ad-string:      #61ce3c;   /* lime green  — attribute values */
+  --ad-meta:        #d6c864;   /* warm yellow — document attributes */
+  --ad-number:      #d6c864;   /* warm yellow */
+  --ad-label:       #fec601;   /* bright yellow */
+  --ad-attr:        #d6c864;   /* warm yellow */
+  --ad-type:        #5dd8ff;   /* sky blue */
+  --ad-special:     #d6c864;   /* warm yellow */
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-editor {
+  background: #2b2b2b;
+  color: #ced4cf;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-content {
+  color: #ced4cf;
+  caret-color: #ced4cf;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-gutters {
+  background: #252525;
+  color: #7c7c7c;
+  border-right-color: #3a3a3a;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-activeLineGutter {
+  background: #333333;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-activeLine {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-selectionBackground,
+.asciidoc-editor[data-theme="espresso"] .cm-editor .cm-selectionBackground {
+  background: #4a4a4a !important;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-cursor {
+  border-left-color: #ced4cf;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-searchMatch {
+  background: rgba(214, 200, 100, 0.25);
+  outline: 1px solid #d6c864;
+}
+
+.asciidoc-editor[data-theme="espresso"] .cm-searchMatch-selected {
+  background: rgba(214, 200, 100, 0.45);
+}
