@@ -13,6 +13,7 @@ jest.mock('@codemirror/view', () => ({
     state: { doc: { toString: () => string } };
     static updateListener = { of: (function_: unknown) => ({ function_ }) };
     static lineWrapping = {};
+    static domEventHandlers = (_handlers: unknown) => ({});
 
     constructor({ state, parent }: {
       state: { doc: { toString: () => string }; readOnly?: boolean };

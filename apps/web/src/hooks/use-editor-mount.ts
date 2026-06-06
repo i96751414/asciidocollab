@@ -34,6 +34,12 @@ interface UseEditorMountOptions {
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
+  /**
+   * Called with the 1-based line number when the author clicks in the editor.
+   *
+   * @param line - 1-based line number of the clicked position.
+   */
+  onLineClick?: (line: number) => void;
 }
 
 /** Manages the full CodeMirror 6 view lifecycle: mount, teardown, content/readOnly sync. */
@@ -47,6 +53,7 @@ export function useEditorMount({
   onOutlineChange,
   onNavigateToFile,
   onOpenUrl,
+  onLineClick,
 }: UseEditorMountOptions) {
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
@@ -55,6 +62,8 @@ export function useEditorMount({
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
   useEffect(() => { imagePathsReference.current = imagePaths; }, [imagePaths]);
+  const onLineClickReference = useRef(onLineClick);
+  useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
 
   // Stable heading-click callback — viewReference is a ref, so no deps needed.
   const handleHeadingClick = useCallback((entry: { from: number }) => {
@@ -79,6 +88,16 @@ export function useEditorMount({
       const head = update.state.selection.main.head;
       const line = update.state.doc.lineAt(head);
       onCursorChange({ line: line.number, col: head - line.from + 1, totalLines: update.state.doc.lines });
+    });
+
+    const lineClickHandler = EditorView.domEventHandlers({
+      mousedown(event, view) {
+        if (!onLineClickReference.current) return;
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (pos === null) return;
+        const lineNumber = view.state.doc.lineAt(pos).number;
+        onLineClickReference.current(lineNumber);
+      },
     });
 
     const state = EditorState.create({
@@ -110,6 +129,7 @@ export function useEditorMount({
           ],
         }),
         updateListener,
+        lineClickHandler,
       ],
     });
 

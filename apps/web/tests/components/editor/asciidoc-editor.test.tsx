@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 function extractReadOnly(value: unknown): boolean | undefined {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -20,6 +20,7 @@ jest.mock('@codemirror/view', () => {
         of: (function_: unknown) => ({ _isUpdateListener: true, _fn: function_ }),
       };
       static lineWrapping = {};
+      static domEventHandlers = (_handlers: unknown) => ({});
 
       constructor({ state, parent }: {
         state: { doc: { toString: () => string }; readOnly?: boolean; _extensions?: unknown[] };
@@ -212,9 +213,15 @@ jest.mock('@/hooks/use-table-context', () => ({
   useTableContext: () => null,
 }));
 
+jest.mock('@/hooks/use-auto-save', () => ({
+  useAutoSave: jest.fn(() => ({ saveState: 'saved', save: jest.fn() })),
+}));
+
 // Import after mocks
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
+import { useAutoSave } from '@/hooks/use-auto-save';
+const mockUseAutoSave = useAutoSave as jest.Mock;
 
 describe('AsciiDocEditor', () => {
   test('renders a CM6 editor element (not a <pre>) when given text content', () => {
@@ -347,6 +354,103 @@ describe('AsciiDocEditor', () => {
       });
       rerender(<AsciiDocEditor content="test" canEdit={true} />);
       expect((container.querySelector('.asciidoc-editor') as HTMLElement).style.getPropertyValue('--editor-font-size')).toBe('24px');
+    });
+  });
+
+  describe('outline panel', () => {
+    test('renders the outline panel open by default with a collapse button', () => {
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      expect(screen.getByRole('button', { name: /collapse outline panel/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /expand outline panel/i })).not.toBeInTheDocument();
+    });
+
+    test('clicking collapse hides the outline and shows the expand button', () => {
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      fireEvent.click(screen.getByRole('button', { name: /collapse outline panel/i }));
+      expect(screen.queryByRole('button', { name: /collapse outline panel/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /expand outline panel/i })).toBeInTheDocument();
+    });
+
+    test('clicking expand after collapse reopens the outline', () => {
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      fireEvent.click(screen.getByRole('button', { name: /collapse outline panel/i }));
+      fireEvent.click(screen.getByRole('button', { name: /expand outline panel/i }));
+      expect(screen.getByRole('button', { name: /collapse outline panel/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /expand outline panel/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('draft recovery banner', () => {
+    beforeEach(() => {
+      mockUseAutoSave.mockReset();
+    });
+
+    afterEach(() => {
+      mockUseAutoSave.mockImplementation(() => ({ saveState: 'saved', save: jest.fn() }));
+    });
+
+    test('shows recovery banner when useAutoSave calls onDraftRecovered', () => {
+      let capturedOnDraftRecovered: ((content: string) => void) | undefined;
+      mockUseAutoSave.mockImplementation((options: { onDraftRecovered?: (c: string) => void }) => {
+        capturedOnDraftRecovered = options.onDraftRecovered;
+        return { saveState: 'saved', save: jest.fn() };
+      });
+
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      expect(screen.queryByText('An unsaved draft was recovered.')).not.toBeInTheDocument();
+
+      act(() => capturedOnDraftRecovered?.('recovered draft'));
+      expect(screen.getByText('An unsaved draft was recovered.')).toBeInTheDocument();
+    });
+
+    test('discardDraft clears the banner when Discard is clicked', () => {
+      let capturedOnDraftRecovered: ((content: string) => void) | undefined;
+      mockUseAutoSave.mockImplementation((options: { onDraftRecovered?: (c: string) => void }) => {
+        capturedOnDraftRecovered = options.onDraftRecovered;
+        return { saveState: 'saved', save: jest.fn() };
+      });
+
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      act(() => capturedOnDraftRecovered?.('recovered draft'));
+      expect(screen.getByText('An unsaved draft was recovered.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /discard/i }));
+      expect(screen.queryByText('An unsaved draft was recovered.')).not.toBeInTheDocument();
+    });
+
+    test('restoreDraft clears the banner when Restore is clicked', () => {
+      let capturedOnDraftRecovered: ((content: string) => void) | undefined;
+      mockUseAutoSave.mockImplementation((options: { onDraftRecovered?: (c: string) => void }) => {
+        capturedOnDraftRecovered = options.onDraftRecovered;
+        return { saveState: 'saved', save: jest.fn() };
+      });
+
+      render(<AsciiDocEditor content="test" canEdit={true} />);
+      act(() => capturedOnDraftRecovered?.('recovered draft'));
+
+      fireEvent.click(screen.getByRole('button', { name: /restore/i }));
+      expect(screen.queryByText('An unsaved draft was recovered.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('status bar retry', () => {
+    afterEach(() => {
+      mockUseAutoSave.mockImplementation(() => ({ saveState: 'saved', save: jest.fn() }));
+    });
+
+    test('shows Retry button in status bar when saveState is error and projectId+fileNodeId are set', () => {
+      mockUseAutoSave.mockReturnValue({ saveState: 'error', save: jest.fn() });
+      render(<AsciiDocEditor content="test" canEdit={true} projectId="p1" fileNodeId="f1" />);
+      expect(screen.getByRole('button', { name: /retry save/i })).toBeInTheDocument();
+    });
+
+    test('clicking Retry calls save with current editor content', () => {
+      const mockSave = jest.fn();
+      mockUseAutoSave.mockReturnValue({ saveState: 'error', save: mockSave });
+
+      render(<AsciiDocEditor content="= Hello" canEdit={true} projectId="p1" fileNodeId="f1" />);
+      fireEvent.click(screen.getByRole('button', { name: /retry save/i }));
+      expect(mockSave).toHaveBeenCalled();
     });
   });
 });

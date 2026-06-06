@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-No active implementation plan.
+Active implementation plan: specs/016-asciidoc-preview-sync/plan.md
 <!-- SPECKIT END -->
 
 ## Agent Instructions

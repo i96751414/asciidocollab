@@ -28,6 +28,7 @@ interface AsciiDocEditorProperties {
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
+  onLineClick?: (line: number) => void;
 }
 
 type EditorCssVariables = { '--editor-font-size': string } & React.CSSProperties;
@@ -46,6 +47,7 @@ export function AsciiDocEditor({
   onChange,
   onNavigateToFile,
   onOpenUrl,
+  onLineClick,
 }: AsciiDocEditorProperties) {
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
@@ -83,6 +85,7 @@ export function AsciiDocEditor({
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
     onOpenUrl,
+    onLineClick,
   });
 
   const tableContext = useTableContext(viewReference.current);
