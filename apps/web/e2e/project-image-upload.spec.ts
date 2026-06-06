@@ -83,9 +83,18 @@ test.describe('Image drag-and-drop upload', () => {
     await treeNode.click();
 
     // An <img> element should appear in the content area (image preview)
+    const imgLocator = page.locator('[data-testid="content-panel"] img');
     await expect(
-      page.locator('[data-testid="content-panel"] img'),
+      imgLocator,
       'Clicking an image file should show an image preview',
     ).toBeVisible({ timeout: 5000 });
+
+    // Verify the image actually loaded — naturalWidth > 0 means it is not a broken link.
+    // The src points to the /projects/:id/files/:fileNodeId/content endpoint; a 404 would
+    // leave naturalWidth at 0 even though the element is visible.
+    await expect(async () => {
+      const naturalWidth = await imgLocator.evaluate((el: HTMLImageElement) => el.naturalWidth);
+      expect(naturalWidth, 'Image naturalWidth must be > 0 (not a broken link)').toBeGreaterThan(0);
+    }).toPass({ timeout: 10_000 });
   });
 });

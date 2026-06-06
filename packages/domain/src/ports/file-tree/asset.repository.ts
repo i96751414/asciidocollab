@@ -24,6 +24,15 @@ export interface AssetRepository {
   findByProjectId(projectId: ProjectId): Promise<Asset[]>;
 
   /**
+   * Finds an asset by its storage path within a project.
+   *
+   * @param projectId - The project the asset belongs to.
+   * @param storagePath - The storage path of the asset (matches the FileNode path).
+   * @returns The most recently uploaded asset at that path, or null if not found.
+   */
+  findByStoragePath(projectId: ProjectId, storagePath: string): Promise<Asset | null>;
+
+  /**
    * Persists an asset entity (create or update).
    *
    * @param asset - The asset entity to save.

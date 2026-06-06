@@ -24,6 +24,16 @@ export class InMemoryAssetRepository implements AssetRepository {
     this.storage.set(asset.id.value, asset);
   }
 
+  /** Returns the asset whose storagePath matches within the given project, or null. */
+  async findByStoragePath(projectId: ProjectId, storagePath: string): Promise<Asset | null> {
+    for (const asset of this.storage.values()) {
+      if (asset.projectId.value === projectId.value && asset.storagePath === storagePath) {
+        return asset;
+      }
+    }
+    return null;
+  }
+
   /** Removes the asset with the given ID from memory. */
   async delete(id: AssetId): Promise<void> {
     this.storage.delete(id.value);

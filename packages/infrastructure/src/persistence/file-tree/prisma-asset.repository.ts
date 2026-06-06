@@ -51,6 +51,15 @@ export class PrismaAssetRepository implements AssetRepository {
   async delete(id: AssetId): Promise<void> {
     await this.prisma.asset.deleteMany({ where: { id: id.value } });
   }
+
+  /** @inheritdoc */
+  async findByStoragePath(projectId: ProjectId, storagePath: string): Promise<Asset | null> {
+    const record = await this.prisma.asset.findFirst({
+      where: { projectId: projectId.value, storagePath },
+      orderBy: { uploadedAt: 'desc' },
+    });
+    return record ? toDomainAsset(record) : null;
+  }
 }
 
 type AssetRecord = {

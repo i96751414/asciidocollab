@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -8,18 +8,12 @@ import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
+import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
 import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
-
-const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico', '.avif', '.tiff']);
-
-function isImageFile(nodeName: string): boolean {
-  const dot = nodeName.lastIndexOf('.');
-  if (dot <= 0) return false;
-  return IMAGE_EXTENSIONS.has(nodeName.slice(dot).toLowerCase());
-}
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -27,9 +21,10 @@ interface ContentAreaProperties {
   canEdit: boolean;
   projectId: string;
   onScrollLine?: (line: number) => void;
+  onLineClick?: (line: number) => void;
 }
 
-function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollLine }: ContentAreaProperties) {
+function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollLine, onLineClick }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
   }
@@ -66,6 +61,7 @@ function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollL
       initialEtag={contentState.etag}
       isAsciiDoc={isAsciiDocFile(selectedFile.nodeName)}
       onScrollLine={onScrollLine}
+      onLineClick={onLineClick}
     />
   );
 }
@@ -89,15 +85,20 @@ export function ProjectEditorLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
+  const lastScrolledLine = useRef<number | null>(null);
   const { selectedFile, contentState, selectFile } = useFileSelection(projectId);
+  const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
 
   const handleScrollLine = useCallback((line: number) => {
+    if (lastScrolledLine.current === line) return;
+    lastScrolledLine.current = line;
     setScrollRequest({ line });
   }, []);
 
   // Reset scroll position whenever a different file is opened.
   useEffect(() => {
     setScrollRequest(null);
+    lastScrolledLine.current = null;
   }, [selectedFile?.nodeId]);
 
   useEffect(() => {
@@ -181,7 +182,8 @@ export function ProjectEditorLayout({
                 contentState={contentState}
                 canEdit={canEdit}
                 projectId={projectId}
-                onScrollLine={handleScrollLine}
+                onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
+                onLineClick={handleScrollLine}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
@@ -191,6 +193,8 @@ export function ProjectEditorLayout({
                 isEnabled={previewOpen}
                 scrollToLine={scrollRequest}
                 onCollapse={togglePreview}
+                scrollSyncEnabled={scrollSyncEnabled}
+                onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
               />
             </Panel>
           </PanelGroup>

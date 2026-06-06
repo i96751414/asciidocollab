@@ -23,10 +23,13 @@ jest.mock('@/components/file-tree/file-tree', () => ({
 }));
 
 jest.mock('@/components/editor/asciidoc-editor', () => ({
-  AsciiDocEditor: ({ onScrollLine }: { onScrollLine?: (line: number) => void }) => (
+  AsciiDocEditor: ({ onScrollLine, onLineClick }: { onScrollLine?: (line: number) => void; onLineClick?: (line: number) => void }) => (
     <div data-testid="asciidoc-editor">
       {onScrollLine && (
         <button data-testid="editor-scroll-line" onClick={() => onScrollLine(10)} />
+      )}
+      {onLineClick && (
+        <button data-testid="editor-line-click" onClick={() => onLineClick(5)} />
       )}
     </div>
   ),
@@ -53,6 +56,10 @@ jest.mock('@/hooks/use-file-selection', () => ({
   useFileSelection: jest.fn(),
 }));
 
+jest.mock('@/hooks/use-editor-preferences', () => ({
+  useEditorPreferences: jest.fn(),
+}));
+
 jest.mock('react-resizable-panels', () => ({
   PanelGroup: ({ children, ...props }: { children: React.ReactNode; direction: string }) => (
     <div data-testid="panel-group" data-direction={props.direction}>{children}</div>
@@ -64,7 +71,9 @@ jest.mock('react-resizable-panels', () => ({
 }));
 
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 const mockUseFileSelection = useFileSelection as jest.Mock;
+const mockUseEditorPreferences = useEditorPreferences as jest.Mock;
 
 import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
 
@@ -81,6 +90,14 @@ beforeEach(() => {
     selectedFile: noFile,
     contentState: makeContentState(),
     selectFile: jest.fn(),
+  });
+  mockUseEditorPreferences.mockReturnValue({
+    fontSize: 14,
+    theme: 'default',
+    scrollSyncEnabled: false,
+    setFontSize: jest.fn(),
+    setTheme: jest.fn(),
+    setScrollSyncEnabled: jest.fn(),
   });
   // Reset session storage
   sessionStorage.clear();
@@ -150,6 +167,36 @@ describe('ProjectEditorLayout — ContentArea states', () => {
   });
 });
 
+// ── onLineClick propagation ───────────────────────────────────────────────────
+
+describe('ProjectEditorLayout — onLineClick', () => {
+  it('clicking a line in the editor updates scrollToLine in AsciiDocPreview', () => {
+    mockUseFileSelection.mockReturnValue({
+      selectedFile: adocFile,
+      contentState: makeContentState(),
+      selectFile: jest.fn(),
+    });
+    // onLineClick works regardless of scrollSyncEnabled
+    mockUseEditorPreferences.mockReturnValue({
+      fontSize: 14,
+      theme: 'default',
+      scrollSyncEnabled: false,
+      setFontSize: jest.fn(),
+      setTheme: jest.fn(),
+      setScrollSyncEnabled: jest.fn(),
+    });
+    sessionStorage.setItem('asciidoc-preview-open', 'true');
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-scroll-line', '');
+
+    fireEvent.click(screen.getByTestId('editor-line-click'));
+
+    expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-scroll-line', '5');
+  });
+});
+
 // ── onScrollLine propagation ───────────────────────────────────────────────────
 
 describe('ProjectEditorLayout — onScrollLine', () => {
@@ -158,6 +205,15 @@ describe('ProjectEditorLayout — onScrollLine', () => {
       selectedFile: adocFile,
       contentState: makeContentState(),
       selectFile: jest.fn(),
+    });
+    // scroll sync must be enabled for onScrollLine to be wired up
+    mockUseEditorPreferences.mockReturnValue({
+      fontSize: 14,
+      theme: 'default',
+      scrollSyncEnabled: true,
+      setFontSize: jest.fn(),
+      setTheme: jest.fn(),
+      setScrollSyncEnabled: jest.fn(),
     });
     sessionStorage.setItem('asciidoc-preview-open', 'true');
 
