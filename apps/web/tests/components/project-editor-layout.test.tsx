@@ -23,13 +23,24 @@ jest.mock('@/components/file-tree/file-tree', () => ({
 }));
 
 jest.mock('@/components/editor/asciidoc-editor', () => ({
-  AsciiDocEditor: ({ onScrollLine, onLineClick }: { onScrollLine?: (line: number) => void; onLineClick?: (line: number) => void }) => (
+  AsciiDocEditor: ({
+    onScrollLine,
+    onLineClick,
+    onChange,
+  }: {
+    onScrollLine?: (line: number) => void;
+    onLineClick?: (line: number) => void;
+    onChange?: (value: string) => void;
+  }) => (
     <div data-testid="asciidoc-editor">
       {onScrollLine && (
         <button data-testid="editor-scroll-line" onClick={() => onScrollLine(10)} />
       )}
       {onLineClick && (
         <button data-testid="editor-line-click" onClick={() => onLineClick(5)} />
+      )}
+      {onChange && (
+        <button data-testid="editor-change" onClick={() => onChange('live content from editor')} />
       )}
     </div>
   ),
@@ -42,8 +53,20 @@ jest.mock('@/components/image-preview', () => ({
 }));
 
 jest.mock('@/components/asciidoc-preview', () => ({
-  AsciiDocPreview: ({ onCollapse, scrollToLine }: { onCollapse?: () => void; scrollToLine?: { line: number } | null }) => (
-    <div data-testid="asciidoc-preview" data-scroll-line={scrollToLine?.line ?? ''}>
+  AsciiDocPreview: ({
+    onCollapse,
+    scrollToLine,
+    content,
+  }: {
+    onCollapse?: () => void;
+    scrollToLine?: { line: number } | null;
+    content?: string;
+  }) => (
+    <div
+      data-testid="asciidoc-preview"
+      data-scroll-line={scrollToLine?.line ?? ''}
+      data-content={content ?? ''}
+    >
       {onCollapse && (
         <button aria-label="collapse preview" onClick={onCollapse} />
       )}
@@ -359,5 +382,45 @@ describe('ProjectEditorLayout — sidebar', () => {
     fireEvent.click(screen.getByTestId('file-tree-select'));
 
     expect(selectFile).toHaveBeenCalledWith('n1', 'doc.adoc', '/doc.adoc', 'file');
+  });
+});
+
+// ── Live content: editor onChange must update preview content ─────────────────
+
+describe('ProjectEditorLayout — live preview content', () => {
+  it('AsciiDocPreview starts with the fetched file content', () => {
+    mockUseFileSelection.mockReturnValue({
+      selectedFile: adocFile,
+      contentState: makeContentState({ content: '= Hello' }),
+      selectFile: jest.fn(),
+    });
+    sessionStorage.setItem('asciidoc-preview-open', 'true');
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-content', '= Hello');
+  });
+
+  it('AsciiDocPreview content updates when the editor fires onChange', () => {
+    mockUseFileSelection.mockReturnValue({
+      selectedFile: adocFile,
+      contentState: makeContentState({ content: '= Hello' }),
+      selectFile: jest.fn(),
+    });
+    sessionStorage.setItem('asciidoc-preview-open', 'true');
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    // Initially shows the fetched content
+    expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-content', '= Hello');
+
+    // Editor fires onChange with new content (user typed something)
+    fireEvent.click(screen.getByTestId('editor-change'));
+
+    // Preview must update to reflect the live-typed content
+    expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute(
+      'data-content',
+      'live content from editor',
+    );
   });
 });

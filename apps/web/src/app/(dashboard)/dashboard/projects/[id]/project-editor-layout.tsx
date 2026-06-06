@@ -22,9 +22,18 @@ interface ContentAreaProperties {
   projectId: string;
   onScrollLine?: (line: number) => void;
   onLineClick?: (line: number) => void;
+  onChange?: (value: string) => void;
 }
 
-function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollLine, onLineClick }: ContentAreaProperties) {
+function ContentArea({
+  selectedFile,
+  contentState,
+  canEdit,
+  projectId,
+  onScrollLine,
+  onLineClick,
+  onChange,
+}: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
   }
@@ -40,6 +49,7 @@ function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollL
     if (isImageFile(selectedFile.nodeName)) {
       return (
         <ImagePreview
+          key={selectedFile.nodeId}
           projectId={projectId}
           fileNodeId={selectedFile.nodeId}
           fileName={selectedFile.nodeName}
@@ -62,6 +72,7 @@ function ContentArea({ selectedFile, contentState, canEdit, projectId, onScrollL
       isAsciiDoc={isAsciiDocFile(selectedFile.nodeName)}
       onScrollLine={onScrollLine}
       onLineClick={onLineClick}
+      onChange={onChange}
     />
   );
 }
@@ -85,15 +96,30 @@ export function ProjectEditorLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
+  // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
   const lastScrolledLine = useRef<number | null>(null);
+  // Track live editor content so the preview reflects what the user is typing.
+  const [liveContent, setLiveContent] = useState('');
   const { selectedFile, contentState, selectFile } = useFileSelection(projectId);
   const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
 
+  // Scroll-sync handler: dedup identical consecutive lines to avoid jitter.
   const handleScrollLine = useCallback((line: number) => {
     if (lastScrolledLine.current === line) return;
     lastScrolledLine.current = line;
     setScrollRequest({ line });
   }, []);
+
+  // Line-click handler: always fires, even for the same line clicked twice.
+  // No dedup — the user intentionally clicked, so we always issue a fresh scroll.
+  const handleLineClick = useCallback((line: number) => {
+    setScrollRequest({ line });
+  }, []);
+
+  // Sync live content when a different file is loaded.
+  useEffect(() => {
+    setLiveContent(contentState.content ?? '');
+  }, [selectedFile?.nodeId, contentState.content]);
 
   // Reset scroll position whenever a different file is opened.
   useEffect(() => {
@@ -183,13 +209,14 @@ export function ProjectEditorLayout({
                 canEdit={canEdit}
                 projectId={projectId}
                 onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
-                onLineClick={handleScrollLine}
+                onLineClick={handleLineClick}
+                onChange={setLiveContent}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
             <Panel defaultSize={50} minSize={20} className="overflow-hidden border-l" data-testid="preview-panel">
               <AsciiDocPreview
-                content={contentState.content ?? ''}
+                content={liveContent}
                 isEnabled={previewOpen}
                 scrollToLine={scrollRequest}
                 onCollapse={togglePreview}
@@ -206,6 +233,7 @@ export function ProjectEditorLayout({
                 contentState={contentState}
                 canEdit={canEdit}
                 projectId={projectId}
+                onChange={setLiveContent}
               />
             </div>
             {showPreview && !previewOpen && (

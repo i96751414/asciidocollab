@@ -13,6 +13,7 @@ const putBodySchema = {
   properties: {
     fontSize: { type: 'integer', minimum: 8, maximum: 32 },
     theme: { type: 'string', enum: ['default', 'high-contrast', 'dracula', 'tomorrow', 'espresso'] },
+    scrollSyncEnabled: { type: 'boolean' },
   },
   additionalProperties: false,
 };
@@ -34,12 +35,13 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
       const dto: EditorPreferencesDto = {
         fontSize: result.value.fontSize,
         theme: result.value.theme.value,
+        scrollSyncEnabled: result.value.scrollSyncEnabled,
       };
       return reply.status(200).send(dto);
     }
   );
 
-  app.put<{ Body: { fontSize: number; theme: string } }>(
+  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean } }>(
     '/auth/me/editor-preferences',
     {
       preHandler: requireAuth,
@@ -51,6 +53,7 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
       const result = await useCase.execute(userId, {
         fontSize: request.body.fontSize,
         theme: request.body.theme,
+        scrollSyncEnabled: request.body.scrollSyncEnabled,
       });
 
       if (!result.success) {

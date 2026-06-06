@@ -48,6 +48,26 @@ jest.mock('@/hooks/use-file-selection', () => ({
   })),
 }));
 
+jest.mock('@/hooks/use-editor-preferences', () => ({
+  useEditorPreferences: jest.fn(() => ({
+    fontSize: 14,
+    theme: 'default',
+    scrollSyncEnabled: false,
+    setFontSize: jest.fn(),
+    setTheme: jest.fn(),
+    setScrollSyncEnabled: jest.fn(),
+  })),
+}));
+
+jest.mock('@/components/asciidoc-preview', () => ({
+  AsciiDocPreview: ({ onCollapse }: { onCollapse?: () => void }) => (
+    <div data-testid="asciidoc-preview">
+      {onCollapse && <button aria-label="collapse preview" onClick={onCollapse} />}
+    </div>
+  ),
+  isAsciiDocFile: (name: string) => name.endsWith('.adoc'),
+}));
+
 const emptyRoot = {
   id: 'root-1',
   name: 'root',

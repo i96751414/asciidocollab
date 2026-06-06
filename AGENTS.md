@@ -15,9 +15,8 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-t
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 6 complete — CodeMirror editor with auto-save, AsciiDoc syntax highlighting, table editing,
-autocomplete, block title captions, image/include macros with file-path autocomplete, and Dracula/Tomorrow/Espresso
-themes. All branches merged to `main`.
+**Status:** Phase 016 in progress — AsciiDoc preview sync (editor line-click scrolls preview, scroll sync,
+live content updates, `data-source-line` injection via ID-based post-processing). Branch: `016-asciidoc-preview-sync`.
 
 ## Tech Stack
 
@@ -523,6 +522,62 @@ Phase 6 (Code editor) is **complete and merged to main** across two branches: `0
 | `apps/web`        | 454   |
 | `apps/api`        | 149   |
 | `packages/domain` | 594   |
+
+## Phase 016 Implementation Summary (spec 016)
+
+Phase 016 (AsciiDoc preview sync) is **in progress** on branch `016-asciidoc-preview-sync`.
+
+### What was built
+
+**AsciiDoc render worker (`apps/web/src/workers/asciidoc-render.worker.ts`)**
+
+- Replaced `block.setAttribute('data-source-line', N)` (which did NOT produce HTML attributes in Asciidoctor.js)
+  with ID-based post-processing: assign synthetic `__src_<ctx>_<line>` IDs to blocks without IDs, then
+  regex-inject `id="X" data-source-line="N"` into the converted HTML.
+- Added `attributes: { showtitle: '' }` to `proc.load()` options so the document title (`= Title`) is rendered
+  as `<h1>` in embedded output.
+- Level-0 section blocks (document body section) are tracked separately; the `<h1>` produced by showtitle gets
+  `data-source-line` injected directly since it has no id attribute.
+
+**Project editor layout (`apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx`)**
+
+- Added `liveContent` state + `useEffect` to keep preview updated from editor onChange.
+- Split scroll dedup: `handleScrollLine` (with dedup guard, for scroll-sync) vs `handleLineClick` (no dedup,
+  for click-to-scroll — always fires even for same line).
+- Added `key={selectedFile.nodeId}` to `<ImagePreview>` to reset stale `loaded`/`error` state on file switch.
+
+**AsciiDoc preview (`apps/web/src/components/asciidoc-preview.tsx`)**
+
+- Added `data-testid="preview-scroll-container"` to the inner `overflow-auto` div (the actual scroll container).
+  Previous tests checked `preview-panel` (outer Panel with `overflow-hidden`) which never scrolls.
+
+**In-memory asset repository (`packages/domain/tests/ports/file-tree/in-memory-asset.repository.ts`)**
+
+- `findByStoragePath` now returns the most-recently-uploaded asset (was returning first-inserted).
+
+**Image preview (`apps/web/src/components/image-preview.tsx`)**
+
+- Replaced inline skeleton div with `<Skeleton>` component.
+
+**Prisma schema (`packages/db/prisma/schema.prisma`)**
+
+- Added `@@index([projectId, storagePath])` compound index to Asset model.
+
+**Test helper (`apps/web/e2e/helpers/test-user.ts`)**
+
+- Fixed `ensureTestUser()` to verify the test user can login when registration is closed (previously silently
+  succeeded when the test user didn't exist because any user was already registered).
+
+### Test counts (as of Phase 016)
+
+| Package                    | Tests |
+|----------------------------|-------|
+| `apps/web` (unit)          | 910   |
+| `apps/api` (unit)          | 151   |
+| `packages/domain` (unit)   | 465   |
+| `packages/infrastructure`  | 137   |
+| `packages/shared`          | 14    |
+| `apps/web` (e2e)           | 6     |
 
 ## Key Architectural Decisions
 

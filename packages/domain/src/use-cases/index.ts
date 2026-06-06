@@ -37,6 +37,8 @@ export type { RemoveUserResult } from './auth/remove-user';
 export { GetOpenRegistrationUseCase, SetOpenRegistrationUseCase } from './settings/get-open-registration';
 export { GetMaxUploadSizeUseCase, SetMaxUploadSizeUseCase } from './settings/admin-max-upload-size';
 export { GetDocumentContentUseCase } from './content/get-document-content';
+export { GetFileNodeContentUseCase } from './content/get-file-node-content';
+export type { FileNodeContent } from './content/get-file-node-content';
 export { SaveDocumentContentUseCase } from './content/save-document-content';
 export { CreateFileUseCase } from './file-tree/create-file';
 export { CreateFolderUseCase } from './file-tree/create-folder';

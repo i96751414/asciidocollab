@@ -36,10 +36,21 @@ interface AsciiDocPreviewProperties {
   scrollToLine?: ScrollRequest | null;
   /** When provided, a collapse button is rendered in the header. */
   onCollapse?: () => void;
+  /** Whether the preview scrolls to match editor scroll position. */
+  scrollSyncEnabled?: boolean;
+  /** Called when the user toggles the scroll sync option. */
+  onToggleScrollSync?: () => void;
 }
 
 /** Live preview panel that renders AsciiDoc source as styled HTML via a Web Worker. */
-export function AsciiDocPreview({ content, isEnabled, scrollToLine = null, onCollapse }: AsciiDocPreviewProperties) {
+export function AsciiDocPreview({
+  content,
+  isEnabled,
+  scrollToLine = null,
+  onCollapse,
+  scrollSyncEnabled = false,
+  onToggleScrollSync,
+}: AsciiDocPreviewProperties) {
   const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine });
 
   return (
@@ -48,6 +59,19 @@ export function AsciiDocPreview({ content, isEnabled, scrollToLine = null, onCol
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
         <div className="flex items-center gap-1">
           <SyncIndicator state={state} isEnabled={isEnabled} />
+          {onToggleScrollSync && (
+            <button
+              type="button"
+              onClick={onToggleScrollSync}
+              className={`cursor-pointer rounded p-0.5 text-xs ${scrollSyncEnabled ? 'text-foreground' : 'text-muted-foreground'} hover:bg-accent hover:text-foreground`}
+              aria-label={scrollSyncEnabled ? 'disable scroll sync' : 'enable scroll sync'}
+              aria-pressed={scrollSyncEnabled}
+              title="Scroll preview with editor"
+              data-testid="scroll-sync-toggle"
+            >
+              ↕
+            </button>
+          )}
           {onCollapse && (
             <button
               onClick={onCollapse}
@@ -67,7 +91,7 @@ export function AsciiDocPreview({ content, isEnabled, scrollToLine = null, onCol
         </div>
       )}
 
-      <div ref={previewRef} className="flex-1 overflow-auto p-4">
+      <div ref={previewRef} className="flex-1 overflow-auto p-4" data-testid="preview-scroll-container">
         {!isEnabled || state === 'idle' ? (
           <p className="text-muted-foreground text-sm">Preview not available for this file type</p>
         ) : (

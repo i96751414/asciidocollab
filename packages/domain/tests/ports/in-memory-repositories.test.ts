@@ -279,6 +279,37 @@ describe('In-Memory Repository Fakes', () => {
       const assets = await repo.findByProjectId(projectId);
       expect(assets).toHaveLength(1);
     });
+
+    it('findByStoragePath returns null when no matching asset exists', async () => {
+      const repo = new InMemoryAssetRepository();
+      const result = await repo.findByStoragePath(projectId, '/storage/missing.png');
+      expect(result).toBeNull();
+    });
+
+    it('findByStoragePath returns the asset when it exists', async () => {
+      const repo = new InMemoryAssetRepository();
+      await repo.save(new Asset(assetId, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 1024, null));
+      const result = await repo.findByStoragePath(projectId, '/storage/logo.png');
+      expect(result).not.toBeNull();
+      expect(result!.id.value).toBe(assetId.value);
+    });
+
+    it('findByStoragePath returns the most-recently uploaded asset when multiple share the same storagePath', async () => {
+      const repo = new InMemoryAssetRepository();
+      const older = AssetId.create('550e8400-e29b-41d4-a716-446655440061');
+      const newer = AssetId.create('550e8400-e29b-41d4-a716-446655440062');
+      const oldDate = new Date('2024-01-01T00:00:00Z');
+      const newDate = new Date('2024-06-01T00:00:00Z');
+
+      // Save older asset first, then newer — both with same storagePath
+      await repo.save(new Asset(older, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 100, null, oldDate));
+      await repo.save(new Asset(newer, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 200, null, newDate));
+
+      // Must return the most recently uploaded (newDate), matching Prisma's orderBy: { uploadedAt: 'desc' }
+      const result = await repo.findByStoragePath(projectId, '/storage/logo.png');
+      expect(result).not.toBeNull();
+      expect(result!.id.value).toBe(newer.value);
+    });
   });
 
   describe('InMemoryAuditLogRepository', () => {

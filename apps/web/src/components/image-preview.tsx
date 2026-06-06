@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { fileContentUrl } from '@/lib/api/file-content';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ImagePreviewProperties {
   projectId: string;
@@ -20,7 +21,7 @@ export function ImagePreview({ projectId, fileNodeId, fileName }: ImagePreviewPr
   return (
     <div className="flex items-center justify-center h-full p-4 overflow-auto">
       {!loaded && (
-        <div className="w-48 h-48 bg-muted animate-pulse rounded" data-testid="image-loading-skeleton" />
+        <Skeleton className="w-48 h-48" />
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

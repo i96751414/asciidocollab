@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 
 // ── Mock useAsciidocPreview ──────────────────────────────────────────────────
@@ -110,6 +110,71 @@ describe('AsciiDocPreview', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'pending', error: null, previewRef: fakeReference });
     render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
     expect(screen.queryByText(/preview error/i)).not.toBeInTheDocument();
+  });
+
+  // scroll sync toggle
+  it('renders scroll sync toggle when onToggleScrollSync is provided', () => {
+    mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
+    render(
+      <AsciiDocPreview
+        content=""
+        isEnabled={true}
+        scrollToLine={null}
+        scrollSyncEnabled={false}
+        onToggleScrollSync={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('scroll-sync-toggle')).toBeInTheDocument();
+  });
+
+  it('does not render scroll sync toggle when onToggleScrollSync is not provided', () => {
+    mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
+    render(<AsciiDocPreview content="" isEnabled={true} scrollToLine={null} />);
+    expect(screen.queryByTestId('scroll-sync-toggle')).not.toBeInTheDocument();
+  });
+
+  it('scroll sync toggle has aria-pressed=false when scrollSyncEnabled is false', () => {
+    mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
+    render(
+      <AsciiDocPreview
+        content=""
+        isEnabled={true}
+        scrollToLine={null}
+        scrollSyncEnabled={false}
+        onToggleScrollSync={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('scroll-sync-toggle')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('scroll sync toggle has aria-pressed=true when scrollSyncEnabled is true', () => {
+    mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
+    render(
+      <AsciiDocPreview
+        content=""
+        isEnabled={true}
+        scrollToLine={null}
+        scrollSyncEnabled={true}
+        onToggleScrollSync={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('scroll-sync-toggle')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('calls onToggleScrollSync when scroll sync toggle is clicked', () => {
+    const onToggle = jest.fn();
+    mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
+    render(
+      <AsciiDocPreview
+        content=""
+        isEnabled={true}
+        scrollToLine={null}
+        scrollSyncEnabled={false}
+        onToggleScrollSync={onToggle}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('scroll-sync-toggle'));
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
   // isAsciiDocFile helper

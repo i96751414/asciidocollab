@@ -27,7 +27,11 @@ class MockWorker {
   }
 }
 
-(globalThis as unknown as { Worker: typeof MockWorker }).Worker = MockWorker;
+// Mock the worker factory so tests never touch import.meta.url or the real worker file.
+// jest.fn() allows spying on call counts; the implementation creates a MockWorker.
+jest.mock('@/lib/create-render-worker', () => ({
+  createRenderWorker: jest.fn(() => new MockWorker()),
+}));
 
 // ── DOMPurify mock ───────────────────────────────────────────────────────────
 
@@ -49,11 +53,16 @@ function lastWorker() {
 
 const mockSanitize = DOMPurify.sanitize as jest.Mock;
 
+import { createRenderWorker } from '@/lib/create-render-worker';
+const mockCreateRenderWorker = createRenderWorker as jest.Mock;
+
 beforeEach(() => {
   jest.useFakeTimers();
   MockWorker.instances = [];
   mockSanitize.mockClear();
   mockSanitize.mockImplementation((html: string) => html.replaceAll(/<script[^>]*>.*?<\/script>/gi, ''));
+  mockCreateRenderWorker.mockClear();
+  mockCreateRenderWorker.mockImplementation(() => new MockWorker());
 });
 
 afterEach(() => {
@@ -362,21 +371,36 @@ describe('useAsciidocPreview', () => {
     expect(mockScrollLine7).not.toHaveBeenCalled();
   });
 
-  // Worker URL contains the expected path
-  it('creates Worker with expected URL containing asciidoc-render', () => {
-    const OriginalWorker = globalThis.Worker;
-    const workerUrls: string[] = [];
-    const CaptureWorker = jest.fn().mockImplementation((url: string) => {
-      workerUrls.push(url);
-      return new MockWorker();
-    });
-    (globalThis as unknown as { Worker: typeof CaptureWorker }).Worker = CaptureWorker;
-
+  // The worker is created via the createRenderWorker factory, not a hardcoded static path.
+  // This ensures Next.js webpack bundles the worker with all dependencies (asciidoctor).
+  it('creates the worker via the createRenderWorker factory', () => {
     renderHook(() => useAsciidocPreview({ content: '= Hello', isEnabled: true, scrollToLine: null }));
-    expect(workerUrls.length).toBeGreaterThan(0);
-    expect(workerUrls[0]).toContain('asciidoc-render');
+    expect(mockCreateRenderWorker).toHaveBeenCalledTimes(1);
+  });
 
-    (globalThis as unknown as { Worker: typeof OriginalWorker }).Worker = OriginalWorker;
+  // Live update: renders new HTML after content changes following initial render
+  it('renders updated HTML after content changes (live update)', () => {
+    const { result, rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useAsciidocPreview({ content, isEnabled: true, scrollToLine: null }),
+      { initialProps: { content: '= Initial' } },
+    );
+
+    act(() => jest.advanceTimersByTime(200));
+    act(() => lastWorker().emit({ requestId: 1, ok: true, html: '<h1>Initial</h1>', error: null }));
+    expect(result.current.state).toBe('up-to-date');
+    expect(result.current.html).toBe('<h1>Initial</h1>');
+
+    // Change content — should re-enter pending then rendering then up-to-date
+    act(() => rerender({ content: '= Updated' }));
+    expect(result.current.state).toBe('pending');
+
+    act(() => jest.advanceTimersByTime(200));
+    expect(result.current.state).toBe('rendering');
+
+    act(() => lastWorker().emit({ requestId: 2, ok: true, html: '<h1>Updated</h1>', error: null }));
+    expect(result.current.state).toBe('up-to-date');
+    expect(result.current.html).toBe('<h1>Updated</h1>');
   });
 
   // debounce null check: debounce timer starts as null so clearTimeout is skipped on first render

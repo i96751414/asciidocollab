@@ -129,6 +129,7 @@ model Asset {
   versions Asset[] @relation("AssetVersion")
 
   @@index([projectId])
+  @@index([projectId, storagePath])
   @@map("assets")
 }
 
@@ -265,12 +266,13 @@ model UserKeyBinding {
 }
 
 model EditorPreferences {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  fontSize  Int      @default(14)
-  theme     String   @default("default")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  fontSize          Int      @default(14)
+  theme             String   @default("default")
+  scrollSyncEnabled Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

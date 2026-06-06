@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { PREVIEW_DEBOUNCE_MS } from '@/lib/editor-config';
+import { createRenderWorker } from '@/lib/create-render-worker';
 
 /** Lifecycle state of the preview panel. */
 export type PreviewState = 'idle' | 'pending' | 'rendering' | 'up-to-date' | 'error';
@@ -71,7 +72,7 @@ export function useAsciidocPreview({
 
   // Mount Worker; teardown on unmount.
   useEffect(() => {
-    const worker = new Worker('/workers/asciidoc-render.worker.js');
+    const worker = createRenderWorker();
     workerReference.current = worker;
 
     worker.addEventListener('message', (event: MessageEvent<RenderResult>) => {
