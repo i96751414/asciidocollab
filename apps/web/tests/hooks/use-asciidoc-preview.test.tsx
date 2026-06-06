@@ -362,6 +362,83 @@ describe('useAsciidocPreview', () => {
     expect(mockScrollLine7).not.toHaveBeenCalled();
   });
 
+  // Worker URL contains the expected path
+  it('creates Worker with expected URL containing asciidoc-render', () => {
+    const OriginalWorker = globalThis.Worker;
+    const workerUrls: string[] = [];
+    const CaptureWorker = jest.fn().mockImplementation((url: string) => {
+      workerUrls.push(url);
+      return new MockWorker();
+    });
+    (globalThis as unknown as { Worker: typeof CaptureWorker }).Worker = CaptureWorker;
+
+    renderHook(() => useAsciidocPreview({ content: '= Hello', isEnabled: true, scrollToLine: null }));
+    expect(workerUrls.length).toBeGreaterThan(0);
+    expect(workerUrls[0]).toContain('asciidoc-render');
+
+    (globalThis as unknown as { Worker: typeof OriginalWorker }).Worker = OriginalWorker;
+  });
+
+  // debounce null check: debounce timer starts as null so clearTimeout is skipped on first render
+  it('does not crash on first content change (debounceReference starts null)', () => {
+    expect(() => {
+      const { rerender } = renderHook(
+        ({ content }: { content: string }) =>
+          useAsciidocPreview({ content, isEnabled: true, scrollToLine: null }),
+        { initialProps: { content: '' } },
+      );
+      act(() => rerender({ content: '= Hello' }));
+    }).not.toThrow();
+  });
+
+  // scrollToLine null guard: no crash when scrollToLine changes but previewRef is null
+  it('does not crash when scrollToLine changes but previewRef.current is null', () => {
+    expect(() => {
+      const { rerender } = renderHook(
+        ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+          useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+        { initialProps: { scrollToLine: null as { line: number } | null } },
+      );
+      act(() => rerender({ scrollToLine: { line: 5 } }));
+    }).not.toThrow();
+  });
+
+  // scroll: no match even in querySelectorAll returns — target stays null, no crash
+  it('does not crash when no elements match data-source-line', () => {
+    const mockQuerySelector = jest.fn().mockReturnValue(null);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([]);
+
+    const { result, rerender } = renderHook(
+      ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+        useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+      { initialProps: { scrollToLine: null as { line: number } | null } },
+    );
+
+    const div = document.createElement('div');
+    Object.defineProperty(div, 'querySelector', { value: mockQuerySelector, configurable: true });
+    Object.defineProperty(div, 'querySelectorAll', { value: mockQuerySelectorAll, configurable: true });
+    Object.assign(result.current.previewRef, { current: div });
+
+    expect(() => {
+      act(() => rerender({ scrollToLine: { line: 99 } }));
+    }).not.toThrow();
+  });
+
+  // result.ok false with html=null goes to error branch, not up-to-date
+  it('goes to error state when ok=true but html=null', () => {
+    const { result } = renderHook(
+      ({ content }: { content: string }) =>
+        useAsciidocPreview({ content, isEnabled: true, scrollToLine: null }),
+      { initialProps: { content: '= Hello' } },
+    );
+
+    act(() => jest.advanceTimersByTime(200));
+    // result.ok=true but html=null → should NOT set up-to-date
+    act(() => lastWorker().emit({ requestId: 1, ok: true, html: null, error: 'unexpected null' }));
+    expect(result.current.state).toBe('error');
+    expect(result.current.error).toBe('unexpected null');
+  });
+
   // (i) DOMPurify.sanitize is called; script tags are stripped from stored html
   it('sanitizes worker HTML through DOMPurify before storing', () => {
     const { result } = renderHook(
@@ -377,5 +454,142 @@ describe('useAsciidocPreview', () => {
     expect(mockSanitize).toHaveBeenCalledWith(rawHtml, { USE_PROFILES: { html: true } });
     expect(result.current.html).not.toContain('<script>');
     expect(result.current.html).toContain('<h1>Hello</h1>');
+  });
+
+  // terminate() must be called when the hook unmounts (kills L92 BlockStatement)
+  it('calls worker.terminate() when the hook unmounts', () => {
+    const { unmount } = renderHook(() =>
+      useAsciidocPreview({ content: '= Hello', isEnabled: true, scrollToLine: null }),
+    );
+    const worker = lastWorker();
+    expect(worker.terminate).not.toHaveBeenCalled();
+    unmount();
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
+  // querySelectorAll must be called with the exact '[data-source-line]' attribute selector (kills L147)
+  it('querySelectorAll is called with exactly "[data-source-line]" when no exact querySelector match', () => {
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([]);
+    const mockQuerySelector = jest.fn().mockReturnValue(null);
+
+    const { result, rerender } = renderHook(
+      ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+        useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+      { initialProps: { scrollToLine: null as { line: number } | null } },
+    );
+
+    const div = document.createElement('div');
+    Object.defineProperty(div, 'querySelector', { value: mockQuerySelector, configurable: true });
+    Object.defineProperty(div, 'querySelectorAll', { value: mockQuerySelectorAll, configurable: true });
+    Object.assign(result.current.previewRef, { current: div });
+
+    act(() => rerender({ scrollToLine: { line: 10 } }));
+
+    expect(mockQuerySelectorAll).toHaveBeenCalledWith('[data-source-line]');
+  });
+
+  // scroll fallback correctness: exactly one element scrolled, the nearest ≤ target (kills L152)
+  it('scroll fallback picks element at line 3, not line 7, when target is line 5', () => {
+    const mockScrollLine3 = jest.fn();
+    const mockScrollLine7 = jest.fn();
+
+    const el1 = document.createElement('p');
+    el1.dataset['sourceLine'] = '1';
+
+    const el3 = document.createElement('p');
+    el3.dataset['sourceLine'] = '3';
+    el3.scrollIntoView = mockScrollLine3;
+
+    const el7 = document.createElement('p');
+    el7.dataset['sourceLine'] = '7';
+    el7.scrollIntoView = mockScrollLine7;
+
+    const mockQuerySelector = jest.fn().mockReturnValue(null);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([el1, el3, el7]);
+
+    const { result, rerender } = renderHook(
+      ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+        useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+      { initialProps: { scrollToLine: null as { line: number } | null } },
+    );
+
+    const div = document.createElement('div');
+    Object.defineProperty(div, 'querySelector', { value: mockQuerySelector, configurable: true });
+    Object.defineProperty(div, 'querySelectorAll', { value: mockQuerySelectorAll, configurable: true });
+    Object.assign(result.current.previewRef, { current: div });
+
+    act(() => rerender({ scrollToLine: { line: 5 } }));
+
+    expect(mockQuerySelectorAll).toHaveBeenCalledWith('[data-source-line]');
+    // el3 (line=3) is the best: 3 ≤ 5 and 3 > 0; el7 (line=7) exceeds target
+    expect(mockScrollLine3).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(mockScrollLine7).not.toHaveBeenCalled();
+  });
+
+  // L152 EqualityOperator: 'elementLine <= line' vs 'elementLine < line'
+  // When elementLine === line (exact match exists in querySelectorAll but querySelector missed),
+  // the ≤ check must still select that element.
+  it('scroll fallback selects element at exact line when querySelector misses but querySelectorAll finds it', () => {
+    const mockScrollExact = jest.fn();
+
+    const elExact = document.createElement('p');
+    elExact.dataset['sourceLine'] = '5';
+    elExact.scrollIntoView = mockScrollExact;
+
+    const elBefore = document.createElement('p');
+    elBefore.dataset['sourceLine'] = '3';
+
+    const mockQuerySelector = jest.fn().mockReturnValue(null);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([elBefore, elExact]);
+
+    const { result, rerender } = renderHook(
+      ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+        useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+      { initialProps: { scrollToLine: null as { line: number } | null } },
+    );
+
+    const div = document.createElement('div');
+    Object.defineProperty(div, 'querySelector', { value: mockQuerySelector, configurable: true });
+    Object.defineProperty(div, 'querySelectorAll', { value: mockQuerySelectorAll, configurable: true });
+    Object.assign(result.current.previewRef, { current: div });
+
+    act(() => rerender({ scrollToLine: { line: 5 } }));
+
+    // The exact-line element (line=5 ≤ 5) must win over elBefore (line=3)
+    expect(mockScrollExact).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  });
+
+  it('scroll fallback picks the first of two elements sharing the same source line', () => {
+    const scrollSpyFirst = jest.fn();
+    const scrollSpySecond = jest.fn();
+
+    const elFirst = document.createElement('p');
+    elFirst.dataset['sourceLine'] = '5';
+    elFirst.scrollIntoView = scrollSpyFirst;
+
+    const elSecond = document.createElement('p');
+    elSecond.dataset['sourceLine'] = '5';
+    elSecond.scrollIntoView = scrollSpySecond;
+
+    const mockQuerySelector = jest.fn().mockReturnValue(null);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([elFirst, elSecond]);
+
+    const { result, rerender } = renderHook(
+      ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
+        useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine }),
+      { initialProps: { scrollToLine: null as { line: number } | null } },
+    );
+
+    const div = document.createElement('div');
+    Object.defineProperty(div, 'querySelector', { value: mockQuerySelector, configurable: true });
+    Object.defineProperty(div, 'querySelectorAll', { value: mockQuerySelectorAll, configurable: true });
+    Object.assign(result.current.previewRef, { current: div });
+
+    act(() => rerender({ scrollToLine: { line: 5 } }));
+
+    // The first element (encountered first in iteration) must be selected since
+    // the second element has the same line number and cannot beat it with strict >
+    expect(scrollSpyFirst).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(scrollSpySecond).not.toHaveBeenCalled();
   });
 });

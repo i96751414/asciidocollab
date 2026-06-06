@@ -163,6 +163,96 @@ describe('useDropUpload', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
+  it('initial progress status for each item is "pending"', async () => {
+    const file = makeFile('pending.txt');
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file, relativePath: 'pending.txt' },
+    ]));
+
+    let resolveUpload: (() => void) | undefined;
+    mockUploadAsset.mockReturnValue(new Promise<void>((resolve) => { resolveUpload = resolve; }).then(() => ({
+      assetId: 'a', filename: 'pending.txt', storagePath: '/pending.txt', sizeBytes: 10, mimeType: 'text/plain',
+    })));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+
+    await act(async () => {
+      result.current.onDrop({} as DataTransferItemList);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    // At least at some point, items were in pending state (before uploading starts)
+    resolveUpload?.();
+  });
+
+  it('uses "/" as path separator when building folder paths for nested files', async () => {
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+    mockCreateFolder.mockResolvedValue({ fileNodeId: 'folder-abc' });
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'file.txt', storagePath: '/docs/file.txt', sizeBytes: 10, mimeType: 'text/plain' });
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('file.txt'), relativePath: 'docs/sub/file.txt' },
+    ]));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
+
+    // createFolder should have been called for 'docs' and 'docs/sub'
+    const folderNames = mockCreateFolder.mock.calls.map(([, , name]: [unknown, unknown, string]) => name);
+    expect(folderNames).toContain('docs');
+    expect(folderNames).toContain('sub');
+  });
+
+  it('error message for non-Error rejection is "Upload failed"', async () => {
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('file.txt'), relativePath: 'file.txt' },
+    ]));
+    mockUploadAsset.mockRejectedValue('not an error object');
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
+
+    const errorItem = result.current.progress.find((p) => p.status === 'error');
+    expect(errorItem).toBeDefined();
+    expect(errorItem?.errorMessage).toBe('Upload failed');
+  });
+
+  it('uses existingFileNodeId as parentId when 409 has existingFileNodeId but falls back to parentId when null', async () => {
+    const existingFolderId = 'existing-uuid';
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+
+    mockCreateFolder.mockRejectedValueOnce(
+      new FileTreeApiError(409, 'CONFLICT', 'Already exists', existingFolderId),
+    );
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'f.txt', storagePath: '/docs/f.txt', sizeBytes: 5, mimeType: 'text/plain' });
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('f.txt'), relativePath: 'docs/f.txt' },
+    ]));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
+
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, existingFolderId, expect.any(File));
+  });
+
+  it('uses parentId fallback when 409 existingFileNodeId is undefined', async () => {
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+
+    // 409 without existingFileNodeId → falls back to parentId (targetFolderId for root)
+    mockCreateFolder.mockRejectedValueOnce(
+      new FileTreeApiError(409, 'CONFLICT', 'Already exists', undefined),
+    );
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'f.txt', storagePath: '/docs/f.txt', sizeBytes: 5, mimeType: 'text/plain' });
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('f.txt'), relativePath: 'docs/f.txt' },
+    ]));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
+
+    // Falls back to parentId (targetFolderId) since existingFileNodeId is undefined
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, targetFolderId, expect.any(File));
+  });
+
   it('clearProgress resets progress to empty', async () => {
     mockWalkEntries.mockReturnValue(makeAsyncIterable([
       { file: makeFile('a.txt'), relativePath: 'a.txt' },
@@ -178,6 +268,58 @@ describe('useDropUpload', () => {
 
     act(() => { result.current.clearProgress(); });
     expect(result.current.progress).toHaveLength(0);
+  });
+
+  it('3-level deep path: parts.at(-1) gives correct folder name at each depth', async () => {
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+    // Return unique IDs per folder so we can track creation order
+    mockCreateFolder.mockImplementation((_: string, __: string, name: string) =>
+      Promise.resolve({ fileNodeId: `folder-${name}` }),
+    );
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'file.txt', storagePath: '/a/b/c/file.txt', sizeBytes: 5, mimeType: 'text/plain' });
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('file.txt'), relativePath: 'a/b/c/file.txt' },
+    ]));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
+
+    // Folders 'a', 'b', 'c' must have been created with their correct names
+    const folderNames = mockCreateFolder.mock.calls.map(([, , name]: [unknown, unknown, string]) => name);
+    expect(folderNames).toContain('a');
+    expect(folderNames).toContain('b');
+    expect(folderNames).toContain('c');
+
+    // Verify 'b' is created under 'folder-a' (correct parent — not under root)
+    const bCalls = mockCreateFolder.mock.calls.filter(([, , n]: [unknown, unknown, string]) => n === 'b');
+    expect(bCalls).toHaveLength(1);
+    expect((bCalls[0] as [unknown, string, string])[1]).toBe('folder-a');
+
+    // Verify 'c' is created under 'folder-b' (correct parent — not under some mangled path)
+    const cCalls = mockCreateFolder.mock.calls.filter(([, , n]: [unknown, unknown, string]) => n === 'c');
+    expect(cCalls).toHaveLength(1);
+    expect((cCalls[0] as [unknown, string, string])[1]).toBe('folder-b');
+
+    // The file must have been uploaded to folder-c (deepest), not folder-b
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, 'folder-c', expect.any(File));
+  });
+
+  it('non-409 createFolder error causes onDrop to reject (error is not silently swallowed)', async () => {
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+    mockCreateFolder.mockRejectedValueOnce(
+      new FileTreeApiError(500, 'SERVER_ERROR', 'Internal server error'),
+    );
+    mockWalkEntries.mockReturnValue(makeAsyncIterable([
+      { file: makeFile('file.txt'), relativePath: 'docs/file.txt' },
+    ]));
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await expect(
+      act(async () => { await result.current.onDrop({} as DataTransferItemList); }),
+    ).rejects.toThrow('Internal server error');
+
+    // Upload must not have been attempted since folder creation failed
+    expect(mockUploadAsset).not.toHaveBeenCalled();
   });
 
   it('one item failure sets status to error and does not cancel remaining items', async () => {

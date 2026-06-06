@@ -1,62 +1,86 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useKeyBindings } from '@/hooks/use-key-bindings';
 
-globalThis.fetch = jest.fn();
+const mockFetch = jest.fn();
+globalThis.fetch = mockFetch;
 
-const mockBindings = [
-  { action: 'file-tree:rename', keyCombo: 'F2', isDefault: true },
-  { action: 'file-tree:delete', keyCombo: 'Delete', isDefault: true },
-  { action: 'file-tree:new-file', keyCombo: 'Ctrl+N', isDefault: true },
-  { action: 'file-tree:new-folder', keyCombo: 'Ctrl+Shift+N', isDefault: true },
-];
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve([]) });
+});
 
-describe('useKeyBindings', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockBindings),
-    });
+test('fetch uses credentials: include', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve([{ action: 'ns:act', keyCombo: 'A' }]),
   });
+  renderHook(() => useKeyBindings('editor'));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const [, options] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+  expect(options.credentials).toBe('include');
+});
 
-  it('fetches GET /users/me/keybindings?namespace=file-tree on mount', async () => {
-    renderHook(() => useKeyBindings('file-tree'));
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/users/me/keybindings?namespace=file-tree'),
-        expect.any(Object),
-      );
-    });
+test('fetch credentials value is exactly "include" (not empty string)', async () => {
+  renderHook(() => useKeyBindings('editor'));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const [, options] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+  expect(options.credentials).not.toBe('');
+  expect(options.credentials).toBe('include');
+});
+
+test('re-fetches when namespace changes (useEffect re-runs)', async () => {
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve([]) });
+  const { rerender } = renderHook(
+    ({ ns }: { ns: string }) => useKeyBindings(ns),
+    { initialProps: { ns: 'editor' } },
+  );
+
+  await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+  mockFetch.mockClear();
+
+  // Change namespace — should trigger a re-fetch
+  act(() => rerender({ ns: 'file-tree' }));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+  const url = String(mockFetch.mock.calls[0][0]);
+  expect(url).toContain('file-tree');
+});
+
+test('fetch URL contains namespace query parameter', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve([{ action: 'editor:save', keyCombo: 'Ctrl+S' }]),
   });
+  renderHook(() => useKeyBindings('editor'));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const url = String(mockFetch.mock.calls[0][0]);
+  expect(url).toContain('namespace=editor');
+});
 
-  it('returns correct Map<action, keyCombo>', async () => {
-    const { result } = renderHook(() => useKeyBindings('file-tree'));
-    await waitFor(() => expect(result.current.get('file-tree:rename')).toBe('F2'));
-    expect(result.current.get('file-tree:delete')).toBe('Delete');
+test('fetch URL contains the API base http://localhost:4000', async () => {
+  renderHook(() => useKeyBindings('editor'));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const url = String(mockFetch.mock.calls[0][0]);
+  expect(url).toContain('http://localhost:4000');
+});
+
+test('returns Map with correct action→keyCombo entries', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve([{ action: 'editor:save', keyCombo: 'Ctrl+S' }]),
   });
+  const { result } = renderHook(() => useKeyBindings('editor'));
+  await waitFor(() => expect(result.current.size).toBeGreaterThan(0));
+  expect(result.current.get('editor:save')).toBe('Ctrl+S');
+});
 
-  it('returns empty map when response is not ok', async () => {
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve([]),
-    });
-    const { result } = renderHook(() => useKeyBindings('file-tree'));
-    await waitFor(() => expect(result.current.size).toBe(0));
+test('returns empty Map when response is not ok', async () => {
+  mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve([]) });
+  const { result } = renderHook(() => useKeyBindings('editor'));
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
-
-  it('re-fetches when namespace changes', async () => {
-    const fetchMock = globalThis.fetch as jest.Mock;
-    fetchMock.mockClear();
-
-    const { rerender } = renderHook(({ ns }: { ns: string }) => useKeyBindings(ns), {
-      initialProps: { ns: 'file-tree' },
-    });
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const firstCallCount = fetchMock.mock.calls.length;
-
-    rerender({ ns: 'other' });
-
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(firstCallCount));
-  });
+  expect(result.current.size).toBe(0);
 });

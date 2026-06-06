@@ -23,12 +23,18 @@ jest.mock('@/components/file-tree/file-tree', () => ({
 }));
 
 jest.mock('@/components/editor/asciidoc-editor', () => ({
-  AsciiDocEditor: ({ onLineClick }: { onLineClick?: (line: number) => void }) => (
+  AsciiDocEditor: ({ onScrollLine }: { onScrollLine?: (line: number) => void }) => (
     <div data-testid="asciidoc-editor">
-      {onLineClick && (
-        <button data-testid="editor-line-click" onClick={() => onLineClick(10)} />
+      {onScrollLine && (
+        <button data-testid="editor-scroll-line" onClick={() => onScrollLine(10)} />
       )}
     </div>
+  ),
+}));
+
+jest.mock('@/components/image-preview', () => ({
+  ImagePreview: ({ fileName }: { fileName: string }) => (
+    <div data-testid="image-preview">{fileName}</div>
   ),
 }));
 
@@ -63,6 +69,7 @@ const mockUseFileSelection = useFileSelection as jest.Mock;
 import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
 
 const adocFile = { nodeId: 'node-1', nodeName: 'doc.adoc', nodePath: '/doc.adoc', nodeType: 'file' as const };
+const imageFile = { nodeId: 'img-1', nodeName: 'photo.png', nodePath: '/photo.png', nodeType: 'file' as const };
 const noFile = null;
 
 function makeContentState(overrides = {}) {
@@ -103,7 +110,7 @@ describe('ProjectEditorLayout — ContentArea states', () => {
     expect(document.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('shows binary-file message when content is binary', () => {
+  it('shows binary-file message when content is binary and not an image', () => {
     mockUseFileSelection.mockReturnValue({
       selectedFile: adocFile,
       contentState: makeContentState({ isBinary: true }),
@@ -114,6 +121,19 @@ describe('ProjectEditorLayout — ContentArea states', () => {
 
     expect(screen.getByText('Preview not available for binary files.')).toBeInTheDocument();
     expect(screen.queryByTestId('asciidoc-editor')).not.toBeInTheDocument();
+  });
+
+  it('shows ImagePreview when a binary image file is selected', () => {
+    mockUseFileSelection.mockReturnValue({
+      selectedFile: imageFile,
+      contentState: makeContentState({ isBinary: true }),
+      selectFile: jest.fn(),
+    });
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    expect(screen.getByTestId('image-preview')).toBeInTheDocument();
+    expect(screen.queryByText('Preview not available for binary files.')).not.toBeInTheDocument();
   });
 
   it('shows error message when content has an error', () => {
@@ -130,10 +150,10 @@ describe('ProjectEditorLayout — ContentArea states', () => {
   });
 });
 
-// ── onLineClick propagation ───────────────────────────────────────────────────
+// ── onScrollLine propagation ───────────────────────────────────────────────────
 
-describe('ProjectEditorLayout — onLineClick', () => {
-  it('clicking a line in the editor updates scrollToLine passed to AsciiDocPreview', () => {
+describe('ProjectEditorLayout — onScrollLine', () => {
+  it('scrolling the editor updates scrollToLine passed to AsciiDocPreview', () => {
     mockUseFileSelection.mockReturnValue({
       selectedFile: adocFile,
       contentState: makeContentState(),
@@ -143,11 +163,11 @@ describe('ProjectEditorLayout — onLineClick', () => {
 
     render(<ProjectEditorLayout {...defaultProps} />);
 
-    // Before any click — no scroll request
+    // Before any scroll — no scroll request
     expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-scroll-line', '');
 
-    // Click line 10 in the editor
-    fireEvent.click(screen.getByTestId('editor-line-click'));
+    // Simulate editor scroll at line 10
+    fireEvent.click(screen.getByTestId('editor-scroll-line'));
 
     // Preview should now show scroll to line 10
     expect(screen.getByTestId('asciidoc-preview')).toHaveAttribute('data-scroll-line', '10');

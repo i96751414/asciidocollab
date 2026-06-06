@@ -34,12 +34,9 @@ interface UseEditorMountOptions {
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
-  /**
-   * Called with the 1-based line number when the author clicks in the editor.
-   *
-   * @param line - 1-based line number of the clicked position.
-   */
   onLineClick?: (line: number) => void;
+  /** Called with the 1-based line at the top of the editor viewport as the user scrolls. */
+  onScrollLine?: (line: number) => void;
 }
 
 /** Manages the full CodeMirror 6 view lifecycle: mount, teardown, content/readOnly sync. */
@@ -54,6 +51,7 @@ export function useEditorMount({
   onNavigateToFile,
   onOpenUrl,
   onLineClick,
+  onScrollLine,
 }: UseEditorMountOptions) {
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
@@ -64,6 +62,8 @@ export function useEditorMount({
   useEffect(() => { imagePathsReference.current = imagePaths; }, [imagePaths]);
   const onLineClickReference = useRef(onLineClick);
   useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
+  const onScrollLineReference = useRef(onScrollLine);
+  useEffect(() => { onScrollLineReference.current = onScrollLine; }, [onScrollLine]);
 
   // Stable heading-click callback — viewReference is a ref, so no deps needed.
   const handleHeadingClick = useCallback((entry: { from: number }) => {
@@ -137,6 +137,22 @@ export function useEditorMount({
     viewReference.current = view;
     try { onOutlineChange(view.state.field(outlineField)); } catch { /* field not installed */ }
 
+    // Scroll sync: fire onScrollLine with the 1-based line at the top of the viewport.
+    let scrollDebounce: ReturnType<typeof setTimeout> | null = null;
+    const handleEditorScroll = () => {
+      if (!onScrollLineReference.current) return;
+      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
+      scrollDebounce = setTimeout(() => {
+        scrollDebounce = null;
+        const rect = view.scrollDOM.getBoundingClientRect();
+        const pos = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 });
+        if (pos !== null) {
+          onScrollLineReference.current?.(view.state.doc.lineAt(pos).number);
+        }
+      }, 50);
+    };
+    view.scrollDOM.addEventListener('scroll', handleEditorScroll, { passive: true });
+
     const linkHandler = createLinkHandler(
       {
         onNavigateToFile,
@@ -151,6 +167,8 @@ export function useEditorMount({
     view.dom.addEventListener('mousedown', mousedownFunction);
 
     return () => {
+      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
+      view.scrollDOM.removeEventListener('scroll', handleEditorScroll);
       view.dom.removeEventListener('mousedown', mousedownFunction);
       view.destroy();
       viewReference.current = null;

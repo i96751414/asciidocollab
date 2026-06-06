@@ -22,6 +22,22 @@ describe('uploadAsset', () => {
     return new File([blob], name, { type });
   }
 
+  test('sends POST to URL containing http://localhost:4000/projects', async () => {
+    fetchMock.mockReturnValueOnce(mockOk({ assetId: 'a1', storagePath: '/uploads/img.png' }));
+    const file = makeFile('img.png', 'image/png', 100);
+    await uploadAsset('p1', 'folder1', file);
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('http://localhost:4000');
+    expect(url).toContain('/projects/p1/assets');
+  });
+
+  test('sends credentials: include', async () => {
+    fetchMock.mockReturnValueOnce(mockOk({ assetId: 'a1', storagePath: '/uploads/img.png' }));
+    const file = makeFile('img.png', 'image/png', 100);
+    await uploadAsset('p1', 'folder1', file);
+    expect(fetchMock.mock.calls[0][1].credentials).toBe('include');
+  });
+
   test('sends multipart POST and returns AssetMetadata on success', async () => {
     fetchMock.mockReturnValueOnce(
       mockOk({ assetId: 'a1', storagePath: '/uploads/img.png' }),
@@ -32,6 +48,15 @@ describe('uploadAsset', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');
     expect(String(fetchMock.mock.calls[0][0])).toContain('/projects/p1/assets');
     expect(String(fetchMock.mock.calls[0][0])).toContain('parentId=folder1');
+
+    // Verify the FormData uses the field name "file" — if this changes the API rejects the upload
+    const body = fetchMock.mock.calls[0][1].body as FormData;
+    expect(body).toBeInstanceOf(FormData);
+    const uploadedFile = body.get('file') as File;
+    expect(uploadedFile).not.toBeNull();
+    expect(uploadedFile.name).toBe('img.png');
+    expect(uploadedFile.type).toBe('image/png');
+
     expect(result.assetId).toBe('a1');
     expect(result.filename).toBe('img.png');
     expect(result.mimeType).toBe('image/png');
@@ -54,6 +79,22 @@ describe('uploadAsset', () => {
     const file = makeFile('file.png', 'image/png', 100);
     const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
     expect((error as Error).message).toContain('500');
+    expect((error as Error & { code?: string }).code).toBe('UPLOAD_ERROR');
+  });
+
+  test('error.message uses body.error.message when present', async () => {
+    fetchMock.mockReturnValueOnce(mockErr(400, { error: { message: 'File too large', code: 'SIZE_LIMIT' } }));
+    const file = makeFile('big.png', 'image/png', 100);
+    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    expect((error as Error).message).toBe('File too large');
+  });
+
+  test('falls back when response.json() returns null', async () => {
+    fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
+    const file = makeFile('file.png', 'image/png', 100);
+    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('500');
+    expect((error as Error & { code?: string }).code).toBe('UPLOAD_ERROR');
   });
 
   test('falls back to empty object when json() rejects on error response', async () => {

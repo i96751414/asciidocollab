@@ -10,6 +10,7 @@ jest.mock('@codemirror/search', () => ({
 jest.mock('@codemirror/view', () => ({
   EditorView: class MockEditorView {
     dom: HTMLDivElement;
+    scrollDOM: HTMLDivElement;
     state: { doc: { toString: () => string } };
     static updateListener = { of: (function_: unknown) => ({ function_ }) };
     static lineWrapping = {};
@@ -23,6 +24,7 @@ jest.mock('@codemirror/view', () => ({
       this.dom.setAttribute('contenteditable', state.readOnly ? 'false' : 'true');
       this.dom.dataset['testid'] = 'cm-editor';
       this.dom.textContent = state.doc.toString();
+      this.scrollDOM = document.createElement('div');
       this.state = { doc: { toString: () => state.doc.toString() } };
       parent.append(this.dom);
     }

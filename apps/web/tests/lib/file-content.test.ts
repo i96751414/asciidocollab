@@ -13,6 +13,19 @@ beforeEach(() => {
 // returned void and discarded the header, making any caller that used this
 // helper instead of raw fetch blind to concurrent edits.
 describe('saveDocumentContent', () => {
+  test('sends PUT with credentials include and Content-Type text/plain', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      headers: { get: () => null },
+    });
+    await saveDocumentContent('proj-1', 'file-1', 'content');
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(options.method).toBe('PUT');
+    expect(options.credentials).toBe('include');
+    expect((options.headers as Record<string, string>)['Content-Type']).toBe('text/plain');
+  });
+
   test('returns the ETag from the PUT response when the save succeeds', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -52,6 +65,26 @@ describe('saveDocumentContent', () => {
 });
 
 describe('getDocumentContent', () => {
+  test('sends GET with credentials include', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('content'),
+    });
+    await getDocumentContent('proj-1', 'file-1');
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(options.credentials).toBe('include');
+  });
+
+  test('falls back when response.json() returns null on error', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve(null),
+    });
+    await expect(getDocumentContent('proj-1', 'file-1')).rejects.toThrow('Failed to fetch content: 500');
+  });
+
   test('returns text content on success', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -90,6 +123,16 @@ describe('saveDocumentContent — error path fallback', () => {
       json: () => Promise.reject(new Error('parse')),
     });
     await expect(saveDocumentContent('proj-1', 'file-1', 'x')).rejects.toThrow('Failed to save content: 503');
+  });
+
+  test('falls back to status code message when json() returns null', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      headers: { get: () => null },
+      json: () => Promise.resolve(null),
+    });
+    await expect(saveDocumentContent('proj-1', 'file-1', 'x')).rejects.toThrow('Failed to save content: 500');
   });
 });
 

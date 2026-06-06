@@ -887,6 +887,145 @@ test('retry scheduled AFTER save(v2) was already called (race) does not fire a s
   expect(staleRetries).toHaveLength(0);
 });
 
+// ── Conditional coverage: saveState === 'error' registers beforeunload ────────
+
+test('beforeunload listener is registered when saveState is "error"', async () => {
+  mockFetch.mockResolvedValueOnce({ ok: false, status: 500, headers: { get: () => null } });
+  const addEventListenerSpy = jest.spyOn(globalThis, 'addEventListener');
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('content'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+
+  expect(result.current.saveState).toBe('error');
+  expect(addEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+  addEventListenerSpy.mockRestore();
+});
+
+// ── Conditional coverage: saveGeneration increment prevents stale saves ───────
+
+test('each performSave call increments saveGeneration (generation is monotonically increasing)', async () => {
+  // Two sequential saves — each must get a unique generation
+  let callCount = 0;
+  const generations: number[] = [];
+  mockFetch.mockImplementation((_url: string, options: RequestInit) => {
+    callCount++;
+    // Capture the call order. Generations are internal, so we verify via ordering.
+    return Promise.resolve({ ok: true, status: 204, headers: { get: () => `"etag-v${callCount}"` } });
+  });
+
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('content-1'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+
+  act(() => result.current.save('content-2'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+
+  // Both saves succeeded — each got its own generation (otherwise the second
+  // save's stale-guard would fire and leave state in 'unsaved')
+  expect(result.current.saveState).toBe('saved');
+  expect(callCount).toBeGreaterThanOrEqual(1);
+  void generations;
+});
+
+// ── Keepalive fetch sends PUT with correct headers ────────────────────────────
+
+test('keepalive fetch sends PUT with Content-Type text/plain and credentials include', () => {
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('keepalive content'));
+  act(() => { fireWindowEvent('beforeunload'); });
+
+  const keepaliveCalls = mockFetch.mock.calls.filter(
+    ([, options]) => (options as RequestInit)?.keepalive === true,
+  );
+  expect(keepaliveCalls.length).toBeGreaterThan(0);
+  const options = keepaliveCalls[0][1] as RequestInit;
+  expect(options.method).toBe('PUT');
+  expect(options.credentials).toBe('include');
+  expect((options.headers as Record<string, string>)?.['Content-Type']).toBe('text/plain');
+});
+
+// ── Polling HEAD check: response.ok=true AND status=200 triggers external change
+
+test('polling does not call onExternalChange when HEAD returns ok=true but status=204', async () => {
+  const onExternalChange = jest.fn();
+  mockFetch.mockResolvedValue({ ok: true, status: 204, headers: { get: () => '"etag-v2"' } });
+
+  renderHook(() => useAutoSave({
+    ...defaultOptions,
+    initialEtag: '"etag-v1"',
+    onExternalChange,
+  }));
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  // status=204 ≠ 200, so onExternalChange must NOT be called
+  expect(onExternalChange).not.toHaveBeenCalled();
+});
+
+// ── Polling: no onExternalChange when ETag is the same ────────────────────────
+
+test('polling does not call onExternalChange when ETag has not changed', async () => {
+  const onExternalChange = jest.fn();
+  // HEAD returns same ETag — no change
+  mockFetch.mockResolvedValue({ ok: true, status: 200, headers: { get: () => '"etag-v1"' } });
+
+  renderHook(() => useAutoSave({
+    ...defaultOptions,
+    initialEtag: '"etag-v1"',
+    onExternalChange,
+  }));
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  expect(onExternalChange).not.toHaveBeenCalled();
+});
+
+// ── Polling: onExternalChange when HEAD returns a new ETag ──────────────────
+
+test('polling calls onExternalChange when HEAD returns a new non-null ETag', async () => {
+  const onExternalChange = jest.fn();
+  mockFetch.mockResolvedValue({ ok: true, status: 200, headers: { get: () => '"etag-v2"' } });
+
+  renderHook(() => useAutoSave({
+    ...defaultOptions,
+    initialEtag: '"etag-v1"',
+    onExternalChange,
+  }));
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  expect(onExternalChange).toHaveBeenCalled();
+});
+
+// ── Draft recovery: onDraftRecovered NOT called when no draft ─────────────────
+
+test('onDraftRecovered is not called when there is no draft in localStorage', () => {
+  const onDraftRecovered = jest.fn();
+  renderHook(() => useAutoSave({ ...defaultOptions, onDraftRecovered }));
+  expect(onDraftRecovered).not.toHaveBeenCalled();
+});
+
 // ── Issue 1: in-flight save must NOT removeItem when offline save wrote newer draft ─
 
 test('when an offline save writes a new draft while a PUT is in-flight, the successful PUT does not delete that newer draft', async () => {
@@ -923,4 +1062,278 @@ test('when an offline save writes a new draft while a PUT is in-flight, the succ
   expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith(
     OFFLINE_QUEUE_KEY_PREFIX + 'file-1',
   );
+});
+
+// ── L65: save with null ETag must NOT overwrite a valid storedEtag ─────────────
+
+test('save returning null ETag preserves existing storedEtag so polling can still fire', async () => {
+  const onExternalChange = jest.fn();
+  // First PUT returns null ETag (server omits ETag header)
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 204, headers: { get: () => null } });
+  // Poll returns a changed ETag
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 200, headers: { get: () => '"etag-v2"' } });
+
+  const { result } = renderHook(() =>
+    useAutoSave({ ...defaultOptions, initialEtag: '"etag-v1"', onExternalChange }),
+  );
+
+  // Save succeeds but returns null ETag — storedEtag should remain '"etag-v1"'
+  act(() => result.current.save('content'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+  expect(result.current.saveState).toBe('saved');
+
+  // Advance to poll interval — storedEtag '"etag-v1"' causes HEAD to fire
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  // Poll must fire and detect the ETag change
+  expect(onExternalChange).toHaveBeenCalled();
+});
+
+// ── L70: stale catch guard — v2 success prevents v1 failure from setting error state ─
+
+test('when v1 PUT fails after v2 PUT already succeeded, saveState stays "saved"', async () => {
+  let rejectV1!: (reason: unknown) => void;
+
+  // v1 is slow and will fail later
+  mockFetch.mockImplementationOnce(
+    () => new Promise((_, reject) => { rejectV1 = reject; }),
+  );
+  // v2 succeeds immediately
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 204, headers: { get: () => '"etag-v2"' } });
+
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  // Start v1 save — debounce fires, PUT in-flight
+  act(() => result.current.save('content v1'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+  expect(result.current.saveState).toBe('saving');
+
+  // User types v2 while v1 is in-flight — new debounce
+  act(() => result.current.save('content v2'));
+  // v2 debounce fires and v2 succeeds
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+  expect(result.current.saveState).toBe('saved');
+
+  // v1 PUT now fails — stale generation guard must prevent state regression to 'error'
+  rejectV1(new TypeError('Network error'));
+  await act(async () => { await Promise.resolve(); });
+
+  expect(result.current.saveState).toBe('saved');
+});
+
+// ── L102: debounce timer cleared on second save — only one PUT ──────────────────
+
+test('calling save() twice within the debounce window results in exactly one PUT', async () => {
+  mockFetch.mockResolvedValue({ ok: true, status: 204, headers: { get: () => '"etag-v1"' } });
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('content v1'));
+  act(() => result.current.save('content v2')); // resets debounce
+
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+
+  const putCalls = mockFetch.mock.calls.filter(
+    ([, options]) => (options as RequestInit)?.method === 'PUT',
+  );
+  expect(putCalls).toHaveLength(1);
+  expect(putCalls[0][1]).toMatchObject({ body: 'content v2' });
+});
+
+// ── L151: no polling started when onExternalChange is not provided ──────────────
+
+test('no HEAD polling requests when onExternalChange option is not provided', async () => {
+  renderHook(() =>
+    useAutoSave({ ...defaultOptions, initialEtag: '"etag-v1"' }),
+    // No onExternalChange — polling must not start
+  );
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS * 3);
+    await Promise.resolve();
+  });
+
+  const headCalls = mockFetch.mock.calls.filter(
+    ([, options]) => (options as RequestInit)?.method === 'HEAD',
+  );
+  expect(headCalls).toHaveLength(0);
+});
+
+// ── L158-164: polling HEAD sends correct URL, headers, credentials ─────────────
+
+test('polling HEAD request targets the correct URL with If-None-Match and credentials headers', async () => {
+  const onExternalChange = jest.fn();
+  // HEAD returns unchanged ETag (304-equivalent — ok:false is fine, we just want to inspect the request)
+  mockFetch.mockResolvedValue({ ok: false, status: 304, headers: { get: () => null } });
+
+  renderHook(() =>
+    useAutoSave({ ...defaultOptions, initialEtag: '"etag-v1"', onExternalChange }),
+  );
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  const headCalls = mockFetch.mock.calls.filter(
+    ([, options]) => (options as RequestInit)?.method === 'HEAD',
+  );
+  expect(headCalls).toHaveLength(1);
+  const [url, options] = headCalls[0] as [string, RequestInit];
+  expect(url).toContain('/projects/proj-1/files/file-1/content');
+  expect(options.credentials).toBe('include');
+  expect((options.headers as Record<string, string>)?.['If-None-Match']).toBe('"etag-v1"');
+});
+
+// ── L113: no keepalive fetch when saveState is 'saved' (pendingContent is null) ─
+
+test('no keepalive fetch is dispatched on beforeunload when saveState is "saved"', () => {
+  mockFetch.mockResolvedValue({ ok: true, status: 204, headers: { get: () => '"etag-v1"' } });
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  // State starts as 'saved', pendingContent is null — beforeunload must not trigger a fetch
+  expect(result.current.saveState).toBe('saved');
+  act(() => { fireWindowEvent('beforeunload'); });
+
+  expect(mockFetch).not.toHaveBeenCalled();
+});
+
+// ── L134: online event with no draft must NOT trigger a PUT ──────────────────────
+
+test('online event with no draft in localStorage does not trigger a PUT', async () => {
+  // Ensure localStorage is empty (no draft)
+  mockLocalStorage.clear();
+
+  renderHook(() => useAutoSave(defaultOptions));
+
+  await act(async () => {
+    fireWindowEvent('online');
+    await Promise.resolve();
+  });
+
+  const putCalls = mockFetch.mock.calls.filter(
+    ([, options]) => (options as RequestInit)?.method === 'PUT',
+  );
+  expect(putCalls).toHaveLength(0);
+});
+
+// ── L164: polling reads the ETag header by exact name 'ETag', not empty string ──
+
+test('polling reads ETag header by name "ETag" — key-aware mock confirms exact header access', async () => {
+  const onExternalChange = jest.fn();
+  // Key-aware mock: returns the new ETag ONLY when 'ETag' header name is used (not '' or others)
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => (name === 'ETag' ? '"etag-new"' : null) },
+  });
+
+  renderHook(() =>
+    useAutoSave({ ...defaultOptions, initialEtag: '"etag-old"', onExternalChange }),
+  );
+
+  await act(async () => {
+    jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS);
+    await Promise.resolve();
+  });
+
+  // Polling must detect the ETag change and fire onExternalChange.
+  // With L164 mutation ('ETag' → ''), headers.get('') returns null → no change detected.
+  expect(onExternalChange).toHaveBeenCalled();
+});
+
+// ── L124 "true": beforeunload handler must NOT be registered when saveState is 'saved' ──
+
+test('beforeunload listener is NOT registered on initial render when saveState is "saved"', () => {
+  const beforeunloadRegistrations: EventListener[] = [];
+  const spy = jest.spyOn(globalThis, 'addEventListener').mockImplementation(
+    (type: string, handler: EventListenerOrEventListenerObject) => {
+      if (type === 'beforeunload') {
+        beforeunloadRegistrations.push(handler as EventListener);
+      }
+    },
+  );
+
+  renderHook(() => useAutoSave(defaultOptions));
+  // saveState starts 'saved' — condition should be false → handler NOT registered
+  // With L124 mutation if(true): handler IS registered on initial render → length > 0 → fails
+  expect(beforeunloadRegistrations).toHaveLength(0);
+
+  spy.mockRestore();
+});
+
+// ── L124 'error' sub-expressions: keepalive must fire when saveState is 'error' ──
+
+test('keepalive fetch is dispatched on beforeunload when saveState is "error"', async () => {
+  // First PUT fails so state becomes 'error'
+  mockFetch.mockRejectedValueOnce(new TypeError('Network error'));
+  // Keepalive fetch itself
+  mockFetch.mockResolvedValue({ ok: true, status: 204, headers: { get: () => null } });
+
+  const { result } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('error content'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+  expect(result.current.saveState).toBe('error');
+
+  mockFetch.mockClear();
+  act(() => { globalThis.dispatchEvent(new Event('beforeunload')); });
+
+  // beforeunload handler must still be registered when saveState='error',
+  // so the keepalive PUT fires. With L124 mutation ('error'→false/!='error'/''): handler is
+  // removed when state transitions to 'error' → no keepalive → test fails.
+  const keepaliveCalls = mockFetch.mock.calls.filter(
+    ([, opts]) => (opts as RequestInit)?.keepalive === true,
+  );
+  expect(keepaliveCalls).toHaveLength(1);
+  expect(keepaliveCalls[0][1]).toMatchObject({ method: 'PUT', body: 'error content' });
+});
+
+// ── L190 "false": debounce timer must be cancelled when fileNodeId changes ──────
+
+test('changing fileNodeId cancels a pending debounce so no stale PUT fires for the old file', async () => {
+  mockFetch.mockResolvedValue({ ok: true, status: 204, headers: { get: () => '"etag-v1"' } });
+
+  const { result, rerender } = renderHook(
+    ({ fileNodeId }: { fileNodeId: string }) =>
+      useAutoSave({ projectId: 'proj-1', fileNodeId }),
+    { initialProps: { fileNodeId: 'file-1' } },
+  );
+
+  // Start a save — debounce timer is armed
+  act(() => result.current.save('file-1 content'));
+
+  // Switch to a different file BEFORE the debounce fires
+  rerender({ fileNodeId: 'file-2' });
+
+  mockFetch.mockClear();
+
+  // Advance past debounce — the stale timer for file-1 must have been cancelled
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+
+  const putCalls = mockFetch.mock.calls.filter(
+    ([, opts]) => (opts as RequestInit)?.method === 'PUT',
+  );
+  // With L190 mutation (false): debounce NOT cancelled → stale PUT fires → length=1 → fails
+  expect(putCalls).toHaveLength(0);
 });

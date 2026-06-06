@@ -67,7 +67,15 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('group', { name: /inline/i })).toBeInTheDocument();
   });
 
-  test('clicking Bold wraps selected text in **...**', () => {
+  test('clicking Bold with no selection inserts *bold* placeholder', () => {
+    const view = createMockView('');
+    render(<EditorToolbar view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: /bold/i }));
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toBe('*bold*');
+  });
+
+  test('clicking Bold with selected text wraps it in * ... *', () => {
     const view = createMockView('hello world');
     view.state.selection.main.from = 0;
     view.state.selection.main.to = 5;
@@ -76,21 +84,48 @@ describe('EditorToolbar', () => {
 
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /bold/i }));
-    expect((view as unknown as { dispatched: unknown[] }).dispatched.length).toBeGreaterThan(0);
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toBe('*hello*');
   });
 
-  test(String.raw`clicking Code Block with no selection inserts a ----\n\n---- snippet`, () => {
+  test('clicking Code Block inserts a ----\\n\\n---- snippet', () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /code block/i }));
-    expect((view as unknown as { dispatched: unknown[] }).dispatched.length).toBeGreaterThan(0);
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toContain('----');
   });
 
-  test('clicking Heading 2 inserts == at line start', () => {
+  test('clicking Heading 2 inserts == prefix at line start', () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /heading 2/i }));
-    expect((view as unknown as { dispatched: unknown[] }).dispatched.length).toBeGreaterThan(0);
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toBe('== ');
+  });
+
+  test('clicking NOTE inserts [NOTE] admonition snippet', () => {
+    const view = createMockView('');
+    render(<EditorToolbar view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: /^note$/i }));
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toContain('[NOTE]');
+  });
+
+  test('clicking Link inserts link: snippet', () => {
+    const view = createMockView('');
+    render(<EditorToolbar view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: /^link$/i }));
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toContain('link:');
+  });
+
+  test('clicking Image inserts image:: snippet', () => {
+    const view = createMockView('');
+    render(<EditorToolbar view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: /^image$/i }));
+    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    expect(tr.changes.insert).toContain('image::');
   });
 
   test('all buttons in each group are keyboard-accessible', () => {

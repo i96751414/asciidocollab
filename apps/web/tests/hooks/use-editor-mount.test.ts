@@ -21,23 +21,38 @@ describe('use-editor-mount completion sources', () => {
 
 // T011: onLineClick integration
 describe('use-editor-mount onLineClick', () => {
-  // (a) onLineClick option exists and mousedown handler emits line numbers
   test('accepts onLineClick option in UseEditorMountOptions', () => {
     expect(source).toContain('onLineClick');
   });
 
-  // (b) registers mousedown handler
   test('registers a mousedown domEventHandlers extension', () => {
     expect(source).toContain('mousedown');
   });
 
-  // (c) uses posAtCoords to resolve document position from click coordinates
   test('uses posAtCoords to compute position from mouse coordinates', () => {
     expect(source).toContain('posAtCoords');
   });
 
-  // resolves line via lineAt
   test('resolves line number via lineAt', () => {
     expect(source).toContain('lineAt');
+  });
+});
+
+describe('use-editor-mount scroll sync', () => {
+  test('accepts onScrollLine option in UseEditorMountOptions', () => {
+    expect(source).toContain('onScrollLine');
+  });
+
+  test('adds a scroll event listener on view.scrollDOM', () => {
+    expect(source).toContain('scrollDOM');
+    expect(source).toContain("'scroll'");
+  });
+
+  test('uses passive scroll listener to avoid blocking scroll', () => {
+    expect(source).toContain('passive');
+  });
+
+  test('removes scroll listener on cleanup', () => {
+    expect(source).toContain('removeEventListener');
   });
 });
