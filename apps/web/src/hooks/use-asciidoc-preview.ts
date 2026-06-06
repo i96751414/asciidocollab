@@ -1,0 +1,163 @@
+'use client';
+import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
+import { PREVIEW_DEBOUNCE_MS } from '@/lib/editor-config';
+
+/** Lifecycle state of the preview panel. */
+export type PreviewState = 'idle' | 'pending' | 'rendering' | 'up-to-date' | 'error';
+
+interface RenderRequest {
+  requestId: number;
+  content: string;
+}
+
+interface RenderResult {
+  requestId: number;
+  ok: boolean;
+  html: string | null;
+  error: string | null;
+}
+
+/**
+ * A scroll request object. Each click in the editor produces a new instance so
+ * React always sees a changed value even when the line number is the same.
+ *
+ * @param line - 1-based line number to scroll the preview to.
+ */
+export interface ScrollRequest {
+  /** 1-based line number to scroll the preview to. */
+  line: number;
+}
+
+/** Options for the `useAsciidocPreview` hook. */
+export interface UseAsciidocPreviewOptions {
+  /** Current AsciiDoc source text. Changing this resets the debounce and transitions state to pending. */
+  content: string;
+  /** True when the selected file is AsciiDoc and the preview panel is open. False transitions to idle. */
+  isEnabled: boolean;
+  /** When set, the hook scrolls the preview to the element with the matching data-source-line. */
+  scrollToLine: ScrollRequest | null;
+}
+
+/** Return value of the `useAsciidocPreview` hook. */
+export interface UseAsciidocPreviewResult {
+  /** Latest successfully rendered HTML, or null before the first successful render. */
+  html: string | null;
+  /** Current lifecycle state. */
+  state: PreviewState;
+  /** Error message from the last failed render, or null. */
+  error: string | null;
+  /** Ref to attach to the preview scroll container. */
+  previewRef: React.RefObject<HTMLDivElement | null>;
+}
+
+/**
+ * Manages the Web Worker lifecycle, debounce timer, PreviewState machine, and
+ * click-to-scroll.
+ */
+export function useAsciidocPreview({
+  content,
+  isEnabled,
+  scrollToLine,
+}: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
+  const [state, setState] = useState<PreviewState>('idle');
+  const [html, setHtml] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const workerReference = useRef<Worker | null>(null);
+  const requestIdReference = useRef(0);
+  const debounceReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewReference = useRef<HTMLDivElement | null>(null);
+
+  // Mount Worker; teardown on unmount.
+  useEffect(() => {
+    const worker = new Worker('/workers/asciidoc-render.worker.js');
+    workerReference.current = worker;
+
+    worker.addEventListener('message', (event: MessageEvent<RenderResult>) => {
+      const result = event.data;
+      if (result.requestId !== requestIdReference.current) return; // stale
+
+      if (result.ok && result.html !== null) {
+        const sanitized = DOMPurify.sanitize(result.html, { USE_PROFILES: { html: true } });
+        setHtml(sanitized);
+        setError(null);
+        setState('up-to-date');
+      } else {
+        setError(result.error);
+        setState('error');
+      }
+    });
+
+    return () => {
+      worker.terminate();
+      workerReference.current = null;
+    };
+  }, []);
+
+  // Shared debounce helper — captured in effects via closure over current content.
+  const scheduleRender = (currentContent: string) => {
+    if (debounceReference.current !== null) clearTimeout(debounceReference.current);
+    debounceReference.current = setTimeout(() => {
+      debounceReference.current = null;
+      requestIdReference.current += 1;
+      setState('rendering');
+      workerReference.current?.postMessage({ requestId: requestIdReference.current, content: currentContent } satisfies RenderRequest);
+    }, PREVIEW_DEBOUNCE_MS);
+  };
+
+  // Handle isEnabled changes.
+  useEffect(() => {
+    if (!isEnabled) {
+      if (debounceReference.current !== null) {
+        clearTimeout(debounceReference.current);
+        debounceReference.current = null;
+      }
+      setState('idle');
+      return;
+    }
+    if (!content) return;
+    // Re-enabled with current content — start fresh render.
+    setState('pending');
+    scheduleRender(content);
+  }, [isEnabled]);
+
+  // Debounce content changes.
+  useEffect(() => {
+    if (!isEnabled || !content) return;
+    setState('pending');
+    scheduleRender(content);
+
+    return () => {
+      if (debounceReference.current !== null) {
+        clearTimeout(debounceReference.current);
+        debounceReference.current = null;
+      }
+    };
+  }, [content]);
+
+  // Scroll to line when scrollToLine changes.
+  useEffect(() => {
+    if (!scrollToLine || !previewReference.current) return;
+    const { line } = scrollToLine;
+
+    // Try exact match first, then fall back to largest line number ≤ line.
+    let target = previewReference.current.querySelector<HTMLElement>(`[data-source-line="${line}"]`);
+    if (!target) {
+      const all = previewReference.current.querySelectorAll<HTMLElement>('[data-source-line]');
+      let best: HTMLElement | null = null;
+      let bestLine = 0;
+      for (const element of all) {
+        const elementLine = Number(element.dataset['sourceLine']);
+        if (elementLine <= line && elementLine > bestLine) {
+          best = element;
+          bestLine = elementLine;
+        }
+      }
+      target = best;
+    }
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [scrollToLine]);
+
+  return { html, state, error, previewRef: previewReference };
+}

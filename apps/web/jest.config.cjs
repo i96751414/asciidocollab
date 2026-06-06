@@ -39,6 +39,17 @@ const config = {
       setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
     },
   ],
+  // Branch coverage is lower (~80%) because several files need a live CodeMirror
+  // EditorView or complex DOM interactions to exercise all conditional paths.
+  // The other three metrics enforce a strict 90% floor.
+  coverageThreshold: {
+    global: {
+      lines: 93,
+      statements: 90,
+      functions: 90,
+      branches: 80,
+    },
+  },
 };
 
 module.exports = config;

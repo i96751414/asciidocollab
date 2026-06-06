@@ -163,4 +163,46 @@ describe('EditorToolbar', () => {
       expect(screen.getByRole('group', { name: /text formatting/i })).toBeInTheDocument();
     });
   });
+
+  // ── action coverage: every toolbar button dispatches to the view ──────────
+  const actionLabels: Array<[string, RegExp]> = [
+    ['Italic',           /^italic$/i],
+    ['Monospace',        /^monospace$/i],
+    ['Highlight',        /^highlight$/i],
+    ['Subscript',        /^subscript$/i],
+    ['Superscript',      /^superscript$/i],
+    ['Heading 1',        /^heading 1$/i],
+    ['Heading 3',        /^heading 3$/i],
+    ['Heading 4',        /^heading 4$/i],
+    ['Heading 5',        /^heading 5$/i],
+    ['Ordered List',     /^ordered list$/i],
+    ['Unordered List',   /^unordered list$/i],
+    ['Checklist',        /^checklist$/i],
+    ['Description List', /^description list$/i],
+    ['Example Block',    /^example block$/i],
+    ['Sidebar',          /^sidebar$/i],
+    ['Blockquote',       /^blockquote$/i],
+    ['NOTE',             /^note$/i],
+    ['TIP',              /^tip$/i],
+    ['WARNING',          /^warning$/i],
+    ['IMPORTANT',        /^important$/i],
+    ['CAUTION',          /^caution$/i],
+    ['STEM Block',       /^stem block$/i],
+    ['Comment Block',    /^comment block$/i],
+    ['Table',            /^table$/i],
+    ['Caption',          /^caption$/i],
+    ['Link',             /^link$/i],
+    ['Cross-reference',  /^cross-reference$/i],
+    ['Footnote',         /^footnote$/i],
+    ['Image',            /^image$/i],
+  ];
+
+  for (const [label, pattern] of actionLabels) {
+    test(`${label} button dispatches to the view`, () => {
+      const view = createMockView('some text');
+      render(<EditorToolbar view={view} />);
+      fireEvent.click(screen.getByRole('button', { name: pattern }));
+      expect((view as unknown as { dispatched: unknown[] }).dispatched.length).toBeGreaterThan(0);
+    });
+  }
 });

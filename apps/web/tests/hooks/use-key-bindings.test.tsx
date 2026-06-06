@@ -35,6 +35,15 @@ describe('useKeyBindings', () => {
     expect(result.current.get('file-tree:delete')).toBe('Delete');
   });
 
+  it('returns empty map when response is not ok', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve([]),
+    });
+    const { result } = renderHook(() => useKeyBindings('file-tree'));
+    await waitFor(() => expect(result.current.size).toBe(0));
+  });
+
   it('re-fetches when namespace changes', async () => {
     const fetchMock = globalThis.fetch as jest.Mock;
     fetchMock.mockClear();

@@ -61,4 +61,58 @@ describe('useKeyBindingSettings', () => {
       expect.objectContaining({ method: 'DELETE' }),
     );
   });
+
+  it('updateBinding rolls back state and throws when PATCH returns non-ok', async () => {
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockBindings) })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: { message: 'Key combo already in use' } }),
+      });
+
+    const { result } = renderHook(() => useKeyBindingSettings());
+    await waitFor(() => expect(result.current.groups.length).toBeGreaterThan(0));
+
+    await expect(
+      act(async () => { await result.current.updateBinding('file-tree:rename', 'F9'); }),
+    ).rejects.toThrow('Key combo already in use');
+  });
+
+  it('updateBinding rolls back and throws with default message when error body missing', async () => {
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockBindings) })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.reject(new Error('no body')),
+      });
+
+    const { result } = renderHook(() => useKeyBindingSettings());
+    await waitFor(() => expect(result.current.groups.length).toBeGreaterThan(0));
+
+    await expect(
+      act(async () => { await result.current.updateBinding('file-tree:rename', 'F9'); }),
+    ).rejects.toThrow('Update failed');
+  });
+
+  it('resetBinding rolls back state and throws when DELETE returns non-ok', async () => {
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockBindings) })
+      .mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+
+    const { result } = renderHook(() => useKeyBindingSettings());
+    await waitFor(() => expect(result.current.groups.length).toBeGreaterThan(0));
+
+    await expect(
+      act(async () => { await result.current.resetBinding('file-tree:rename'); }),
+    ).rejects.toThrow('Reset failed');
+  });
+
+  it('fetchAll silently ignores network errors', async () => {
+    (globalThis.fetch as jest.Mock).mockRejectedValueOnce(new Error('network'));
+    const { result } = renderHook(() => useKeyBindingSettings());
+    await waitFor(() => {
+      // After failed fetch, groups stays empty — hook must not throw
+      expect(result.current.groups).toEqual([]);
+    });
+  });
 });

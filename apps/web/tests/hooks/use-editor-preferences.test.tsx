@@ -29,6 +29,38 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+test('uses default prefs when localStorage is empty', () => {
+  // No data set in localStorage
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+  expect(result.current.theme).toBe('default');
+});
+
+test('uses default prefs when localStorage contains invalid JSON', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = 'not-json!!!';
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('uses default prefs when localStorage contains non-object value', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify([1, 2, 3]);
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('falls back to default fontSize when stored value has wrong type', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify({ fontSize: 'big', theme: 'default' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('falls back to default theme when stored theme is invalid', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify({ fontSize: 18, theme: 'not-a-theme' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.theme).toBe('default');
+  expect(result.current.fontSize).toBe(18); // valid fontSize still used
+});
+
 test('applies localStorage value immediately on mount before API response', () => {
   mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 20, theme: 'high-contrast' });
 
@@ -103,5 +135,17 @@ test('localStorage is updated immediately on change before PUT completes', () =>
   expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
     LS_KEY,
     expect.stringContaining('"fontSize":22'),
+  );
+});
+
+test('setTheme updates local state and persists to localStorage', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+
+  act(() => result.current.setTheme('dracula'));
+
+  expect(result.current.theme).toBe('dracula');
+  expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+    LS_KEY,
+    expect.stringContaining('"theme":"dracula"'),
   );
 });

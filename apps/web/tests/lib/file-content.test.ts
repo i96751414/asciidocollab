@@ -51,6 +51,48 @@ describe('saveDocumentContent', () => {
   });
 });
 
+describe('getDocumentContent', () => {
+  test('returns text content on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('= Hello World'),
+    });
+    const content = await getDocumentContent('proj-1', 'file-1');
+    expect(content).toBe('= Hello World');
+  });
+
+  test('throws with server message on non-ok response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: { message: 'File not found' } }),
+    });
+    await expect(getDocumentContent('proj-1', 'file-1')).rejects.toThrow('File not found');
+  });
+
+  test('falls back to status code message when json parse fails', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new Error('parse')),
+    });
+    await expect(getDocumentContent('proj-1', 'file-1')).rejects.toThrow('Failed to fetch content: 500');
+  });
+});
+
+describe('saveDocumentContent — error path fallback', () => {
+  test('falls back to status code message when json parse fails', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+      json: () => Promise.reject(new Error('parse')),
+    });
+    await expect(saveDocumentContent('proj-1', 'file-1', 'x')).rejects.toThrow('Failed to save content: 503');
+  });
+});
+
 // Issue 6: saveDocumentContent and getDocumentContent must use the same base URL
 // constant so callers hit the same server. Verifying this prevents the two
 // helpers from drifting (e.g. one picking up a new env var name and the other not).
