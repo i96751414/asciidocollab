@@ -43,7 +43,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     for (const block of blocks) {
       const loc = block.getSourceLocation();
       if (!loc) continue;
-      const lineNum = loc.getLineNumber();
+      const lineNum = loc.getLineNumber() as number;
       const ctx = block.getContext() as string;
       // The document-level block has no wrapping HTML element.
       if (ctx === 'document') continue;
