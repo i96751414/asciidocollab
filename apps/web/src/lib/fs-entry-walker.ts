@@ -3,9 +3,16 @@ export async function* walkEntries(
   items: DataTransferItemList,
 ): AsyncIterable<{ file: File; relativePath: string }> {
   for (const item of items) {
+    if (item.kind !== 'file') continue;
     const entry = getEntry(item);
-    if (!entry) continue;
-    yield* walkEntry(entry, '');
+    if (entry) {
+      yield* walkEntry(entry, '');
+    } else {
+      // Fallback for environments where FileSystem Entry API is unavailable
+      // (e.g. programmatic DataTransfer in tests or some browser configurations).
+      const file = item.getAsFile();
+      if (file) yield { file, relativePath: file.name };
+    }
   }
 }
 

@@ -11,13 +11,37 @@ export const TEST_USER = {
 
 /**
  * Ensures the test admin user exists in the database.
- * Safe to call multiple times — a 403 response means the user is already registered.
+ *
+ * Flow:
+ *  1. POST /auth/register — 201 means first user was just created (admin). Done.
+ *  2. If 403 (registration closed), try to login to confirm the test user exists.
+ *  3. If login succeeds, done. If not, throw so the test suite fails with a clear message.
  */
 export async function ensureTestUser(): Promise<void> {
   const context = await request.newContext({ baseURL: API_URL });
   try {
-    await context.post('/auth/register', { data: TEST_USER });
-    // 201 = created, 403 = registration closed (user already exists) — both are fine
+    const registerResp = await context.post('/auth/register', { data: TEST_USER });
+    if (registerResp.status() === 201) return; // created as first admin
+
+    if (registerResp.status() === 403) {
+      // Registration is closed — verify the test user already exists by logging in.
+      const loginResp = await context.post('/auth/login', {
+        data: { email: TEST_USER.email, password: TEST_USER.password },
+      });
+      if (loginResp.ok()) return; // user exists and credentials are correct
+
+      throw new Error(
+        `ensureTestUser: registration is closed and login as ${TEST_USER.email} failed ` +
+        `(status ${loginResp.status()}). ` +
+        'The test database may have a different first user. ' +
+        'Reset the database or insert the test user manually.',
+      );
+    }
+
+    throw new Error(
+      `ensureTestUser: /auth/register returned unexpected status ${registerResp.status()}. ` +
+      'The API may be misconfigured or the test database may be in an unexpected state.',
+    );
   } finally {
     await context.dispose();
   }

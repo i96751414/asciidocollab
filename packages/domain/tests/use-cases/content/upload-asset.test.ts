@@ -141,12 +141,11 @@ describe('UploadAssetUseCase', () => {
     }
   });
 
-  it('returns fileNodeId distinct from assetId in the success value', async () => {
+  it('returns fileNodeId in the success value (Asset.id equals FileNode.id)', async () => {
     const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.value.fileNodeId).toBeDefined();
-      expect(result.value.fileNodeId.value).not.toEqual(result.value.assetId.value);
     }
   });
 

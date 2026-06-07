@@ -19,6 +19,12 @@ packages/shared/tests/**/*.d.ts
 packages/shared/tests/**/*.js
 packages/shared/tests/**/*.js.map
 
+TODO.txt
+
+# Mutation testing (Stryker)
+.stryker-tmp/
+mutation.json
+
 # Project collaboration state (Yjs CRDT snapshots)
 .collab/
 apps/web/test-results/

@@ -23,11 +23,12 @@ const DEBOUNCE_MS = 500;
 interface EditorPrefs {
   fontSize: number;
   theme: EditorThemeValue;
+  scrollSyncEnabled: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default' };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -41,6 +42,7 @@ function loadFromStorage(): EditorPrefs {
         return {
           fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : DEFAULT_PREFS.fontSize,
           theme: typeof rawTheme === 'string' && isEditorThemeValue(rawTheme) ? rawTheme : DEFAULT_PREFS.theme,
+          scrollSyncEnabled: typeof parsed.scrollSyncEnabled === 'boolean' ? parsed.scrollSyncEnabled : DEFAULT_PREFS.scrollSyncEnabled,
         };
       }
     }
@@ -52,11 +54,13 @@ function loadFromStorage(): EditorPrefs {
 interface UseEditorPreferencesResult {
   fontSize: number;
   theme: EditorThemeValue;
+  scrollSyncEnabled: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
+  setScrollSyncEnabled: (enabled: boolean) => void;
 }
 
-/** Manages editor font size and theme, persisting to localStorage and API. */
+/** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
 export function useEditorPreferences(): UseEditorPreferencesResult {
   const [prefs, setPrefs] = useState<EditorPrefs>(loadFromStorage);
   // Use a ref for the debounce timer so timer changes don't trigger re-renders
@@ -100,5 +104,14 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, setFontSize, setTheme };
+  const setScrollSyncEnabled = useCallback((scrollSyncEnabled: boolean) => {
+    setPrefs((previous) => {
+      const next = { ...previous, scrollSyncEnabled };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      schedulePut(next);
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, setFontSize, setTheme, setScrollSyncEnabled };
 }

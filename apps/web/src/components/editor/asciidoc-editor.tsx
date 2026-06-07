@@ -25,9 +25,14 @@ interface AsciiDocEditorProperties {
    *  so it works from first load without requiring a save first.
    */
   initialEtag?: string | null;
+  /** When false, hides the AsciiDoc toolbar and outline panel (e.g. for plain-text files). */
+  isAsciiDoc?: boolean;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
+  onLineClick?: (line: number) => void;
+  /** Called with the top visible 1-based line number as the editor is scrolled. */
+  onScrollLine?: (line: number) => void;
 }
 
 type EditorCssVariables = { '--editor-font-size': string } & React.CSSProperties;
@@ -43,9 +48,12 @@ export function AsciiDocEditor({
   projectId,
   fileNodeId,
   initialEtag,
+  isAsciiDoc = true,
   onChange,
   onNavigateToFile,
   onOpenUrl,
+  onLineClick,
+  onScrollLine,
 }: AsciiDocEditorProperties) {
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
@@ -83,6 +91,8 @@ export function AsciiDocEditor({
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
     onOpenUrl,
+    onLineClick,
+    onScrollLine,
   });
 
   const tableContext = useTableContext(viewReference.current);
@@ -112,15 +122,17 @@ export function AsciiDocEditor({
       style={editorStyle(fontSize)}
       data-theme={theme}
     >
-      <EditorToolbar
-        view={viewReference.current}
-        canEdit={canEdit}
-        fontSize={fontSize}
-        theme={theme}
-        setFontSize={setFontSize}
-        setTheme={setTheme}
-      />
-      {canEdit && tableContext !== null && viewReference.current !== null && (
+      {isAsciiDoc && (
+        <EditorToolbar
+          view={viewReference.current}
+          canEdit={canEdit}
+          fontSize={fontSize}
+          theme={theme}
+          setFontSize={setFontSize}
+          setTheme={setTheme}
+        />
+      )}
+      {isAsciiDoc && canEdit && tableContext !== null && viewReference.current !== null && (
         <EditorTableContextToolbar
           view={viewReference.current}
           context={tableContext}
@@ -137,7 +149,7 @@ export function AsciiDocEditor({
       />
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />
-        {outlineOpen && (
+        {isAsciiDoc && outlineOpen && (
           <div className="w-52 shrink-0 border-l overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-2 py-1 border-b text-xs text-muted-foreground">
               <span>Outline</span>
@@ -156,7 +168,7 @@ export function AsciiDocEditor({
             />
           </div>
         )}
-        {!outlineOpen && (
+        {isAsciiDoc && !outlineOpen && (
           <button
             type="button"
             aria-label="Expand outline panel"

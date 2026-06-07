@@ -1,8 +1,8 @@
 # AsciiDoCollab
 
 > **⚠ Pre-MVP — not ready for production use.**
-> The core infrastructure is being built and hardened. The collaborative editor — the central feature — does not exist
-> yet. See [Project status](#project-status) for the honest picture.
+> The editor and file management are built and working. Real-time co-editing — the central feature — is not yet
+> implemented. See [Project status](#project-status) for the honest picture.
 
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
@@ -25,13 +25,16 @@ self-hosted web application.
 - Secure login with session management (Argon2id, encrypted sessions, rate limiting, breach detection
   via [Have I Been Pwned](https://haveibeenpwned.com))
 - Create and manage projects to organise your work
+- File and folder management — create, rename, move, delete files and folders; real-time tree sync via SSE
 - Invite team members and assign roles — Viewer, Editor, or Owner
 - Admin panel — manage users, toggle open registration, audit log
 - Configurable email delivery (SMTP, SendGrid, or AWS SES)
+- AsciiDoc code editor — CodeMirror 6 with AsciiDoc syntax highlighting, auto-save, table editing, autocomplete
+  for images and includes, block title captions, and multiple editor themes
+- Live HTML preview — Asciidoctor.js renders AsciiDoc to HTML in the browser
 
 **Not yet built (MVP blockers)**
 
-- AsciiDoc editor with syntax highlighting and live HTML preview
 - Real-time co-editing — see collaborators' cursors and changes as they happen
 - Git integration — push, pull, branch, and create pull requests from the UI
 - PDF export via Asciidoctor-PDF
@@ -39,7 +42,6 @@ self-hosted web application.
 **Planned after MVP**
 
 - SSO / SAML 2.0 (Microsoft Entra ID and compatible providers)
-- File and folder management within projects
 - Multi-factor authentication and IP-based access controls
 
 ---
@@ -48,8 +50,8 @@ self-hosted web application.
 
 **This project has not reached MVP.**
 
-The authentication and user-management layer is feature-complete and has been through multiple rounds of code review and
-hardening. The collaborative editor — the reason this project exists — is not yet started.
+The authentication, file management, and editor layers are feature-complete and have been through multiple rounds of
+code review and hardening. Real-time co-editing — the reason this project exists — is not yet implemented.
 
 | Layer                               | Status            |
 |-------------------------------------|-------------------|
@@ -57,7 +59,9 @@ hardening. The collaborative editor — the reason this project exists — is no
 | User registration & invitation flow | ✅ Built, hardened |
 | Project & team management           | ✅ Built           |
 | Admin panel & audit log             | ✅ Built           |
-| AsciiDoc editor                     | ❌ Not started     |
+| File & folder management            | ✅ Built           |
+| AsciiDoc editor                     | ✅ Built           |
+| Live HTML preview                   | ✅ Built           |
 | Real-time collaboration             | ❌ Not started     |
 | Git integration                     | ❌ Not started     |
 | PDF export                          | ❌ Not started     |

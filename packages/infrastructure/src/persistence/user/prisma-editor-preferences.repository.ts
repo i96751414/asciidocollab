@@ -26,12 +26,13 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
   async save(prefs: EditorPreferences): Promise<void> {
     await this.prisma.editorPreferences.upsert({
       where: { userId: prefs.userId.value },
-      update: { fontSize: prefs.fontSize, theme: prefs.theme.value },
+      update: { fontSize: prefs.fontSize, theme: prefs.theme.value, scrollSyncEnabled: prefs.scrollSyncEnabled },
       create: {
         id: prefs.id.value,
         userId: prefs.userId.value,
         fontSize: prefs.fontSize,
         theme: prefs.theme.value,
+        scrollSyncEnabled: prefs.scrollSyncEnabled,
       },
     });
   }
@@ -41,6 +42,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     userId: string;
     fontSize: number;
     theme: string;
+    scrollSyncEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): EditorPreferences {
@@ -53,6 +55,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
       UserId.create(row.userId),
       row.fontSize,
       themeResult.value,
+      row.scrollSyncEnabled,
       new Timestamps(row.createdAt, row.updatedAt),
     );
   }

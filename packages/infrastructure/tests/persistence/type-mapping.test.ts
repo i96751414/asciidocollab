@@ -201,27 +201,24 @@ describe('Type mapping round-trip', () => {
   });
 
   describe('Asset', () => {
-    it('should round-trip with version chain (parentId)', async () => {
+    it('should round-trip all fields via its FileNode FK', async () => {
       const owner = createTestUser();
       await userRepo.save(owner);
       const project = createTestProject();
       await projectRepo.save(project);
+      const folder = createTestFileNode(project.id, { type: FileNodeType.create('folder'), name: 'imgs', path: FilePath.create('/imgs') });
+      await fileNodeRepo.save(folder);
+      const file = createTestFileNode(project.id, { parentId: folder.id, type: FileNodeType.create('file'), name: 'photo.png', path: FilePath.create('/imgs/photo.png') });
+      await fileNodeRepo.save(file);
 
-      const original = createTestAsset(project.id, { sizeBytes: 1024n });
-      await assetRepo.save(original);
-      const version = createTestAsset(project.id, {
-        parentId: original.id,
-        sizeBytes: 2048n,
-      });
-      await assetRepo.save(version);
-      const foundOriginal = await assetRepo.findById(original.id);
-      const foundVersion = await assetRepo.findById(version.id);
-      expect(foundOriginal).not.toBeNull();
-      expect(foundOriginal!.sizeBytes).toBe(1024n);
-      expect(foundOriginal!.parentId).toBeNull();
-      expect(foundVersion).not.toBeNull();
-      expect(foundVersion!.sizeBytes).toBe(2048n);
-      expect(foundVersion!.parentId!.value).toBe(original.id.value);
+      const asset = createTestAsset(file.id, { sizeBytes: 2048n });
+      await assetRepo.save(asset);
+
+      const found = await assetRepo.findById(asset.id);
+      expect(found).not.toBeNull();
+      expect(found!.id.value).toBe(file.id.value);
+      expect(found!.mimeType.value).toBe('image/png');
+      expect(found!.sizeBytes).toBe(2048n);
     });
   });
 

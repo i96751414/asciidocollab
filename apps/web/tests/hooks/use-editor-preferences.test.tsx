@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEditorPreferences } from '@/hooks/use-editor-preferences';
+import { useEditorPreferences, isEditorThemeValue } from '@/hooks/use-editor-preferences';
 
 const mockFetch = jest.fn();
 globalThis.fetch = mockFetch;
@@ -27,6 +27,38 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+test('uses default prefs when localStorage is empty', () => {
+  // No data set in localStorage
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+  expect(result.current.theme).toBe('default');
+});
+
+test('uses default prefs when localStorage contains invalid JSON', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = 'not-json!!!';
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('uses default prefs when localStorage contains non-object value', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify([1, 2, 3]);
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('falls back to default fontSize when stored value has wrong type', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify({ fontSize: 'big', theme: 'default' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('falls back to default theme when stored theme is invalid', () => {
+  mockLocalStorage.store['asciidocollab:editor-preferences'] = JSON.stringify({ fontSize: 18, theme: 'not-a-theme' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.theme).toBe('default');
+  expect(result.current.fontSize).toBe(18); // valid fontSize still used
 });
 
 test('applies localStorage value immediately on mount before API response', () => {
@@ -104,4 +136,154 @@ test('localStorage is updated immediately on change before PUT completes', () =>
     LS_KEY,
     expect.stringContaining('"fontSize":22'),
   );
+});
+
+test('setTheme updates local state and persists to localStorage', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+
+  act(() => result.current.setTheme('dracula'));
+
+  expect(result.current.theme).toBe('dracula');
+  expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+    LS_KEY,
+    expect.stringContaining('"theme":"dracula"'),
+  );
+});
+
+test('fetches prefs from correct URL including http://localhost:4000', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const url = String(mockFetch.mock.calls[0][0]);
+  expect(url).toContain('http://localhost:4000');
+  expect(url).toContain('/auth/me/editor-preferences');
+  void result;
+});
+
+test('PUT is sent to correct URL including http://localhost:4000', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+
+  act(() => result.current.setFontSize(20));
+
+  await act(async () => {
+    jest.advanceTimersByTime(500);
+    await Promise.resolve();
+  });
+
+  const putCall = mockFetch.mock.calls.find(
+    ([, options]: [unknown, { method?: string }]) => options?.method === 'PUT',
+  );
+  expect(putCall).toBeDefined();
+  expect(String(putCall[0])).toContain('http://localhost:4000');
+  expect(String(putCall[0])).toContain('/auth/me/editor-preferences');
+});
+
+test('PUT sends credentials include and Content-Type application/json', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+
+  act(() => result.current.setFontSize(20));
+
+  await act(async () => {
+    jest.advanceTimersByTime(500);
+    await Promise.resolve();
+  });
+
+  const putCall = mockFetch.mock.calls.find(
+    ([, options]: [unknown, { method?: string }]) => options?.method === 'PUT',
+  );
+  expect(putCall[1].credentials).toBe('include');
+  expect(putCall[1].headers['Content-Type']).toBe('application/json');
+});
+
+test('falls back to localStorage prefs when GET returns non-ok', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 22, theme: 'dracula' });
+  mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+
+  const { result } = renderHook(() => useEditorPreferences());
+
+  // Should keep localStorage values on API error
+  await act(async () => { await Promise.resolve(); });
+  expect(result.current.fontSize).toBe(22);
+  expect(result.current.theme).toBe('dracula');
+});
+
+// ── L74: non-ok GET must NOT overwrite state (response.ok=false → reject → catch → no update) ──
+
+test('GET returning non-ok does NOT update fontSize from API response (localStorage value preserved)', async () => {
+  // Store different prefs than the API would return so we can detect if API was applied
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 22, theme: 'dracula' });
+  // API returns ok=false but with json body that has different values — should be rejected
+  mockFetch.mockResolvedValue({
+    ok: false,
+    json: () => Promise.resolve({ fontSize: 11, theme: 'default' }),
+  });
+
+  const { result } = renderHook(() => useEditorPreferences());
+
+  // Flush 3 microtask levels: fetch → .then(ok?) → .then(setState) / .catch()
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  // With L74 mutation (always ok → json called → prefs set to {11, default}),
+  // fontSize would become 11. Original code rejects and keeps 22.
+  expect(result.current.fontSize).toBe(22);
+  expect(result.current.theme).toBe('dracula');
+});
+
+test('isStoredPrefs returns false for null (not an object in the sense of the guard)', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify(null);
+  const { result } = renderHook(() => useEditorPreferences());
+  // null is filtered, so defaults are used
+  expect(result.current.fontSize).toBe(14);
+});
+
+test('isStoredPrefs returns false for a primitive number', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify(42);
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(14);
+});
+
+// ── isEditorThemeValue: validates all valid theme strings (kills L7, L10, L11) ──
+
+test('isEditorThemeValue returns true for all valid themes', () => {
+  expect(isEditorThemeValue('default')).toBe(true);
+  expect(isEditorThemeValue('high-contrast')).toBe(true);
+  expect(isEditorThemeValue('dracula')).toBe(true);
+  expect(isEditorThemeValue('tomorrow')).toBe(true);
+  expect(isEditorThemeValue('espresso')).toBe(true);
+});
+
+test('isEditorThemeValue returns false for an unknown theme', () => {
+  expect(isEditorThemeValue('unknown-theme')).toBe(false);
+  expect(isEditorThemeValue('')).toBe(false);
+});
+
+// ── GET fetch includes credentials (kills L67 ObjectLiteral) ────────────────────
+
+test('GET fetch for prefs includes credentials: include', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const getCall = mockFetch.mock.calls[0];
+  expect(getCall[1]).toMatchObject({ credentials: 'include' });
+  void result;
+});
+
+// ── GET fetch URL must contain the auth path (kills L67 StringLiteral) ──────────
+
+test('GET fetch URL contains /auth/me/editor-preferences', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  const url = String(mockFetch.mock.calls[0][0]);
+  expect(url).toContain('/auth/me/editor-preferences');
+  void result;
+});
+
+test('theme falls back to default when stored theme string is not a recognized theme value', () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'INVALID-THEME' });
+  // Use a never-resolving fetch so the API response never overwrites the localStorage-derived state
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.theme).toBe('default');
 });

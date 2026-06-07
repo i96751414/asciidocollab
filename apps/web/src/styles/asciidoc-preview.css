@@ -1,0 +1,143 @@
+/* AsciiDoc preview — PDF-like theme scoped to .asciidoc-preview-content */
+
+.asciidoc-preview-content {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  max-width: 800px;
+  margin: 0 auto;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Headings */
+.asciidoc-preview-content h1,
+.asciidoc-preview-content h2,
+.asciidoc-preview-content h3,
+.asciidoc-preview-content h4,
+.asciidoc-preview-content h5,
+.asciidoc-preview-content h6 {
+  font-weight: bold;
+  color: #083980;
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+}
+
+.asciidoc-preview-content h1 { font-size: 2em; }
+.asciidoc-preview-content h2 { font-size: 1.6em; }
+.asciidoc-preview-content h3 { font-size: 1.3em; }
+.asciidoc-preview-content h4 { font-size: 1.1em; }
+
+/* Code and preformatted */
+.asciidoc-preview-content code,
+.asciidoc-preview-content pre,
+.asciidoc-preview-content .listingblock pre,
+.asciidoc-preview-content .literalblock pre {
+  font-family: 'Courier New', Courier, monospace;
+  background: #f7f7f8;
+  border: 1px solid #e8e8e8;
+  border-radius: 3px;
+}
+
+.asciidoc-preview-content code {
+  padding: 0.1em 0.3em;
+  font-size: 0.9em;
+}
+
+.asciidoc-preview-content pre {
+  padding: 0.75em;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Tables */
+.asciidoc-preview-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.asciidoc-preview-content table thead {
+  background: #083980;
+  color: white;
+}
+
+.asciidoc-preview-content table td,
+.asciidoc-preview-content table th {
+  border: 1px solid #ddd;
+  padding: 0.5em;
+  text-align: left;
+}
+
+/* Admonition blocks */
+.asciidoc-preview-content .admonitionblock {
+  border-radius: 3px;
+  padding: 0.75em 1em;
+  margin: 1em 0;
+}
+
+.asciidoc-preview-content .admonitionblock.note {
+  border-left: 4px solid #083980;
+  background: #f0f4ff;
+}
+
+.asciidoc-preview-content .admonitionblock.warning {
+  border-left: 4px solid #eb8e03;
+  background: #fffbf0;
+}
+
+.asciidoc-preview-content .admonitionblock.caution {
+  border-left: 4px solid #e40000;
+  background: #fff5f5;
+}
+
+.asciidoc-preview-content .admonitionblock.tip {
+  border-left: 4px solid #2b9c34;
+  background: #f0fff2;
+}
+
+.asciidoc-preview-content .admonitionblock.important {
+  border-left: 4px solid #7b4191;
+  background: #f9f0ff;
+}
+
+/* Links */
+.asciidoc-preview-content a {
+  color: #083980;
+  text-decoration: underline;
+}
+
+.asciidoc-preview-content a:hover {
+  text-decoration: none;
+}
+
+/* Lists */
+.asciidoc-preview-content ul,
+.asciidoc-preview-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.asciidoc-preview-content li {
+  margin: 0.2em 0;
+}
+
+/* Paragraphs */
+.asciidoc-preview-content p {
+  margin: 0.75em 0;
+}
+
+/* Horizontal rule */
+.asciidoc-preview-content hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 1.5em 0;
+}
+
+/* Blockquote */
+.asciidoc-preview-content blockquote,
+.asciidoc-preview-content .quoteblock blockquote {
+  border-left: 4px solid #ddd;
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  color: #555;
+}

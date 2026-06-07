@@ -9,7 +9,7 @@ jest.mock('../../src/plugins/require-auth', () => ({
 const USER_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 function buildTestServer(
-  storedPrefs: { fontSize: number; theme: string } | null = null
+  storedPrefs: { fontSize: number; theme: string; scrollSyncEnabled?: boolean } | null = null
 ) {
   const app = Fastify();
 
@@ -23,6 +23,7 @@ function buildTestServer(
               userId: { value: USER_ID },
               fontSize: currentPrefs.fontSize,
               theme: { value: currentPrefs.theme },
+              scrollSyncEnabled: currentPrefs.scrollSyncEnabled ?? false,
             }
           : null
       ),
@@ -88,6 +89,22 @@ describe('Editor Preferences Routes', () => {
       body: JSON.stringify({ fontSize: 14, theme: 'neon' }),
     });
     expect(response.statusCode).toBe(400);
+  });
+
+  test('GET /auth/me/editor-preferences returns scrollSyncEnabled when record exists', async () => {
+    const app = buildTestServer({ fontSize: 14, theme: 'default', scrollSyncEnabled: true });
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body).toHaveProperty('scrollSyncEnabled', true);
+  });
+
+  test('GET /auth/me/editor-preferences returns scrollSyncEnabled: false as default', async () => {
+    const app = buildTestServer(null);
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body).toHaveProperty('scrollSyncEnabled', false);
   });
 
   test('GET returns 401 when unauthenticated', async () => {

@@ -36,6 +36,27 @@ describe('useFileSelection', () => {
     );
   });
 
+  // isLoading transitions to true while fetching
+  it('contentState.isLoading is true while fetch is in-flight', async () => {
+    let resolveFetch!: (value: Response) => void;
+    globalThis.fetch = jest.fn().mockImplementation(() => new Promise<Response>((resolve) => { resolveFetch = resolve; }));
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
+
+    // While in-flight, isLoading should be true
+    expect(result.current.contentState.isLoading).toBe(true);
+    expect(result.current.contentState.isBinary).toBe(false);
+    expect(result.current.contentState.error).toBeNull();
+
+    // Cleanup by resolving
+    await act(async () => {
+      resolveFetch(makeFetchResponse('content', 'text/plain'));
+      await Promise.resolve();
+    });
+  });
+
   // T014 (b): text/plain response sets content and isLoading=false
   it('text/plain response sets contentState.content and isLoading=false', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(
@@ -84,6 +105,47 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.error).toBe('Network failure');
     expect(result.current.contentState.content).toBeNull();
     expect(result.current.contentState.isLoading).toBe(false);
+    expect(result.current.contentState.isBinary).toBe(false);
+  });
+
+  // non-Error rejection falls back to generic message
+  it('sets generic error message when rejection value is not an Error', async () => {
+    globalThis.fetch = jest.fn().mockRejectedValue('string-error');
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(result.current.contentState.error).toBe('An error occurred.');
+  });
+
+  // DOMException with non-AbortError name must set error state, not be silently ignored
+  it('DOMException with non-AbortError name sets error state', async () => {
+    globalThis.fetch = jest.fn().mockRejectedValue(new DOMException('Network error', 'NetworkError'));
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(result.current.contentState.error).not.toBeNull();
+  });
+
+  // AbortError must be silently ignored (no error state)
+  it('AbortError from DOMException is silently ignored', async () => {
+    globalThis.fetch = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    // AbortError should not set error state
+    expect(result.current.contentState.error).toBeNull();
   });
 
   // T014 (e): calling selectFile twice aborts the first fetch
@@ -145,6 +207,39 @@ describe('useFileSelection', () => {
     expect(result.current.selectedFile).toMatchObject({ nodeId: 'folder-1', nodeType: 'folder' });
     expect(result.current.contentState.isLoading).toBe(false);
     expect(result.current.contentState.content).toBeNull();
+  });
+
+  it('clearSelection aborts an in-flight fetch', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    globalThis.fetch = jest.fn().mockImplementation((_url: string, { signal }: RequestInit) => {
+      capturedSignal = signal;
+      return new Promise(() => {}); // never resolves — stays in-flight
+    });
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+    act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
+
+    expect(capturedSignal?.aborted).toBe(false);
+
+    // clearSelection must abort the in-flight fetch
+    act(() => { result.current.clearSelection(); });
+
+    // With L93 mutation (false/BlockStatement): abort is NOT called → signal remains un-aborted → fails
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('clearSelection on a fresh hook (no fetch in progress) does not throw', () => {
+    const { result } = renderHook(() => useFileSelection('p1'));
+    expect(() => act(() => { result.current.clearSelection(); })).not.toThrow();
+  });
+
+  it('selectFile with 4th argument omitted defaults nodeType to "file" and fetches content', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue(makeFetchResponse('content', 'text/plain'));
+    const { result } = renderHook(() => useFileSelection('p1'));
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc');
+    });
+    expect(globalThis.fetch).toHaveBeenCalled();
   });
 
   // T014 (f): clearSelection resets state

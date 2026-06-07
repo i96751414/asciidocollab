@@ -4,4 +4,6 @@ export interface EditorPreferencesDto {
   fontSize: number;
   /** Editor colour theme identifier. */
   theme: 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
+  /** When true, the preview panel scrolls to track the editor scroll position. */
+  scrollSyncEnabled: boolean;
 }

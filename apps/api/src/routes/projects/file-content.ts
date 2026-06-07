@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import {
-  GetDocumentContentUseCase,
+  GetFileNodeContentUseCase,
   SaveDocumentContentUseCase,
   UserId,
   ProjectId,
@@ -20,10 +20,11 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
       const projectId = ProjectId.create(request.params.projectId);
       const fileNodeId = FileNodeId.create(request.params.fileNodeId);
 
-      const useCase = new GetDocumentContentUseCase(
+      const useCase = new GetFileNodeContentUseCase(
         request.server.repos.projectMember,
         request.server.repos.fileNode,
         request.server.repos.document,
+        request.server.repos.asset,
         request.server.stores.fileStore,
       );
 
@@ -42,11 +43,13 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
       }
 
-      return reply
+      const reply200 = reply
         .status(200)
-        .header('Content-Type', result.value.mimeType.value)
-        .header('ETag', `"${result.value.contentId}"`)
-        .send(result.value.content);
+        .header('Content-Type', result.value.mimeType.value);
+      if (result.value.contentId) {
+        reply200.header('ETag', `"${result.value.contentId}"`);
+      }
+      return reply200.send(result.value.content);
     },
   );
 

@@ -13,6 +13,11 @@ export const AUTOSAVE_DEBOUNCE_MS = Number(
   process.env.NEXT_PUBLIC_EDITOR_AUTOSAVE_DEBOUNCE_MS ?? 4000,
 );
 
+/** Milliseconds of inactivity before the live preview panel auto-refreshes. */
+export const PREVIEW_DEBOUNCE_MS = Number(
+  process.env.NEXT_PUBLIC_PREVIEW_DEBOUNCE_MS ?? 1500,
+);
+
 /** Milliseconds between external-change HEAD polls when the editor is open. */
 export const EXTERNAL_CHANGE_POLL_INTERVAL_MS = Number(
   process.env.NEXT_PUBLIC_EDITOR_POLL_INTERVAL_MS ?? 30_000,

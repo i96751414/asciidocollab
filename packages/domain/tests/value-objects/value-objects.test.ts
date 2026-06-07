@@ -4,7 +4,6 @@ import { FileNodeId } from '../../src/value-objects/file-node-id';
 import { DocumentId } from '../../src/value-objects/document-id';
 import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
 import { TemplateId } from '../../src/value-objects/template-id';
-import { AssetId } from '../../src/value-objects/asset-id';
 import { AuditLogId } from '../../src/value-objects/audit-log-id';
 import { ContentId } from '../../src/value-objects/content-id';
 import { YjsStateId } from '../../src/value-objects/yjs-state-id';
@@ -31,7 +30,6 @@ describe('Value Objects', () => {
       { name: 'DocumentId', Class: DocumentId },
       { name: 'GitRepositoryId', Class: GitRepositoryId },
       { name: 'TemplateId', Class: TemplateId },
-      { name: 'AssetId', Class: AssetId },
       { name: 'AuditLogId', Class: AuditLogId },
       { name: 'ContentId', Class: ContentId },
       { name: 'YjsStateId', Class: YjsStateId },

@@ -268,6 +268,35 @@ describe('EditorTableContextToolbar', () => {
     expect(dispatched[0]?.changes.to).toBe(LIVE_TO);
   });
 
+  // ── action coverage: each enabled button dispatches a change ─────────────────
+
+  const clickableActions: Array<[string, Partial<typeof makeContext extends (...args: unknown[]) => infer R ? R : never>]> = [
+    ['Add Row Above',     {}],
+    ['Remove Row',        { rowCount: 2, isInHeader: false }],
+    ['Add Column Left',   {}],
+    ['Add Column Right',  {}],
+    ['Remove Column',     { columnCount: 2 }],
+    ['Move Column Left',  { cursorColumnIndex: 1, columnCount: 2 }],
+    ['Move Column Right', { cursorColumnIndex: 0, columnCount: 2 }],
+  ];
+
+  for (const [label, contextOverrides] of clickableActions) {
+    test(`clicking "${label}" dispatches to the view`, () => {
+      const view = createMockView(TABLE_2X2);
+      const context = makeContext(contextOverrides);
+      render(
+        <EditorTableContextToolbar
+          view={view}
+          context={context}
+          tableText={TABLE_2X2}
+          tableFrom={0}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(label, 'i') }));
+      expect((view as unknown as { dispatched: unknown[] }).dispatched.length).toBeGreaterThan(0);
+    });
+  }
+
   // Issue 3: "Add Row Below" from header inserts at body[1] instead of body[0]
   test('Add Row Below from header cursor inserts new row at body[0], not body[1]', () => {
     const TABLE_WITH_HEADER = '|===\n|H1 |H2\n\n|A |B\n|C |D\n|===';

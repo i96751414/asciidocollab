@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 interface SaveEditorPreferencesInput {
   fontSize: number;
   theme: string;
+  scrollSyncEnabled?: boolean;
 }
 
 /** Validates and persists updated editor preferences for a user. */
@@ -37,7 +38,8 @@ export class SaveEditorPreferencesUseCase {
     try {
       const existing = await this.repo.findByUserId(userId);
       const id = existing?.id ?? EditorPreferencesId.create(randomUUID());
-      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, existing?.timestamps);
+      const scrollSyncEnabled = input.scrollSyncEnabled ?? existing?.scrollSyncEnabled ?? false;
+      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, scrollSyncEnabled, existing?.timestamps);
     } catch (error) {
       if (error instanceof ValidationError) {
         return { success: false, error: error };

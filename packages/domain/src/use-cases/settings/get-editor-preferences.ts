@@ -5,7 +5,7 @@ import type { Result } from '../../types/result';
 import { EditorPreferencesId } from '../../value-objects/editor-preferences-id';
 import { EditorTheme } from '../../value-objects/editor-theme';
 import { EditorPreferences as EditorPreferencesEntity } from '../../entities/editor-preferences';
-import { DEFAULT_FONT_SIZE, DEFAULT_THEME } from '../../constants/editor-preferences';
+import { DEFAULT_FONT_SIZE, DEFAULT_THEME, DEFAULT_SCROLL_SYNC_ENABLED } from '../../constants/editor-preferences';
 import { randomUUID } from 'node:crypto';
 
 /** Returns the user's saved editor preferences, or default values if none are stored. */
@@ -34,6 +34,7 @@ export class GetEditorPreferencesUseCase {
       userId,
       DEFAULT_FONT_SIZE,
       themeResult.value,
+      DEFAULT_SCROLL_SYNC_ENABLED,
     );
     return { success: true, value: defaultPrefs };
   }

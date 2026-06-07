@@ -13,7 +13,7 @@ async function buildAssetsTestServer() {
   app.decorate('repos', {
     projectMember: { findByCompositeKey: jest.fn().mockResolvedValue({ role: { value: 'editor' } }) },
     fileNode: { findById: jest.fn().mockResolvedValue(null) },
-    asset: { findById: jest.fn().mockResolvedValue(null), save: jest.fn(), findByProjectId: jest.fn().mockResolvedValue([]) },
+    asset: { findById: jest.fn().mockResolvedValue(null), save: jest.fn() },
     systemSetting: { get: jest.fn().mockResolvedValue(null) },
   } as never);
   app.decorate('stores', { fileStore: {} } as never);

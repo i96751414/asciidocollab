@@ -1,4 +1,5 @@
-import { AssetRepository, UserRepository, ProjectRepository, AssetId, Project } from '@asciidocollab/domain';
+import { randomUUID } from 'crypto';
+import { AssetRepository, UserRepository, ProjectRepository, Project, FileNodeId } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
 import { PrismaAssetRepository } from '../../../src/persistence/file-tree/prisma-asset.repository';
 import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
@@ -27,13 +28,15 @@ describe('PrismaAssetRepository', () => {
 
   beforeEach(async () => {
     await client.asset.deleteMany();
+    await client.fileNode.deleteMany();
     await client.project.deleteMany();
     await client.user.deleteMany();
   });
 
   it('should save and find an asset by id', async () => {
     const project = await setupProject();
-    const asset = createTestAsset(project.id);
+    const { fileNodeId } = await setupFileNode(project.id.value);
+    const asset = createTestAsset(fileNodeId);
     await repo.save(asset);
 
     const found = await repo.findById(asset.id);
@@ -42,24 +45,14 @@ describe('PrismaAssetRepository', () => {
   });
 
   it('should return null when finding by non-existent id', async () => {
-    const result = await repo.findById(AssetId.create('00000000-0000-4000-8000-000000000001'));
+    const result = await repo.findById(FileNodeId.create('00000000-0000-4000-8000-000000000001'));
     expect(result).toBeNull();
-  });
-
-  it('should find assets by project id', async () => {
-    const project = await setupProject();
-    const asset1 = createTestAsset(project.id, { filename: 'asset1.png' });
-    const asset2 = createTestAsset(project.id, { filename: 'asset2.png' });
-    await repo.save(asset1);
-    await repo.save(asset2);
-
-    const assets = await repo.findByProjectId(project.id);
-    expect(assets).toHaveLength(2);
   });
 
   it('should delete an asset', async () => {
     const project = await setupProject();
-    const asset = createTestAsset(project.id);
+    const { fileNodeId } = await setupFileNode(project.id.value);
+    const asset = createTestAsset(fileNodeId);
     await repo.save(asset);
     await repo.delete(asset.id);
     const found = await repo.findById(asset.id);
@@ -72,5 +65,13 @@ describe('PrismaAssetRepository', () => {
     const project = createTestProject();
     await projectRepo.save(project);
     return project;
+  }
+
+  async function setupFileNode(projectId: string): Promise<{ fileNodeId: FileNodeId }> {
+    const folderId = randomUUID();
+    await client.fileNode.create({ data: { id: folderId, projectId, name: 'root', type: 'FOLDER', path: '/', parentId: null } });
+    const fileId = randomUUID();
+    await client.fileNode.create({ data: { id: fileId, projectId, name: 'test.png', type: 'FILE', path: '/test.png', parentId: folderId } });
+    return { fileNodeId: FileNodeId.create(fileId) };
   }
 });

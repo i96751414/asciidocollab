@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import type { Asciidoctor as AsciidoctorType } from 'asciidoctor';
+import '../styles/asciidoc-preview.css';
+import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
+import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 
 const ASCIIDOC_EXTENSIONS = new Set(['.adoc', '.asciidoc', '.asc']);
 
@@ -12,67 +13,98 @@ export function isAsciiDocFile(nodeName: string): boolean {
   return ASCIIDOC_EXTENSIONS.has(extension);
 }
 
-interface AsciiDocPreviewProperties {
-  content: string;
-  isOpen: boolean;
-  onToggle: () => void;
+function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: boolean }) {
+  if (!isEnabled || state === 'idle') {
+    return <span className="text-xs text-muted-foreground" aria-label="not available">–</span>;
+  }
+  if (state === 'up-to-date') {
+    return <span className="text-xs text-green-600" aria-label="up to date">✓</span>;
+  }
+  if (state === 'error') {
+    return <span className="text-xs text-destructive" aria-label="preview error">⚠ Preview error</span>;
+  }
+  return (
+    <span data-testid="sync-indicator" className="text-xs text-muted-foreground animate-pulse" aria-label="rendering">
+      ●
+    </span>
+  );
 }
 
-/** Collapsible panel that renders AsciiDoc source to HTML using Asciidoctor.js. */
-export function AsciiDocPreview({ content, isOpen, onToggle }: AsciiDocPreviewProperties) {
-  const [html, setHtml] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const cancelledReference = useRef(false);
+interface AsciiDocPreviewProperties {
+  content: string;
+  isEnabled: boolean;
+  scrollToLine?: ScrollRequest | null;
+  /** When provided, a collapse button is rendered in the header. */
+  onCollapse?: () => void;
+  /** Whether the preview scrolls to match editor scroll position. */
+  scrollSyncEnabled?: boolean;
+  /** Called when the user toggles the scroll sync option. */
+  onToggleScrollSync?: () => void;
+}
 
-  useEffect(() => {
-    if (!isOpen || !content) {
-      setHtml(null);
-      return;
-    }
-
-    cancelledReference.current = false;
-    setLoading(true);
-
-    import('asciidoctor').then((module_) => {
-      if (cancelledReference.current) return;
-      const processor: AsciidoctorType = (module_.default ?? module_)();
-      const result = String(processor.convert(content, { safe: 'safe' }));
-      if (!cancelledReference.current) {
-        setHtml(result);
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (!cancelledReference.current) setLoading(false);
-    });
-
-    return () => { cancelledReference.current = true; };
-  }, [isOpen, content]);
+/** Live preview panel that renders AsciiDoc source as styled HTML via a Web Worker. */
+export function AsciiDocPreview({
+  content,
+  isEnabled,
+  scrollToLine = null,
+  onCollapse,
+  scrollSyncEnabled = false,
+  onToggleScrollSync,
+}: AsciiDocPreviewProperties) {
+  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine });
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-2 border-b shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
-        <button
-          onClick={onToggle}
-          className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label={isOpen ? 'collapse preview' : 'expand preview'}
-        >
-          {isOpen ? '›' : '‹'}
-        </button>
-      </div>
-
-      {isOpen && (
-        <div className="flex-1 overflow-auto p-4">
-          {loading && <p className="text-muted-foreground text-sm">Rendering…</p>}
-          {!loading && html !== null && (
-            <div
-              data-testid="asciidoc-output"
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+        <div className="flex items-center gap-1">
+          <SyncIndicator state={state} isEnabled={isEnabled} />
+          {onToggleScrollSync && (
+            <button
+              type="button"
+              onClick={onToggleScrollSync}
+              className={`cursor-pointer rounded p-0.5 text-xs ${scrollSyncEnabled ? 'text-foreground' : 'text-muted-foreground'} hover:bg-accent hover:text-foreground`}
+              aria-label={scrollSyncEnabled ? 'disable scroll sync' : 'enable scroll sync'}
+              aria-pressed={scrollSyncEnabled}
+              title="Scroll preview with editor"
+              data-testid="scroll-sync-toggle"
+            >
+              ↕
+            </button>
+          )}
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="collapse preview"
+            >
+              ›
+            </button>
           )}
         </div>
+      </div>
+
+      {/* Error callout — shown below header, preserves previous html underneath */}
+      {state === 'error' && error && (
+        <div className="px-3 py-1.5 text-xs text-destructive border-b bg-destructive/10 shrink-0">
+          {error}
+        </div>
       )}
+
+      <div ref={previewRef} className="flex-1 overflow-auto p-4" data-testid="preview-scroll-container">
+        {!isEnabled || state === 'idle' ? (
+          <p className="text-muted-foreground text-sm">Preview not available for this file type</p>
+        ) : (
+          html !== null && (
+            <div
+              data-testid="asciidoc-output"
+              className="asciidoc-preview-content"
+              // dangerouslySetInnerHTML is intentional: content is sanitized by DOMPurify in useAsciidocPreview.
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          )
+        )}
+      </div>
     </div>
   );
 }

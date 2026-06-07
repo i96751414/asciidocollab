@@ -1,12 +1,17 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
+import { ImagePreview } from '@/components/image-preview';
+import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
+import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 
@@ -15,9 +20,20 @@ interface ContentAreaProperties {
   contentState: FileContentState;
   canEdit: boolean;
   projectId: string;
+  onScrollLine?: (line: number) => void;
+  onLineClick?: (line: number) => void;
+  onChange?: (value: string) => void;
 }
 
-function ContentArea({ selectedFile, contentState, canEdit, projectId }: ContentAreaProperties) {
+function ContentArea({
+  selectedFile,
+  contentState,
+  canEdit,
+  projectId,
+  onScrollLine,
+  onLineClick,
+  onChange,
+}: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
   }
@@ -30,6 +46,16 @@ function ContentArea({ selectedFile, contentState, canEdit, projectId }: Content
     );
   }
   if (contentState.isBinary) {
+    if (isImageFile(selectedFile.nodeName)) {
+      return (
+        <ImagePreview
+          key={selectedFile.nodeId}
+          projectId={projectId}
+          fileNodeId={selectedFile.nodeId}
+          fileName={selectedFile.nodeName}
+        />
+      );
+    }
     return <p className="text-muted-foreground text-sm p-4">Preview not available for binary files.</p>;
   }
   if (contentState.error) {
@@ -43,6 +69,10 @@ function ContentArea({ selectedFile, contentState, canEdit, projectId }: Content
       projectId={projectId}
       fileNodeId={selectedFile.nodeId}
       initialEtag={contentState.etag}
+      isAsciiDoc={isAsciiDocFile(selectedFile.nodeName)}
+      onScrollLine={onScrollLine}
+      onLineClick={onLineClick}
+      onChange={onChange}
     />
   );
 }
@@ -65,7 +95,54 @@ export function ProjectEditorLayout({
 }: ProjectEditorLayoutProperties) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
+  // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
+  const lastScrolledLine = useRef<number | null>(null);
+  // Track live editor content so the preview reflects what the user is typing.
+  const [liveContent, setLiveContent] = useState('');
+  // True once the user has typed in the current file — prevents server updates from
+  // overwriting in-progress edits.
+  const userHasEditedReference = useRef(false);
   const { selectedFile, contentState, selectFile } = useFileSelection(projectId);
+  const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
+
+  // Scroll-sync handler: dedup identical consecutive lines to avoid jitter.
+  const handleScrollLine = useCallback((line: number) => {
+    if (lastScrolledLine.current === line) return;
+    lastScrolledLine.current = line;
+    setScrollRequest({ line });
+  }, []);
+
+  // Line-click handler: always fires, even for the same line clicked twice.
+  // No dedup — the user intentionally clicked, so we always issue a fresh scroll.
+  const handleLineClick = useCallback((line: number) => {
+    setScrollRequest({ line });
+  }, []);
+
+  const handleChange = useCallback((value: string) => {
+    userHasEditedReference.current = true;
+    setLiveContent(value);
+  }, []);
+
+  // When switching to a different file, reset edit tracking and load initial content.
+  useEffect(() => {
+    userHasEditedReference.current = false;
+    setLiveContent(contentState.content ?? '');
+  }, [selectedFile?.nodeId]);
+
+  // Apply server-pushed content updates only while the user hasn't typed anything.
+  useEffect(() => {
+    if (!userHasEditedReference.current) {
+      setLiveContent(contentState.content ?? '');
+    }
+  }, [contentState.content]);
+
+  // Reset scroll position whenever a different file is opened.
+  // useLayoutEffect prevents a one-frame flash of the old scroll position.
+  useLayoutEffect(() => {
+    setScrollRequest(null);
+    lastScrolledLine.current = null;
+  }, [selectedFile?.nodeId]);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('asciidoc-preview-open');
@@ -139,37 +216,57 @@ export function ProjectEditorLayout({
           </Button>
         )}
 
-        {/* Content panel */}
-        <div data-testid="content-panel" className="flex-1 overflow-hidden flex flex-col p-4">
-          <ContentArea
-            selectedFile={selectedFile}
-            contentState={contentState}
-            canEdit={canEdit}
-            projectId={projectId}
-          />
-        </div>
-
-        {/* Preview panel — full when open, narrow strip when collapsed */}
-        {showPreview && previewOpen && (
-          <div data-testid="preview-panel" className="w-80 shrink-0 border-l overflow-hidden">
-            <AsciiDocPreview
-              content={contentState.content ?? ''}
-              isOpen={previewOpen}
-              onToggle={togglePreview}
-            />
-          </div>
-        )}
-        {showPreview && !previewOpen && (
-          <Button
-            data-testid="preview-panel"
-            variant="ghost"
-            size="icon"
-            aria-label="expand preview"
-            className="w-6 h-full shrink-0 border-l rounded-none"
-            onClick={togglePreview}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+        {/* Editor + Preview panels — resizable when preview is open */}
+        {showPreview && previewOpen ? (
+          <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+            <Panel defaultSize={50} minSize={20} className="overflow-hidden flex flex-col p-4" data-testid="content-panel">
+              <ContentArea
+                selectedFile={selectedFile}
+                contentState={contentState}
+                canEdit={canEdit}
+                projectId={projectId}
+                onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
+                onLineClick={handleLineClick}
+                onChange={handleChange}
+              />
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
+            <Panel defaultSize={50} minSize={20} className="overflow-hidden border-l" data-testid="preview-panel">
+              <AsciiDocPreview
+                key={selectedFile?.nodeId}
+                content={liveContent}
+                isEnabled={previewOpen}
+                scrollToLine={scrollRequest}
+                onCollapse={togglePreview}
+                scrollSyncEnabled={scrollSyncEnabled}
+                onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
+              />
+            </Panel>
+          </PanelGroup>
+        ) : (
+          <>
+            <div data-testid="content-panel" className="flex-1 overflow-hidden flex flex-col p-4">
+              <ContentArea
+                selectedFile={selectedFile}
+                contentState={contentState}
+                canEdit={canEdit}
+                projectId={projectId}
+                onChange={handleChange}
+              />
+            </div>
+            {showPreview && !previewOpen && (
+              <Button
+                data-testid="preview-panel"
+                variant="ghost"
+                size="icon"
+                aria-label="expand preview"
+                className="w-6 h-full shrink-0 border-l rounded-none"
+                onClick={togglePreview}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>
