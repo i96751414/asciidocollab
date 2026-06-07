@@ -46,17 +46,17 @@ export function UserMenu({ profile }: UserMenuProperties) {
         <DropdownMenu.Content className="min-w-[200px] rounded-md border bg-popover p-1 shadow-md" align="end">
           <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Account</DropdownMenu.Label>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account/display-name" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
               Display Name
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account/password" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
               Password
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account/email" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
               Email
             </Link>
           </DropdownMenu.Item>
@@ -64,12 +64,12 @@ export function UserMenu({ profile }: UserMenuProperties) {
           <DropdownMenu.Separator className="my-1 border-t" />
           <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Settings</DropdownMenu.Label>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account/keyboard-shortcuts" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
               Keyboard Shortcuts
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account/theme" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
               Application Theme
             </Link>
           </DropdownMenu.Item>
