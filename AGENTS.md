@@ -140,17 +140,45 @@ A green typecheck is not a passing test suite. Run both.
 
 ### Pre-merge gate (before any PR or merge to main)
 
-All of the following must pass with zero failures:
+Run the four CI jobs in order. All must pass with zero failures.
+
+#### Job 1 — Quality (lint · types · architecture)
 
 ```bash
-# Unit + integration tests — all packages
-pnpm --filter @asciidocollab/web check   # lint + typecheck + jest
-cd apps/api && npx jest                  # API route tests
-cd packages/domain && npx jest           # domain use-case tests
-cd packages/infrastructure && npx jest  # Prisma integration tests
+pnpm -r build                                                  # generate declaration files first
+npx eslint .                                                   # lint entire repo from root
+npx tsc -p packages/shared/tsconfig.json --noEmit
+npx tsc -p packages/domain/tsconfig.json --noEmit
+npx tsc -p packages/infrastructure/tsconfig.json --noEmit
+npx tsc -p apps/api/tsconfig.json --noEmit
+npx tsc -p apps/web/tsconfig.json --noEmit
+npx fresh-onion                                                # architecture boundary check
+pnpm audit --audit-level=high                                  # security audit — high+ severity
+```
 
-# E2E tests — requires dev stack running (./scripts/dev.sh)
-pnpm --filter @asciidocollab/web e2e     # Playwright suite
+#### Job 2 — Unit tests + coverage (needs Job 1)
+
+```bash
+pnpm --filter @asciidocollab/shared test
+cd packages/domain && npx jest --coverage --coverageReporters=text lcov
+pnpm --filter @asciidocollab/api test
+pnpm --filter @asciidocollab/web test
+```
+
+#### Job 3 — Integration tests (needs Job 1)
+
+```bash
+pnpm -r build
+pnpm --filter @asciidocollab/infrastructure test -- --passWithNoTests
+# Testcontainers manages its own PostgreSQL container — no external DB needed.
+```
+
+#### Job 4 — E2E tests (needs Jobs 2 + 3, requires full dev stack)
+
+```bash
+# Requires: docker compose up -d postgres mailpit --wait
+# Requires: API + Next.js running (see scripts/dev.sh or ci.yml for env vars)
+pnpm --filter @asciidocollab/web e2e
 ```
 
 **E2E tests are mandatory before merge.** They are the only layer that catches missing route registrations, broken API
@@ -160,22 +188,21 @@ contracts, and UI regressions that unit tests cannot see. A PR where E2E was not
 
 ## Quality Gates for `apps/web`
 
-**Always use `pnpm --filter` from the repo root.** Running `npx jest` or `npx eslint` from the repo root without
-`--filter` picks up configs from all workspace packages and produces misleading results (e.g. 146 phantom test
-failures).
+For a quick local check of the web package only:
 
 ```bash
-# Run individually from repo root:
-pnpm --filter @asciidocollab/web lint        # eslint src/ tests/ e2e/ — 0 violations required
-pnpm --filter @asciidocollab/web typecheck   # tsc --noEmit — 0 errors required
-pnpm --filter @asciidocollab/web test        # jest — all 176 tests must pass
-
-# Or run all three in sequence:
-pnpm --filter @asciidocollab/web check
+pnpm --filter @asciidocollab/web test        # jest — all tests must pass
+npx tsc -p apps/web/tsconfig.json --noEmit   # type-check (matches CI)
 ```
 
-**Why not `next lint`?** `next lint` was removed in Next.js 16. The `apps/web` lint script now runs
+For lint, CI runs `npx eslint .` from the repo root (covers all packages in one pass). Running
+`pnpm --filter @asciidocollab/web lint` lints only `apps/web` and is useful for a fast local loop.
+
+**Why not `next lint`?** `next lint` was removed in Next.js 16. The `apps/web` lint script runs
 `eslint src/ tests/ e2e/` directly.
+
+**Avoid `npx jest` from the repo root without `--filter`** — it picks up configs from all workspace packages
+and produces misleading results (e.g. 146 phantom test failures).
 
 ## Speckit Architecture Files
 
