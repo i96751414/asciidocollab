@@ -1,13 +1,18 @@
 'use client';
-import { ChevronRight, ChevronDown, File, Folder } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronRight, ChevronDown, File, Folder, ArchiveIcon } from 'lucide-react';
 import { cn } from '@/lib/utilities';
 import { DragDropZone } from './drag-drop-zone';
 import { FileTreeActions } from './file-tree-actions';
 import type { FileTreeNode as FileTreeNodeType } from './types';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
 interface Properties {
   node: FileTreeNodeType;
   depth: number;
+  /** When true, renders a "Download as ZIP" link for the project root node. */
+  isProjectRoot?: boolean;
   projectId: string;
   canEdit: boolean;
   selectedNodeId: string | null;
@@ -18,10 +23,12 @@ interface Properties {
   isExpanded?: boolean;
   onToggle?: (nodeId: string) => void;
   expandedState?: Map<string, boolean>;
+  onFolderDrop?: (targetFolderId: string, sourceNodeId: string) => void;
 }
 
 /** Renders a single file or folder node in the file tree, with expand/collapse and drag-drop support. */
-export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, onSelect, onContextMenu, onUpdate, onError, isExpanded = false, onToggle, expandedState }: Properties) {
+export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, onSelect, onContextMenu, onUpdate, onError, isExpanded = false, onToggle, expandedState, isProjectRoot = false, onFolderDrop }: Properties) {
+  const [zipDownloading, setZipDownloading] = useState(false);
   const handleClick = () => {
     if (node.type === 'folder') {
       onToggle?.(node.id);
@@ -42,6 +49,7 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
     <div
       data-testid={`tree-node-${node.name}`}
       data-node-id={node.id}
+      draggable
       className={cn(
         'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
         isSelected && 'bg-accent',
@@ -49,6 +57,8 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
+      onDragOver={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}
+      onDrop={node.type === 'folder' ? (event) => { event.stopPropagation(); const sourceId = event.dataTransfer.getData('text/plain'); onFolderDrop?.(node.id, sourceId); } : undefined}
     >
       {node.type === 'folder' ? (
         <>
@@ -62,6 +72,26 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
         </>
       )}
       <span className="truncate text-sm flex-1">{node.name}</span>
+      {isProjectRoot && (
+        <a
+          href={`${API_BASE}/projects/${projectId}/download`}
+          download
+          aria-disabled={zipDownloading || undefined}
+          aria-label="Download as ZIP"
+          className={cn(
+            'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0 p-1 rounded hover:bg-muted',
+            zipDownloading && 'pointer-events-none opacity-50',
+          )}
+          onClick={(event) => {
+            if (zipDownloading) { event.preventDefault(); return; }
+            setZipDownloading(true);
+            setTimeout(() => setZipDownloading(false), 1000);
+          }}
+        >
+          <ArchiveIcon className="h-4 w-4" />
+          <span className="sr-only">Download as ZIP</span>
+        </a>
+      )}
       {canEdit && (
         <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0">
           <FileTreeActions
@@ -99,6 +129,7 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
             isExpanded={expandedState?.get(child.id) ?? false}
             onToggle={onToggle}
             expandedState={expandedState}
+            onFolderDrop={onFolderDrop}
           />
         ))}
       </DragDropZone>

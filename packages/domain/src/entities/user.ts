@@ -52,6 +52,10 @@ export class User {
     public readonly emailVerified: boolean = false,
     /** How this user entered the system. */
     public readonly registrationMethod: RegistrationMethod = 'SELF_REGISTERED',
+    /** DiceBear style key for avatar rendering, or null for the default. */
+    public readonly avatarKey: string | null = null,
+    /** UI theme preference: "light", "dark", or "system". */
+    public readonly appTheme: string = 'system',
   ) {
     if (!this.passwordHash && !this.samlSubject) {
       throw new Error('User must have at least one of passwordHash or samlSubject');

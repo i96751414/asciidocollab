@@ -148,4 +148,36 @@ describe('EditorSettingsPanel', () => {
     capturedOnValueChange?.('not-a-valid-theme');
     expect(mockSetTheme).not.toHaveBeenCalled();
   });
+
+  // T043: soft-wrap toggle
+  test('soft-wrap toggle renders after theme selector', () => {
+    const mockSetSoftWrap = jest.fn();
+    render(
+      <EditorSettingsPanel
+        fontSize={14}
+        theme="default"
+        setFontSize={mockSetFontSize}
+        setTheme={mockSetTheme}
+        softWrap={true}
+        setSoftWrap={mockSetSoftWrap}
+      />
+    );
+    expect(screen.getByLabelText(/soft wrap/i)).toBeInTheDocument();
+  });
+
+  test('clicking soft-wrap toggle fires setSoftWrap callback', () => {
+    const mockSetSoftWrap = jest.fn();
+    render(
+      <EditorSettingsPanel
+        fontSize={14}
+        theme="default"
+        setFontSize={mockSetFontSize}
+        setTheme={mockSetTheme}
+        softWrap={true}
+        setSoftWrap={mockSetSoftWrap}
+      />
+    );
+    fireEvent.click(screen.getByLabelText(/soft wrap/i));
+    expect(mockSetSoftWrap).toHaveBeenCalledWith(false);
+  });
 });

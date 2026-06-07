@@ -91,3 +91,14 @@ admin:
   openRegistration:
     rateLimitMax: 60
     rateLimitWindow: 60000
+  auditLog:
+    rateLimitMax: 120
+    rateLimitWindow: 60000
+
+downloads:
+  zip:
+    rateLimitMax: 10
+    rateLimitWindow: 60000
+  file:
+    rateLimitMax: 30
+    rateLimitWindow: 60000

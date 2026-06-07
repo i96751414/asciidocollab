@@ -22,7 +22,8 @@ export interface AssetRepository {
    * Persists an asset entity.
    *
    * @param asset - The asset entity to save.
-   * @throws If an asset with the same id already exists (1:1 FK constraint).
+   * @returns Resolves when the save completes.
+   * @throws {Error} If an asset with the same id already exists (1:1 FK constraint).
    */
   save(asset: Asset): Promise<void>;
 
@@ -30,6 +31,7 @@ export interface AssetRepository {
    * Removes an asset by its FileNode id.
    *
    * @param id - The FileNode id of the asset to delete.
+   * @returns Resolves when the deletion completes.
    */
   delete(id: FileNodeId): Promise<void>;
 }

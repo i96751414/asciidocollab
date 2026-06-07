@@ -1,7 +1,7 @@
 /**
  * Unit tests for apps/web/e2e/helpers/test-user.ts
  *
- * The `ensureTestUser` function is tested by mocking the @playwright/test `request`
+ * The `ensureTestUser` function is tested by mocking the `@playwright/test` `request`
  * module so tests never hit a real server.
  */
 

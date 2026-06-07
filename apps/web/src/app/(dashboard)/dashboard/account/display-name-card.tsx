@@ -12,6 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Avatar } from "@/components/avatar";
+import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE } from "@/lib/avatars";
 import { authApi, ApiError } from "@/lib/api";
 import { useTouchedFields } from "@/hooks/use-touched-fields";
 
@@ -27,11 +29,13 @@ const schema = z.object({
 
 interface DisplayNameCardProperties {
   displayName: string;
+  avatarKey?: string | null;
 }
 
-/** Card that lets an authenticated user update their display name. */
-export function DisplayNameCard({ displayName: initialDisplayName }: DisplayNameCardProperties) {
+/** Card allowing the user to update their display name and choose an avatar style. */
+export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: initialAvatarKey = null }: DisplayNameCardProperties) {
   const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [selectedAvatarKey, setSelectedAvatarKey] = useState<string>(initialAvatarKey ?? DEFAULT_AVATAR_STYLE);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -41,7 +45,7 @@ export function DisplayNameCard({ displayName: initialDisplayName }: DisplayName
   const validation = schema.safeParse({ displayName });
   const isFormValid = validation.success;
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
-  const isUnchanged = displayName === initialDisplayName;
+  const isUnchanged = displayName === initialDisplayName && selectedAvatarKey === (initialAvatarKey ?? DEFAULT_AVATAR_STYLE);
 
   function visibleError(field: FieldName): string | undefined {
     if (!isTouched(field)) return undefined;
@@ -57,7 +61,7 @@ export function DisplayNameCard({ displayName: initialDisplayName }: DisplayName
 
     startTransition(async () => {
       try {
-        await authApi.updateDisplayName(displayName);
+        await authApi.updateProfile({ displayName, avatarKey: selectedAvatarKey });
         if (successTimerReference.current) clearTimeout(successTimerReference.current);
         setSuccessMessage("Saved");
         successTimerReference.current = setTimeout(() => setSuccessMessage(null), 3000);
@@ -75,7 +79,7 @@ export function DisplayNameCard({ displayName: initialDisplayName }: DisplayName
     <Card>
       <CardHeader>
         <CardTitle>Display Name</CardTitle>
-        <CardDescription>Update your display name.</CardDescription>
+        <CardDescription>Update your display name and avatar style.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} role="form" aria-label="Update display name">
@@ -97,6 +101,27 @@ export function DisplayNameCard({ displayName: initialDisplayName }: DisplayName
                 </p>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label>Avatar style</Label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(DICEBEAR_STYLES).map(([key, entry]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={selectedAvatarKey === key}
+                    onClick={() => setSelectedAvatarKey(key)}
+                    className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs transition-colors hover:bg-accent ${
+                      selectedAvatarKey === key ? "border-primary bg-accent" : "border-border"
+                    }`}
+                  >
+                    <Avatar avatarKey={key} displayName={displayName || initialDisplayName} size={40} />
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {submitError && (
               <p role="alert" className="text-sm text-destructive">
                 {submitError}

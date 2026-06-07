@@ -27,6 +27,8 @@ interface AsciiDocEditorProperties {
   initialEtag?: string | null;
   /** When false, hides the AsciiDoc toolbar and outline panel (e.g. For plain-text files). */
   isAsciiDoc?: boolean;
+  /** When true (default), enables line wrapping in the editor. */
+  softWrap?: boolean;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
@@ -53,6 +55,7 @@ export function AsciiDocEditor({
   fileNodeId,
   initialEtag,
   isAsciiDoc = true,
+  softWrap: softWrapProperty,
   onChange,
   onNavigateToFile,
   onOpenUrl,
@@ -65,7 +68,8 @@ export function AsciiDocEditor({
   const [draftContent, setDraftContent] = useState<string | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(true);
 
-  const { fontSize, theme, setFontSize, setTheme } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme } = useEditorPreferences();
+  const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
 
@@ -88,6 +92,7 @@ export function AsciiDocEditor({
   const { containerReference, viewReference, handleHeadingClick } = useEditorMount({
     content,
     canEdit,
+    softWrap,
     includePaths,
     imagePaths,
     onDocChange: handleChange,

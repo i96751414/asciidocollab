@@ -28,5 +28,5 @@ export { EmailVerificationTokenRepository } from './auth-tokens/email-verificati
 export { PasswordResetTokenRepository } from './auth-tokens/password-reset-token.repository';
 
 // admin/
-export { AuditLogRepository } from './admin/audit-log.repository';
+export { AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from './admin/audit-log.repository';
 export { SystemSettingRepository } from './admin/system-setting.repository';

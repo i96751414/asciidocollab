@@ -410,3 +410,69 @@ describe('FileTreeActions', () => {
     await waitFor(() => expect(createFolder).toHaveBeenCalledWith(projectId, fileNodeId, 'New Folder'));
   });
 });
+
+// ── T055: Download action ────────────────────────────────────────────────────
+
+describe('FileTreeActions — Download', () => {
+  const projectId = 'proj-1';
+  const fileNodeId = 'node-file-1';
+  const parentId = 'parent-1';
+
+  it('renders "Download" option for FILE nodes', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="readme.adoc"
+        hasChildren={false}
+      />,
+    );
+    expect(screen.getByText(/download/i)).toBeInTheDocument();
+  });
+
+  it('does NOT render "Download" option for FOLDER nodes', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="src"
+        hasChildren={false}
+      />,
+    );
+    expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
+  });
+
+  it('Download <a> element has correct href pointing to file download endpoint', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="readme.adoc"
+        hasChildren={false}
+      />,
+    );
+    const downloadLink = screen.getByRole('link', { name: /download/i });
+    expect(downloadLink).toHaveAttribute('href', expect.stringContaining(`/projects/${projectId}/files/${fileNodeId}/download`));
+  });
+
+  it('Download <a> element has the download attribute set (native browser download)', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="readme.adoc"
+        hasChildren={false}
+      />,
+    );
+    const downloadLink = screen.getByRole('link', { name: /download/i });
+    expect(downloadLink).toHaveAttribute('download');
+  });
+});

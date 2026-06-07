@@ -99,6 +99,10 @@ import { verifyEmailRoute } from './routes/verify-email';
 import { resendVerificationRoute } from './routes/resend-verification';
 import { openRegistrationStatusRoute } from './routes/open-registration-status';
 import { adminSettingsRoute } from './routes/admin/settings';
+import { accessDeniedRoute } from './routes/admin/access-denied';
+import { auditLogsRoute } from './routes/admin/audit-logs';
+import { projectDownloadRoute } from './routes/projects/download';
+import { fileDownloadRoute } from './routes/files/download';
 import { fileContentRoutes } from './routes/projects/file-content';
 import { fileTreeRoutes } from './routes/projects/file-tree';
 import { assetsRoutes } from './routes/projects/assets';
@@ -392,6 +396,10 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(usersAdminStatusRoute);
       await innerApp.register(usersRemoveRoute);
       await innerApp.register(adminSettingsRoute);
+      await innerApp.register(accessDeniedRoute);
+      await innerApp.register(auditLogsRoute);
+      await innerApp.register(projectDownloadRoute);
+      await innerApp.register(fileDownloadRoute);
     });
   });
 }

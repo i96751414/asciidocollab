@@ -60,4 +60,19 @@ describe('SaveEditorPreferencesUseCase', () => {
       expect(result.value.fontSize).toBe(20);
     }
   });
+
+  test('softWrap field accepted and persisted', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    const saveResult = await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', softWrap: false });
+    expect(saveResult.success).toBe(true);
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.softWrap).toBe(false);
+    }
+  });
 });

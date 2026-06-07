@@ -1,3 +1,4 @@
+import type { Readable } from 'stream';
 import { ProjectId } from '../../value-objects/project-id';
 import { FilePath } from '../../value-objects/file-path';
 import { FileConflictError } from '../../errors/file-conflict';
@@ -78,4 +79,14 @@ export interface ProjectFileStore {
    * @returns A promise that resolves when the project tree has been removed.
    */
   removeProject(projectId: ProjectId): Promise<void>;
+
+  /**
+   * Returns a readable stream for the file, or null if the file does not exist.
+   * Used for streaming downloads — no file content is buffered in memory.
+   *
+   * @param projectId - The project that owns the file.
+   * @param filePath - The path of the file within the project.
+   * @returns A Readable stream, or null if the file is not found.
+   */
+  readStream(projectId: ProjectId, filePath: FilePath): Promise<Readable | null>;
 }

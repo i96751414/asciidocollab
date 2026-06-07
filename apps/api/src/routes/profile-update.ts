@@ -1,11 +1,19 @@
 import type { FastifyInstance } from 'fastify';
-import { UserId, UpdateDisplayNameUseCase } from '@asciidocollab/domain';
+import { UserId, UpdateProfileUseCase } from '@asciidocollab/domain';
+import { requireAuth, getAuthenticatedUserId } from '../plugins/require-auth';
 import '../types/session';
-import type { UpdateDisplayNameDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
+import type { AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
+
+interface UpdateProfileBody {
+  displayName?: string;
+  appTheme?: string;
+  avatarKey?: string | null;
+}
 
 /** Registers the profile update route on the Fastify instance. */
 export async function profileUpdateRoute(app: FastifyInstance): Promise<void> {
-  app.patch<{ Body: UpdateDisplayNameDto }>('/auth/profile', {
+  app.patch<{ Body: UpdateProfileBody }>('/auth/me/profile', {
+    preHandler: requireAuth,
     config: {
       rateLimit: {
         max: app.config.auth.profileUpdate.rateLimitMax,
@@ -15,27 +23,31 @@ export async function profileUpdateRoute(app: FastifyInstance): Promise<void> {
     schema: {
       body: {
         type: 'object',
-        required: ['displayName'],
+        minProperties: 1,
+        additionalProperties: false,
         properties: {
           displayName: { type: 'string', minLength: 1, maxLength: 100 },
+          appTheme: { type: 'string', enum: ['light', 'dark', 'system'] },
+          avatarKey: { type: ['string', 'null'], maxLength: 50 },
         },
       },
     },
   }, async (request, reply) => {
-    if (!request.session.userId) {
-      return reply.status(401).send({
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-      } satisfies AuthErrorResponseDto);
-    }
+    const userId = UserId.create(getAuthenticatedUserId(request));
+    const { displayName, appTheme, avatarKey } = request.body;
 
-    const { displayName } = request.body;
-
-    const useCase = new UpdateDisplayNameUseCase(request.server.repos.user);
-    const result = await useCase.execute(UserId.create(request.session.userId), displayName);
+    const useCase = new UpdateProfileUseCase(request.server.repos.user);
+    const result = await useCase.execute({
+      userId,
+      ...(displayName !== undefined && { displayName }),
+      ...(appTheme !== undefined && { appTheme }),
+      ...(avatarKey !== undefined && { avatarKey }),
+    });
 
     if (!result.success) {
-      return reply.status(400).send({
-        error: { code: 'VALIDATION_ERROR', message: result.error.message },
+      const status = result.error.name === 'UserNotFoundError' ? 404 : 400;
+      return reply.status(status).send({
+        error: { code: result.error.name.toUpperCase().replace('ERROR', '_ERROR'), message: result.error.message },
       } satisfies AuthErrorResponseDto);
     }
 

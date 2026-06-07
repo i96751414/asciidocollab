@@ -5,6 +5,8 @@ import { FileTreeNode } from './file-tree-node';
 import { FileTreeActions } from './file-tree-actions';
 import { DragDropZone } from './drag-drop-zone';
 import { FindPanel } from './find-panel';
+import { MoveConfirmationDialog } from './move-confirmation-dialog';
+import { moveFileNode, renameFileNode } from '@/lib/api/file-tree';
 import { Button } from '@/components/ui/button';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import { useKeyBindings } from '@/hooks/use-key-bindings';
@@ -112,11 +114,31 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
   return tree;
 }
 
+interface MoveDialogState {
+  sourceId: string;
+  targetId: string;
+  sourcePath: string;
+  targetPath: string;
+  hasConflict: boolean;
+}
+
+function findNodeInTree(node: FileTreeNodeType, id: string): FileTreeNodeType | null {
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findNodeInTree(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Renders the full file tree for a project, with real-time SSE updates and keyboard shortcut support. */
 export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onCollapse }: Properties) {
   const [tree, setTree] = useState<FileTreeNodeType | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const containerReference = useRef<HTMLDivElement>(null);
+  const autoExpandedReference = useRef(false);
 
   const userBindings = useKeyBindings('file-tree');
   const bindings = useMemo(() => new Map(userBindings), [userBindings]);
@@ -167,6 +189,15 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
     fetchTree();
   }, [fetchTree]);
 
+  useEffect(() => {
+    if (tree && !autoExpandedReference.current) {
+      autoExpandedReference.current = true;
+      for (const child of tree.children) {
+        if (child.type === 'folder') toggleExpand(child.id);
+      }
+    }
+  }, [tree, toggleExpand]);
+
   const onEvent = useCallback((event: FileTreeEventDto) => {
     setTree((previous) => applyEvent(previous, event));
   }, []);
@@ -187,8 +218,82 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
 
   useFileTreeKeyHandler(containerReference, bindings, keyCallbacks);
 
+  const handleTreeDragStart = useCallback((event: React.DragEvent) => {
+    const rawTarget = event.target;
+    if (!(rawTarget instanceof HTMLElement)) return;
+    const container = rawTarget.closest('[data-node-id]');
+    if (!(container instanceof HTMLElement)) return;
+    const nodeId = container.dataset.nodeId;
+    if (!nodeId) return;
+    event.dataTransfer.setData('text/plain', nodeId);
+    setDraggedNodeId(nodeId);
+  }, []);
+
+  const handleTreeDragEnd = useCallback(() => {
+    setDraggedNodeId(null);
+  }, []);
+
+  const handleFolderDrop = useCallback((targetFolderId: string, sourceNodeId: string) => {
+    if (!tree) return;
+    const sourceNode = findNodeInTree(tree, sourceNodeId);
+    if (!sourceNode) return;
+    // No-op: dropping onto the same parent
+    if (sourceNode.parentId === targetFolderId) return;
+    // No-op: dropping a folder onto itself
+    if (sourceNode.id === targetFolderId) return;
+
+    const targetFolder = findNodeInTree(tree, targetFolderId);
+    if (!targetFolder) return;
+
+    const hasConflict = targetFolder.children.some((c) => c.name === sourceNode.name && c.id !== sourceNode.id);
+
+    setMoveDialog({
+      sourceId: sourceNodeId,
+      targetId: targetFolderId,
+      sourcePath: sourceNode.path,
+      targetPath: targetFolder.path,
+      hasConflict,
+    });
+    setDraggedNodeId(null);
+  }, [tree]);
+
+  const handleMoveConfirm = useCallback(async () => {
+    if (!moveDialog) return;
+    setMoveDialog(null);
+    try {
+      await moveFileNode(projectId, moveDialog.sourceId, moveDialog.targetId);
+      await fetchTree();
+    } catch {
+      setOperationError('Failed to move file. Please try again.');
+    }
+  }, [moveDialog, projectId, fetchTree, setOperationError]);
+
+  const handleMoveAndRename = useCallback(async () => {
+    if (!moveDialog) return;
+    const sourceNode = tree ? findNodeInTree(tree, moveDialog.sourceId) : null;
+    setMoveDialog(null);
+    if (!sourceNode) return;
+    const newName = `${sourceNode.name.replace(/(\.[^.]+)$/, '')} (1)${sourceNode.name.match(/(\.[^.]+)$/)?.[0] ?? ''}`;
+    try {
+      await renameFileNode(projectId, moveDialog.sourceId, newName);
+      await moveFileNode(projectId, moveDialog.sourceId, moveDialog.targetId);
+      await fetchTree();
+    } catch {
+      setOperationError('Failed to move and rename file. Please try again.');
+    }
+  }, [moveDialog, tree, projectId, fetchTree, setOperationError]);
+
   return (
-    <div ref={containerReference} tabIndex={0} className="outline-none" onKeyDown={handleKeyDown}>
+    <div
+      ref={containerReference}
+      data-testid="file-tree"
+      data-drag-active={draggedNodeId ? 'true' : undefined}
+      tabIndex={0}
+      className="outline-none"
+      onKeyDown={handleKeyDown}
+      onDragStart={handleTreeDragStart}
+      onDragEnd={handleTreeDragEnd}
+    >
       {/* Header row: Files label + root actions (owner-only) + optional collapse button */}
       <div className="flex items-center justify-between px-2 py-1.5 border-b shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
@@ -233,6 +338,16 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
         <div className="p-4 text-sm text-muted-foreground">Loading...</div>
       )}
 
+      <MoveConfirmationDialog
+        open={!!moveDialog}
+        onOpenChange={(open) => { if (!open) setMoveDialog(null); }}
+        sourcePath={moveDialog?.sourcePath ?? ''}
+        destinationPath={moveDialog?.targetPath ?? ''}
+        hasConflict={moveDialog?.hasConflict ?? false}
+        onConfirm={handleMoveConfirm}
+        onConfirmAndRename={handleMoveAndRename}
+      />
+
       {tree && (
         <>
           {findOpen && (
@@ -271,6 +386,7 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
                   isExpanded={expandedState.get(node.id) ?? false}
                   onToggle={toggleExpand}
                   expandedState={expandedState}
+                  onFolderDrop={handleFolderDrop}
                 />
               ))
             )}

@@ -38,3 +38,4 @@ export {
 export { FileTreeEventDto } from './file-tree-event.dto';
 export { KeyBindingDto } from './key-binding.dto';
 export { EditorPreferencesDto } from './editor-preferences.dto';
+export { AuditLogDto, AuditLogPageDto } from './audit-log.dto';

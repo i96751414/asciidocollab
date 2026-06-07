@@ -1,3 +1,4 @@
+import { Readable } from 'stream';
 import { ProjectFileStore } from '../../../src/ports/storage/project-file-store';
 import { ProjectId } from '../../../src/value-objects/project-id';
 import { FilePath } from '../../../src/value-objects/file-path';
@@ -67,5 +68,11 @@ export class InMemoryProjectFileStore implements ProjectFileStore {
         this.storage.delete(key);
       }
     }
+  }
+
+  async readStream(projectId: ProjectId, filePath: FilePath): Promise<Readable | null> {
+    const content = this.storage.get(this.key(projectId, filePath));
+    if (content === undefined) return null;
+    return Readable.from(content);
   }
 }

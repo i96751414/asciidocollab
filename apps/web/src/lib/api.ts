@@ -223,6 +223,13 @@ export const authApi = {
     });
   },
 
+  async updateProfile(data: UpdateProfileData): Promise<{ /** Confirmation message from the server. */ message: string }> {
+    return apiRequest('/auth/me/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   async requestEmailChange(newEmail: string): Promise<{ /** Confirmation message from the server. */
   message: string }> {
     return apiRequest('/auth/email/change-request', {
@@ -386,10 +393,78 @@ export interface SessionStatus {
   isAdmin: boolean;
 }
 
+/** A single audit-log event as returned by the admin API. */
+export interface AuditLogItem {
+  /** Unique identifier for this log entry. */
+  id: string;
+  /** ID of the user who triggered the action, or null for system events. */
+  userId: string | null;
+  /** Display name of the actor at the time of the event. */
+  actorDisplayName: string | null;
+  /** Project ID associated with this event, if applicable. */
+  projectId: string | null;
+  /** Machine-readable action type string (e.g. 'FILE_UPLOAD'). */
+  action: string;
+  /** Type of resource affected (e.g. 'FILE', 'PROJECT', 'PAGE'). */
+  resourceType: string;
+  /** ID or path identifying the affected resource. */
+  resourceId: string;
+  /** ISO 8601 UTC timestamp when the event occurred. */
+  timestamp: string;
+  /** Arbitrary key–value metadata attached to the event. */
+  metadata: Record<string, unknown>;
+}
+
+/** Fields that can be updated via the profile PATCH endpoint. */
+interface UpdateProfileData {
+  /** Optional new display name. */
+  displayName?: string;
+  /** Avatar style key, or null to clear the preference. */
+  avatarKey?: string | null;
+  /** Theme preference: 'light', 'dark', or 'system'. */
+  appTheme?: string;
+}
+
+/** Filter parameters for the audit-log listing endpoint. */
+interface AuditLogFilters {
+  /** ISO 8601 start of the time range. */
+  fromDate?: string;
+  /** ISO 8601 end of the time range. */
+  toDate?: string;
+  /** Filter by actor user ID. */
+  userId?: string;
+  /** Filter by action type string. */
+  actionType?: string;
+  /** 1-based page number. */
+  page?: number;
+  /** Results per page. */
+  limit?: number;
+}
+
+/** Paginated audit-log response from the admin API. */
+interface AuditLogPage {
+  /** The log items on the current page. */
+  items: AuditLogItem[];
+  /** Total item count across all pages. */
+  total: number;
+  /** Current page number. */
+  page: number;
+  /** Results-per-page limit. */
+  limit: number;
+}
+
+/** Response from the distinct action-types endpoint. */
+interface AuditLogActionTypesResponse {
+  /** All distinct action-type strings present in the audit log. */
+  actionTypes: string[];
+}
+
 /** Admin-controlled application settings. */
 export interface AdminSettings {
   /** Whether self-registration is currently open to the public. */
   openRegistration: boolean;
+  /** Maximum upload size in bytes. */
+  maxUploadSizeBytes?: number;
 }
 
 export const adminApi = {
@@ -462,5 +537,21 @@ export const adminApi = {
   /** Returns the current session's authentication and verification state. */
   async getSessionStatus(): Promise<SessionStatus> {
     return apiRequest('/auth/session-status');
+  },
+
+  async getAuditLogs(parameters?: AuditLogFilters): Promise<AuditLogPage> {
+    const query = new URLSearchParams();
+    if (parameters?.fromDate) query.set('fromDate', parameters.fromDate);
+    if (parameters?.toDate) query.set('toDate', parameters.toDate);
+    if (parameters?.userId) query.set('userId', parameters.userId);
+    if (parameters?.actionType) query.set('actionType', parameters.actionType);
+    if (parameters?.page) query.set('page', String(parameters.page));
+    if (parameters?.limit) query.set('limit', String(parameters.limit));
+    const qs = query.toString();
+    return apiRequest(`/admin/audit-logs${qs ? `?${qs}` : ''}`);
+  },
+
+  async getAuditLogActionTypes(): Promise<AuditLogActionTypesResponse> {
+    return apiRequest('/admin/audit-logs/action-types');
   },
 };

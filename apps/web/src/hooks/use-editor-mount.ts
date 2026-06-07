@@ -27,6 +27,7 @@ import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
 interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
+  softWrap?: boolean;
   includePaths: string[];
   imagePaths?: string[];
   onDocChange: (content: string) => void;
@@ -47,6 +48,7 @@ interface UseEditorMountOptions {
 export function useEditorMount({
   content,
   canEdit,
+  softWrap = true,
   includePaths,
   imagePaths = [],
   onDocChange,
@@ -134,6 +136,7 @@ export function useEditorMount({
         }),
         updateListener,
         lineClickHandler,
+        ...(softWrap ? [EditorView.lineWrapping] : []),
       ],
     });
 

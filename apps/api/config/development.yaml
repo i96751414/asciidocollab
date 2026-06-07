@@ -28,3 +28,16 @@ auth:
   passwordChange:
     rateLimitMax: 1000
     rateLimitWindow: 60000
+
+admin:
+  auditLog:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000
+
+downloads:
+  zip:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000
+  file:
+    rateLimitMax: 1000
+    rateLimitWindow: 60000

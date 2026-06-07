@@ -6,8 +6,10 @@ import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/editor-config';
 interface EditorSettingsPanelProperties {
   fontSize: number;
   theme: EditorThemeValue;
+  softWrap?: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
+  setSoftWrap?: (enabled: boolean) => void;
 }
 
 const THEME_OPTIONS: { value: EditorThemeValue; label: string }[] = [
@@ -19,7 +21,7 @@ const THEME_OPTIONS: { value: EditorThemeValue; label: string }[] = [
 ];
 
 /** Font size stepper and theme selector for the AsciiDoc editor. */
-export function EditorSettingsPanel({ fontSize, theme, setFontSize, setTheme }: EditorSettingsPanelProperties) {
+export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontSize, setTheme, setSoftWrap }: EditorSettingsPanelProperties) {
   return (
     <div className="flex flex-col gap-3 p-3">
       <div>
@@ -88,6 +90,20 @@ export function EditorSettingsPanel({ fontSize, theme, setFontSize, setTheme }: 
           </Select.Portal>
         </Select.Root>
       </div>
+      {setSoftWrap !== undefined && (
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="soft-wrap-toggle"
+            checked={softWrap}
+            onChange={(event) => setSoftWrap(event.target.checked)}
+            className="h-4 w-4 rounded border"
+          />
+          <label htmlFor="soft-wrap-toggle" className="text-xs text-muted-foreground cursor-pointer">
+            Soft Wrap
+          </label>
+        </div>
+      )}
     </div>
   );
 }
