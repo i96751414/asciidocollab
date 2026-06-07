@@ -181,8 +181,9 @@ jobs:
           ASCIIDOCOLLAB_API_HOST: 0.0.0.0
           ASCIIDOCOLLAB_API_FRONTEND_URL: http://localhost:3000
           ASCIIDOCOLLAB_API_CORS_ORIGINS: http://localhost:3000
-          ASCIIDOCOLLAB_AUTH_SESSION_SECRET: ${{ secrets.CI_SESSION_SECRET || 'ci-test-session-secret-32-chars-long!!' }}
-          ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY: ${{ secrets.CI_ENCRYPTION_KEY || 'ci-test-encryption-key-32-chars!!' }}
+          ASCIIDOCOLLAB_AUTH_SESSION_SECRET: ${{ secrets.CI_SESSION_SECRET || 'ci-test-session-secret-for-e2e-tests' }}
+          # Must be a base64-encoded 32-byte string (AES-256). Value = base64("ci-test-encryption-key-32bytes!!")
+          ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY: ${{ secrets.CI_ENCRYPTION_KEY || 'Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE=' }}
           ASCIIDOCOLLAB_AUTH_COOKIE_SECURE: 'false'
           ASCIIDOCOLLAB_AUTH_EMAIL_PROVIDER: smtp
           ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED: 'true'
