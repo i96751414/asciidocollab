@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
-import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE } from "@/lib/avatars";
+import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE, AVATAR_VARIANT_SEEDS } from "@/lib/avatars";
 import { authApi, ApiError } from "@/lib/api";
 import { useTouchedFields } from "@/hooks/use-touched-fields";
 
@@ -32,7 +32,7 @@ interface DisplayNameCardProperties {
   avatarKey?: string | null;
 }
 
-/** Card allowing the user to update their display name and choose an avatar style. */
+/** Card allowing the user to update their display name and choose an avatar style and variant. */
 export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: initialAvatarKey = null }: DisplayNameCardProperties) {
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [selectedAvatarKey, setSelectedAvatarKey] = useState<string>(initialAvatarKey ?? DEFAULT_AVATAR_STYLE);
@@ -41,6 +41,10 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
   const [isPending, startTransition] = useTransition();
   const successTimerReference = useRef<ReturnType<typeof setTimeout>>(null);
   const { touch, isTouched } = useTouchedFields(FIELDS);
+
+  const colonIdx = selectedAvatarKey.indexOf(':');
+  const selectedStyle = colonIdx === -1 ? selectedAvatarKey : selectedAvatarKey.slice(0, colonIdx);
+  const selectedVariant = colonIdx === -1 ? null : selectedAvatarKey.slice(colonIdx + 1);
 
   const validation = schema.safeParse({ displayName });
   const isFormValid = validation.success;
@@ -79,7 +83,7 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
     <Card>
       <CardHeader>
         <CardTitle>Display Name</CardTitle>
-        <CardDescription>Update your display name and avatar style.</CardDescription>
+        <CardDescription>Update your display name and choose an avatar.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} role="form" aria-label="Update display name">
@@ -109,10 +113,10 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
                   <button
                     key={key}
                     type="button"
-                    aria-pressed={selectedAvatarKey === key}
+                    aria-pressed={selectedStyle === key}
                     onClick={() => setSelectedAvatarKey(key)}
                     className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs transition-colors hover:bg-accent ${
-                      selectedAvatarKey === key ? "border-primary bg-accent" : "border-border"
+                      selectedStyle === key ? "border-primary bg-accent" : "border-border"
                     }`}
                   >
                     <Avatar avatarKey={key} displayName={displayName || initialDisplayName} size={40} />
@@ -121,6 +125,28 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
                 ))}
               </div>
             </div>
+
+            {selectedStyle !== 'initial-face' && (
+              <div className="space-y-2">
+                <Label>Variant</Label>
+                <div className="flex flex-wrap gap-2">
+                  {AVATAR_VARIANT_SEEDS.map((seed, index) => (
+                    <button
+                      key={seed}
+                      type="button"
+                      aria-label={`Variant ${index + 1}`}
+                      aria-pressed={selectedVariant === seed}
+                      onClick={() => setSelectedAvatarKey(`${selectedStyle}:${seed}`)}
+                      className={`rounded-md border p-1.5 transition-colors hover:bg-accent ${
+                        selectedVariant === seed ? "border-primary bg-accent" : "border-border"
+                      }`}
+                    >
+                      <Avatar avatarKey={`${selectedStyle}:${seed}`} displayName="" size={40} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {submitError && (
               <p role="alert" className="text-sm text-destructive">

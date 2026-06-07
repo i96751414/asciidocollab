@@ -14,11 +14,11 @@ const PORTRAIT_BG = { backgroundColor: ['b6e3f4', 'c0aede', 'ffd5dc', 'd1d4f9'],
 
 export const DICEBEAR_STYLES: Record<string, DiceBearStyleEntry> = {
   'initial-face': { style: collection.initials, label: 'Initial Face' },
-  'bottts': { style: collection.bottts, label: 'Bottts' },
+  'bottts-neutral': { style: collection.botttsNeutral, label: 'Bottts Neutral' },
   'pixel-art': { style: collection.pixelArt, label: 'Pixel Art' },
   'fun-emoji': { style: collection.funEmoji, label: 'Fun Emoji' },
   'lorelei': { style: collection.lorelei, label: 'Lorelei', options: PORTRAIT_BG },
-  'adventurer': { style: collection.adventurer, label: 'Adventurer', options: PORTRAIT_BG },
+  'adventurer-neutral': { style: collection.adventurerNeutral, label: 'Adventurer Neutral', options: PORTRAIT_BG },
   'shapes': { style: collection.shapes, label: 'Shapes' },
   'identicon': { style: collection.identicon, label: 'Identicon' },
 };

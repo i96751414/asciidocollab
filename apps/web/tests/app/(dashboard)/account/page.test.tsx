@@ -1,6 +1,9 @@
 // AccountPage server component redirect behavior.
 // Verifies that an unauthenticated user is redirected even when authApi.setupStatus() throws.
 
+import React from 'react';
+import { render } from '@testing-library/react';
+
 jest.mock('@/lib/auth', () => ({
   getProfile: jest.fn(),
 }));
@@ -21,8 +24,12 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+let capturedAvatarKey: string | null | undefined;
 jest.mock('@/app/(dashboard)/dashboard/account/display-name-card', () => ({
-  DisplayNameCard: () => null,
+  DisplayNameCard: ({ avatarKey }: { avatarKey?: string | null }) => {
+    capturedAvatarKey = avatarKey;
+    return null;
+  },
 }));
 
 jest.mock('@/app/(dashboard)/dashboard/account/password-card', () => ({
@@ -94,5 +101,28 @@ describe('AccountPage redirect behavior', () => {
     await AccountPage({ searchParams: Promise.resolve({}) });
 
     expect(redirect).not.toHaveBeenCalled();
+  });
+
+  test('passes avatarKey from profile to DisplayNameCard', async () => {
+    capturedAvatarKey = undefined;
+    const { getProfile } = require('@/lib/auth');
+    const { authApi } = require('@/lib/api');
+    const { default: AccountPage } = require('@/app/(dashboard)/dashboard/account/page');
+
+    (getProfile as jest.Mock).mockResolvedValue({
+      userId: 'user-1',
+      displayName: 'Alice',
+      email: 'alice@example.com',
+      avatarKey: 'bottts-neutral:5',
+    });
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({
+      configured: true,
+      passwordPolicy: defaultPolicy,
+    });
+
+    const jsx = await AccountPage({ searchParams: Promise.resolve({}) });
+    render(jsx);
+
+    expect(capturedAvatarKey).toBe('bottts-neutral:5');
   });
 });

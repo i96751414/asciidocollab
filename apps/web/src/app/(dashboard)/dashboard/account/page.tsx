@@ -20,7 +20,7 @@ export default async function AccountPage({ searchParams }: AccountPagePropertie
 
   const setup = await authApi.setupStatus();
 
-  const { displayName, email } = profile;
+  const { displayName, email, avatarKey } = profile;
   const { passwordPolicy } = setup;
   const emailConfirmed = parameters.confirmed === 'email';
 
@@ -35,7 +35,7 @@ export default async function AccountPage({ searchParams }: AccountPagePropertie
           Email address updated successfully.
         </div>
       )}
-      <DisplayNameCard displayName={displayName} />
+      <DisplayNameCard displayName={displayName} avatarKey={avatarKey} />
       <PasswordCard passwordPolicy={passwordPolicy} />
       <EmailCard email={email} />
     </div>

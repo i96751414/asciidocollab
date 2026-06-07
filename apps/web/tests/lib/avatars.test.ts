@@ -1,11 +1,11 @@
 // Mock the ESM dicebear package before importing the module under test
 jest.mock('@dicebear/collection', () => ({
   initials: 'initials-style',
-  bottts: 'bottts-style',
+  botttsNeutral: 'botttsNeutral-style',
   pixelArt: 'pixelArt-style',
   funEmoji: 'funEmoji-style',
   lorelei: 'lorelei-style',
-  adventurer: 'adventurer-style',
+  adventurerNeutral: 'adventurerNeutral-style',
   shapes: 'shapes-style',
   identicon: 'identicon-style',
 }));
@@ -17,14 +17,27 @@ describe('DICEBEAR_STYLES', () => {
     expect(DICEBEAR_STYLES['initial-face'].label).toBe('Initial Face');
   });
 
+  test('bottts-neutral is defined with a style', () => {
+    expect(DICEBEAR_STYLES['bottts-neutral']).toBeDefined();
+    expect(DICEBEAR_STYLES['bottts-neutral'].style).toBeDefined();
+  });
+
+  test('adventurer-neutral is defined with a style', () => {
+    expect(DICEBEAR_STYLES['adventurer-neutral']).toBeDefined();
+    expect(DICEBEAR_STYLES['adventurer-neutral'].style).toBeDefined();
+  });
+
+  test('bottts (old key) is no longer in DICEBEAR_STYLES', () => {
+    expect(DICEBEAR_STYLES['bottts']).toBeUndefined();
+  });
+
+  test('adventurer (old key) is no longer in DICEBEAR_STYLES', () => {
+    expect(DICEBEAR_STYLES['adventurer']).toBeUndefined();
+  });
+
   test('lorelei is defined with a style', () => {
     expect(DICEBEAR_STYLES['lorelei']).toBeDefined();
     expect(DICEBEAR_STYLES['lorelei'].style).toBeDefined();
-  });
-
-  test('adventurer is defined with a style', () => {
-    expect(DICEBEAR_STYLES['adventurer']).toBeDefined();
-    expect(DICEBEAR_STYLES['adventurer'].style).toBeDefined();
   });
 
   test('lorelei has backgroundColor options so it renders visibly', () => {
@@ -33,8 +46,8 @@ describe('DICEBEAR_STYLES', () => {
     });
   });
 
-  test('adventurer has backgroundColor options so it renders visibly', () => {
-    expect(DICEBEAR_STYLES['adventurer'].options).toMatchObject({
+  test('adventurer-neutral has backgroundColor options so it renders visibly', () => {
+    expect(DICEBEAR_STYLES['adventurer-neutral'].options).toMatchObject({
       backgroundColor: expect.any(Array),
     });
   });
