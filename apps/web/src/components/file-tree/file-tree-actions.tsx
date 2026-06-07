@@ -13,6 +13,7 @@ import {
   UnfoldVertical,
   LocateFixed,
   Download,
+  Archive,
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
@@ -172,6 +173,20 @@ export function FileTreeActions({
             <DropdownMenuItem onSelect={() => openDialog({ type: 'create-folder' })}>
               <FolderPlus className="h-4 w-4 mr-2 shrink-0" />
               New Folder
+            </DropdownMenuItem>
+          )}
+
+          {/* Download ZIP for the project root */}
+          {isRoot && (
+            <DropdownMenuItem asChild>
+              <a
+                href={`${API_BASE}/projects/${projectId}/download`}
+                download
+                className="flex items-center"
+              >
+                <Archive className="h-4 w-4 mr-2 shrink-0" />
+                Download ZIP
+              </a>
             </DropdownMenuItem>
           )}
 

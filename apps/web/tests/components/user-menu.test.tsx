@@ -68,3 +68,54 @@ describe('UserMenu', () => {
     });
   });
 });
+
+describe('UserMenu — navigation structure', () => {
+  test('Account is a top-level link to /dashboard/account', () => {
+    render(<UserMenu profile={regularProfile} />);
+    const link = screen.getByText('Account').closest('a');
+    expect(link).toHaveAttribute('href', '/dashboard/account');
+  });
+
+  test('Settings is a top-level link to /dashboard/settings', () => {
+    render(<UserMenu profile={regularProfile} />);
+    const link = screen.getByText('Settings').closest('a');
+    expect(link).toHaveAttribute('href', '/dashboard/settings');
+  });
+
+  test('no Display Name sub-item', () => {
+    render(<UserMenu profile={regularProfile} />);
+    expect(screen.queryByText('Display Name')).not.toBeInTheDocument();
+  });
+
+  test('no Password sub-item', () => {
+    render(<UserMenu profile={regularProfile} />);
+    expect(screen.queryByText('Password')).not.toBeInTheDocument();
+  });
+
+  test('no Email sub-item', () => {
+    render(<UserMenu profile={regularProfile} />);
+    expect(screen.queryByText('Email')).not.toBeInTheDocument();
+  });
+
+  test('no Keyboard Shortcuts sub-item', () => {
+    render(<UserMenu profile={regularProfile} />);
+    expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
+  });
+
+  test('no Application Theme sub-item', () => {
+    render(<UserMenu profile={regularProfile} />);
+    expect(screen.queryByText('Application Theme')).not.toBeInTheDocument();
+  });
+
+  test('Administrator Settings is a link to /dashboard/admin for admin users', () => {
+    render(<UserMenu profile={adminProfile} />);
+    const link = screen.getByText('Administrator Settings').closest('a');
+    expect(link).toHaveAttribute('href', '/dashboard/admin');
+  });
+
+  test('Audit Log is a link to /dashboard/admin/audit-log for admin users', () => {
+    render(<UserMenu profile={adminProfile} />);
+    const link = screen.getByText('Audit Log').closest('a');
+    expect(link).toHaveAttribute('href', '/dashboard/admin/audit-log');
+  });
+});

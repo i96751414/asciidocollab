@@ -44,53 +44,25 @@ export function UserMenu({ profile }: UserMenuProperties) {
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content className="min-w-[200px] rounded-md border bg-popover p-1 shadow-md" align="end">
-          <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Account</DropdownMenu.Label>
           <DropdownMenu.Item asChild>
             <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-              Display Name
+              Account
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-              Password
-            </Link>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-              Email
-            </Link>
-          </DropdownMenu.Item>
-
-          <DropdownMenu.Separator className="my-1 border-t" />
-          <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Settings</DropdownMenu.Label>
-          <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-              Keyboard Shortcuts
-            </Link>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-              Application Theme
+            <Link href="/dashboard/settings" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+              Settings
             </Link>
           </DropdownMenu.Item>
 
           {profile.isAdmin && (
             <>
               <DropdownMenu.Separator className="my-1 border-t" />
-              <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Administrator Settings</DropdownMenu.Label>
               <DropdownMenu.Item asChild>
-                <Link href="/dashboard/admin/users" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-                  Users
+                <Link href="/dashboard/admin" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+                  Administrator Settings
                 </Link>
               </DropdownMenu.Item>
-              <DropdownMenu.Item asChild>
-                <Link href="/dashboard/admin/settings" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
-                  System Settings
-                </Link>
-              </DropdownMenu.Item>
-
-              <DropdownMenu.Separator className="my-1 border-t" />
-              <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">Audit Log</DropdownMenu.Label>
               <DropdownMenu.Item asChild>
                 <Link href="/dashboard/admin/audit-log" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
                   Audit Log

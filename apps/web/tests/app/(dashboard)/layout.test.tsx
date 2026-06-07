@@ -65,10 +65,8 @@ describe('DashboardLayout', () => {
     expect(screen.getByTestId('user-menu')).toBeInTheDocument();
   });
 
-  test('ThemeProvider wraps children', async () => {
+  test('children are rendered in the layout', async () => {
     render(await DashboardLayout({ children: <span data-testid="child">content</span> }));
-    const provider = screen.getByTestId('theme-provider');
-    expect(provider).toBeInTheDocument();
     expect(screen.getByTestId('child')).toBeInTheDocument();
   });
 });

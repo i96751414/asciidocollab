@@ -476,3 +476,57 @@ describe('FileTreeActions — Download', () => {
     expect(downloadLink).toHaveAttribute('download');
   });
 });
+
+// ── Issue 3: Download ZIP in Files root menu ─────────────────────────────────
+
+describe('FileTreeActions — Download ZIP (root)', () => {
+  const projectId = 'proj-1';
+  const fileNodeId = 'root-id';
+  const parentId = '';
+
+  it('renders "Download ZIP" option for the root (isRoot=true) node', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        isRoot
+      />,
+    );
+    expect(screen.getByText(/download zip/i)).toBeInTheDocument();
+  });
+
+  it('Download ZIP <a> has correct href pointing to the project download endpoint', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="root"
+        hasChildren={false}
+        isRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download zip/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining(`/projects/${projectId}/download`));
+    expect(link).toHaveAttribute('download');
+  });
+
+  it('non-root folders do NOT show "Download ZIP"', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="folder"
+        nodeName="src"
+        hasChildren={false}
+      />,
+    );
+    expect(screen.queryByText(/download zip/i)).not.toBeInTheDocument();
+  });
+});
