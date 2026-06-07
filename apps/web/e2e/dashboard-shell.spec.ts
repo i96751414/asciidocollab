@@ -50,7 +50,7 @@ test.describe('Dashboard shell', () => {
     await page.goto('/dashboard');
 
     await page.getByRole('button').filter({ hasText: TEST_USER.displayName }).click({ timeout: 10_000 });
-    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/settings/);
     await expect(page.locator('text=Something went wrong')).not.toBeVisible();

@@ -53,7 +53,7 @@ test.describe('Email verification gate (Bug #1)', () => {
       // Attempt to call a protected mutation endpoint (profile update)
       // Before fix: 200 (no email-verification gate)
       // After fix:  403 EMAIL_NOT_VERIFIED
-      const profileResp = await page.request.patch(`${API_URL}/auth/profile`, {
+      const profileResp = await page.request.patch(`${API_URL}/auth/me/profile`, {
         data: { displayName: 'Should Not Work' },
       });
       expect(profileResp.status()).toBe(403);
@@ -70,7 +70,7 @@ test.describe('Email verification gate (Bug #1)', () => {
   test('verified user can access protected endpoints normally', async ({ page }) => {
     // Admin user is verified — ensure they can still access their profile
     await loginAdminViaApi(page);
-    const resp = await page.request.patch(`${API_URL}/auth/profile`, {
+    const resp = await page.request.patch(`${API_URL}/auth/me/profile`, {
       data: { displayName: 'Admin User' },
     });
     expect(resp.status()).toBe(200);

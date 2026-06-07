@@ -21,10 +21,7 @@ export function ImagePreview({ projectId, fileNodeId, fileName }: ImagePreviewPr
 
   return (
     <div className="flex items-center justify-center h-full p-4 overflow-auto">
-      {!loaded && (
-        <Skeleton className="w-48 h-48" />
-      )}
-      <div className={`relative w-full h-full${loaded ? '' : ' hidden'}`}>
+      <div className="relative w-full h-full">
         <Image
           src={fileContentUrl(projectId, fileNodeId)}
           alt={fileName}
@@ -35,6 +32,11 @@ export function ImagePreview({ projectId, fileNodeId, fileName }: ImagePreviewPr
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
         />
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Skeleton className="w-48 h-48" />
+          </div>
+        )}
       </div>
     </div>
   );

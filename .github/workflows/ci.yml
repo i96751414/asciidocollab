@@ -164,8 +164,8 @@ jobs:
       - name: Start PostgreSQL and Mailpit
         run: docker compose up -d postgres mailpit --wait
 
-      - name: Apply database schema
-        run: pnpm --filter @asciidocollab/db exec prisma db push
+      - name: Apply database schema (force-reset for a clean slate)
+        run: pnpm --filter @asciidocollab/db exec prisma db push --force-reset
         env:
           ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
 

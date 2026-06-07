@@ -50,8 +50,8 @@ docker compose up -d postgres mailpit --wait
 step "Building shared packages …"
 pnpm --filter '!@asciidocollab/web' -r build
 
-step "Applying database schema …"
-pnpm --filter @asciidocollab/db exec prisma db push
+step "Applying database schema (force-reset for a clean slate) …"
+pnpm --filter @asciidocollab/db exec prisma db push --force-reset
 
 # ─── API ─────────────────────────────────────────────────────────────────────
 step "Starting API server …"
