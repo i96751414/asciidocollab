@@ -1,21 +1,27 @@
 <!-- SPECKIT START -->
+Active feature plan: specs/017-ui-ux-overhaul/plan.md
 <!-- SPECKIT END -->
 
-## Agent Instructions
+## Hard Constraints (MUST NOT)
 
-- **Do not create CLAUDE.md.** This project uses `AGENTS.md` as the single agent context file. If you find yourself
-  about to write `CLAUDE.md`, write to `AGENTS.md` instead or update the relevant section here.
-- All quality gate commands, project conventions, and architectural rules live in this file.
-- **Never `git push` or `git merge` without explicit user consent.** Commit freely, but always ask before pushing or merging.
+- MUST NOT create `CLAUDE.md` — this project uses `AGENTS.md` as the sole agent context file; update `AGENTS.md` instead
+- MUST NOT `git push` or `git merge` without explicit user consent — commit freely, ask before pushing or merging
+- MUST NOT use inline `eslint-disable` comments — fix the root cause instead
+- MUST NOT use TypeScript `as X` assertions — `assertionStyle: 'never'` is enforced; use typed variable assignment or restructure the types instead
+- MUST NOT name tests with task IDs (e.g. `[T042]`, `T-042`) — test names MUST describe behavior
+- MUST NOT define `const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '...'` locally in hooks or components — import `API_BASE_URL` from `@/lib/api/file-content` (client-side) or use the local `API_BASE_URL` in server-side lib files
+- MUST NOT add `@jest-environment` docblock pragma to `.tsx` test files — `.tsx` files automatically run in jsdom; the pragma is only valid in `.ts` test files that need a non-default environment
+- MUST NOT create a test file without first verifying no test file already exists at an adjacent path
+- MUST NOT throw raw strings or generic `Error` in domain or application layers — use typed `DomainError` subclasses
+- MUST NOT import infrastructure, Prisma, or Fastify in `packages/domain`
+- MUST NOT use `console.log/error/warn` in production code — use `request.log` (route handlers) or a module-level `pino()` instance
+- MUST NOT skip tests — run the test suite for every package touched; a green typecheck is not a passing test suite
+
+---
 
 ## Project
 
-AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-time multi-user editing, project and
-file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
-deployments.
-
-**Status:** Phase 016 complete and merged to main — AsciiDoc preview sync (editor line-click scrolls preview, scroll sync,
-live content updates, `data-source-line` injection via ID-based post-processing).
+AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-user editing, project/file management, Git integration, HTML live preview, PDF generation. Targets self-hosted and SaaS deployments.
 
 ## Tech Stack
 
@@ -75,7 +81,7 @@ asciidocollab/
 │               │                   # events (SSE), members, assets, users-search
 │               └── ...             # auth, admin, user, health, keybindings routes
 ├── packages/
-│   ├── domain/                     # Entities, use cases, ports — zero external deps ✅
+│   ├── domain/                     # Entities, use cases, ports — zero external deps
 │   │   └── src/
 │   │       ├── entities/           # 14 entities (User, Project, FileNode, Document, Asset, …)
 │   │       ├── errors/             # 25+ typed DomainError subclasses
@@ -94,17 +100,15 @@ asciidocollab/
 │   │       │   ├── members/        # change-member-role, remove-member
 │   │       │   ├── project/        # create, update, delete, archive, restore, list
 │   │       │   └── settings/       # keybindings, open-registration, admin status
-│   │       └── value-objects/      # 22 VOs including new FileName (validates names against
-│   │                               # path traversal, control chars, Windows reserved names)
-│   ├── infrastructure/             # Prisma repos, filesystem stores, email sender ✅
+│   │       └── value-objects/      # 22 VOs including FileName (validates against path traversal,
+│   │                               # control chars, Windows reserved names)
+│   ├── infrastructure/             # Prisma repos, filesystem stores, email sender
 │   ├── collaboration/              # Hocuspocus standalone server (shell — Phase 9+)
-│   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, etc.) ✅
-│   ├── db/                         # Prisma schema, migrations ✅
-│   └── testing/                    # Testcontainers helper, factories, shared test setup ✅
+│   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, etc.)
+│   ├── db/                         # Prisma schema, migrations
+│   └── testing/                    # Testcontainers helper, factories, shared test setup
 ├── specs/
-│   ├── 001-domain-layer-scaffold/  ✅ complete
-│   ├── 002-database-layer/         ✅ complete
-│   └── ...                         # 001–012, see Phased Delivery table for status
+│   └── <NNN>-<feature>/            # spec.md, plan.md, tasks.md, data-model.md, contracts/, research.md
 └── pnpm-workspace.yaml
 ```
 
@@ -123,9 +127,7 @@ pnpm fresh-onion          # validate architecture boundaries
 
 ## Test Execution Rules
 
-### After any code change
-
-**Always run the tests for every package you touched.** Do not stop at typecheck.
+Run tests for **every package touched**. Do not stop at typecheck.
 
 | Package touched                                                    | Command to run                           |
 |--------------------------------------------------------------------|------------------------------------------|
@@ -133,81 +135,44 @@ pnpm fresh-onion          # validate architecture boundaries
 | `apps/api/src/` or `apps/api/tests/`                               | `cd apps/api && npx jest`                |
 | `packages/domain/src/` or `packages/domain/tests/`                 | `cd packages/domain && npx jest`         |
 | `packages/infrastructure/src/` or `packages/infrastructure/tests/` | `cd packages/infrastructure && npx jest` |
-| `apps/web/e2e/`                                                    | Run E2E suite (see Pre-merge gate below) |
+| `apps/web/e2e/`                                                    | Run E2E suite (see Pre-merge gate)       |
 
-A green typecheck is not a passing test suite. Run both.
+MUST NOT run `npx jest` from the repo root without `--filter` — it picks up configs from all workspace packages and produces misleading results.
 
-### Pre-merge gate (before any PR or merge to main)
-
-Run the four CI jobs in order. All must pass with zero failures.
-
-#### Job 1 — Quality (lint · types · architecture)
+### Pre-merge gate (all four jobs must pass with zero failures)
 
 ```bash
-./scripts/ci-quality.sh
+./scripts/ci-quality.sh      # Job 1: lint · types · architecture
+./scripts/ci-unit.sh         # Job 2: unit tests + coverage (needs Job 1)
+./scripts/ci-integration.sh  # Job 3: integration tests (needs Job 1)
+./scripts/ci-e2e.sh          # Job 4: E2E tests (needs Jobs 2+3, requires Docker + .env.local)
 ```
 
-#### Job 2 — Unit tests + coverage (needs Job 1)
+`ci-e2e.sh` handles infrastructure startup, API rate-limit overrides, Next.js build/start, and teardown automatically. E2E tests are mandatory before merge — they are the only layer that catches missing route registrations and broken API contracts.
 
-```bash
-./scripts/ci-unit.sh
-```
-
-#### Job 3 — Integration tests (needs Job 1)
-
-```bash
-./scripts/ci-integration.sh
-```
-
-#### Job 4 — E2E tests (needs Jobs 2 + 3, requires Docker + `.env.local`)
-
-```bash
-./scripts/ci-e2e.sh
-```
-
-See each script for the exact commands. `ci-e2e.sh` handles infrastructure startup, API rate-limit
-overrides, Next.js build/start, and teardown automatically.
-
-**E2E tests are mandatory before merge.** They are the only layer that catches missing route registrations, broken API
-contracts, and UI regressions that unit tests cannot see. A PR where E2E was not run is not ready to merge.
-
----
-
-## Quality Gates for `apps/web`
-
-For a quick local check of the web package only:
+### Quick local check — `apps/web` only
 
 ```bash
 pnpm --filter @asciidocollab/web test        # jest — all tests must pass
 npx tsc -p apps/web/tsconfig.json --noEmit   # type-check (matches CI)
+pnpm --filter @asciidocollab/web lint        # lint apps/web only
 ```
 
-For lint, CI runs `npx eslint .` from the repo root (covers all packages in one pass). Running
-`pnpm --filter @asciidocollab/web lint` lints only `apps/web` and is useful for a fast local loop.
+`next lint` was removed in Next.js 16. CI runs `npx eslint .` from the repo root. `pnpm --filter @asciidocollab/web lint` runs `eslint src/ tests/ e2e/` directly.
 
-**Why not `next lint`?** `next lint` was removed in Next.js 16. The `apps/web` lint script runs
-`eslint src/ tests/ e2e/` directly.
+---
 
-**Avoid `npx jest` from the repo root without `--filter`** — it picks up configs from all workspace packages
-and produces misleading results (e.g. 146 phantom test failures).
+## Code Quality Rules
 
-## Speckit Architecture Files
+1. **No `eslint-disable`** — never add inline `eslint-disable` comments; fix the root cause.
+2. **Test names describe behavior** — never include task IDs (`[T042]`, `T-042`) in test names.
+3. **`API_BASE_URL` source** — never define `const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '...'` locally; import `API_BASE_URL` from `@/lib/api/file-content` in client-side hooks/components; use the local `API_BASE_URL` in server-side lib files.
+4. **Jest environments in `apps/web`** — `.test.ts` files run in Node environment; `.test.tsx` files run in jsdom environment. No `@jest-environment` docblock pragma needed in `.tsx` files.
+5. **No duplicate test files** — before creating a test file, verify no file already exists at an adjacent path.
+6. **No TypeScript type assertions** — `assertionStyle: 'never'` is enforced; no `as X`; use typed variable assignment or restructure the types.
+7. **`@jest-environment` is a Jest pragma, not a JSDoc tag** — only valid in `.ts` test files that need a different environment than the project default; `.tsx` files automatically run in jsdom.
 
-This project uses [speckit](https://github.com/speckit) for structured feature development. Key files:
-
-| File                            | Purpose                                                  |
-|---------------------------------|----------------------------------------------------------|
-| `specs/<feature>/spec.md`       | Product specification (non-technical, user-facing)       |
-| `specs/<feature>/plan.md`       | Implementation plan (tech stack, architecture decisions) |
-| `specs/<feature>/data-model.md` | Frontend/backend data shapes for the feature             |
-| `specs/<feature>/contracts/`    | Component prop contracts and hook interfaces             |
-| `specs/<feature>/tasks.md`      | Ordered, dependency-tracked task list for implementation |
-| `specs/<feature>/research.md`   | Technical research and ADRs                              |
-| `.specify/`                     | Speckit internal configuration and extensions            |
-| `onion.config.json`             | Architecture boundary configuration (fresh-onion)        |
-
-The active plan is always referenced in the SPECKIT block at the top of this file. Run `/speckit-implement` to execute
-tasks from the current plan.
+---
 
 ## Architecture Principles
 
@@ -223,8 +188,7 @@ Dependencies flow strictly inward: `domain` ← `infrastructure` ← `apps/*`.
 
 ### Error handling
 
-- Domain errors are typed value objects extending `DomainError` (e.g. `ProjectNotFoundError`, `PermissionDeniedError`).
-  Never throw raw strings or generic `Error` in domain or application layers.
+- Domain errors are typed value objects extending `DomainError` (e.g. `ProjectNotFoundError`, `PermissionDeniedError`). Never throw raw strings or generic `Error` in domain or application layers.
 - Value objects throw `ValidationError extends DomainError` on bad input (programmer errors, not control flow).
 - Use cases return `Result<T, DomainError>` (discriminated union) — no exception-driven control flow.
 - Infrastructure adapters catch external errors at the adapter boundary and map them to domain error types.
@@ -232,20 +196,19 @@ Dependencies flow strictly inward: `domain` ← `infrastructure` ← `apps/*`.
 
 ### Testing
 
-- Domain use cases are tested with **in-memory fakes** (not mocks) of repository interfaces.
-- Infrastructure adapters use integration tests against real DB/filesystem via `testcontainers`.
-- E2E via Playwright.
+- Domain use cases: tested with **in-memory fakes** (not mocks) of repository interfaces.
+- Infrastructure adapters: integration tests against real DB/filesystem via `testcontainers`.
+- E2E: Playwright.
 
 #### API route tests — every route needs an `app.inject()` test
 
-Every `app.get/post/patch/delete()` registration in `apps/api/src/routes/` **must** have a corresponding test in
-`apps/api/tests/routes/` that makes real HTTP calls via `app.inject()`. The test must cover:
+Every `app.get/post/patch/delete()` registration in `apps/api/src/routes/` MUST have a corresponding test in `apps/api/tests/routes/` that makes real HTTP calls via `app.inject()`. The test must cover:
 
 1. **Happy path** — correct status code and response shape
 2. **Auth/permission errors** — 403 when caller is not a member
 3. **Not-found errors** — 404 when the resource does not exist
 
-**Pattern** (from `tests/routes/events.test.ts`):
+Pattern (from `tests/routes/events.test.ts`):
 
 ```typescript
 jest.mock('../../src/plugins/require-auth', () => ({
@@ -269,17 +232,11 @@ it('returns 200 for member', async () => {
 });
 ```
 
-**Important:** Test UUIDs must be valid **UUID v4** — third group starts with `4`, fourth group starts with `[89ab]`.
-Example: `550e8400-e29b-41d4-a716-446655440001`. Invalid UUIDs cause the domain's `Uuid.create()` to throw
-`ValidationError` → 500, masking the real assertion.
-
-**Why:** The domain use case layer and the frontend component layer are both tested in isolation. Neither catches "the
-route was never registered." Only an `app.inject()` test exercises the full registration → handler → use case → response
-chain. This was the exact gap that caused `GET /projects/:id/files` to silently not exist in production.
+**UUID invariant:** Test UUIDs must be valid UUID v4 — third group starts with `4`, fourth group starts with `[89ab]`. Example: `550e8400-e29b-41d4-a716-446655440001`. Invalid UUIDs cause `Uuid.create()` to throw `ValidationError` → 500, masking the real assertion.
 
 #### Frontend component tests — fetch coverage rule
 
-Any component that calls `fetch` **must** cover all three error paths, not just the happy path:
+Any component that calls `fetch` MUST cover all three error paths:
 
 | Case                     | Mock setup                        | What to assert                                         |
 |--------------------------|-----------------------------------|--------------------------------------------------------|
@@ -287,20 +244,19 @@ Any component that calls `fetch` **must** cover all three error paths, not just 
 | HTTP error (404, 500, …) | `{ ok: false, status: 404 }`      | Error state visible; UI is **not** stuck on "Loading…" |
 | Network failure          | `mockRejectedValue(new Error(…))` | Error state visible; UI is **not** stuck on "Loading…" |
 
-**Why:** `response.ok === false` and a thrown exception are distinct code paths. Tests that only mock `ok: true` and
-network rejection leave the `else` branch of `if (response.ok)` uncovered — the exact gap that caused the file tree to
-hang on "Loading…" forever when the API returned 404.
+`response.ok === false` and a thrown exception are distinct code paths. Tests that only mock `ok: true` leave the `else` branch of `if (response.ok)` uncovered.
+
+---
 
 ## Code Conventions
 
 ### Value Objects
 
-- Use `static create()` factory method with a `private constructor`.
+- Use `static create()` factory with a `private constructor`.
 - Validate input in `create()`, throw `ValidationError` on failure.
 - Expose `.value` getter for the wrapped primitive.
 - Implement `.equals(other: unknown): boolean` via `instanceof`.
-- **UUID IDs**: Extend the `Uuid` abstract base class. `Uuid.equals()` uses constructor comparison to prevent cross-type
-  equality (e.g. `UserId` !== `AuditLogId` even with same UUID string).
+- **UUID IDs**: Extend the `Uuid` abstract base class. `Uuid.equals()` uses constructor comparison to prevent cross-type equality (`UserId` !== `AuditLogId` even with same UUID string).
 
 ### Timestamps
 
@@ -312,7 +268,7 @@ hang on "Loading…" forever when the API returned 404.
 
 - Validate invariants in the constructor. Throw `Error` for programmer errors (not returned as Result).
 - Accept `Timestamps` as a single constructor parameter (defaults to `new Timestamps()`).
-- Provide `.createdAt` and `.updatedAt` getters that delegate to timestamps.
+- Provide `.createdAt` and `.updatedAt` getters delegating to timestamps.
 
 ### Use Cases
 
@@ -329,30 +285,22 @@ hang on "Loading…" forever when the API returned 404.
 - Backed by `Map<string, Entity>` keyed by `.value` of the ID.
 - No mocking libraries — fakes are hand-written implementations.
 - `save()` upserts into the map.
-- Move/create patterns return new immutable entity instances.
 
 ### Environment Variables
 
-All environment variables follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (e.g.,
-`ASCIIDOCOLLAB_DATABASE_URL`, `ASCIIDOCOLLAB_AUTH_SESSION_SECRET`). The `ASCIIDOCOLLAB_` prefix is the application
-name; category prefixes (`AUTH_`, `API_`, `DB_`) further group related vars.
+All env vars follow `ASCIIDOCOLLAB_CATEGORY_VARIABLE` convention (e.g., `ASCIIDOCOLLAB_DATABASE_URL`, `ASCIIDOCOLLAB_AUTH_SESSION_SECRET`).
 
 ### Logging
 
-Fastify uses Pino (built-in). Use `request.log` in route handlers and hooks. Never use
-`console.log/error/warn` in production code. Services without request context use a module-level `pino()` instance.
-Error handlers should NOT duplicate Fastify's auto-logging — add structured context fields only. All log fields
-containing passwords/tokens must be added to the `redact` array in logger config.
+Fastify uses Pino (built-in). Use `request.log` in route handlers. Never use `console.log/error/warn` in production code. Services without request context use a module-level `pino()` instance. All log fields containing passwords/tokens must be added to the `redact` array in logger config.
 
 ### Documentation
 
-All **public** classes, methods, interfaces, exported functions, and type definitions MUST have JSDoc following the
-existing domain-layer pattern:
+All **public** classes, methods, interfaces, exported functions, and type definitions MUST have JSDoc:
 
 ```typescript
 /**
- * One-line purpose. If non-obvious, a second sentence explains *why*,
- * not *what* (the code structure makes *what* self-evident).
+ * One-line purpose. Second sentence explains *why* if non-obvious.
  *
  * @invariant Invariant condition enforced by the class (entities only).
  */
@@ -369,10 +317,6 @@ export class SomeEntity {
   ) {}
 
   /**
-   * Brief description of what this method accomplishes when the method name
-   * alone is insufficient. Omit the description sentence for trivial CRUD
-   * methods where name + @param + @returns already communicate intent.
-   *
    * @param paramName - Description of the parameter.
    * @returns Description of the return value.
    * @throws {ErrorType} When/why this error occurs.
@@ -382,207 +326,60 @@ export class SomeEntity {
 ```
 
 Rules:
-
-- **Every public class, interface, type alias, and exported function** gets a JSDoc block. DTOs and simple type aliases
-  need only a one-line purpose.
-- **Every public method** gets `@param` + `@returns` + `@throws` tags. Add a leading description sentence only when the
-  method's behavior isn't fully captured by its name plus its tags.
-- **`@param`** uses dash-separator: `@param name - Description.` No type annotation (TypeScript handles that).
-- **`@returns`** and **`@throws`** are always included for public methods. Use
-  `@returns A promise that resolves when the operation completes.` for `Promise<void>` returns. Omit `@returns` only for
-  plain `void` methods.
-- **`@invariant`** on entity classes listing constructor-enforced invariants.
-- **Inline `/** doc *\/`** comments on constructor `public readonly` parameters are preferred over separate `@param`
-  tags for simple field descriptions.
-- **Constructor `@param`** tags are used when the parameter needs contextual explanation beyond what fits inline.
-- **File-level**: Use `@packageDocumentation` in package barrel `index.ts` files. Use `@file` in non-barrel index files
-  that re-export.
-- **Tag ordering**: `@param` (in argument order), then `@returns`, then `@throws`.
-- **Blank line before tags**: Always insert an empty line (a bare ` *`) between the description paragraph and the first
-  `@param`/`@returns`/`@throws` tag. Do NOT put tags on the line immediately after description text. Tags-only blocks (
-  no description) need no blank line.
+- Every public class, interface, type alias, and exported function gets a JSDoc block.
+- Every public method gets `@param` + `@returns` + `@throws` tags.
+- `@param` uses dash-separator: `@param name - Description.` No type annotation (TypeScript handles that).
+- `@returns` and `@throws` are always included for public methods. Omit `@returns` only for plain `void` methods.
+- `@invariant` on entity classes listing constructor-enforced invariants.
+- Inline `/** doc */` on constructor `public readonly` parameters preferred over separate `@param` tags.
+- Tag ordering: `@param` (in argument order), then `@returns`, then `@throws`.
+- Always insert an empty line between the description paragraph and the first tag.
 - Use backticks for code references, end sentences with periods.
-- **Infrastructure layer** (repository implementations, persistence helpers) must be documented same as domain — no
-  exceptions.
-- Private/internal helpers with obvious behavior need no JSDoc. Add one when the implementation has non-obvious side
-  effects or safety invariants (e.g., `extractMetadata`).
-- Follow the "why, not what" principle: if the code already makes the behavior obvious, the comment explains the
-  rationale or non-obvious side effects.
+- Infrastructure layer must be documented same as domain — no exceptions.
+- Private/internal helpers with obvious behavior need no JSDoc; add one when the implementation has non-obvious side effects or safety invariants.
+- Every constructor parameter needs a `@param` tag or inline `/** doc */`; `jsdoc/require-param` runs with `checkConstructors: true`. Adding a param without documentation is a lint error.
+- Descriptions must add information the name does not already convey. The linter strips the symbol name plus these structural words before judging: `interface type class hook function method handler component helper utility service manager object result`. Nothing remaining = lint error. WRONG: `/** Result interface for useBar hook. */` / `@param reply - The reply object.` RIGHT: `/** Exposes the current bar state and its setters. */` / `@param reply - Fastify reply used to send the error response.`
 
-## Phase 4 Implementation Summary
+---
 
-Phase 4 (Project management CRUD + member management) is **complete and merged to master**.
-See `specs/006-project-management/` for details. Not reproduced here to keep file concise.
+## Key Architectural Decisions
 
-## Phase 4+ Implementation Summary (specs 007–010)
+**Git sandboxing:** Each git operation spawns a short-lived Docker container from `docker/git-sandbox`. The container mounts only the requesting project's directory. Credentials are injected as environment variables — never written to disk.
 
-Auth UI, account forms, user registration management, and key bindings are **complete and merged to master**.
-Covers: login/register/reset-password pages, account settings (display name, email, password, key bindings),
-admin user management, open-registration toggle, invite-only mode, email verification flow.
+**HTML preview:** Asciidoctor.js runs in a dedicated Web Worker. Preview does not auto-render on every keystroke; user explicitly clicks Refresh to avoid blocking the editor thread.
 
-## Phase 5 Implementation Summary
+**Collaboration:** Hocuspocus maps each open document to a room keyed by `documentId`. On WebSocket connect, Hocuspocus calls the Fastify API to verify the user has at least `viewer` access. Yjs state is persisted to filesystem as `.yjs` binary files.
 
-Phase 5 (File management + project page editor) is **complete** (active branch: `012-project-page-editor`).
+**yjs in a CJS package:** `apps/api` is `"type": "commonjs"`. `yjs` ships `"type": "module"` but provides a CJS build via its `"require"` export condition. TypeScript TS1479/TS1542 fires for static imports of `yjs` from a CJS file because yjs's `"types"` export condition points to an ESM `.d.ts`. Workaround in `hocuspocus-persistence.ts`: `require('yjs')` at the top level cast against a local minimal interface (`Yjs`/`YjsDoc`) declaring only the two needed functions.
 
-### What was built
+**SSE real-time file tree:** The API broadcasts `FileTreeEventDto` over a per-project in-memory `EventTarget` bus (`FileTreeEventBus` plugin). The frontend connects via a `SharedWorker` that holds one `EventSource` per project and fans events to all tabs. `applyEvent()` handles `created/deleted/renamed/moved` events locally; `onUpdate` (called after any mutation) triggers `fetchTree()` as a reliable fallback. `applyEvent` is idempotent for `created` events to prevent duplicates when refetch beats SSE delivery.
 
-**API (`apps/api/src/routes/projects/`)**
+**Project creation invariant:** Creating a project always runs a single DB transaction: insert Project (rootFolderId=null) → insert root FileNode → update Project.rootFolderId. Every project always has a root folder.
 
-- `GET /projects/:id/files` — full file tree with nested `parentId` fields
-- `POST /projects/:id/files` — create file or folder; emits SSE `created` event
-- `PATCH /projects/:id/files/:nodeId` — rename (name only), move (parentId only), or rename+move
-- `DELETE /projects/:id/files/:nodeId` — delete file/folder (cascades children)
-- `GET /projects/:id/events` — SSE stream for real-time file tree events (keepalive every 30s)
-- `GET /projects/:id/files/:nodeId/content` — read file content
-- `POST /projects/:id/assets` — binary asset upload
-- `FileTreeEventBus` Fastify plugin — in-process pub/sub using DOM `EventTarget` per project
+**RBAC:** Roles (viewer/editor/administrator) are assigned per project via `ProjectMember`. Global admins are a separate flag on `User`. Role checks happen in use cases, not in route handlers.
 
-**Frontend (`apps/web/src/`)**
+**Actor validation:** Use cases that require the actor to exist as a registered user delegate that check to the API layer (e.g. session middleware), not to the domain use case itself.
 
-- `ProjectEditorLayout` — 3-panel layout: collapsible file tree (left), read-only content (centre),
-  collapsible AsciiDoc preview (right); collapse state persisted to `sessionStorage`
-- `FileTree` — fetches tree on mount; applies SSE events via `applyEvent()` (created/deleted/renamed/moved);
-  refetches on `onUpdate` callback (after mutations) and `onReconnect` (after SSE disconnect)
-- `FileTreeNode` — expand/collapse folders; forwards `onUpdate` prop to `FileTreeActions` and child nodes
-- `FileTreeActions` — dropdown: New File / New Folder (folders only), Rename, Delete; all with Dialog UX
-- `DragDropZone` — drag-and-drop target for move operations
-- `AsciiDocPreview` — lazy-loads Asciidoctor.js; renders AsciiDoc → HTML; collapsible panel
-- `FileContentPanel` — read-only content display; handles binary/text/loading/error states
-- `file-tree-events.worker.ts` — SharedWorker holding one SSE `EventSource` per project;
-  fans events to all tabs via `MessagePort`
-- `useFileTreeEvents` hook — subscribes to SharedWorker; routes `file-tree-change` and `reconnect` messages
+---
 
-**Domain (`packages/domain/`)**
+## Speckit Architecture Files
 
-- `FileName` value object — validates file/folder names: rejects empty, leading/trailing whitespace,
-  `.`, `..`, `/`, `\`, null bytes, newlines, Windows reserved device names (CON, NUL, etc.)
-- `FilePath` — updated to allow spaces in file/folder names (regex: `[a-zA-Z0-9_\-. /]`)
-- `FileName.create()` called at the start of `CreateFileUseCase`, `CreateFolderUseCase`, and
-  `RenameFileUseCase` — invalid names throw `ValidationError` before path construction
+| File                            | Purpose                                                  |
+|---------------------------------|----------------------------------------------------------|
+| `specs/<feature>/spec.md`       | Product specification (non-technical, user-facing)       |
+| `specs/<feature>/plan.md`       | Implementation plan (tech stack, architecture decisions) |
+| `specs/<feature>/data-model.md` | Frontend/backend data shapes for the feature             |
+| `specs/<feature>/contracts/`    | Component prop contracts and hook interfaces             |
+| `specs/<feature>/tasks.md`      | Ordered, dependency-tracked task list for implementation |
+| `specs/<feature>/research.md`   | Technical research and ADRs                              |
+| `.specify/`                     | Speckit internal configuration and extensions            |
+| `onion.config.json`             | Architecture boundary configuration (fresh-onion)        |
 
-**Key fixes and invariants**
+The active plan is always referenced in the SPECKIT block at the top of this file. Run `/speckit-implement` to execute tasks from the current plan.
 
-- File/folder creation actions are restricted to folder nodes only (never shown on file nodes)
-- SSE `created` events are idempotent in `applyEvent`: if the node already exists (e.g. from
-  a refetch that beat SSE delivery), the second application is a no-op
-- `apps/api/storage/` added to `.gitignore` (default `ASCIIDOCOLLAB_STORAGE_PATH`)
+---
 
-### Test counts (as of Phase 5)
-
-| Package           | Tests |
-|-------------------|-------|
-| `apps/web`        | 176   |
-| `apps/api`        | 140   |
-| `packages/domain` | 431   |
-
-## Phase 5+ Implementation Summary (spec 013)
-
-Phase 5+ (File tree UX improvements) is **complete and merged to main** (`013-file-tree-ux`).
-
-### What was built
-
-- **Find-in-tree** — keyboard-shortcut-driven search within the file tree (debounced filter, highlight match)
-- **Sort** — alphabetical sort toggle for folder contents
-- **Error area** — dedicated UI zone for tree-level error messages (not inline toasts)
-- **Keybinding** — configurable keyboard shortcut to open the file tree
-- **Tree actions consolidation** — New File, New Folder, Rename, Delete collapsed into a single context menu per node;
-  Create actions shown only on folder nodes
-- **SSE real-time sync** — fixed reconnect and upload-bubble edge cases; drag-drop triggers tree refresh
-- **Code quality** — ESLint cleanup, missing `DialogDescription` warning suppressed
-
-## Phase 6 Implementation Summary (specs 014, 015)
-
-Phase 6 (Code editor) is **complete and merged to main** across two branches: `014-codemirror-editor` and
-`015-editor-tables-autocomplete`.
-
-### What was built — 014
-
-**Editor (`apps/web/src/`)**
-
-- `AsciiDocEditor` — full CodeMirror 6 editor replacing the read-only content panel for editable (`.adoc`) files
-- AsciiDoc Lezer grammar — syntax highlighting for headings, bold/italic, delimited blocks, tables, attribute
-  references, macros, footnotes, STEM blocks, inline code; grammar tokenises `.adoc` files live
-- Auto-save — 4-second debounce; `SaveIndicator` component shows `saved / unsaved changes / saving… / error` states;
-  `beforeunload` guard prevents navigation with unsaved content
-- Editor preferences — theme selector (Default, Dracula, Tomorrow, Espresso), line numbers toggle, word wrap toggle,
-  font size control; preferences persisted to user settings via API
-- `useEditorMount` hook — bootstraps the CodeMirror `EditorView`, wires extensions, and registers auto-save
-- `EditorBanners` component — non-blocking notification when a file is externally updated while the editor is open
-- Collaborative-ready — Yjs document slot reserved; `y-codemirror.next` extension scaffold in place for Phase 8
-
-**API (`apps/api/src/routes/projects/`)**
-
-- `GET /projects/:id/files/:nodeId/content` — already existed; confirmed used by editor for initial load
-- `PUT /projects/:id/files/:nodeId/content` — new route; accepts raw text body, writes to `ProjectFileStore`,
-  emits SSE `updated` event
-
-### What was built — 015
-
-- **Table autocomplete** — typing `|===` offers a snippet with header row + data row; `|` at line start inside a
-  table block offers a new cell/row completion
-- **Context toolbar** — when cursor is inside a `|===` block: Add row above/below, Remove row, Add column
-  left/right, Remove column, Move column left/right; rewrites table text in-place, preserving column spec
-- **Block title captions** — `.` prefix autocomplete for block titles (`.Caption text` before any delimited block)
-- **Image/include macro autocomplete** — `image::`, `image:`, `include::` trigger file-path completion sourced from
-  the project's file tree; only image extensions shown for `image::` macros
-- **Editor themes** — Dracula, Tomorrow, and Espresso themes added as separate CM6 theme extensions; split into
-  individual files under `src/lib/editor/themes/`
-- **Dark-theme fix** — block macro tokens (image, include, xref) were invisible in dark themes; tokeniser updated
-
-### Test counts (as of Phase 6)
-
-| Package           | Tests |
-|-------------------|-------|
-| `apps/web`        | 454   |
-| `apps/api`        | 149   |
-| `packages/domain` | 594   |
-
-## Phase 016 Implementation Summary (spec 016)
-
-Phase 016 (AsciiDoc preview sync) is **complete and merged to main**.
-
-### What was built
-
-**AsciiDoc render worker (`apps/web/src/workers/asciidoc-render.worker.ts`)**
-
-- Replaced `block.setAttribute('data-source-line', N)` (which did NOT produce HTML attributes in Asciidoctor.js)
-  with ID-based post-processing: assign synthetic `__src_<ctx>_<line>` IDs to blocks without IDs, then
-  regex-inject `id="X" data-source-line="N"` into the converted HTML.
-- Added `attributes: { showtitle: '' }` to `proc.load()` options so the document title (`= Title`) is rendered
-  as `<h1>` in embedded output.
-- Level-0 section blocks (document body section) are tracked separately; the `<h1>` produced by showtitle gets
-  `data-source-line` injected directly since it has no id attribute.
-
-**Project editor layout (`apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx`)**
-
-- Added `liveContent` state + `useEffect` to keep preview updated from editor onChange.
-- Split scroll dedup: `handleScrollLine` (with dedup guard, for scroll-sync) vs `handleLineClick` (no dedup,
-  for click-to-scroll — always fires even for same line).
-- Added `key={selectedFile.nodeId}` to `<ImagePreview>` to reset stale `loaded`/`error` state on file switch.
-
-**AsciiDoc preview (`apps/web/src/components/asciidoc-preview.tsx`)**
-
-- Added `data-testid="preview-scroll-container"` to the inner `overflow-auto` div (the actual scroll container).
-  Previous tests checked `preview-panel` (outer Panel with `overflow-hidden`) which never scrolls.
-
-**In-memory asset repository (`packages/domain/tests/ports/file-tree/in-memory-asset.repository.ts`)**
-
-- `findByStoragePath` now returns the most-recently-uploaded asset (was returning first-inserted).
-
-**Image preview (`apps/web/src/components/image-preview.tsx`)**
-
-- Replaced inline skeleton div with `<Skeleton>` component.
-
-**Prisma schema (`packages/db/prisma/schema.prisma`)**
-
-- Added `@@index([projectId, storagePath])` compound index to Asset model.
-
-**Test helper (`apps/web/e2e/helpers/test-user.ts`)**
-
-- Fixed `ensureTestUser()` to verify the test user can login when registration is closed (previously silently
-  succeeded when the test user didn't exist because any user was already registered).
-
-### Test counts (as of Phase 016)
+## Current Test Counts (as of Phase 016)
 
 | Package                    | Tests |
 |----------------------------|-------|
@@ -593,85 +390,15 @@ Phase 016 (AsciiDoc preview sync) is **complete and merged to main**.
 | `packages/shared`          | 14    |
 | `apps/web` (e2e)           | 71    |
 
-## Key Architectural Decisions
+## Pending Phases
 
-**Git sandboxing (FR-011):** Each git operation spawns a short-lived Docker container from `docker/git-sandbox`. The
-container mounts only the requesting project's directory. Credentials are injected as environment variables — never
-written to disk.
-
-**HTML preview:** Asciidoctor.js runs in a dedicated Web Worker. Preview does not auto-render on every keystroke; user
-explicitly clicks Refresh. This avoids blocking the editor thread.
-
-**Collaboration:** Hocuspocus maps each open document to a room keyed by `documentId`. On WebSocket connect, Hocuspocus
-calls the Fastify API to verify the user has at least `viewer` access before accepting the connection. Yjs state is
-persisted to filesystem as `.yjs` binary files.
-
-**yjs in a CJS package:** `apps/api` is `"type": "commonjs"`. `yjs` ships `"type": "module"` but provides a CJS build
-via its `"require"` export condition. TypeScript TS1479/TS1542 fires for any static or type import of `yjs` from a CJS
-file because yjs's `"types"` export condition points to an ESM `.d.ts`. Workaround in `hocuspocus-persistence.ts`:
-`require('yjs')` at the top level cast against a local minimal interface (`Yjs` / `YjsDoc`) that declares only the two
-functions needed. This avoids the type errors while preserving type safety at the call sites.
-
-**SSE real-time file tree:** The API broadcasts `FileTreeEventDto` over a per-project in-memory `EventTarget` bus
-(`FileTreeEventBus` plugin). The frontend connects via a `SharedWorker` that holds one `EventSource` per project and
-fans events to all tabs. `applyEvent()` handles `created/deleted/renamed/moved` events locally; `onUpdate` (called
-after any mutation) triggers `fetchTree()` as a reliable fallback. `applyEvent` is idempotent for `created` events
-to prevent duplicates when refetch beats SSE delivery.
-
-**Project creation invariant:** Creating a project always runs a single DB transaction: insert Project (
-rootFolderId=null) → insert root FileNode → update Project.rootFolderId. Every project always has a root folder.
-
-**RBAC:** Roles (viewer/editor/administrator) are assigned per project via `ProjectMember`. Global admins are a separate
-flag on `User`. Role checks happen in use cases, not in route handlers.
-
-**Actor validation:** Use cases that require the actor to exist as a registered user delegate that check to the API
-layer (e.g. session middleware), not to the domain use case itself.
-
-## Phase 1–3 Implementation Summaries
-
-Phases 1–3 are **complete and merged to master**. See `specs/001–005` for original plans.
-
-Key outputs:
-
-- **Phase 1** (`specs/001`): Domain layer — 14 entities, 22+ value objects (including `FileName`, `FilePath`,
-  `YjsStateId`), 40+ use cases in domain-grouped subdirs (`auth/`, `content/`, `file-tree/`, etc.),
-  25+ typed `DomainError` subclasses, `Result<T,E>` type, in-memory fakes for all ports.
-- **Phase 2** (`specs/002`): Database layer — `packages/db` (Prisma schema), `packages/infrastructure`
-  (Prisma repo implementations + `FilesystemProjectFileStore` + `FilesystemYjsStateStore`).
-  Integration tests via testcontainers (postgres:16-alpine).
-- **Phase 3** (`specs/003–005`): Fastify API with local auth (Passport.js), `convict` config, SMTP email
-  (`NodemailerEmailSender`), breach blocking, constant-time login/reset, email verification flow.
-
-### Phase 3 environment variables
-
-| Variable                           | Default  | Description                            |
-|------------------------------------|----------|----------------------------------------|
-| `ASCIIDOCOLLAB_AUTH_EMAIL_ENABLED` | `true`   | Enable/disable email sending           |
-| `ASCIIDOCOLLAB_AUTH_EMAIL_FROM`    | required | Sender address (required when enabled) |
-| `ASCIIDOCOLLAB_AUTH_SMTP_HOST`     | -        | SMTP server host                       |
-| `ASCIIDOCOLLAB_AUTH_SMTP_PORT`     | `587`    | SMTP server port                       |
-| `ASCIIDOCOLLAB_AUTH_SMTP_USER`     | -        | SMTP authentication user               |
-| `ASCIIDOCOLLAB_AUTH_SMTP_PASSWORD` | -        | SMTP authentication password           |
-
-## Phased Delivery
-
-| Phase | Scope                                                                                             | Status         |
-|-------|---------------------------------------------------------------------------------------------------|----------------|
-| 1     | Monorepo scaffold + domain layer (entities, value objects, use cases — pure TS, in-memory-tested) | ✅ **Complete** |
-| 2     | Database layer (Prisma schema, migrations, Prisma repository implementations)                     | ✅ **Complete** |
-| 3     | API auth, configurable email, breach blocking, timing-attack prevention                           | ✅ **Complete** |
-| 4     | Project management CRUD + member management (API + dashboard UI)                                  | ✅ **Complete** |
-| 4+    | Auth UI, account forms, user registration/management, key bindings (specs 007–010)                | ✅ **Complete** |
-| 5     | File management: file tree CRUD, SSE real-time updates, project page editor, AsciiDoc preview     | ✅ **Complete** |
-| 5+    | File tree UX: find-in-tree, sort, consolidated actions menu, SSE fixes (spec 013)                 | ✅ **Complete** |
-| 6     | Code editor: CodeMirror 6, AsciiDoc syntax highlighting, auto-save, themes (spec 014)             | ✅ **Complete** |
-| 6+    | Editor tables, context toolbar, block captions, image/include autocomplete (spec 015)             | ✅ **Complete** |
-| 7     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ✅ **Complete** |
-| 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
-| 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |
-| 10    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)              | ⬜ Pending      |
-| 11    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                            | ⬜ Pending      |
-| 12    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)                       | ⬜ Pending      |
-| 13    | Templates + asset management (built-in templates, custom templates, image upload/versions)        | ⬜ Pending      |
-| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                              | ⬜ Pending      |
-| 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)                 | ⬜ Pending      |
+| Phase | Scope                                                                                  |
+|-------|----------------------------------------------------------------------------------------|
+| 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)      |
+| 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo) |
+| 10    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)   |
+| 11    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                 |
+| 12    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)            |
+| 13    | Templates + asset management (built-in templates, custom templates, image upload)      |
+| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                  |
+| 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)      |

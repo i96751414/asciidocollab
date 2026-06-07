@@ -32,7 +32,7 @@ const buttonVariants = cva(
   }
 );
 
-/** Properties for the Button component. */
+/** Appearance, size, and event bindings for a Button element. */
 export interface ButtonProperties
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {

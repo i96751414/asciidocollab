@@ -10,7 +10,7 @@ import { SessionEncryption } from './session-encryption';
 export class PrismaSessionStore implements SessionStore {
   /**
    * @param prisma - The Prisma client instance.
-   * @param encryption - The session encryption service.
+   * @param encryption - AES-256-GCM service that encrypts and decrypts stored session data.
    */
   constructor(
     private readonly prisma: PrismaClient,

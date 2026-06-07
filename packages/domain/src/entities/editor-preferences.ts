@@ -5,7 +5,7 @@ import { Timestamps } from '../value-objects/timestamps';
 import { ValidationError } from '../errors/validation-error';
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../constants/editor-preferences';
 
-/** Stores a user's editor display preferences (font size, theme, and scroll sync). */
+/** Stores a user's editor display preferences (font size, theme, scroll sync, and soft wrap). */
 export class EditorPreferences {
   public readonly timestamps: Timestamps;
 
@@ -16,6 +16,7 @@ export class EditorPreferences {
    * @param theme - Selected editor theme.
    * @param scrollSyncEnabled - When true, preview scrolls to match editor scroll position.
    * @param timestamps - Optional creation/update timestamps; defaults to now.
+   * @param softWrap - When true, the editor wraps long lines instead of scrolling horizontally.
    */
   constructor(
     public readonly id: EditorPreferencesId,
@@ -24,6 +25,7 @@ export class EditorPreferences {
     public readonly theme: EditorTheme,
     public readonly scrollSyncEnabled: boolean = false,
     timestamps?: Timestamps,
+    public readonly softWrap: boolean = true,
   ) {
     if (fontSize < FONT_SIZE_MIN || fontSize > FONT_SIZE_MAX) {
       throw new ValidationError(

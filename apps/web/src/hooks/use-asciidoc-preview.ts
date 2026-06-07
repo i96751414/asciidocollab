@@ -30,7 +30,7 @@ export interface ScrollRequest {
   line: number;
 }
 
-/** Options for the `useAsciidocPreview` hook. */
+/** Configuration controlling debounce delay and initial content for the AsciiDoc preview. */
 export interface UseAsciidocPreviewOptions {
   /** Current AsciiDoc source text. Changing this resets the debounce and transitions state to pending. */
   content: string;

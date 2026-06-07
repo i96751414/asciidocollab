@@ -22,7 +22,7 @@ const badgeVariants = cva(
   }
 );
 
-/** Properties for the Badge component. */
+/** Appearance and content bindings for a Badge element. */
 export interface BadgeProperties
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}

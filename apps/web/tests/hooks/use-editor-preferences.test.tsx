@@ -287,3 +287,50 @@ test('theme falls back to default when stored theme string is not a recognized t
   const { result } = renderHook(() => useEditorPreferences());
   expect(result.current.theme).toBe('default');
 });
+
+// ── softWrap ──────────────────────────────────────────────────────────────────
+
+test('softWrap defaults to true', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.softWrap).toBe(true);
+});
+
+test('softWrap included in initial GET response', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', softWrap: false }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(result.current.softWrap).toBe(false));
+});
+
+test('setSoftWrap updates state and includes softWrap in PUT payload', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setSoftWrap(false);
+    jest.advanceTimersByTime(600);
+  });
+  await waitFor(() => expect(result.current.softWrap).toBe(false));
+  const putCall = mockFetch.mock.calls.find((c: unknown[]) => {
+    const options = c[1] as { method?: string };
+    return options?.method === 'PUT';
+  });
+  expect(putCall).toBeDefined();
+  if (putCall) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).toHaveProperty('softWrap', false);
+  }
+});
+
+test('localStorage cache updated when softWrap changes', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setSoftWrap(false);
+  });
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.softWrap).toBe(false);
+});
