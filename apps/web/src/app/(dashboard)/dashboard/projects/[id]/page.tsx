@@ -17,7 +17,7 @@ export default async function ProjectPage({ params }: ProjectPageProperties) {
       projectId={id}
       projectName={project.name}
       projectDescription={project.description ?? null}
-      isOwner={canManage}
+      canManage={canManage}
       canEdit={canEdit}
     />
   );

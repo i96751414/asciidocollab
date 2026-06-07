@@ -35,7 +35,7 @@ test.describe('Image drag-and-drop upload', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
     await expect(page.getByText(/failed to load files/i)).not.toBeVisible();
 
-    const dropZone = page.getByTestId('file-tree-panel');
+    const dropZone = page.getByTestId('file-tree-drop-zone');
     await expect(dropZone).toBeVisible();
 
     // Build a DataTransfer carrying a PNG file and dispatch a drop event.
@@ -64,7 +64,7 @@ test.describe('Image drag-and-drop upload', () => {
     await page.goto(`/dashboard/projects/${projectId}`);
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
-    const dropZone = page.getByTestId('file-tree-panel');
+    const dropZone = page.getByTestId('file-tree-drop-zone');
 
     const dataTransfer = await page.evaluateHandle((bytes: number[]) => {
       const dt = new DataTransfer();

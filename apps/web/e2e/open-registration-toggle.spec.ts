@@ -42,19 +42,29 @@ test.describe('Open registration toggle (US4)', () => {
     await signIn(page);
     await page.goto('/dashboard/admin/users');
 
-    const toggleButton = page.getByRole('button', { name: /disabled — click to enable|enabled — click to disable/i });
+    const enabledButton = page.getByRole('button', { name: /enabled — click to disable/i });
+    const disabledButton = page.getByRole('button', { name: /disabled — click to enable/i });
+
+    // Wait for the toggle to render in either state (concurrent tests may have changed it).
+    await expect(enabledButton.or(disabledButton)).toBeVisible({ timeout: 10_000 });
+
+    // Normalise to disabled state so the rest of the test is deterministic.
+    if (await enabledButton.isVisible()) {
+      await enabledButton.click();
+      await expect(disabledButton).toBeVisible({ timeout: 5000 });
+    }
 
     // Enable it
-    await toggleButton.filter({ hasText: /disabled/i }).click();
-    await expect(page.getByRole('button', { name: /enabled — click to disable/i })).toBeVisible();
+    await disabledButton.click();
+    await expect(enabledButton).toBeVisible();
 
     // Reload and verify persistence
     await page.reload();
-    await expect(page.getByRole('button', { name: /enabled — click to disable/i })).toBeVisible();
+    await expect(enabledButton).toBeVisible();
 
     // Disable it
-    await page.getByRole('button', { name: /enabled — click to disable/i }).click();
-    await expect(page.getByRole('button', { name: /disabled — click to enable/i })).toBeVisible();
+    await enabledButton.click();
+    await expect(disabledButton).toBeVisible();
   });
 
   test('login page shows "Create an account" when open registration is enabled', async ({ page }) => {
@@ -89,14 +99,31 @@ test.describe('Open registration toggle (US4)', () => {
   });
 
   test('open registration setting persists across page reload', async ({ page }) => {
-    await signIn(page);
+    // Set state via API (authoritative, not subject to concurrent-UI races).
+    await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
 
-    await page.goto('/dashboard/admin/users');
-    await expect(page.getByRole('button', { name: /enabled — click to disable/i })).toBeVisible();
+    // API-level persistence: a fresh read must return the value we just wrote.
+    const statusResp = await page.request.get(`${API_URL}/auth/open-registration-status`);
+    expect((await statusResp.json() as { openRegistration: boolean }).openRegistration).toBe(true);
 
-    await page.reload();
-    await expect(page.getByRole('button', { name: /enabled — click to disable/i })).toBeVisible();
+    // UI persistence: the admin page must render the persisted state correctly.
+    // We navigate fresh so the server-rendered HTML reflects the DB value.
+    await page.goto('/dashboard/admin/users');
+    const enabledButton = page.getByRole('button', { name: /enabled — click to disable/i });
+    const disabledButton = page.getByRole('button', { name: /disabled — click to enable/i });
+    await expect(enabledButton.or(disabledButton)).toBeVisible({ timeout: 10_000 });
+
+    // If a concurrent test changed the setting between our API set and the page
+    // load, re-set via API and reload once — this is an environment race, not a
+    // persistence bug (the API check above already confirmed persistence).
+    if (await disabledButton.isVisible()) {
+      await adminSetOpenRegistration(page, true);
+      await page.reload();
+      await expect(enabledButton.or(disabledButton)).toBeVisible({ timeout: 5000 });
+    }
+
+    await expect(enabledButton).toBeVisible({ timeout: 5000 });
   });
 
   test('open-registration-status endpoint is accessible without auth', async ({ page }) => {

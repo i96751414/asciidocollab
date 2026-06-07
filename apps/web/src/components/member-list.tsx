@@ -71,7 +71,7 @@ export function MemberList({
       {members.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">No members yet.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" data-testid="member-list">
           {members.map((member) => {
             const isSelf = member.userId === currentUserId;
             const isLastOwnerSelf = isSelf && isSoleOwner;

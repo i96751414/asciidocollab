@@ -45,7 +45,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -60,7 +60,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -77,7 +77,7 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -99,7 +99,7 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -117,7 +117,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={onSelect}
         onContextMenu={jest.fn()}
@@ -135,7 +135,7 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={onSelect}
         onContextMenu={jest.fn()}
@@ -154,7 +154,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={onContextMenu}
@@ -170,7 +170,7 @@ describe('FileTreeNode', () => {
         node={folderNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -186,7 +186,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={fileNode.id}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -196,14 +196,14 @@ describe('FileTreeNode', () => {
     expect(nodeElement).toHaveClass('bg-accent');
   });
 
-  // T006 (b): isOwner=false → no action button rendered
-  it('does not render action button when isOwner=false', () => {
+  // T006 (b): canEdit=false → no action button rendered
+  it('does not render action button when canEdit=false', () => {
     render(
       <FileTreeNode
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={false}
+        canEdit={false}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -212,14 +212,14 @@ describe('FileTreeNode', () => {
     expect(screen.queryByTestId('file-tree-actions')).not.toBeInTheDocument();
   });
 
-  // T006 (b continued): isOwner=true → action button rendered
-  it('renders action button when isOwner=true', () => {
+  // T006 (b continued): canEdit=true → action button rendered
+  it('renders action button when canEdit=true', () => {
     render(
       <FileTreeNode
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={true}
+        canEdit={true}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -236,7 +236,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={true}
+        canEdit={true}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}
@@ -258,7 +258,7 @@ describe('FileTreeNode', () => {
         node={fileNode}
         depth={0}
         projectId="proj-1"
-        isOwner={true}
+        canEdit={true}
         selectedNodeId={null}
         onSelect={jest.fn()}
         onContextMenu={jest.fn()}

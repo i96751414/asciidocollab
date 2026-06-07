@@ -12,7 +12,7 @@ import {
   adminSetOpenRegistration,
   adminDeleteUserByEmail,
 } from './helpers/test-user';
-import { clearMailpit, waitForEmail, extractVerificationToken } from './helpers/mailpit';
+import { waitForEmail, extractVerificationToken } from './helpers/mailpit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const TEST_PASSWORD = 'TestP@ssw0rd123!';
@@ -29,10 +29,18 @@ test.describe('Email verification gate (Bug #1)', () => {
     await adminSetOpenRegistration(page, true);
 
     try {
-      // Register a new user via open registration — they will be unverified
-      const regResp = await page.request.post(`${API_URL}/auth/register`, {
+      // Register a new user via open registration — they will be unverified.
+      // A concurrent test may have disabled open-reg between the enable and the register call;
+      // re-enable once and retry to handle that race.
+      let regResp = await page.request.post(`${API_URL}/auth/register`, {
         data: { email, displayName: 'Unverified Gate User', password: TEST_PASSWORD },
       });
+      if (regResp.status() === 403) {
+        await adminSetOpenRegistration(page, true);
+        regResp = await page.request.post(`${API_URL}/auth/register`, {
+          data: { email, displayName: 'Unverified Gate User', password: TEST_PASSWORD },
+        });
+      }
       expect(regResp.status()).toBe(202);
 
       // Log in as the unverified user
@@ -73,7 +81,6 @@ test.describe('Email verification gate (Bug #1)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       await page.request.post(`${API_URL}/auth/register`, {
@@ -106,7 +113,6 @@ test.describe('Cross-device verify-email UX (Bug #3+5)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       // Register — user is unverified
@@ -140,7 +146,6 @@ test.describe('Cross-device verify-email UX (Bug #3+5)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       await page.request.post(`${API_URL}/auth/register`, {

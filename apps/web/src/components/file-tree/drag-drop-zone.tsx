@@ -9,12 +9,13 @@ interface Properties {
   projectId: string;
   children: ReactNode;
   className?: string;
+  'data-testid'?: string;
   /** Called after all uploads in a drop batch finish (success or error). Use to refresh the tree. */
   onComplete?: () => void;
 }
 
 /** Wraps content in a drag-and-drop zone that uploads dropped files into the target folder. */
-export function DragDropZone({ targetFolderId, projectId, children, className, onComplete }: Properties) {
+export function DragDropZone({ targetFolderId, projectId, children, className, onComplete, 'data-testid': testId }: Properties) {
   const [isDragging, setIsDragging] = useState(false);
   const { onDrop, progress, clearProgress } = useDropUpload(targetFolderId, projectId, onComplete);
 
@@ -41,6 +42,7 @@ export function DragDropZone({ targetFolderId, projectId, children, className, o
 
   return (
     <div
+      data-testid={testId}
       className={cn(
         'relative',
         isDragging && 'ring-2 ring-primary ring-inset',

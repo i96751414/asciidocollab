@@ -23,24 +23,24 @@ jest.mock('@/hooks/use-file-tree-key-handler', () => ({
 jest.mock('@/components/file-tree/file-tree-node', () => ({
   FileTreeNode: ({
     node,
-    isOwner,
+    canEdit,
     onSelect,
     onUpdate,
     onError,
   }: {
     node: { name: string; id: string; path: string; type: string };
-    isOwner?: boolean;
+    canEdit?: boolean;
     onSelect?: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
     onUpdate?: () => void;
     onError?: (message: string | null) => void;
   }) => (
     <div
       data-testid={`node-${node.name}`}
-      data-is-owner={String(isOwner)}
+      data-is-owner={String(canEdit)}
       onClick={() => node.type === 'file' && onSelect?.(node.id, node.name, node.path, node.type as 'file' | 'folder')}
     >
       {node.name}
-      {isOwner && <button data-testid={`actions-${node.name}`} onClick={() => onUpdate?.()}>Actions</button>}
+      {canEdit && <button data-testid={`actions-${node.name}`} onClick={() => onUpdate?.()}>Actions</button>}
       {onError && <button data-testid={`trigger-error-${node.name}`} onClick={() => onError('Test error message')}>Trigger Error</button>}
     </div>
   ),
@@ -74,13 +74,13 @@ describe('FileTree', () => {
   });
 
   it('initial tree is fetched and rendered on mount', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
   });
 
-  // T005 (a): isOwner=false hides action buttons
-  it('isOwner=false — no FileTreeActions buttons rendered', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+  // T005 (a): canEdit=false hides action buttons
+  it('canEdit=false — no FileTreeActions buttons rendered', async () => {
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
     expect(screen.queryByTestId('actions-doc.adoc')).not.toBeInTheDocument();
   });
@@ -88,7 +88,7 @@ describe('FileTree', () => {
   // T005 (b): onSelectFile called with (nodeId, nodeName, nodePath) on file click
   it('calls onSelectFile with nodeId, nodeName, nodePath when file node is clicked', async () => {
     const onSelectFile = jest.fn();
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={onSelectFile} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={onSelectFile} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('node-doc.adoc'));
     expect(onSelectFile).toHaveBeenCalledWith('file-1', 'doc.adoc', '/doc.adoc', 'file');
@@ -98,12 +98,12 @@ describe('FileTree', () => {
   it('renders empty state when tree has no children', async () => {
     const emptyRoot = { ...rootNode, children: [] };
     mockFetch(emptyRoot);
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByText(/No files yet/i)).toBeInTheDocument());
   });
 
   it('created event adds a node to the rendered tree', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -123,7 +123,7 @@ describe('FileTree', () => {
   });
 
   it('deleted event removes a node', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -143,7 +143,7 @@ describe('FileTree', () => {
   });
 
   it('renamed event updates the node name', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const event: FileTreeEventDto = {
@@ -165,7 +165,7 @@ describe('FileTree', () => {
   // C5: network error during initial fetch must not leave the tree stuck on "Loading..."
   it('shows an error state when the initial fetch fails with a network error', async () => {
     globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network down'));
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
@@ -173,7 +173,7 @@ describe('FileTree', () => {
   // C5b: HTTP error response (e.g. 404 for empty project) must not leave the tree stuck on "Loading..."
   it('shows an error state when the initial fetch returns a non-ok HTTP status', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 } as Response);
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
@@ -185,7 +185,7 @@ describe('FileTree', () => {
     } as Response);
     globalThis.fetch = fetchMock;
 
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     act(() => {
@@ -210,7 +210,7 @@ describe('FileTree', () => {
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(treeWithNew) } as Response);
     globalThis.fetch = fetchMock;
 
-    render(<FileTree projectId={projectId} isOwner={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     // Trigger onUpdate as FileTreeActions would after a successful file creation
@@ -223,7 +223,7 @@ describe('FileTree', () => {
 
   // T008: role="alert" error banner renders in panel header area after failed file operation
   it('T008: renders role="alert" error banner after a failed file operation and it is outside tree rows', async () => {
-    render(<FileTree projectId={projectId} isOwner={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
 
     // The mock FileTreeNode exposes a trigger-error button (only when onError prop is provided)
@@ -238,7 +238,7 @@ describe('FileTree', () => {
 
   // T020: Ctrl+F opens FindPanel, typing highlights first match, next/prev cycles, Escape dismisses
   it('T020: Ctrl+F opens FindPanel; typing a query shows match counter; Escape dismisses', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
 
     const container = screen.getByTestId('node-doc.adoc').closest('[tabindex]') as HTMLElement;
@@ -270,7 +270,7 @@ describe('FileTree', () => {
       ],
     };
     mockFetch(unorderedRoot);
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-zebra.adoc')).toBeInTheDocument());
 
     const nodes = screen.getAllByTestId(/^node-/);
@@ -293,7 +293,7 @@ describe('FileTree', () => {
       ],
     };
     mockFetch(treeRoot);
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-apple.adoc')).toBeInTheDocument());
 
     const createdEvent: FileTreeEventDto = {
@@ -329,7 +329,7 @@ describe('FileTree', () => {
       ],
     };
     mockFetch(treeRoot);
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-alpha.adoc')).toBeInTheDocument());
 
     // Rename 'alpha.adoc' → 'zebra.adoc' — should move to end
@@ -354,7 +354,7 @@ describe('FileTree', () => {
   // Idempotency: if SSE 'created' event arrives after fetchTree already returned the new node,
   // applyEvent must not add a duplicate.
   it('applyEvent created event is idempotent — no duplicate when node already in tree', async () => {
-    render(<FileTree projectId={projectId} isOwner={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => screen.getByTestId('node-doc.adoc'));
 
     const createdEvent: FileTreeEventDto = {

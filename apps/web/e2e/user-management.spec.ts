@@ -19,9 +19,10 @@ test.describe('Admin user management (US3)', () => {
     await signIn(page);
     await page.goto('/dashboard/admin/users');
 
-    // The admin user's email/displayName should appear in the list
-    await expect(page.getByText(TEST_USER.displayName)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(TEST_USER.email)).toBeVisible({ timeout: 5000 });
+    // The admin user's email/displayName should appear in the list (scoped to the table row)
+    const adminRow = page.locator('tr').filter({ hasText: TEST_USER.email });
+    await expect(adminRow.getByText(TEST_USER.displayName)).toBeVisible({ timeout: 5000 });
+    await expect(adminRow.getByText(TEST_USER.email)).toBeVisible({ timeout: 5000 });
   });
 
   test('admin can toggle another user admin status', async ({ page }) => {
@@ -137,7 +138,8 @@ test.describe('Admin user management (US3)', () => {
 
       // Positive anchor — the admin user's own row must still be visible, proving
       // the list re-rendered after removal rather than silently erroring out.
-      await expect(page.getByText(TEST_USER.displayName)).toBeVisible({ timeout: 5000 });
+      const adminRow = page.locator('tr').filter({ hasText: TEST_USER.email });
+      await expect(adminRow.getByText(TEST_USER.displayName)).toBeVisible({ timeout: 5000 });
       // Now safe to assert the removed user is gone.
       await expect(page.getByText(email)).not.toBeVisible();
     } finally {

@@ -21,7 +21,6 @@ test.describe('Self-registration with email verification (US2)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       // Register via API
@@ -57,7 +56,6 @@ test.describe('Self-registration with email verification (US2)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       await page.request.post(`${API_URL}/auth/register`, {
@@ -85,7 +83,6 @@ test.describe('Self-registration with email verification (US2)', () => {
 
     await loginAdminViaApi(page);
     await adminSetOpenRegistration(page, true);
-    await clearMailpit();
 
     try {
       await page.request.post(`${API_URL}/auth/register`, {

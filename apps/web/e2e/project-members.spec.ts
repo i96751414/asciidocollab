@@ -20,7 +20,9 @@ test.describe('Project members page', () => {
     try {
       await page.goto(`/dashboard/projects/${projectId}/members`);
 
-      await expect(page.getByText(TEST_USER.displayName)).toBeVisible();
+      // Scope to the members list to avoid matching the nav header display name.
+      const membersSection = page.getByTestId('member-list');
+      await expect(membersSection.getByText(TEST_USER.displayName)).toBeVisible();
       await expect(page.getByRole('combobox').first()).toHaveValue('owner');
     } finally {
       await cleanupProject(page, projectId);

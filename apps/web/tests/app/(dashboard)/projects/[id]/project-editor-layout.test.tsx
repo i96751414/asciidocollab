@@ -90,7 +90,7 @@ const defaultProps = {
   projectId: 'p1',
   projectName: 'My Project',
   projectDescription: null,
-  isOwner: true,
+  canManage: true,
   canEdit: true,
 };
 
@@ -145,9 +145,9 @@ describe('ProjectEditorLayout', () => {
     expect(screen.getByTestId('file-tree-panel')).toHaveClass('hidden');
   });
 
-  // T012 (a): isOwner=true shows Settings and Members links
+  // T012 (a): canManage=true shows Settings and Members links
   it('shows Settings and Members links for owner', async () => {
-    render(<ProjectEditorLayout {...defaultProps} isOwner={true} />);
+    render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
     const settingsLink = screen.getByRole('link', { name: /settings/i });
     const membersLink = screen.getByRole('link', { name: /members/i });
@@ -155,9 +155,9 @@ describe('ProjectEditorLayout', () => {
     expect(membersLink).toHaveAttribute('href', '/dashboard/projects/p1/members');
   });
 
-  // T012 (b): isOwner=false hides Settings and Members links
+  // T012 (b): canManage=false hides Settings and Members links
   it('does not show Settings or Members links for non-owner', async () => {
-    render(<ProjectEditorLayout {...defaultProps} isOwner={false} />);
+    render(<ProjectEditorLayout {...defaultProps} canManage={false} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
     expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /members/i })).not.toBeInTheDocument();
@@ -192,7 +192,7 @@ describe('ProjectEditorLayout', () => {
 
   // T022b: all header navigation links have text-sm and text-muted-foreground
   it('T022b: all header navigation links use text-sm and text-muted-foreground class tokens', async () => {
-    render(<ProjectEditorLayout {...defaultProps} isOwner={true} />);
+    render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
 
     const backLink = screen.getByRole('link', { name: /back to projects/i });

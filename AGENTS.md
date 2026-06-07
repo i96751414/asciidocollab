@@ -1,5 +1,4 @@
 <!-- SPECKIT START -->
-Active implementation plan: specs/016-asciidoc-preview-sync/plan.md
 <!-- SPECKIT END -->
 
 ## Agent Instructions
@@ -15,8 +14,8 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor supporting real-t
 file management, Git integration, HTML live preview, and PDF generation. It targets both self-hosted and SaaS
 deployments.
 
-**Status:** Phase 016 in progress — AsciiDoc preview sync (editor line-click scrolls preview, scroll sync,
-live content updates, `data-source-line` injection via ID-based post-processing). Branch: `016-asciidoc-preview-sync`.
+**Status:** Phase 016 complete and merged to main — AsciiDoc preview sync (editor line-click scrolls preview, scroll sync,
+live content updates, `data-source-line` injection via ID-based post-processing).
 
 ## Tech Stack
 
@@ -145,41 +144,29 @@ Run the four CI jobs in order. All must pass with zero failures.
 #### Job 1 — Quality (lint · types · architecture)
 
 ```bash
-pnpm -r build                                                  # generate declaration files first
-npx eslint .                                                   # lint entire repo from root
-npx tsc -p packages/shared/tsconfig.json --noEmit
-npx tsc -p packages/domain/tsconfig.json --noEmit
-npx tsc -p packages/infrastructure/tsconfig.json --noEmit
-npx tsc -p apps/api/tsconfig.json --noEmit
-npx tsc -p apps/web/tsconfig.json --noEmit
-npx fresh-onion                                                # architecture boundary check
-pnpm audit --audit-level=high                                  # security audit — high+ severity
+./scripts/ci-quality.sh
 ```
 
 #### Job 2 — Unit tests + coverage (needs Job 1)
 
 ```bash
-pnpm --filter @asciidocollab/shared test
-cd packages/domain && npx jest --coverage --coverageReporters=text lcov
-pnpm --filter @asciidocollab/api test
-pnpm --filter @asciidocollab/web test
+./scripts/ci-unit.sh
 ```
 
 #### Job 3 — Integration tests (needs Job 1)
 
 ```bash
-pnpm -r build
-pnpm --filter @asciidocollab/infrastructure test -- --passWithNoTests
-# Testcontainers manages its own PostgreSQL container — no external DB needed.
+./scripts/ci-integration.sh
 ```
 
-#### Job 4 — E2E tests (needs Jobs 2 + 3, requires full dev stack)
+#### Job 4 — E2E tests (needs Jobs 2 + 3, requires Docker + `.env.local`)
 
 ```bash
-# Requires: docker compose up -d postgres mailpit --wait
-# Requires: API + Next.js running (see scripts/dev.sh or ci.yml for env vars)
-pnpm --filter @asciidocollab/web e2e
+./scripts/ci-e2e.sh
 ```
+
+See each script for the exact commands. `ci-e2e.sh` handles infrastructure startup, API rate-limit
+overrides, Next.js build/start, and teardown automatically.
 
 **E2E tests are mandatory before merge.** They are the only layer that catches missing route registrations, broken API
 contracts, and UI regressions that unit tests cannot see. A PR where E2E was not run is not ready to merge.
@@ -552,7 +539,7 @@ Phase 6 (Code editor) is **complete and merged to main** across two branches: `0
 
 ## Phase 016 Implementation Summary (spec 016)
 
-Phase 016 (AsciiDoc preview sync) is **in progress** on branch `016-asciidoc-preview-sync`.
+Phase 016 (AsciiDoc preview sync) is **complete and merged to main**.
 
 ### What was built
 
@@ -604,7 +591,7 @@ Phase 016 (AsciiDoc preview sync) is **in progress** on branch `016-asciidoc-pre
 | `packages/domain` (unit)   | 465   |
 | `packages/infrastructure`  | 137   |
 | `packages/shared`          | 14    |
-| `apps/web` (e2e)           | 6     |
+| `apps/web` (e2e)           | 71    |
 
 ## Key Architectural Decisions
 
@@ -679,7 +666,7 @@ Key outputs:
 | 5+    | File tree UX: find-in-tree, sort, consolidated actions menu, SSE fixes (spec 013)                 | ✅ **Complete** |
 | 6     | Code editor: CodeMirror 6, AsciiDoc syntax highlighting, auto-save, themes (spec 014)             | ✅ **Complete** |
 | 6+    | Editor tables, context toolbar, block captions, image/include autocomplete (spec 015)             | ✅ **Complete** |
-| 7     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ⬜ Pending      |
+| 7     | HTML preview + auto-save (Asciidoctor.js Web Worker, sync state indicator)                        | ✅ **Complete** |
 | 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)                 | ⬜ Pending      |
 | 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo)            | ⬜ Pending      |
 | 10    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)              | ⬜ Pending      |

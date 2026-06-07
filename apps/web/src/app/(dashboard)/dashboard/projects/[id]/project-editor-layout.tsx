@@ -81,7 +81,7 @@ interface ProjectEditorLayoutProperties {
   projectId: string;
   projectName: string;
   projectDescription: string | null;
-  isOwner: boolean;
+  canManage: boolean;
   canEdit: boolean;
 }
 
@@ -90,7 +90,7 @@ export function ProjectEditorLayout({
   projectId,
   projectName,
   projectDescription,
-  isOwner,
+  canManage,
   canEdit,
 }: ProjectEditorLayoutProperties) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -170,7 +170,7 @@ export function ProjectEditorLayout({
         {projectDescription && (
           <span className="text-xs text-muted-foreground">{projectDescription}</span>
         )}
-        {isOwner && (
+        {canManage && (
           <>
             <Link
               href={`/dashboard/projects/${projectId}/settings`}
@@ -197,7 +197,7 @@ export function ProjectEditorLayout({
         >
           <FileTree
             projectId={projectId}
-            isOwner={isOwner}
+            canEdit={canEdit}
             onSelectFile={(nodeId, nodeName, nodePath, nodeType) => selectFile(nodeId, nodeName, nodePath, nodeType)}
             selectedNodeId={selectedFile?.nodeId ?? null}
             onCollapse={() => setSidebarOpen(false)}

@@ -80,6 +80,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages (generate Prisma client + declaration files)
+        run: pnpm -r build
+
       - name: Shared unit tests
         run: pnpm --filter @asciidocollab/shared test
 
@@ -126,7 +129,7 @@ jobs:
         run: pnpm -r build
 
       - name: Infrastructure integration tests
-        run: pnpm --filter @asciidocollab/infrastructure test -- --passWithNoTests
+        run: pnpm --filter @asciidocollab/infrastructure test
         env:
           # Testcontainers uses Docker — make sure it's available and doesn't time out
           TESTCONTAINERS_RYUK_DISABLED: 'true'
@@ -152,8 +155,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages
-        run: pnpm -r build
+      - name: Build shared packages (Prisma client + declaration files)
+        run: pnpm --filter '!@asciidocollab/web' -r build
 
       - name: Install Playwright browsers
         run: pnpm --filter @asciidocollab/web exec playwright install --with-deps chromium
@@ -183,6 +186,12 @@ jobs:
           ASCIIDOCOLLAB_AUTH_EMAIL_FROM: noreply@asciidocollab.local
           ASCIIDOCOLLAB_AUTH_SMTP_HOST: localhost
           ASCIIDOCOLLAB_AUTH_SMTP_PORT: 1025
+          # Raise conservative production rate limits for CI: 12 parallel workers
+          # all share the same localhost IP, so defaults are too low.
+          ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_MAX: 500
+          ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX: 10000
+          ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX: 500
+          ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX: 500
 
       - name: Wait for API to be ready
         run: |

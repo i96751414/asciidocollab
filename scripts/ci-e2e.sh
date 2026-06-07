@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Job 4 — End-to-end tests (Playwright). Requires Docker for PostgreSQL + Mailpit.
+#
+# Rate-limit overrides are forced below regardless of .env.local. The production
+# defaults (e.g. 10 invite accepts/hour) are too low for 12 parallel Playwright
+# workers all sharing the same localhost IP — without them the suite hits 429 errors.
+set -euo pipefail
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'
+step() { echo -e "${CYAN}[ci-e2e]${RESET} $*"; }
+ok()   { echo -e "${GREEN}[ci-e2e]${RESET} $*"; }
+die()  { echo -e "${RED}[ci-e2e]${RESET} $*" >&2; exit 1; }
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# ─── Prerequisites ────────────────────────────────────────────────────────────
+command -v docker &>/dev/null || die "Docker is required."
+
+# ─── Env file ────────────────────────────────────────────────────────────────
+# Source .env.local for database URL, session secrets, and SMTP settings.
+ENV_FILE="$ROOT/.env.local"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a; source "$ENV_FILE"; set +a
+else
+  die ".env.local not found. Copy .env.example and fill in required values, or run scripts/dev.sh first."
+fi
+
+# Force rate-limit overrides — these must be set regardless of .env.local content.
+export ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_MAX=500
+export ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX=10000
+export ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX=500
+export ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX=500
+
+# ─── Cleanup on exit ─────────────────────────────────────────────────────────
+API_PID=""; WEB_PID=""
+cleanup() {
+  echo ""
+  step "Shutting down servers …"
+  [[ -n "$API_PID" ]] && kill "$API_PID" 2>/dev/null || true
+  [[ -n "$WEB_PID" ]] && kill "$WEB_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# ─── Infrastructure ──────────────────────────────────────────────────────────
+step "Starting PostgreSQL and Mailpit …"
+docker compose up -d postgres mailpit --wait
+
+# ─── Build ───────────────────────────────────────────────────────────────────
+step "Building shared packages …"
+pnpm --filter '!@asciidocollab/web' -r build
+
+step "Applying database schema …"
+pnpm --filter @asciidocollab/db exec prisma db push
+
+# ─── API ─────────────────────────────────────────────────────────────────────
+step "Starting API server …"
+node apps/api/dist/index.js &
+API_PID=$!
+
+step "Waiting for API …"
+until curl -sf http://localhost:4000/health &>/dev/null; do sleep 1; done
+ok "API is ready."
+
+# ─── Web ─────────────────────────────────────────────────────────────────────
+step "Building Next.js …"
+NEXT_PUBLIC_API_URL=http://localhost:4000 pnpm --filter @asciidocollab/web build
+
+step "Starting Next.js …"
+NEXT_PUBLIC_API_URL=http://localhost:4000 pnpm --filter @asciidocollab/web start &
+WEB_PID=$!
+
+step "Waiting for web …"
+until curl -sf http://localhost:3000 &>/dev/null; do sleep 1; done
+ok "Web is ready."
+
+# ─── E2E suite ───────────────────────────────────────────────────────────────
+step "Running Playwright E2E tests …"
+NEXT_PUBLIC_API_URL=http://localhost:4000 \
+NEXT_PUBLIC_WEB_URL=http://localhost:3000 \
+MAILPIT_URL=http://localhost:8025 \
+  pnpm --filter @asciidocollab/web e2e
+
+ok "E2E suite passed."

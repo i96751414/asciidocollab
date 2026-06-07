@@ -1,5 +1,5 @@
 import { request, type Page } from '@playwright/test';
-import { clearMailpit, waitForEmail, extractInvitationToken } from './mailpit';
+import { waitForEmail, extractInvitationToken } from './mailpit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -14,7 +14,8 @@ export const TEST_USER = {
  *
  * Flow:
  *  1. POST /auth/register — 201 means first user was just created (admin). Done.
- *  2. If 403 (registration closed), try to login to confirm the test user exists.
+ *  2. If 403 (registration closed) or 202 (email already exists, open-reg anti-enumeration),
+ *     try to login to confirm the test user exists with the expected credentials.
  *  3. If login succeeds, done. If not, throw so the test suite fails with a clear message.
  */
 export async function ensureTestUser(): Promise<void> {
@@ -23,8 +24,9 @@ export async function ensureTestUser(): Promise<void> {
     const registerResp = await context.post('/auth/register', { data: TEST_USER });
     if (registerResp.status() === 201) return; // created as first admin
 
-    if (registerResp.status() === 403) {
-      // Registration is closed — verify the test user already exists by logging in.
+    if (registerResp.status() === 403 || registerResp.status() === 202) {
+      // 403: registration closed. 202: user already exists (open-reg anti-enumeration race).
+      // Either way, verify the test user is reachable by logging in.
       const loginResp = await context.post('/auth/login', {
         data: { email: TEST_USER.email, password: TEST_USER.password },
       });
@@ -42,6 +44,20 @@ export async function ensureTestUser(): Promise<void> {
       `ensureTestUser: /auth/register returned unexpected status ${registerResp.status()}. ` +
       'The API may be misconfigured or the test database may be in an unexpected state.',
     );
+  } finally {
+    await context.dispose();
+  }
+}
+
+/**
+ * Resets open registration to disabled via a standalone API context.
+ * Call from beforeEach/afterEach in test suites that depend on registration being closed.
+ */
+export async function ensureRegistrationClosed(): Promise<void> {
+  const context = await request.newContext({ baseURL: API_URL });
+  try {
+    await context.post('/auth/login', { data: { email: TEST_USER.email, password: TEST_USER.password } });
+    await context.patch('/admin/settings', { data: { openRegistration: false } });
   } finally {
     await context.dispose();
   }
@@ -105,8 +121,6 @@ export async function createInvitedUser(
   password = 'TestP@ssw0rd123!',
   displayName = 'Test Invited User',
 ): Promise<string> {
-  await clearMailpit();
-
   const inviteResp = await page.request.post(`${API_URL}/admin/users/invite`, {
     data: { email },
   });

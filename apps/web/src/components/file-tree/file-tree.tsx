@@ -27,7 +27,7 @@ function sortChildren(node: FileTreeNodeType): FileTreeNodeType {
 
 interface Properties {
   projectId: string;
-  isOwner: boolean;
+  canEdit: boolean;
   onSelectFile: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
   selectedNodeId: string | null;
   /** When provided, renders a collapse button in the header and calls this on click. */
@@ -113,7 +113,7 @@ function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): Fil
 }
 
 /** Renders the full file tree for a project, with real-time SSE updates and keyboard shortcut support. */
-export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onCollapse }: Properties) {
+export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onCollapse }: Properties) {
   const [tree, setTree] = useState<FileTreeNodeType | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const containerReference = useRef<HTMLDivElement>(null);
@@ -193,7 +193,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
       <div className="flex items-center justify-between px-2 py-1.5 border-b shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
         <div className="flex items-center gap-0.5">
-          {tree && (
+          {tree && canEdit && (
             <span data-testid="tree-root-actions">
               <FileTreeActions
                 projectId={projectId}
@@ -203,7 +203,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
                 nodeName="root"
                 hasChildren={tree.children.length > 0}
                 isRoot
-                canCreate={isOwner}
+                canCreate={canEdit}
                 onUpdate={fetchTree}
                 onError={setOperationError}
                 onFind={openFind}
@@ -252,7 +252,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
               <button onClick={() => setOperationError(null)} aria-label="dismiss error" className="ml-2 underline">Dismiss</button>
             </div>
           )}
-          <DragDropZone targetFolderId={tree.id} projectId={projectId} onComplete={fetchTree}>
+          <DragDropZone targetFolderId={tree.id} projectId={projectId} onComplete={fetchTree} data-testid="file-tree-drop-zone">
             {tree.children.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
             ) : (
@@ -262,7 +262,7 @@ export function FileTree({ projectId, isOwner, onSelectFile, selectedNodeId, onC
                   node={node}
                   depth={0}
                   projectId={projectId}
-                  isOwner={isOwner}
+                  canEdit={canEdit}
                   selectedNodeId={selectedNodeId}
                   onSelect={onSelectFile}
                   onContextMenu={() => {}}

@@ -5,7 +5,7 @@ import {
   adminDeleteUserByEmail,
   TEST_USER,
 } from './helpers/test-user';
-import { clearMailpit, waitForEmail, extractInvitationToken } from './helpers/mailpit';
+import { waitForEmail, extractInvitationToken } from './helpers/mailpit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -19,7 +19,6 @@ test.describe('Registration via invitation (US1)', () => {
     const password = 'InviteeP@ssw0rd123!';
 
     await loginAdminViaApi(page);
-    await clearMailpit();
 
     try {
       // Admin sends invitation
@@ -64,7 +63,6 @@ test.describe('Registration via invitation (US1)', () => {
     const email = `used-invite-${Date.now()}@example.com`;
 
     await loginAdminViaApi(page);
-    await clearMailpit();
 
     try {
       await page.request.post(`${API_URL}/admin/users/invite`, { data: { email } });
