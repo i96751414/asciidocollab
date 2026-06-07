@@ -17,7 +17,7 @@ import './formats';
  * @returns A new convict configuration instance.
  */
 export function createConfig() {
-  return convict({
+  return convict<Config>({
     env: {
     doc: 'The application environment.',
     format: ['production', 'development', 'test'],
@@ -517,6 +517,50 @@ export function createConfig() {
         env: 'ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_WINDOW',
       },
     },
+    auditLog: {
+      rateLimitMax: {
+        doc: 'Maximum audit log requests per IP per window.',
+        format: 'integer',
+        default: 120,
+        env: 'ASCIIDOCOLLAB_ADMIN_AUDIT_LOG_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Audit log rate limit window in milliseconds.',
+        format: 'integer',
+        default: 60_000,
+        env: 'ASCIIDOCOLLAB_ADMIN_AUDIT_LOG_RATE_LIMIT_WINDOW',
+      },
+    },
+  },
+  downloads: {
+    zip: {
+      rateLimitMax: {
+        doc: 'Maximum ZIP download requests per IP per window.',
+        format: 'integer',
+        default: 10,
+        env: 'ASCIIDOCOLLAB_DOWNLOADS_ZIP_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'ZIP download rate limit window in milliseconds.',
+        format: 'integer',
+        default: 60_000,
+        env: 'ASCIIDOCOLLAB_DOWNLOADS_ZIP_RATE_LIMIT_WINDOW',
+      },
+    },
+    file: {
+      rateLimitMax: {
+        doc: 'Maximum individual file download requests per IP per window.',
+        format: 'integer',
+        default: 30,
+        env: 'ASCIIDOCOLLAB_DOWNLOADS_FILE_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Individual file download rate limit window in milliseconds.',
+        format: 'integer',
+        default: 60_000,
+        env: 'ASCIIDOCOLLAB_DOWNLOADS_FILE_RATE_LIMIT_WINDOW',
+      },
+    },
   },
   });
 }
@@ -732,6 +776,30 @@ export interface Config {
       /** Maximum open registration status requests per IP per window. */
       rateLimitMax: number;
       /** Open registration rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** Audit log rate limiting configuration. */
+    auditLog: {
+      /** Maximum audit log requests per IP per window. */
+      rateLimitMax: number;
+      /** Audit log rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+  };
+  /** Downloads configuration. */
+  downloads: {
+    /** ZIP download rate limiting configuration. */
+    zip: {
+      /** Maximum ZIP download requests per IP per window. */
+      rateLimitMax: number;
+      /** ZIP download rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
+    /** Individual file download rate limiting configuration. */
+    file: {
+      /** Maximum individual file download requests per IP per window. */
+      rateLimitMax: number;
+      /** Individual file download rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
   };

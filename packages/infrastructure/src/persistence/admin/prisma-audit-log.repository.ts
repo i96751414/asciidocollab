@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { AuditLog, AuditLogId, UserId, ProjectId, AuditLogRepository } from '@asciidocollab/domain';
+import { AuditLog, AuditLogId, UserId, ProjectId, AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from '@asciidocollab/domain';
 
 /**
  * Prisma-backed implementation of the `AuditLogRepository` interface.
@@ -44,6 +44,42 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
   async findAll(): Promise<AuditLog[]> {
     const records = await this.prisma.auditLog.findMany();
     return records.map(toDomainAuditLog).filter((r): r is AuditLog => r !== null);
+  }
+
+  /** Returns filtered, paginated audit log entries ordered by timestamp descending. */
+  async findWithFilters(filters: AuditLogFilters, pagination: PaginationOptions): Promise<PagedResult<AuditLog>> {
+    const where: Prisma.AuditLogWhereInput = {};
+    if (filters.fromDate || filters.toDate) {
+      where.timestamp = {};
+      if (filters.fromDate) where.timestamp.gte = filters.fromDate;
+      if (filters.toDate) where.timestamp.lte = filters.toDate;
+    }
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.actionType) where.action = filters.actionType;
+
+    const skip = (pagination.page - 1) * pagination.limit;
+    const [total, records] = await this.prisma.$transaction([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: pagination.limit,
+      }),
+    ]);
+
+    return {
+      items: records.map(toDomainAuditLog).filter((r): r is AuditLog => r !== null),
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+    };
+  }
+
+  /** Returns distinct action type strings present in the audit log. */
+  async findDistinctActionTypes(): Promise<string[]> {
+    const results = await this.prisma.auditLog.groupBy({ by: ['action'], orderBy: { action: 'asc' } });
+    return results.map((r) => r.action);
   }
 }
 

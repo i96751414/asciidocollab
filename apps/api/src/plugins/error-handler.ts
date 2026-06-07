@@ -14,7 +14,7 @@ function extractRetryAfterSeconds(error: FastifyError | Error): number {
  *
  * @param error - The error that occurred.
  * @param request - The incoming request.
- * @param reply - The reply object.
+ * @param reply - Fastify reply used to send the formatted error response.
  */
 export function errorHandler(
   error: FastifyError | Error,
@@ -44,7 +44,7 @@ export function errorHandler(
  * Handler for requests to non-existent routes.
  *
  * @param _request - The incoming request (unused).
- * @param reply - The reply object.
+ * @param reply - Fastify reply used to send the 404 response.
  */
 export function notFoundHandler(
   _request: FastifyRequest,

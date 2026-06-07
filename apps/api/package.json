@@ -36,11 +36,13 @@
     "pg": "^8.21.0",
     "pino": "^10.3.1",
     "yaml": "^2.9.0",
-    "yjs": "^13.6.31"
+    "yjs": "^13.6.31",
+    "archiver": "^7.0.1"
   },
   "devDependencies": {
     "@asciidocollab/testing": "workspace:*",
     "@types/convict": "^6.1.6",
+    "@types/archiver": "^6.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.12.4",
     "@types/nodemailer": "^6.4.0",

@@ -13,7 +13,9 @@ test.describe('Sign-out and session protection', () => {
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await page.getByRole('button', { name: /sign out/i }).click();
+    // Open the user menu then click Log Out (previously a standalone button, now in the dropdown).
+    await page.getByRole('button').filter({ hasText: TEST_USER.displayName }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: /log out/i }).click();
     await expect(page).toHaveURL(/\/login/);
 
     // Back button: try to reach dashboard — should redirect to login

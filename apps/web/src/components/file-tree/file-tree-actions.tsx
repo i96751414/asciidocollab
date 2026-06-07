@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 import {
   MoreHorizontal,
   Search,
@@ -10,6 +12,8 @@ import {
   FoldVertical,
   UnfoldVertical,
   LocateFixed,
+  Download,
+  Archive,
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
@@ -172,11 +176,37 @@ export function FileTreeActions({
             </DropdownMenuItem>
           )}
 
+          {/* Download ZIP for the project root */}
+          {isRoot && (
+            <DropdownMenuItem asChild>
+              <a
+                href={`${API_BASE}/projects/${projectId}/download`}
+                download
+                className="flex items-center"
+              >
+                <Archive className="h-4 w-4 mr-2 shrink-0" />
+                Download ZIP
+              </a>
+            </DropdownMenuItem>
+          )}
+
           {/* Node-level actions (hidden for root) */}
           {!isRoot && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'rename', currentName: nodeName })}>
               <Pencil className="h-4 w-4 mr-2 shrink-0" />
               Rename
+            </DropdownMenuItem>
+          )}
+          {!isRoot && nodeType === 'file' && (
+            <DropdownMenuItem asChild>
+              <a
+                href={`${API_BASE}/projects/${projectId}/files/${fileNodeId}/download`}
+                download
+                className="flex items-center"
+              >
+                <Download className="h-4 w-4 mr-2 shrink-0" />
+                Download
+              </a>
             </DropdownMenuItem>
           )}
           {!isRoot && (

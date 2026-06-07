@@ -33,7 +33,7 @@ function buildRegisterSchema(policy: PasswordPolicyDto) {
     });
 }
 
-/** Properties for the RegisterForm component. */
+/** Server-supplied data configuring first-run messaging and client-side password validation. */
 interface RegisterFormProperties {
   /** True when no users exist yet — shows first-run messaging. */
   isFirstRun: boolean;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { API_BASE_URL } from '@/lib/api/file-content';
 
 /** Valid editor theme values. */
 export type EditorThemeValue = 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
@@ -17,18 +18,18 @@ export function isEditorThemeValue(value: string): value is EditorThemeValue {
 }
 
 const LS_KEY = 'asciidocollab:editor-preferences';
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const DEBOUNCE_MS = 500;
 
 interface EditorPrefs {
   fontSize: number;
   theme: EditorThemeValue;
   scrollSyncEnabled: boolean;
+  softWrap: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -43,6 +44,7 @@ function loadFromStorage(): EditorPrefs {
           fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : DEFAULT_PREFS.fontSize,
           theme: typeof rawTheme === 'string' && isEditorThemeValue(rawTheme) ? rawTheme : DEFAULT_PREFS.theme,
           scrollSyncEnabled: typeof parsed.scrollSyncEnabled === 'boolean' ? parsed.scrollSyncEnabled : DEFAULT_PREFS.scrollSyncEnabled,
+          softWrap: typeof parsed.softWrap === 'boolean' ? parsed.softWrap : DEFAULT_PREFS.softWrap,
         };
       }
     }
@@ -50,14 +52,16 @@ function loadFromStorage(): EditorPrefs {
   return DEFAULT_PREFS;
 }
 
-/** Result interface for useEditorPreferences hook. */
+/** Current editor preferences and their setters, synchronised with localStorage and the API. */
 interface UseEditorPreferencesResult {
   fontSize: number;
   theme: EditorThemeValue;
   scrollSyncEnabled: boolean;
+  softWrap: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
+  setSoftWrap: (enabled: boolean) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -68,16 +72,21 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
   const debounceTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    void fetch(`${API_BASE}/auth/me/editor-preferences`, { credentials: 'include' })
+    void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, { credentials: 'include' })
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: EditorPrefs) => setPrefs(data))
+      .then((data: Partial<EditorPrefs>) => setPrefs((previous) => ({
+        fontSize: typeof data.fontSize === 'number' ? data.fontSize : previous.fontSize,
+        theme: typeof data.theme === 'string' && isEditorThemeValue(data.theme) ? data.theme : previous.theme,
+        scrollSyncEnabled: typeof data.scrollSyncEnabled === 'boolean' ? data.scrollSyncEnabled : previous.scrollSyncEnabled,
+        softWrap: typeof data.softWrap === 'boolean' ? data.softWrap : previous.softWrap,
+      })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
 
   function schedulePut(next: EditorPrefs) {
     if (debounceTimerReference.current) clearTimeout(debounceTimerReference.current);
     debounceTimerReference.current = setTimeout(() => {
-      void fetch(`${API_BASE}/auth/me/editor-preferences`, {
+      void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -113,5 +122,14 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, setFontSize, setTheme, setScrollSyncEnabled };
+  const setSoftWrap = useCallback((softWrap: boolean) => {
+    setPrefs((previous) => {
+      const next = { ...previous, softWrap };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      schedulePut(next);
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap };
 }

@@ -47,15 +47,10 @@ export function loadConfig(configDirectory: string): void {
 /**
  * Returns the validated configuration object.
  *
- * Uses JSON round-trip to convert convict's internal representation
- * to plain values matching the Config interface.
- *
  * @returns The configuration object with all fields typed.
  */
 export function getConfig(): Config {
-  // convict validates the full schema before getProperties() returns, so this cast is safe.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return structuredClone(ensureConfig().getProperties()) as Config;
+  return structuredClone(ensureConfig().getProperties());
 }
 
 export { ensureConfig as config };

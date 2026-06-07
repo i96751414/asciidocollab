@@ -455,4 +455,34 @@ describe('AsciiDocEditor', () => {
       expect(mockSave).toHaveBeenCalled();
     });
   });
+
+  describe('soft-wrap integration', () => {
+    test('EditorView.lineWrapping is included when softWrap=true', () => {
+      const { EditorState } = require('@codemirror/state');
+      const { EditorView } = require('@codemirror/view');
+      let capturedExtensions: unknown[] = [];
+      const originalCreate = EditorState.create;
+      EditorState.create = (config: { doc: string; extensions?: unknown[] }) => {
+        capturedExtensions = (config.extensions ?? []).flat(Infinity);
+        return originalCreate(config);
+      };
+      render(<AsciiDocEditor content="test" canEdit={true} softWrap={true} />);
+      EditorState.create = originalCreate;
+      expect(capturedExtensions).toContain(EditorView.lineWrapping);
+    });
+
+    test('EditorView.lineWrapping is absent when softWrap=false', () => {
+      const { EditorState } = require('@codemirror/state');
+      const { EditorView } = require('@codemirror/view');
+      let capturedExtensions: unknown[] = [];
+      const originalCreate = EditorState.create;
+      EditorState.create = (config: { doc: string; extensions?: unknown[] }) => {
+        capturedExtensions = (config.extensions ?? []).flat(Infinity);
+        return originalCreate(config);
+      };
+      render(<AsciiDocEditor content="test" canEdit={true} softWrap={false} />);
+      EditorState.create = originalCreate;
+      expect(capturedExtensions).not.toContain(EditorView.lineWrapping);
+    });
+  });
 });

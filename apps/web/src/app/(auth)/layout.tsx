@@ -1,4 +1,4 @@
-/** Properties for the auth layout. */
+/** Content rendered centered inside the card container on unauthenticated pages. */
 interface AuthLayoutProperties {
   /** Page content to render centered inside the card container. */
   children: React.ReactNode;

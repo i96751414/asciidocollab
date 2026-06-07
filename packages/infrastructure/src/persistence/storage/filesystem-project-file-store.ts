@@ -1,4 +1,6 @@
 import { mkdir, readFile, writeFile, rename, rm, open, stat, link, unlink } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import type { Readable } from 'node:stream';
 import path from 'node:path';
 import { ProjectFileStore } from '@asciidocollab/domain';
 import { ProjectId, FilePath, FileConflictError } from '@asciidocollab/domain';
@@ -126,6 +128,18 @@ export class FilesystemProjectFileStore implements ProjectFileStore {
   async removeProject(projectId: ProjectId): Promise<void> {
     const projectDirectory = this.projectDirectory(projectId);
     await rm(projectDirectory, { recursive: true, force: true });
+  }
+
+  /** Returns a readable stream for the file, or null if the file does not exist. */
+  async readStream(projectId: ProjectId, filePath: FilePath): Promise<Readable | null> {
+    const absPath = this.resolveSafe(projectId, filePath);
+    try {
+      await stat(absPath);
+      return createReadStream(absPath);
+    } catch (error: unknown) {
+      if (isEnoent(error)) return null;
+      throw error;
+    }
   }
 }
 

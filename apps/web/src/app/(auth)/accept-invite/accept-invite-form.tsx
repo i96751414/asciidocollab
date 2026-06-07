@@ -35,7 +35,7 @@ function buildAcceptInviteSchema(policy: PasswordPolicyDto) {
     });
 }
 
-/** Properties for the AcceptInviteForm component. */
+/** Bindings for the form that lets an invited user set a password and accept team membership. */
 interface AcceptInviteFormProperties {
   /** Invitation token from the URL query string. */
   token: string;

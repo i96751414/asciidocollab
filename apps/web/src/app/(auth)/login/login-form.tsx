@@ -22,7 +22,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-/** Properties for the LoginForm component. */
+/** Configuration injected by the server page into the sign-in form. */
 interface LoginFormProperties {
   /** Path to redirect to after successful login. Falls back to /dashboard if unsafe. */
   redirectTo: string;

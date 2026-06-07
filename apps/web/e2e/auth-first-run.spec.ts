@@ -12,7 +12,8 @@ test.describe('First-run setup flow', () => {
 
     await page.getByLabel(/display name/i).fill(TEST_USER.displayName);
     await page.getByLabel(/email/i).fill(TEST_USER.email);
-    await page.getByLabel(/password/i).fill(TEST_USER.password);
+    await page.getByLabel('Password', { exact: true }).fill(TEST_USER.password);
+    await page.getByLabel(/confirm password/i).fill(TEST_USER.password);
     await page.getByRole('button', { name: /create account/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);

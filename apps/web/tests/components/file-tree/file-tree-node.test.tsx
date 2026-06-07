@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { FileTreeNode } from '@/components/file-tree/file-tree-node';
 
 jest.mock('@/components/file-tree/drag-drop-zone', () => ({
@@ -267,5 +267,120 @@ describe('FileTreeNode', () => {
     );
     fireEvent.click(screen.getByTestId('file-tree-actions'));
     expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── T056: Download as ZIP ─────────────────────────────────────────────────────
+
+describe('FileTreeNode — Download as ZIP (root project node)', () => {
+  const rootFolderNode = {
+    id: 'root-1',
+    name: 'My Project',
+    type: 'folder' as const,
+    path: '/',
+    parentId: null,
+    children: [],
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('renders "Download as ZIP" link for root project nodes (parentId=null)', () => {
+    render(
+      <FileTreeNode
+        node={rootFolderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isProjectRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download as zip/i });
+    expect(link).toBeInTheDocument();
+  });
+
+  it('Download as ZIP link points to the project ZIP download endpoint', () => {
+    render(
+      <FileTreeNode
+        node={rootFolderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isProjectRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download as zip/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('/projects/proj-1/download'));
+    expect(link).toHaveAttribute('download');
+  });
+
+  it('does NOT render "Download as ZIP" for non-root nodes', () => {
+    const nonRoot = { ...rootFolderNode, parentId: 'some-parent', id: 'child-1' };
+    render(
+      <FileTreeNode
+        node={nonRoot}
+        depth={1}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: /download as zip/i })).not.toBeInTheDocument();
+  });
+
+  it('Download as ZIP link is disabled immediately on click', () => {
+    render(
+      <FileTreeNode
+        node={rootFolderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isProjectRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download as zip/i });
+    fireEvent.click(link);
+    // After click, link should have aria-disabled or pointer-events-none
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('Download as ZIP re-enables after 1 second', () => {
+    render(
+      <FileTreeNode
+        node={rootFolderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isProjectRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download as zip/i });
+    fireEvent.click(link);
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(link).not.toHaveAttribute('aria-disabled');
   });
 });

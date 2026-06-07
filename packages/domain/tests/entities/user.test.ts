@@ -34,4 +34,24 @@ describe('User entity', () => {
     const past = new Date('2025-01-01');
     expect(() => new User(userId, email, 'Test User', 'hash', [], null, null, false, new Timestamps(future, past))).toThrow();
   });
+
+  test('exposes avatarKey field (null by default)', () => {
+    const user = new User(userId, email, 'Test User', 'hashed_password', [], null, null);
+    expect(user.avatarKey).toBeNull();
+  });
+
+  test('exposes avatarKey when provided', () => {
+    const user = new User(userId, email, 'Test User', 'hashed_password', [], null, null, false, new Timestamps(), false, 'SELF_REGISTERED', 'initial-face', 'system');
+    expect(user.avatarKey).toBe('initial-face');
+  });
+
+  test('exposes appTheme field ("system" by default)', () => {
+    const user = new User(userId, email, 'Test User', 'hashed_password', [], null, null);
+    expect(user.appTheme).toBe('system');
+  });
+
+  test('exposes appTheme when provided', () => {
+    const user = new User(userId, email, 'Test User', 'hashed_password', [], null, null, false, new Timestamps(), false, 'SELF_REGISTERED', null, 'dark');
+    expect(user.appTheme).toBe('dark');
+  });
 });

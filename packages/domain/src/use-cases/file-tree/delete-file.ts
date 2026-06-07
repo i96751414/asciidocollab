@@ -126,8 +126,7 @@ export class DeleteFileUseCase {
       }
     }
 
-    // eslint-disable-next-line unicorn/no-array-reverse
-    for (const id of [...toDelete].reverse()) {
+    for (const id of toDelete.toReversed()) {
       await this.fileNodeRepo.delete(id);
     }
 

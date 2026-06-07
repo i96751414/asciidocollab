@@ -80,6 +80,7 @@ module.exports = tseslint.config(
           'TSEnumDeclaration',
         ],
       }],
+      'jsdoc/require-param': ['error', { checkConstructors: true }],
       'jsdoc/require-hyphen-before-param-description': ['error', 'always'],
       'jsdoc/require-param-description': 'error',
       'jsdoc/require-returns-description': 'error',
@@ -93,7 +94,14 @@ module.exports = tseslint.config(
       'jsdoc/require-description': 'error',
       'jsdoc/require-description-complete-sentence': 'error',
       'jsdoc/no-blank-blocks': 'error',
-      'jsdoc/informative-docs': 'error',
+      'jsdoc/informative-docs': ['error', {
+        uselessWords: [
+          'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'so', 'yet',
+          'interface', 'type', 'class', 'hook', 'function', 'method',
+          'handler', 'component', 'helper', 'utility', 'service', 'manager',
+          'object', 'result',
+        ],
+      }],
       'jsdoc/check-tag-names': ['error', { definedTags: ['invariant'] }],
       'jsdoc/no-types': 'error',
     },

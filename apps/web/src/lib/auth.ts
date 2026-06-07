@@ -21,6 +21,10 @@ export interface ProfileData {
   isAdmin: boolean;
   /** Whether the user has verified their email address. */
   emailVerified: boolean;
+  /** DiceBear avatar style key, or null for the default. */
+  avatarKey: string | null;
+  /** UI theme preference: 'light', 'dark', or 'system'. */
+  appTheme: string;
 }
 
 /**

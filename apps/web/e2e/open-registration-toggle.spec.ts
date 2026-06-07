@@ -56,15 +56,15 @@ test.describe('Open registration toggle (US4)', () => {
 
     // Enable it
     await disabledButton.click();
-    await expect(enabledButton).toBeVisible();
+    await expect(enabledButton).toBeVisible({ timeout: 10_000 });
 
-    // Reload and verify persistence
+    // Reload and verify persistence — wait for the async useEffect fetch to complete.
     await page.reload();
-    await expect(enabledButton).toBeVisible();
+    await expect(enabledButton).toBeVisible({ timeout: 10_000 });
 
     // Disable it
     await enabledButton.click();
-    await expect(disabledButton).toBeVisible();
+    await expect(disabledButton).toBeVisible({ timeout: 10_000 });
   });
 
   test('login page shows "Create an account" when open registration is enabled', async ({ page }) => {

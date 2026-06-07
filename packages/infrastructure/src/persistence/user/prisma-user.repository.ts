@@ -96,6 +96,7 @@ function toDomainUser(record: {
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
   isAdmin: boolean; createdAt: Date; updatedAt: Date;
   emailVerified: boolean; registrationMethod: RegistrationMethod;
+  avatarKey: string | null; appTheme: string;
 }): User {
   return new User(
     UserId.create(record.id),
@@ -109,6 +110,8 @@ function toDomainUser(record: {
     new Timestamps(record.createdAt, record.updatedAt),
     record.emailVerified,
     record.registrationMethod,
+    record.avatarKey,
+    record.appTheme,
   );
 }
 
@@ -117,6 +120,7 @@ function toPersistenceUser(user: User): {
   passwordHistory: string[]; samlSubject: string | null; mfaSecret: string | null;
   isAdmin: boolean; createdAt: Date; updatedAt: Date;
   emailVerified: boolean; registrationMethod: RegistrationMethod;
+  avatarKey: string | null; appTheme: string;
 } {
   return {
     id: user.id.value,
@@ -131,5 +135,7 @@ function toPersistenceUser(user: User): {
     updatedAt: user.updatedAt,
     emailVerified: user.emailVerified,
     registrationMethod: user.registrationMethod,
+    avatarKey: user.avatarKey,
+    appTheme: user.appTheme,
   };
 }

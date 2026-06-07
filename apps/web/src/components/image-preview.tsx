@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 import { fileContentUrl } from '@/lib/api/file-content';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,18 +21,23 @@ export function ImagePreview({ projectId, fileNodeId, fileName }: ImagePreviewPr
 
   return (
     <div className="flex items-center justify-center h-full p-4 overflow-auto">
-      {!loaded && (
-        <Skeleton className="w-48 h-48" />
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={fileContentUrl(projectId, fileNodeId)}
-        alt={fileName}
-        crossOrigin="use-credentials"
-        className={`max-w-full max-h-full object-contain${loaded ? '' : ' hidden'}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
-      />
+      <div className="relative w-full h-full">
+        <Image
+          src={fileContentUrl(projectId, fileNodeId)}
+          alt={fileName}
+          unoptimized
+          fill
+          crossOrigin="use-credentials"
+          className="object-contain"
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Skeleton className="w-48 h-48" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

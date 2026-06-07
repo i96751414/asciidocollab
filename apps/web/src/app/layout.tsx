@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
+import { ThemeProvider } from "@/components/theme-provider";
 import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -12,17 +14,24 @@ export const metadata: Metadata = {
 /**
  * Root layout for the application.
  *
- * @param properties - The component properties.
+ * @param properties - App shell and global providers wrapping all pages.
  * @param properties.children - The child components to render.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('asciidocollab-theme');
+  const initialTheme = themeCookie?.value ?? 'system';
+  const isDark = initialTheme === 'dark';
+
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={isDark ? 'dark' : ''}>
+      <body className={inter.className}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

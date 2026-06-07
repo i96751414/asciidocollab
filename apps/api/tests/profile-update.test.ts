@@ -9,7 +9,7 @@ import { setupTestEnvironment } from './helpers/test-environment';
 const TEST_EMAIL = 'profile-update@example.com';
 const TEST_PASSWORD = 'ValidP@ssw0rd123!';
 
-describe('PATCH /auth/profile', () => {
+describe('PATCH /auth/me/profile', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let testContext: Awaited<ReturnType<typeof startTestContainer>>;
   let sessionCookie = '';
@@ -47,7 +47,7 @@ describe('PATCH /auth/profile', () => {
   test('200 success — updates display name', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/auth/profile',
+      url: '/auth/me/profile',
       headers: { cookie: sessionCookie },
       payload: { displayName: 'Updated Name' },
     });
@@ -58,7 +58,7 @@ describe('PATCH /auth/profile', () => {
   test('400 when displayName is empty', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/auth/profile',
+      url: '/auth/me/profile',
       headers: { cookie: sessionCookie },
       payload: { displayName: '' },
     });
@@ -68,7 +68,7 @@ describe('PATCH /auth/profile', () => {
   test('400 when displayName exceeds 100 characters', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/auth/profile',
+      url: '/auth/me/profile',
       headers: { cookie: sessionCookie },
       payload: { displayName: 'a'.repeat(101) },
     });
@@ -78,7 +78,7 @@ describe('PATCH /auth/profile', () => {
   test('401 when session is absent', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/auth/profile',
+      url: '/auth/me/profile',
       payload: { displayName: 'Any Name' },
     });
     expect(response.statusCode).toBe(401);

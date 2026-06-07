@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<
   /**
    * Creates a new ErrorBoundary.
    *
-   * @param properties - The component properties.
+   * @param properties - Children to guard and optional fallback to render on error.
    */
   constructor(properties: ErrorBoundaryProperties) {
     super(properties);

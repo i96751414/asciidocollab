@@ -49,4 +49,14 @@ describe('GetEditorPreferencesUseCase', () => {
     const result = await useCase.execute(userId);
     expect(result.success).toBe(true);
   });
+
+  test('returns softWrap field', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const useCase = new GetEditorPreferencesUseCase(repo);
+    const result = await useCase.execute(userId);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(typeof result.value.softWrap).toBe('boolean');
+    }
+  });
 });

@@ -28,6 +28,8 @@ export async function meRoute(app: FastifyInstance): Promise<void> {
       email: user.email.value,
       isAdmin: user.isAdmin,
       emailVerified: user.emailVerified,
+      avatarKey: user.avatarKey ?? null,
+      appTheme: user.appTheme ?? 'system',
     } satisfies UserProfileDto;
   });
 }

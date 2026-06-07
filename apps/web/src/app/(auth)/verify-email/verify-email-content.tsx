@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { adminApi, ApiError } from "@/lib/api";
 
-/** Properties for the VerifyEmailContent component. */
+/** Input for the email verification flow rendered after following a confirmation link. */
 interface VerifyEmailContentProperties {
   /** Verification token from the URL query string. */
   token: string;

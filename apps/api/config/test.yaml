@@ -46,3 +46,14 @@ admin:
   openRegistration:
     rateLimitMax: 10000
     rateLimitWindow: 60000
+  auditLog:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+
+downloads:
+  zip:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000
+  file:
+    rateLimitMax: 10000
+    rateLimitWindow: 60000

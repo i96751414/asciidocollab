@@ -1,15 +1,15 @@
+import { createRequire } from 'node:module';
 import { YjsStateStore, ProjectId, YjsStateId } from '@asciidocollab/domain';
 
 // yjs has "type":"module" but ships ./dist/yjs.cjs via the "require" export condition.
 // TypeScript raises TS1479/TS1542 when referencing its ESM type declarations from a CJS
-// file, so we declare only the two functions we need locally and require the CJS build.
+// file, so we declare only the two functions we need locally and load the CJS build.
 interface YjsDocument { readonly _isYDoc: unique symbol }
 interface Yjs {
   applyUpdate(document: YjsDocument, update: Uint8Array): void;
   encodeStateAsUpdate(document: YjsDocument): Uint8Array;
 }
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Y: Yjs = require('yjs');
+const Y: Yjs = createRequire(__filename)('yjs');
 
 interface DocumentPayload {
   documentName: string;

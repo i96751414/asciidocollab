@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utilities";
 
-/** Properties for the Input component. */
+/** Standard HTML input attributes forwarded to the underlying input element. */
 export type InputProperties = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProperties>(
