@@ -88,7 +88,7 @@ describe('EditorToolbar', () => {
     expect(tr.changes.insert).toBe('*hello*');
   });
 
-  test('clicking Code Block inserts a ----\\n\\n---- snippet', () => {
+  test(String.raw`clicking Code Block inserts a ----\n\n---- snippet`, () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /code block/i }));

@@ -183,14 +183,14 @@ describe('asciidoc-render.worker', () => {
 
   // (h) document-level block is skipped (no wrapping HTML element in output)
   it('skips document-level blocks', () => {
-    const docBlock = makeBlock({ lineNumber: 1, id: null, context: 'document' });
+    const documentBlock = makeBlock({ lineNumber: 1, id: null, context: 'document' });
     const paraBlock = makeBlock({ lineNumber: 3, id: null, context: 'paragraph' });
     mockConvert.mockReturnValueOnce('<div id="__src_paragraph_3"><p>text</p></div>');
-    mockFindBy.mockReturnValueOnce([docBlock, paraBlock]);
+    mockFindBy.mockReturnValueOnce([documentBlock, paraBlock]);
     require('@/workers/asciidoc-render.worker');
     sendMessage({ requestId: 6, content: '= Doc\n\nParagraph.' });
 
-    expect(docBlock.setId).not.toHaveBeenCalled();
+    expect(documentBlock.setId).not.toHaveBeenCalled();
     expect(paraBlock.setId).toHaveBeenCalledWith('__src_paragraph_3');
   });
 

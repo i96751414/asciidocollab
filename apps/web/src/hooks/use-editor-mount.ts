@@ -35,7 +35,11 @@ interface UseEditorMountOptions {
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
   onLineClick?: (line: number) => void;
-  /** Called with the 1-based line at the top of the editor viewport as the user scrolls. */
+  /**
+   * Called with the 1-based line at the top of the editor viewport as the user scrolls.
+   *
+   * @param line - The 1-based line number at the top of the visible viewport.
+   */
   onScrollLine?: (line: number) => void;
 }
 

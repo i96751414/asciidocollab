@@ -294,7 +294,7 @@ describe('useKeyBindingSettings', () => {
     await act(async () => { await result.current.updateBinding('file-tree:rename', 'F3'); });
 
     const calls = (globalThis.fetch as jest.Mock).mock.calls;
-    const patchCall = calls.find(([, opts]) => (opts as RequestInit)?.method === 'PATCH');
+    const patchCall = calls.find(([, options]) => (options as RequestInit)?.method === 'PATCH');
     expect(patchCall).toBeDefined();
     const body = JSON.parse((patchCall[1] as RequestInit).body as string);
     expect(body.keyCombo).toBe('F3');

@@ -3,18 +3,20 @@ import { Asset, FileNodeId, MimeType, AssetRepository } from '@asciidocollab/dom
 
 /**
  * Prisma-backed implementation of the `AssetRepository` interface.
- * Asset.id is a FK to FileNode.id (1:1). projectId, filename, and path
+ * Asset.id is a FK to FileNode.id (1:1). ProjectId, filename, and path
  * are on the associated FileNode and are not duplicated here.
  */
 export class PrismaAssetRepository implements AssetRepository {
   /** Creates a new PrismaAssetRepository. */
   constructor(private readonly prisma: PrismaClient) {}
 
+  /** Finds an asset by its FileNode id. */
   async findById(id: FileNodeId): Promise<Asset | null> {
     const record = await this.prisma.asset.findUnique({ where: { id: id.value } });
     return record ? toDomainAsset(record) : null;
   }
 
+  /** Persists an asset entity via upsert. */
   async save(asset: Asset): Promise<void> {
     await this.prisma.asset.upsert({
       where: { id: asset.id.value },
@@ -23,6 +25,7 @@ export class PrismaAssetRepository implements AssetRepository {
     });
   }
 
+  /** Removes an asset by its FileNode id. */
   async delete(id: FileNodeId): Promise<void> {
     await this.prisma.asset.deleteMany({ where: { id: id.value } });
   }

@@ -15,8 +15,11 @@ import { MimeType } from '../../value-objects/mime-type';
 
 /** Result type that includes an optional contentId (present for documents, absent for assets). */
 export interface FileNodeContent {
+  /** Raw file bytes. */
   content: Buffer;
+  /** MIME type of the file. */
   mimeType: MimeType;
+  /** Content record id — present for text documents, absent for binary assets. */
   contentId?: string;
 }
 
@@ -25,6 +28,7 @@ export interface FileNodeContent {
  * Tries the document store first; falls back to the asset store when no document record exists.
  */
 export class GetFileNodeContentUseCase {
+  /** Creates a new GetFileNodeContentUseCase. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -33,6 +37,7 @@ export class GetFileNodeContentUseCase {
     private readonly fileStore: ProjectFileStore,
   ) {}
 
+  /** Reads the raw bytes for the given file node, checking project membership first. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,

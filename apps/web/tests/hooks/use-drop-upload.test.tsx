@@ -197,7 +197,7 @@ describe('useDropUpload', () => {
     await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
 
     // createFolder should have been called for 'docs' and 'docs/sub'
-    const folderNames = mockCreateFolder.mock.calls.map(([, , name]: [unknown, unknown, string]) => name);
+    const folderNames = mockCreateFolder.mock.calls.map(([_a, _b, name]: [unknown, unknown, string]) => name);
     expect(folderNames).toContain('docs');
     expect(folderNames).toContain('sub');
   });
@@ -285,18 +285,18 @@ describe('useDropUpload', () => {
     await act(async () => { await result.current.onDrop({} as DataTransferItemList); });
 
     // Folders 'a', 'b', 'c' must have been created with their correct names
-    const folderNames = mockCreateFolder.mock.calls.map(([, , name]: [unknown, unknown, string]) => name);
+    const folderNames = mockCreateFolder.mock.calls.map(([_a, _b, name]: [unknown, unknown, string]) => name);
     expect(folderNames).toContain('a');
     expect(folderNames).toContain('b');
     expect(folderNames).toContain('c');
 
     // Verify 'b' is created under 'folder-a' (correct parent — not under root)
-    const bCalls = mockCreateFolder.mock.calls.filter(([, , n]: [unknown, unknown, string]) => n === 'b');
+    const bCalls = mockCreateFolder.mock.calls.filter(([_a, _b, n]: [unknown, unknown, string]) => n === 'b');
     expect(bCalls).toHaveLength(1);
     expect((bCalls[0] as [unknown, string, string])[1]).toBe('folder-a');
 
     // Verify 'c' is created under 'folder-b' (correct parent — not under some mangled path)
-    const cCalls = mockCreateFolder.mock.calls.filter(([, , n]: [unknown, unknown, string]) => n === 'c');
+    const cCalls = mockCreateFolder.mock.calls.filter(([_a, _b, n]: [unknown, unknown, string]) => n === 'c');
     expect(cCalls).toHaveLength(1);
     expect((cCalls[0] as [unknown, string, string])[1]).toBe('folder-b');
 

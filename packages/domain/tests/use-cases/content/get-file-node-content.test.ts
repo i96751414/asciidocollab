@@ -29,13 +29,13 @@ const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
 const nonMemberId = UserId.create('550e8400-e29b-41d4-a716-446655440009');
 const projectId = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
 const rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
-const docFileNodeId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
+const documentFileNodeId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
 const imgFileNodeId = FileNodeId.create('aa1e8400-e29b-41d4-a716-446655440006');
 const documentId = DocumentId.create('bb0e8400-e29b-41d4-a716-446655440007');
-const docPath = FilePath.create('/test.adoc');
+const documentPath = FilePath.create('/test.adoc');
 const imgPath = FilePath.create('/photo.png');
-const docContent = Buffer.from('= Hello\nWorld');
-const imgContent = Buffer.alloc(64, 0xff);
+const documentContent = Buffer.from('= Hello\nWorld');
+const imgContent = Buffer.alloc(64, 0xFF);
 
 describe('GetFileNodeContentUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -63,19 +63,19 @@ describe('GetFileNodeContentUseCase', () => {
     await fileNodeRepo.save(rootFolder);
 
     // AsciiDoc document file
-    const docNode = new FileNode(docFileNodeId, projectId, rootFolderId, 'test.adoc', FileNodeType.create('file'), docPath);
-    await fileNodeRepo.save(docNode);
+    const documentNode = new FileNode(documentFileNodeId, projectId, rootFolderId, 'test.adoc', FileNodeType.create('file'), documentPath);
+    await fileNodeRepo.save(documentNode);
 
     const document = new Document(
       documentId,
-      docFileNodeId,
+      documentFileNodeId,
       ContentId.create('cc0e8400-e29b-41d4-a716-446655440008'),
       YjsStateId.create('dd0e8400-e29b-41d4-a716-446655440009'),
       MimeType.create('text/asciidoc'),
     );
     await documentRepo.save(document);
 
-    await fileStore.write(projectId, docPath, docContent);
+    await fileStore.write(projectId, documentPath, documentContent);
 
     // Image asset file
     const imgNode = new FileNode(imgFileNodeId, projectId, rootFolderId, 'photo.png', FileNodeType.create('file'), imgPath);
@@ -93,10 +93,10 @@ describe('GetFileNodeContentUseCase', () => {
 
   // Document (text) file path
   it('returns document content with mimeType and contentId for a text file', async () => {
-    const result = await useCase.execute(actorId, projectId, docFileNodeId);
+    const result = await useCase.execute(actorId, projectId, documentFileNodeId);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.content).toEqual(docContent);
+      expect(result.value.content).toEqual(documentContent);
       expect(result.value.mimeType.value).toBe('text/asciidoc');
       expect(result.value.contentId).toBe('cc0e8400-e29b-41d4-a716-446655440008');
     }
@@ -113,7 +113,7 @@ describe('GetFileNodeContentUseCase', () => {
   });
 
   it('returns PermissionDeniedError for non-member', async () => {
-    const result = await useCase.execute(nonMemberId, projectId, docFileNodeId);
+    const result = await useCase.execute(nonMemberId, projectId, documentFileNodeId);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeInstanceOf(PermissionDeniedError);
@@ -130,8 +130,8 @@ describe('GetFileNodeContentUseCase', () => {
   });
 
   it('returns ContentNotFoundError when document file is missing from store', async () => {
-    await fileStore.remove(projectId, docPath);
-    const result = await useCase.execute(actorId, projectId, docFileNodeId);
+    await fileStore.remove(projectId, documentPath);
+    const result = await useCase.execute(actorId, projectId, documentFileNodeId);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeInstanceOf(ContentNotFoundError);

@@ -911,7 +911,7 @@ test('each performSave call increments saveGeneration (generation is monotonical
   // Two sequential saves — each must get a unique generation
   let callCount = 0;
   const generations: number[] = [];
-  mockFetch.mockImplementation((_url: string, options: RequestInit) => {
+  mockFetch.mockImplementation((_url: string, _options: RequestInit) => {
     callCount++;
     // Capture the call order. Generations are internal, so we verify via ordering.
     return Promise.resolve({ ok: true, status: 204, headers: { get: () => `"etag-v${callCount}"` } });
@@ -1300,7 +1300,7 @@ test('keepalive fetch is dispatched on beforeunload when saveState is "error"', 
   // so the keepalive PUT fires. With L124 mutation ('error'→false/!='error'/''): handler is
   // removed when state transitions to 'error' → no keepalive → test fails.
   const keepaliveCalls = mockFetch.mock.calls.filter(
-    ([, opts]) => (opts as RequestInit)?.keepalive === true,
+    ([, options]) => (options as RequestInit)?.keepalive === true,
   );
   expect(keepaliveCalls).toHaveLength(1);
   expect(keepaliveCalls[0][1]).toMatchObject({ method: 'PUT', body: 'error content' });
@@ -1332,7 +1332,7 @@ test('changing fileNodeId cancels a pending debounce so no stale PUT fires for t
   });
 
   const putCalls = mockFetch.mock.calls.filter(
-    ([, opts]) => (opts as RequestInit)?.method === 'PUT',
+    ([, options]) => (options as RequestInit)?.method === 'PUT',
   );
   // With L190 mutation (false): debounce NOT cancelled → stale PUT fires → length=1 → fails
   expect(putCalls).toHaveLength(0);

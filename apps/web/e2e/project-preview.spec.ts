@@ -109,7 +109,7 @@ test.describe('AsciiDoc live preview', () => {
     // Build a document with two clearly separated sections separated by enough filler paragraphs
     // that the second section cannot be visible without scrolling.
     // Each filler entry is a real AsciiDoc paragraph (blank line before + content + blank line after).
-    const fillerParagraphs = Array.from({ length: 20 }, (_, i) => [`Filler paragraph ${i + 1} with enough text to generate rendered height.`, '']).flat();
+    const fillerParagraphs = Array.from({ length: 20 }, (_, index) => [`Filler paragraph ${index + 1} with enough text to generate rendered height.`, '']).flat();
     const lines = [
       '= First Section',
       '',
@@ -146,7 +146,7 @@ test.describe('AsciiDoc live preview', () => {
     // Navigate cursor to the "Second Section" line via keyboard
     await page.keyboard.press('Control+Home');
     // Move down to the second section heading (line 45 in 1-based → 44 ArrowDown presses)
-    for (let i = 0; i < 44; i++) {
+    for (let index = 0; index < 44; index++) {
       await page.keyboard.press('ArrowDown');
     }
 
@@ -157,7 +157,7 @@ test.describe('AsciiDoc live preview', () => {
     // The preview scroll container should scroll so "Second Section" is visible
     const scrollContainer = page.getByTestId('preview-scroll-container');
     await expect(async () => {
-      const scrollTop = await scrollContainer.evaluate((el) => el.scrollTop);
+      const scrollTop = await scrollContainer.evaluate((element) => element.scrollTop);
       expect(scrollTop, 'Preview scroll container must have scrolled away from the top').toBeGreaterThan(0);
     }).toPass({ timeout: 5000 });
   });
@@ -167,7 +167,7 @@ test.describe('AsciiDoc live preview', () => {
     // to require scrolling. Each paragraph needs a blank line separator.
     const fillerParagraphs = Array.from(
       { length: 30 },
-      (_, i) => [`Filler paragraph ${i + 1} with enough words to take up vertical space in the rendered output.`, ''],
+      (_, index) => [`Filler paragraph ${index + 1} with enough words to take up vertical space in the rendered output.`, ''],
     ).flat();
     const lines = [
       '= Document Title',
@@ -207,7 +207,7 @@ test.describe('AsciiDoc live preview', () => {
     await activeLineLocator.click({ modifiers: ['Control'] });
 
     await expect(async () => {
-      const scrollTop = await scrollContainer.evaluate((el) => el.scrollTop);
+      const scrollTop = await scrollContainer.evaluate((element) => element.scrollTop);
       expect(scrollTop, 'Preview must scroll down after clicking last line').toBeGreaterThan(0);
     }).toPass({ timeout: 5000 });
 
@@ -220,7 +220,7 @@ test.describe('AsciiDoc live preview', () => {
     // Clicking line 1 should scroll back to near the top. The exact value depends on
     // container padding and h1 default margins (~55px in practice).
     await expect(async () => {
-      const scrollTop = await scrollContainer.evaluate((el) => el.scrollTop);
+      const scrollTop = await scrollContainer.evaluate((element) => element.scrollTop);
       expect(scrollTop, 'Preview must scroll back to the top after clicking the first line').toBeLessThan(100);
     }).toPass({ timeout: 8000 });
   });
@@ -229,7 +229,7 @@ test.describe('AsciiDoc live preview', () => {
     // Build a long document with enough paragraphs that the rendered preview requires scrolling.
     const fillerParagraphs = Array.from(
       { length: 30 },
-      (_, i) => [`Content paragraph ${i + 3} with enough text to generate real rendered height.`, ''],
+      (_, index) => [`Content paragraph ${index + 3} with enough text to generate real rendered height.`, ''],
     ).flat();
     const lines = [
       '= Main Title',
@@ -269,7 +269,7 @@ test.describe('AsciiDoc live preview', () => {
     // After scrolling editor to bottom, preview should also have scrolled
     const scrollContainer = page.getByTestId('preview-scroll-container');
     await expect(async () => {
-      const scrollTop = await scrollContainer.evaluate((el) => el.scrollTop);
+      const scrollTop = await scrollContainer.evaluate((element) => element.scrollTop);
       expect(scrollTop, 'Preview panel must scroll when scroll sync is enabled and editor is scrolled').toBeGreaterThan(0);
     }).toPass({ timeout: 8000 });
   });

@@ -37,30 +37,31 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     const blockSourceLines: Array<{ id: string; lineNum: number }> = [];
     // Track the document title line number (from the level-0 section block).
     // The showtitle <h1> has no id attribute, so it needs special handling below.
-    let docTitleLineNum: number | null = null;
+    let documentTitleLineNumber: number | null = null;
 
     const blocks = asciidocDocument.findBy({});
     for (const block of blocks) {
       const loc = block.getSourceLocation();
       if (!loc) continue;
-      const lineNum = loc.getLineNumber() as number;
-      const ctx = block.getContext() as string;
+      const lineNumber = Number(loc.getLineNumber());
+      const context = String(block.getContext());
       // The document-level block has no wrapping HTML element.
-      if (ctx === 'document') continue;
+      if (context === 'document') continue;
 
       // Level-0 sections render as an <h1> via showtitle but have no id in the HTML.
       // Capture the line number for the post-processing step below.
-      if (ctx === 'section' && typeof block.getLevel === 'function' && block.getLevel() === 0) {
-        docTitleLineNum = lineNum;
+      if (context === 'section' && typeof block.getLevel === 'function' && block.getLevel() === 0) {
+        documentTitleLineNumber = lineNumber;
         continue;
       }
 
-      let id: string = block.getId() as string;
+      const rawId: unknown = block.getId();
+      let id: string = typeof rawId === 'string' ? rawId : '';
       if (!id) {
-        id = `__src_${ctx}_${lineNum}`;
+        id = `__src_${context}_${lineNumber}`;
         block.setId(id);
       }
-      blockSourceLines.push({ id, lineNum });
+      blockSourceLines.push({ id, lineNum: lineNumber });
     }
 
     let html = String(asciidocDocument.convert());
@@ -79,8 +80,8 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // Inject data-source-line directly so click-to-scroll works for line 1.
     // Use string replace (not /^<h1>/) to handle a leading newline Asciidoctor
     // sometimes emits in embedded mode.
-    if (docTitleLineNum !== null) {
-      html = html.replace('<h1>', `<h1 data-source-line="${docTitleLineNum}">`);
+    if (documentTitleLineNumber !== null) {
+      html = html.replace('<h1>', `<h1 data-source-line="${documentTitleLineNumber}">`);
     }
 
     postMessage({ requestId, ok: true, html, error: null } satisfies RenderResult);

@@ -366,19 +366,19 @@ describe('useAsciidocPreview', () => {
     const mockScrollLine3 = jest.fn();
     const mockScrollLine7 = jest.fn();
 
-    const el1 = document.createElement('p');
-    el1.dataset['sourceLine'] = '1';
+    const element1 = document.createElement('p');
+    element1.dataset['sourceLine'] = '1';
 
-    const el3 = document.createElement('p');
-    el3.dataset['sourceLine'] = '3';
-    el3.scrollIntoView = mockScrollLine3;
+    const element3 = document.createElement('p');
+    element3.dataset['sourceLine'] = '3';
+    element3.scrollIntoView = mockScrollLine3;
 
-    const el7 = document.createElement('p');
-    el7.dataset['sourceLine'] = '7';
-    el7.scrollIntoView = mockScrollLine7;
+    const element7 = document.createElement('p');
+    element7.dataset['sourceLine'] = '7';
+    element7.scrollIntoView = mockScrollLine7;
 
     const mockQuerySelector = jest.fn().mockReturnValue(null); // no exact match for line 5
-    const mockQuerySelectorAll = jest.fn().mockReturnValue([el1, el3, el7]);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([element1, element3, element7]);
 
     const { result, rerender } = renderHook(
       ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
@@ -546,19 +546,19 @@ describe('useAsciidocPreview', () => {
     const mockScrollLine3 = jest.fn();
     const mockScrollLine7 = jest.fn();
 
-    const el1 = document.createElement('p');
-    el1.dataset['sourceLine'] = '1';
+    const element1 = document.createElement('p');
+    element1.dataset['sourceLine'] = '1';
 
-    const el3 = document.createElement('p');
-    el3.dataset['sourceLine'] = '3';
-    el3.scrollIntoView = mockScrollLine3;
+    const element3 = document.createElement('p');
+    element3.dataset['sourceLine'] = '3';
+    element3.scrollIntoView = mockScrollLine3;
 
-    const el7 = document.createElement('p');
-    el7.dataset['sourceLine'] = '7';
-    el7.scrollIntoView = mockScrollLine7;
+    const element7 = document.createElement('p');
+    element7.dataset['sourceLine'] = '7';
+    element7.scrollIntoView = mockScrollLine7;
 
     const mockQuerySelector = jest.fn().mockReturnValue(null);
-    const mockQuerySelectorAll = jest.fn().mockReturnValue([el1, el3, el7]);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([element1, element3, element7]);
 
     const { result, rerender } = renderHook(
       ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
@@ -585,15 +585,15 @@ describe('useAsciidocPreview', () => {
   it('scroll fallback selects element at exact line when querySelector misses but querySelectorAll finds it', () => {
     const mockScrollExact = jest.fn();
 
-    const elExact = document.createElement('p');
-    elExact.dataset['sourceLine'] = '5';
-    elExact.scrollIntoView = mockScrollExact;
+    const elementExact = document.createElement('p');
+    elementExact.dataset['sourceLine'] = '5';
+    elementExact.scrollIntoView = mockScrollExact;
 
-    const elBefore = document.createElement('p');
-    elBefore.dataset['sourceLine'] = '3';
+    const elementBefore = document.createElement('p');
+    elementBefore.dataset['sourceLine'] = '3';
 
     const mockQuerySelector = jest.fn().mockReturnValue(null);
-    const mockQuerySelectorAll = jest.fn().mockReturnValue([elBefore, elExact]);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([elementBefore, elementExact]);
 
     const { result, rerender } = renderHook(
       ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>
@@ -616,16 +616,16 @@ describe('useAsciidocPreview', () => {
     const scrollSpyFirst = jest.fn();
     const scrollSpySecond = jest.fn();
 
-    const elFirst = document.createElement('p');
-    elFirst.dataset['sourceLine'] = '5';
-    elFirst.scrollIntoView = scrollSpyFirst;
+    const elementFirst = document.createElement('p');
+    elementFirst.dataset['sourceLine'] = '5';
+    elementFirst.scrollIntoView = scrollSpyFirst;
 
-    const elSecond = document.createElement('p');
-    elSecond.dataset['sourceLine'] = '5';
-    elSecond.scrollIntoView = scrollSpySecond;
+    const elementSecond = document.createElement('p');
+    elementSecond.dataset['sourceLine'] = '5';
+    elementSecond.scrollIntoView = scrollSpySecond;
 
     const mockQuerySelector = jest.fn().mockReturnValue(null);
-    const mockQuerySelectorAll = jest.fn().mockReturnValue([elFirst, elSecond]);
+    const mockQuerySelectorAll = jest.fn().mockReturnValue([elementFirst, elementSecond]);
 
     const { result, rerender } = renderHook(
       ({ scrollToLine }: { scrollToLine: { line: number } | null }) =>

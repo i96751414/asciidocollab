@@ -129,8 +129,7 @@ describe('walkEntries', () => {
   });
 });
 
-describe('walkEntries — getEntry fallback paths', () => {
-  function makeItemListWithFallback(files: File[], hasEntry = false): DataTransferItemList {
+function makeItemListWithFallback(files: File[], hasEntry = false): DataTransferItemList {
     const items = files.map((file) => ({
       kind: 'file' as const,
       type: '',
@@ -147,8 +146,9 @@ describe('walkEntries — getEntry fallback paths', () => {
       clear: () => {},
       remove: () => {},
     }) as unknown as DataTransferItemList;
-  }
+}
 
+describe('walkEntries — getEntry fallback paths', () => {
   it('falls back to getAsFile() when getEntry() returns null', async () => {
     const file = new File(['hello'], 'fallback.txt', { type: 'text/plain' });
     const items = makeItemListWithFallback([file]);
@@ -172,9 +172,9 @@ describe('walkEntries — getEntry fallback paths', () => {
       webkitGetAsEntry: () => null,
       getAsEntry: () => null,
     };
-    const arr = [item];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const array = [item];
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,
@@ -197,9 +197,9 @@ describe('walkEntries — getEntry fallback paths', () => {
       getAsString: () => {},
       webkitGetAsEntry: () => null,
     };
-    const arr = [item];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const array = [item];
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,
@@ -232,9 +232,9 @@ describe('walkEntries — getEntry fallback paths', () => {
       webkitGetAsEntry: () => mockEntry,
       // No getAsEntry property
     };
-    const arr = [item];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const array = [item];
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,
@@ -270,9 +270,9 @@ describe('walkEntries — getEntry fallback paths', () => {
       getAsEntry: () => mockEntry,
       webkitGetAsEntry: () => null,
     };
-    const arr = [item];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const array = [item];
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,
@@ -302,7 +302,7 @@ describe('walkEntries — unknown entry type is silently skipped', () => {
       // Intentionally no createReader — calling it would throw TypeError
     };
 
-    const arr = [{
+    const array = [{
       kind: 'file' as const,
       type: '',
       getAsFile: () => null,
@@ -310,8 +310,8 @@ describe('walkEntries — unknown entry type is silently skipped', () => {
       getAsEntry: () => unknownEntry,
       webkitGetAsEntry: () => unknownEntry,
     }];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,
@@ -327,19 +327,19 @@ describe('walkEntries — unknown entry type is silently skipped', () => {
   });
 });
 
-describe('walkEntries — optional chaining and kind guard', () => {
-  function makeItemList(item: Record<string, unknown>): DataTransferItemList {
-    const arr = [item];
-    const snapshot = [...arr];
-    return Object.assign(arr, {
-      length: snapshot.length,
-      [Symbol.iterator]: function* () { yield* snapshot; },
-      add: () => null,
-      clear: () => {},
-      remove: () => {},
-    }) as unknown as DataTransferItemList;
-  }
+function makeItemList(item: Record<string, unknown>): DataTransferItemList {
+  const array = [item];
+  const snapshot = [...array];
+  return Object.assign(array, {
+    length: snapshot.length,
+    [Symbol.iterator]: function* () { yield* snapshot; },
+    add: () => null,
+    clear: () => {},
+    remove: () => {},
+  }) as unknown as DataTransferItemList;
+}
 
+describe('walkEntries — optional chaining and kind guard', () => {
   it('skips item with kind="string" even when getAsFile() would return a non-null file', async () => {
     const file = new File(['content'], 'string-type.txt');
     const item = {
@@ -400,7 +400,7 @@ describe('walkEntries — multi-batch directory reader', () => {
     // Reader returns file1 on first call, file2 on second call, [] on third call
     let batchIndex = 0;
     const batches = [[file1], [file2]];
-    const multiBatchDir = {
+    const multiBatchDirectory = {
       isFile: false as const,
       isDirectory: true as const,
       name: 'dir',
@@ -416,16 +416,16 @@ describe('walkEntries — multi-batch directory reader', () => {
       }),
     };
 
-    const arr = [{
+    const array = [{
       kind: 'file' as const,
       type: '',
       getAsFile: () => null,
       getAsString: () => {},
-      webkitGetAsEntry: () => multiBatchDir,
-      getAsEntry: () => multiBatchDir,
+      webkitGetAsEntry: () => multiBatchDirectory,
+      getAsEntry: () => multiBatchDirectory,
     }];
-    const snapshot = [...arr];
-    const items = Object.assign(arr, {
+    const snapshot = [...array];
+    const items = Object.assign(array, {
       length: snapshot.length,
       [Symbol.iterator]: function* () { yield* snapshot; },
       add: () => null,

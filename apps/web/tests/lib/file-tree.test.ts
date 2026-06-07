@@ -19,7 +19,7 @@ function mockOk(body: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: jest.fn().mockResolvedValue(body) });
 }
 
-function mockErr(status: number, body: unknown) {
+function mockError(status: number, body: unknown) {
   return Promise.resolve({ ok: false, status, json: jest.fn().mockResolvedValue(body) });
 }
 
@@ -32,25 +32,25 @@ describe('FileTreeApiError', () => {
   });
 
   test('has name "FileTreeApiError"', () => {
-    const err = new FileTreeApiError(404, 'NOT_FOUND', 'Not found');
-    expect(err.name).toBe('FileTreeApiError');
+    const error = new FileTreeApiError(404, 'NOT_FOUND', 'Not found');
+    expect(error.name).toBe('FileTreeApiError');
   });
 
   test('stores status, code, and message', () => {
-    const err = new FileTreeApiError(400, 'INVALID', 'Bad request');
-    expect(err.status).toBe(400);
-    expect(err.code).toBe('INVALID');
-    expect(err.message).toBe('Bad request');
+    const error = new FileTreeApiError(400, 'INVALID', 'Bad request');
+    expect(error.status).toBe(400);
+    expect(error.code).toBe('INVALID');
+    expect(error.message).toBe('Bad request');
   });
 
   test('stores existingFileNodeId when provided', () => {
-    const err = new FileTreeApiError(409, 'CONFLICT', 'Exists', 'fn-existing');
-    expect(err.existingFileNodeId).toBe('fn-existing');
+    const error = new FileTreeApiError(409, 'CONFLICT', 'Exists', 'fn-existing');
+    expect(error.existingFileNodeId).toBe('fn-existing');
   });
 
   test('existingFileNodeId is undefined when not provided', () => {
-    const err = new FileTreeApiError(404, 'NOT_FOUND', 'Not found');
-    expect(err.existingFileNodeId).toBeUndefined();
+    const error = new FileTreeApiError(404, 'NOT_FOUND', 'Not found');
+    expect(error.existingFileNodeId).toBeUndefined();
   });
 });
 
@@ -96,21 +96,21 @@ describe('createFolder', () => {
   });
 
   test('throws FileTreeApiError on non-ok response', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(409, { error: { code: 'CONFLICT', message: 'Already exists' }, existingFileNodeId: 'fn0' }));
+    fetchMock.mockReturnValueOnce(mockError(409, { error: { code: 'CONFLICT', message: 'Already exists' }, existingFileNodeId: 'fn0' }));
     await expect(createFolder('p1', 'root', 'docs')).rejects.toBeInstanceOf(FileTreeApiError);
   });
 
   test('error carries exact message and code from body', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(409, { error: { code: 'CONFLICT', message: 'Folder already exists' }, existingFileNodeId: 'fn0' }));
-    const err = await createFolder('p1', 'root', 'docs').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Folder already exists');
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('CONFLICT');
-    expect((err as InstanceType<typeof FileTreeApiError>).existingFileNodeId).toBe('fn0');
+    fetchMock.mockReturnValueOnce(mockError(409, { error: { code: 'CONFLICT', message: 'Folder already exists' }, existingFileNodeId: 'fn0' }));
+    const error = await createFolder('p1', 'root', 'docs').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Folder already exists');
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('CONFLICT');
+    expect((error as InstanceType<typeof FileTreeApiError>).existingFileNodeId).toBe('fn0');
   });
 
   test('throws FileTreeApiError with fallback code "ERROR" and fallback message when error body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
-    const error = await createFolder('p1', 'root', 'docs').catch((e: unknown) => e);
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
+    const error = await createFolder('p1', 'root', 'docs').catch((error_: unknown) => error_);
     expect(error).toBeInstanceOf(FileTreeApiError);
     expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
     expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create folder');
@@ -118,19 +118,19 @@ describe('createFolder', () => {
 
   test('falls back to defaults when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
-    const err = await createFolder('p1', 'root', 'docs').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create folder');
-    expect((err as InstanceType<typeof FileTreeApiError>).existingFileNodeId).toBeUndefined();
+    const error = await createFolder('p1', 'root', 'docs').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create folder');
+    expect((error as InstanceType<typeof FileTreeApiError>).existingFileNodeId).toBeUndefined();
   });
 
   test('falls back to defaults when response.json() throws (parse error)', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 503, json: () => Promise.reject(new Error('parse')) }));
-    const err = await createFolder('p1', 'root', 'docs').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create folder');
+    const error = await createFolder('p1', 'root', 'docs').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create folder');
   });
 });
 
@@ -196,39 +196,39 @@ describe('createFileNode', () => {
   });
 
   test('throws FileTreeApiError on non-ok response', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
+    fetchMock.mockReturnValueOnce(mockError(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
     await expect(createFileNode('p1', 'root', 'file.adoc')).rejects.toBeInstanceOf(FileTreeApiError);
   });
 
   test('error carries exact message and code from body', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
-    const err = await createFileNode('p1', 'root', 'file.adoc').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('No permission');
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('FORBIDDEN');
+    fetchMock.mockReturnValueOnce(mockError(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
+    const error = await createFileNode('p1', 'root', 'file.adoc').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('No permission');
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('FORBIDDEN');
   });
 
   test('falls back to "ERROR" code and "Failed to create file" message when body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
-    const err = await createFileNode('p1', 'root', 'file.adoc').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
+    const error = await createFileNode('p1', 'root', 'file.adoc').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
   });
 
   test('falls back to defaults when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
-    const err = await createFileNode('p1', 'root', 'file.adoc').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
+    const error = await createFileNode('p1', 'root', 'file.adoc').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
   });
 
   test('falls back to defaults when response.json() throws', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 503, json: () => Promise.reject(new Error('parse')) }));
-    const err = await createFileNode('p1', 'root', 'file.adoc').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
+    const error = await createFileNode('p1', 'root', 'file.adoc').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to create file');
   });
 });
 
@@ -271,37 +271,37 @@ describe('renameFileNode', () => {
   });
 
   test('throws FileTreeApiError on non-ok response', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(404, { error: { code: 'NOT_FOUND', message: 'Node not found' } }));
+    fetchMock.mockReturnValueOnce(mockError(404, { error: { code: 'NOT_FOUND', message: 'Node not found' } }));
     await expect(renameFileNode('p1', 'fn1', 'x')).rejects.toBeInstanceOf(FileTreeApiError);
   });
 
   test('error carries exact message and code from body', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(404, { error: { code: 'NOT_FOUND', message: 'Node not found' } }));
-    const err = await renameFileNode('p1', 'fn1', 'x').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Node not found');
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('NOT_FOUND');
+    fetchMock.mockReturnValueOnce(mockError(404, { error: { code: 'NOT_FOUND', message: 'Node not found' } }));
+    const error = await renameFileNode('p1', 'fn1', 'x').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Node not found');
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('NOT_FOUND');
   });
 
   test('falls back to "ERROR" code and "Failed to rename" message when body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
-    const err = await renameFileNode('p1', 'fn1', 'x').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
+    const error = await renameFileNode('p1', 'fn1', 'x').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
   });
 
   test('falls back to defaults when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
-    const err = await renameFileNode('p1', 'fn1', 'x').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
+    const error = await renameFileNode('p1', 'fn1', 'x').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
   });
 
   test('falls back to defaults when response.json() throws', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('parse')) }));
-    const err = await renameFileNode('p1', 'fn1', 'x').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
+    const error = await renameFileNode('p1', 'fn1', 'x').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to rename');
   });
 });
 
@@ -344,37 +344,37 @@ describe('moveFileNode', () => {
   });
 
   test('throws FileTreeApiError on non-ok response', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(409, { error: { code: 'CYCLE', message: 'Would create cycle' } }));
+    fetchMock.mockReturnValueOnce(mockError(409, { error: { code: 'CYCLE', message: 'Would create cycle' } }));
     await expect(moveFileNode('p1', 'fn1', 'fn1')).rejects.toBeInstanceOf(FileTreeApiError);
   });
 
   test('error carries exact message and code from body', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(409, { error: { code: 'CYCLE', message: 'Would create cycle' } }));
-    const err = await moveFileNode('p1', 'fn1', 'fn1').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Would create cycle');
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('CYCLE');
+    fetchMock.mockReturnValueOnce(mockError(409, { error: { code: 'CYCLE', message: 'Would create cycle' } }));
+    const error = await moveFileNode('p1', 'fn1', 'fn1').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Would create cycle');
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('CYCLE');
   });
 
   test('falls back to "ERROR" code and "Failed to move" message when body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
-    const err = await moveFileNode('p1', 'fn1', 'parent2').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
+    const error = await moveFileNode('p1', 'fn1', 'parent2').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
   });
 
   test('falls back to defaults when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
-    const err = await moveFileNode('p1', 'fn1', 'parent2').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
+    const error = await moveFileNode('p1', 'fn1', 'parent2').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
   });
 
   test('falls back to defaults when response.json() throws', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('parse')) }));
-    const err = await moveFileNode('p1', 'fn1', 'parent2').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
+    const error = await moveFileNode('p1', 'fn1', 'parent2').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to move');
   });
 });
 
@@ -404,36 +404,36 @@ describe('deleteFileNode', () => {
   });
 
   test('throws FileTreeApiError on non-ok response', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
+    fetchMock.mockReturnValueOnce(mockError(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
     await expect(deleteFileNode('p1', 'fn1')).rejects.toBeInstanceOf(FileTreeApiError);
   });
 
   test('error carries exact message and code from body', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
-    const err = await deleteFileNode('p1', 'fn1').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('No permission');
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('FORBIDDEN');
+    fetchMock.mockReturnValueOnce(mockError(403, { error: { code: 'FORBIDDEN', message: 'No permission' } }));
+    const error = await deleteFileNode('p1', 'fn1').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('No permission');
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('FORBIDDEN');
   });
 
   test('falls back to "ERROR" code and "Failed to delete" message when body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
-    const err = await deleteFileNode('p1', 'fn1').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(FileTreeApiError);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
+    const error = await deleteFileNode('p1', 'fn1').catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(FileTreeApiError);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
   });
 
   test('falls back to defaults when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
-    const err = await deleteFileNode('p1', 'fn1').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
+    const error = await deleteFileNode('p1', 'fn1').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
   });
 
   test('falls back to defaults when response.json() throws', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('parse')) }));
-    const err = await deleteFileNode('p1', 'fn1').catch((e: unknown) => e);
-    expect((err as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
-    expect((err as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
+    const error = await deleteFileNode('p1', 'fn1').catch((error_: unknown) => error_);
+    expect((error as InstanceType<typeof FileTreeApiError>).code).toBe('ERROR');
+    expect((error as InstanceType<typeof FileTreeApiError>).message).toBe('Failed to delete');
   });
 });

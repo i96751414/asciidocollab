@@ -25,13 +25,17 @@ interface AsciiDocEditorProperties {
    *  so it works from first load without requiring a save first.
    */
   initialEtag?: string | null;
-  /** When false, hides the AsciiDoc toolbar and outline panel (e.g. for plain-text files). */
+  /** When false, hides the AsciiDoc toolbar and outline panel (e.g. For plain-text files). */
   isAsciiDoc?: boolean;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
   onLineClick?: (line: number) => void;
-  /** Called with the top visible 1-based line number as the editor is scrolled. */
+  /**
+   * Called with the top visible 1-based line number as the editor is scrolled.
+   *
+   * @param line - The 1-based line number at the top of the visible viewport.
+   */
   onScrollLine?: (line: number) => void;
 }
 

@@ -72,9 +72,9 @@ describe('ensureTestUser', () => {
   });
 
   it('always calls context.dispose() even when an error is thrown', async () => {
-    const ctx = makeContext(500);
-    mockNewContext.mockResolvedValue(ctx);
+    const context = makeContext(500);
+    mockNewContext.mockResolvedValue(context);
     await expect(ensureTestUser()).rejects.toThrow();
-    expect(ctx.dispose).toHaveBeenCalledTimes(1);
+    expect(context.dispose).toHaveBeenCalledTimes(1);
   });
 });

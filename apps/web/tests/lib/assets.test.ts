@@ -2,8 +2,13 @@ function mockOk(body: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: jest.fn().mockResolvedValue(body) });
 }
 
-function mockErr(status: number, body: unknown) {
+function mockError(status: number, body: unknown) {
   return Promise.resolve({ ok: false, status, json: jest.fn().mockResolvedValue(body) });
+}
+
+function makeFile(name: string, type: string, size: number): File {
+  const blob = new Blob(['x'.repeat(size)], { type });
+  return new File([blob], name, { type });
 }
 
 describe('uploadAsset', () => {
@@ -16,11 +21,6 @@ describe('uploadAsset', () => {
     globalThis.fetch = fetchMock;
     ({ uploadAsset } = require('@/lib/api/assets'));
   });
-
-  function makeFile(name: string, type: string, size: number): File {
-    const blob = new Blob(['x'.repeat(size)], { type });
-    return new File([blob], name, { type });
-  }
 
   test('sends POST to URL containing http://localhost:4000/projects', async () => {
     fetchMock.mockReturnValueOnce(mockOk({ assetId: 'a1', storagePath: '/uploads/img.png' }));
@@ -65,34 +65,34 @@ describe('uploadAsset', () => {
 
   test('throws an error with status and code on non-ok response', async () => {
     fetchMock.mockReturnValueOnce(
-      mockErr(413, { error: { code: 'FILE_TOO_LARGE', message: 'File exceeds limit' } }),
+      mockError(413, { error: { code: 'FILE_TOO_LARGE', message: 'File exceeds limit' } }),
     );
     const file = makeFile('big.png', 'image/png', 99_999_999);
-    const error = await uploadAsset('p1', 'folder1', file).catch((e: unknown) => e);
+    const error = await uploadAsset('p1', 'folder1', file).catch((error_: unknown) => error_);
     expect(error).toBeInstanceOf(Error);
     expect((error as Error & { status?: number }).status).toBe(413);
     expect((error as Error & { code?: string }).code).toBe('FILE_TOO_LARGE');
   });
 
   test('falls back to generic error message when error body is empty', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(500, {}));
+    fetchMock.mockReturnValueOnce(mockError(500, {}));
     const file = makeFile('file.png', 'image/png', 100);
-    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    const error = await uploadAsset('p1', 'f', file).catch((error_: unknown) => error_);
     expect((error as Error).message).toContain('500');
     expect((error as Error & { code?: string }).code).toBe('UPLOAD_ERROR');
   });
 
   test('error.message uses body.error.message when present', async () => {
-    fetchMock.mockReturnValueOnce(mockErr(400, { error: { message: 'File too large', code: 'SIZE_LIMIT' } }));
+    fetchMock.mockReturnValueOnce(mockError(400, { error: { message: 'File too large', code: 'SIZE_LIMIT' } }));
     const file = makeFile('big.png', 'image/png', 100);
-    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    const error = await uploadAsset('p1', 'f', file).catch((error_: unknown) => error_);
     expect((error as Error).message).toBe('File too large');
   });
 
   test('falls back when response.json() returns null', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }));
     const file = makeFile('file.png', 'image/png', 100);
-    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    const error = await uploadAsset('p1', 'f', file).catch((error_: unknown) => error_);
     expect((error as Error).message).toContain('500');
     expect((error as Error & { code?: string }).code).toBe('UPLOAD_ERROR');
   });
@@ -106,7 +106,7 @@ describe('uploadAsset', () => {
       }),
     );
     const file = makeFile('file.png', 'image/png', 100);
-    const error = await uploadAsset('p1', 'f', file).catch((e: unknown) => e);
+    const error = await uploadAsset('p1', 'f', file).catch((error_: unknown) => error_);
     expect((error as Error).message).toContain('500');
   });
 });
