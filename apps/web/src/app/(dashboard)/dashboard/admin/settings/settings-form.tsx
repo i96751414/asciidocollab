@@ -11,9 +11,8 @@ interface AdminSettingsFormProperties {
   initialSettings: AdminSettings;
 }
 
-/** Form for editing global admin settings: open registration toggle and max upload size. */
+/** Form for editing global admin settings: upload size limit. */
 export function AdminSettingsForm({ initialSettings }: AdminSettingsFormProperties) {
-  const [openRegistration, setOpenRegistration] = useState(initialSettings.openRegistration);
   const [maxUploadSizeBytes, setMaxUploadSizeBytes] = useState(initialSettings.maxUploadSizeBytes ?? 0);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -24,7 +23,7 @@ export function AdminSettingsForm({ initialSettings }: AdminSettingsFormProperti
     setError(null);
     startTransition(async () => {
       try {
-        await adminApi.updateAdminSettings({ openRegistration, maxUploadSizeBytes });
+        await adminApi.updateAdminSettings({ maxUploadSizeBytes });
         setMessage('Settings saved');
       } catch {
         setError('Failed to save settings');
@@ -34,25 +33,6 @@ export function AdminSettingsForm({ initialSettings }: AdminSettingsFormProperti
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Registration</CardTitle>
-          <CardDescription>Control who can register for the application.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="openRegistration"
-              checked={openRegistration}
-              onChange={(event) => setOpenRegistration(event.target.checked)}
-              className="h-4 w-4 rounded border"
-            />
-            <Label htmlFor="openRegistration">Open Registration</Label>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Uploads</CardTitle>
