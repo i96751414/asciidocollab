@@ -190,9 +190,9 @@ describe('AuditLogClient — sorting', () => {
 
   test('clicking Timestamp button switches to oldest-first (asc)', async () => {
     render(<AuditLogClient />);
-    const btn = await screen.findByRole('button', { name: /timestamp/i });
+    const button = await screen.findByRole('button', { name: /timestamp/i });
     await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
-    fireEvent.click(btn);
+    fireEvent.click(button);
     const rows = screen.getAllByRole('row').slice(1);
     // ENTRY_B (2024-01-01, USER_LOGIN) is older → first in asc order
     expect(within(rows[0]).queryByText('USER_LOGIN')).toBeInTheDocument();

@@ -42,9 +42,9 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
   const successTimerReference = useRef<ReturnType<typeof setTimeout>>(null);
   const { touch, isTouched } = useTouchedFields(FIELDS);
 
-  const colonIdx = selectedAvatarKey.indexOf(':');
-  const selectedStyle = colonIdx === -1 ? selectedAvatarKey : selectedAvatarKey.slice(0, colonIdx);
-  const selectedVariant = colonIdx === -1 ? null : selectedAvatarKey.slice(colonIdx + 1);
+  const colonIndex = selectedAvatarKey.indexOf(':');
+  const selectedStyle = colonIndex === -1 ? selectedAvatarKey : selectedAvatarKey.slice(0, colonIndex);
+  const selectedVariant = colonIndex === -1 ? null : selectedAvatarKey.slice(colonIndex + 1);
 
   const validation = schema.safeParse({ displayName });
   const isFormValid = validation.success;

@@ -43,14 +43,14 @@ export function UserMenu({ profile }: UserMenuProperties) {
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="min-w-[200px] rounded-md border bg-popover p-1 shadow-md" align="end">
+        <DropdownMenu.Content className="min-w-[200px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md" align="end">
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/account" className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground block">
               Account
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/dashboard/settings" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+            <Link href="/dashboard/settings" className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground block">
               Settings
             </Link>
           </DropdownMenu.Item>
@@ -59,12 +59,12 @@ export function UserMenu({ profile }: UserMenuProperties) {
             <>
               <DropdownMenu.Separator className="my-1 border-t" />
               <DropdownMenu.Item asChild>
-                <Link href="/dashboard/admin" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+                <Link href="/dashboard/admin" className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground block">
                   Administrator Settings
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
-                <Link href="/dashboard/admin/audit-log" className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block">
+                <Link href="/dashboard/admin/audit-log" className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground block">
                   Audit Log
                 </Link>
               </DropdownMenu.Item>
@@ -77,13 +77,13 @@ export function UserMenu({ profile }: UserMenuProperties) {
               href="https://github.com/joaoleal/asciidocollab"
               target="_blank"
               rel="noopener noreferrer"
-              className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent block"
+              className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground block"
             >
               GitHub
             </a>
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-accent"
+            className="cursor-pointer rounded px-2 py-1 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             onSelect={handleLogOut}
           >
             Log Out

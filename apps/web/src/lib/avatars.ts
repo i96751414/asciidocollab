@@ -6,7 +6,7 @@ export interface DiceBearStyleEntry {
   style: Parameters<typeof import('@dicebear/core').createAvatar>[0];
   /** Human-readable label displayed in the avatar picker. */
   label: string;
-  /** Extra options merged into `createAvatar()` calls for this style (e.g. background colour). */
+  /** Extra options merged into `createAvatar()` calls for this style, for example background colour. */
   options?: Record<string, unknown>;
 }
 

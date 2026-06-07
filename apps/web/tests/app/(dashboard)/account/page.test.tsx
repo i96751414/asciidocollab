@@ -1,7 +1,6 @@
 // AccountPage server component redirect behavior.
 // Verifies that an unauthenticated user is redirected even when authApi.setupStatus() throws.
 
-import React from 'react';
 import { render } from '@testing-library/react';
 
 jest.mock('@/lib/auth', () => ({
