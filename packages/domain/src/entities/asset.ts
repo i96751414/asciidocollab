@@ -1,12 +1,12 @@
-import { AssetId } from '../value-objects/asset-id';
-import { ProjectId } from '../value-objects/project-id';
+import { FileNodeId } from '../value-objects/file-node-id';
 import { MimeType } from '../value-objects/mime-type';
 
 /**
- * Represents a file asset uploaded to a project.
+ * Represents a binary file asset linked to a FileNode.
  *
- * Assets are stored at a configurable storage path. An asset must always have
- * a positive size and a permitted MIME type.
+ * Asset.id is a foreign key to FileNode.id — there is exactly one Asset
+ * per FileNode of type 'file'. projectId, name, and path are on the
+ * associated FileNode and must not be duplicated here.
  *
  * @invariant `sizeBytes` must be >= 0 (zero-byte files are permitted).
  */
@@ -15,22 +15,12 @@ export class Asset {
    * @throws {Error} If `sizeBytes` is negative.
    */
   constructor(
-    /** Unique identifier for this asset. */
-    public readonly id: AssetId,
-    /** The project this asset belongs to. */
-    public readonly projectId: ProjectId,
-    /** Original uploaded file name. */
-    public readonly filename: string,
-    /** Storage path within the blob store. */
-    public readonly storagePath: string,
+    /** FileNode id that owns this asset (FK + PK). */
+    public readonly id: FileNodeId,
     /** MIME type of the asset. */
     public readonly mimeType: MimeType,
     /** File size in bytes. Must be >= 0. */
     public readonly sizeBytes: bigint,
-    /**
-     * Identifier of a parent asset in a hierarchy, or null if top-level.
-     */
-    public readonly parentId: AssetId | null,
     /** Timestamp of upload. Defaults to the current time. */
     public readonly uploadedAt: Date = new Date(),
     /** Timestamp of the last metadata update, or null if never updated. */

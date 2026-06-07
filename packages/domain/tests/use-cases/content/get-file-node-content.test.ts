@@ -13,7 +13,6 @@ import { Asset } from '../../../src/entities/asset';
 import { UserId } from '../../../src/value-objects/user-id';
 import { ProjectId } from '../../../src/value-objects/project-id';
 import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { AssetId } from '../../../src/value-objects/asset-id';
 import { DocumentId } from '../../../src/value-objects/document-id';
 import { ProjectName } from '../../../src/value-objects/project-name';
 import { Role } from '../../../src/value-objects/role';
@@ -33,7 +32,6 @@ const rootFolderId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
 const docFileNodeId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
 const imgFileNodeId = FileNodeId.create('aa1e8400-e29b-41d4-a716-446655440006');
 const documentId = DocumentId.create('bb0e8400-e29b-41d4-a716-446655440007');
-const assetId = AssetId.create('cc0e8400-e29b-41d4-a716-446655440010');
 const docPath = FilePath.create('/test.adoc');
 const imgPath = FilePath.create('/photo.png');
 const docContent = Buffer.from('= Hello\nWorld');
@@ -83,7 +81,8 @@ describe('GetFileNodeContentUseCase', () => {
     const imgNode = new FileNode(imgFileNodeId, projectId, rootFolderId, 'photo.png', FileNodeType.create('file'), imgPath);
     await fileNodeRepo.save(imgNode);
 
-    const asset = new Asset(assetId, projectId, 'photo.png', imgPath.value, MimeType.create('image/png'), 64n, null);
+    // Asset.id == FileNode.id
+    const asset = new Asset(imgFileNodeId, MimeType.create('image/png'), 64n);
     await assetRepo.save(asset);
 
     await fileStore.write(projectId, imgPath, imgContent);
@@ -103,7 +102,6 @@ describe('GetFileNodeContentUseCase', () => {
     }
   });
 
-  // Asset (binary/image) file path — requires findByStoragePath on InMemoryAssetRepository
   it('returns asset content with mimeType for an image file (no contentId)', async () => {
     const result = await useCase.execute(actorId, projectId, imgFileNodeId);
     expect(result.success).toBe(true);
@@ -140,9 +138,9 @@ describe('GetFileNodeContentUseCase', () => {
     }
   });
 
-  it('returns ContentNotFoundError when asset has no record (findByStoragePath returns null)', async () => {
+  it('returns ContentNotFoundError when asset has no record (findById returns null)', async () => {
     // Remove the asset record (but keep the file node and file store content)
-    await assetRepo.delete(assetId);
+    await assetRepo.delete(imgFileNodeId);
     const result = await useCase.execute(actorId, projectId, imgFileNodeId);
     expect(result.success).toBe(false);
     if (!result.success) {

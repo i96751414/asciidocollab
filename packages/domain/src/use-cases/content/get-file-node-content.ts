@@ -58,8 +58,8 @@ export class GetFileNodeContentUseCase {
       return { success: true, value: { content, mimeType: document.mimeType, contentId: document.contentId.value } };
     }
 
-    // Fall back to asset record (binary/image files).
-    const asset = await this.assetRepo.findByStoragePath(projectId, fileNode.path.value);
+    // Fall back to asset record (binary/image files). Asset.id == FileNode.id.
+    const asset = await this.assetRepo.findById(fileNodeId);
     if (!asset) {
       return { success: false, error: new ContentNotFoundError(fileNode.path.value) };
     }

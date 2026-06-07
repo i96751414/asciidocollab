@@ -22,7 +22,6 @@ import { FileNodeId } from '../../src/value-objects/file-node-id';
 import { DocumentId } from '../../src/value-objects/document-id';
 import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
 import { TemplateId } from '../../src/value-objects/template-id';
-import { AssetId } from '../../src/value-objects/asset-id';
 import { AuditLogId } from '../../src/value-objects/audit-log-id';
 import { ProjectName } from '../../src/value-objects/project-name';
 import { Email } from '../../src/value-objects/email';
@@ -45,7 +44,6 @@ describe('In-Memory Repository Fakes', () => {
   const documentId = DocumentId.create('550e8400-e29b-41d4-a716-446655440030');
   const gitRepoId = GitRepositoryId.create('550e8400-e29b-41d4-a716-446655440040');
   const templateId = TemplateId.create('550e8400-e29b-41d4-a716-446655440050');
-  const assetId = AssetId.create('550e8400-e29b-41d4-a716-446655440060');
   const auditLogId = AuditLogId.create('550e8400-e29b-41d4-a716-446655440070');
 
   describe('InMemoryProjectRepository', () => {
@@ -163,6 +161,23 @@ describe('In-Memory Repository Fakes', () => {
       expect(moved).not.toBeNull();
       expect(moved!.parentId!.value).toBe(newParentId.value);
     });
+
+    it('throws when saving a second FileNode with the same path in the same project', async () => {
+      const repo = new InMemoryFileNodeRepository();
+      const differentId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440099');
+      await repo.save(new FileNode(fileNodeId, projectId, null, 'root', FileNodeType.create('folder'), FilePath.create('/')));
+      await expect(
+        repo.save(new FileNode(differentId, projectId, null, 'root2', FileNodeType.create('folder'), FilePath.create('/')))
+      ).rejects.toThrow();
+    });
+
+    it('allows the same path in different projects', async () => {
+      const repo = new InMemoryFileNodeRepository();
+      await repo.save(new FileNode(fileNodeId, projectId, null, 'root', FileNodeType.create('folder'), FilePath.create('/')));
+      await expect(
+        repo.save(new FileNode(fileNodeId2, projectId2, null, 'root', FileNodeType.create('folder'), FilePath.create('/')))
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('InMemoryDocumentRepository', () => {
@@ -265,50 +280,37 @@ describe('In-Memory Repository Fakes', () => {
   });
 
   describe('InMemoryAssetRepository', () => {
-    it('saves and retrieves by id', async () => {
+    it('saves and retrieves by FileNode id', async () => {
       const repo = new InMemoryAssetRepository();
-      const asset = new Asset(assetId, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 1024, null);
+      const asset = new Asset(fileNodeId, MimeType.create('image/png'), 1024n);
       await repo.save(asset);
-      const found = await repo.findById(assetId);
+      const found = await repo.findById(fileNodeId);
       expect(found).not.toBeNull();
+      expect(found!.id.value).toBe(fileNodeId.value);
     });
 
-    it('finds by project id', async () => {
+    it('returns null when no asset exists for the given FileNode id', async () => {
       const repo = new InMemoryAssetRepository();
-      await repo.save(new Asset(assetId, projectId, 'a.png', '/a.png', MimeType.create('image/png'), 100, null));
-      const assets = await repo.findByProjectId(projectId);
-      expect(assets).toHaveLength(1);
-    });
-
-    it('findByStoragePath returns null when no matching asset exists', async () => {
-      const repo = new InMemoryAssetRepository();
-      const result = await repo.findByStoragePath(projectId, '/storage/missing.png');
+      const result = await repo.findById(fileNodeId);
       expect(result).toBeNull();
     });
 
-    it('findByStoragePath returns the asset when it exists', async () => {
+    it('deletes an asset', async () => {
       const repo = new InMemoryAssetRepository();
-      await repo.save(new Asset(assetId, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 1024, null));
-      const result = await repo.findByStoragePath(projectId, '/storage/logo.png');
-      expect(result).not.toBeNull();
-      expect(result!.id.value).toBe(assetId.value);
+      await repo.save(new Asset(fileNodeId, MimeType.create('image/png'), 100n));
+      await repo.delete(fileNodeId);
+      expect(await repo.findById(fileNodeId)).toBeNull();
     });
 
-    it('findByStoragePath returns the most-recently uploaded asset when multiple share the same storagePath', async () => {
+    it('throws when saving a second asset for the same FileNode id (1:1 FK constraint)', async () => {
       const repo = new InMemoryAssetRepository();
-      const older = AssetId.create('550e8400-e29b-41d4-a716-446655440061');
-      const newer = AssetId.create('550e8400-e29b-41d4-a716-446655440062');
-      const oldDate = new Date('2024-01-01T00:00:00Z');
-      const newDate = new Date('2024-06-01T00:00:00Z');
-
-      // Save older asset first, then newer — both with same storagePath
-      await repo.save(new Asset(older, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 100, null, oldDate));
-      await repo.save(new Asset(newer, projectId, 'logo.png', '/storage/logo.png', MimeType.create('image/png'), 200, null, newDate));
-
-      // Must return the most recently uploaded (newDate), matching Prisma's orderBy: { uploadedAt: 'desc' }
-      const result = await repo.findByStoragePath(projectId, '/storage/logo.png');
-      expect(result).not.toBeNull();
-      expect(result!.id.value).toBe(newer.value);
+      const sameDate = new Date('2024-03-15T12:00:00Z');
+      // Two assets share the same storagePath iff they reference the same FileNode (same id).
+      // The second save must fail, mirroring the PK uniqueness constraint.
+      await repo.save(new Asset(fileNodeId, MimeType.create('image/png'), 100n, sameDate));
+      await expect(
+        repo.save(new Asset(fileNodeId, MimeType.create('image/jpeg'), 200n, sameDate))
+      ).rejects.toThrow();
     });
   });
 

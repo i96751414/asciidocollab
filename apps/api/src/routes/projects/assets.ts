@@ -6,7 +6,6 @@ import {
   UserId,
   ProjectId,
   FileNodeId,
-  AssetId,
   MimeType,
   PermissionDeniedError,
   FileNodeNotFoundError,
@@ -73,7 +72,7 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
       request.server.fileTreeEventBus.emit(projectId.value, event);
 
       return reply.status(201).send({
-        assetId: result.value.assetId.value,
+        assetId: result.value.fileNodeId.value,
         storagePath: result.value.storagePath,
       });
     },
@@ -84,7 +83,7 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const actorId = UserId.create(getAuthenticatedUserId(request));
       const projectId = ProjectId.create(request.params.projectId);
-      const assetId = AssetId.create(request.params.assetId);
+      const fileNodeId = FileNodeId.create(request.params.assetId);
 
       const useCase = new GetAssetContentUseCase(
         request.server.repos.projectMember,
@@ -93,7 +92,7 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
         request.server.stores.fileStore,
       );
 
-      const result = await useCase.execute(actorId, projectId, assetId);
+      const result = await useCase.execute(actorId, projectId, fileNodeId);
 
       if (!result.success) {
         if (result.error instanceof PermissionDeniedError) {

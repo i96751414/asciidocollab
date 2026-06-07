@@ -33,6 +33,9 @@ export class FileNode {
     /** Creation and last-update timestamps. Defaults to the current time. */
     public readonly timestamps: Timestamps = new Timestamps(),
   ) {
+    if (!this.name || this.name.trim() === '') {
+      throw new Error('FileNode name must not be empty');
+    }
     if (this.type.value === 'file' && this.parentId === null) {
       throw new Error('Root-level node must be a folder, not a file');
     }

@@ -4,7 +4,6 @@ import { FileNodeId } from '../../value-objects/file-node-id';
 import { FilePath } from '../../value-objects/file-path';
 import { MimeType } from '../../value-objects/mime-type';
 import { FileNodeType } from '../../value-objects/file-node-type';
-import { AssetId } from '../../value-objects/asset-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { AssetRepository } from '../../ports/file-tree/asset.repository';
@@ -53,7 +52,7 @@ export class UploadAssetUseCase {
     filename: string,
     mimeType: MimeType,
     bytes: Buffer,
-  ): Promise<Result<{ assetId: AssetId; fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
+  ): Promise<Result<{ fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
@@ -90,11 +89,11 @@ export class UploadAssetUseCase {
       const fileNode = new FileNode(fileNodeId, projectId, parentId, filename, FileNodeType.create('file'), filePath);
       await this.fileNodeRepo.save(fileNode);
 
-      const assetId = AssetId.create(randomUUID());
-      const asset = new Asset(assetId, projectId, filename, storagePath, mimeType, BigInt(bytes.length), null);
+      // Asset.id == FileNode.id (1:1 FK relationship)
+      const asset = new Asset(fileNodeId, mimeType, BigInt(bytes.length));
       await this.assetRepo.save(asset);
 
-      return { success: true, value: { assetId, fileNodeId, storagePath } };
+      return { success: true, value: { fileNodeId, storagePath } };
     } catch (error) {
       await this.fileStore.remove(projectId, filePath);
       throw error;

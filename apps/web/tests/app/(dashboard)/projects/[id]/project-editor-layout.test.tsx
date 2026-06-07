@@ -3,16 +3,17 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
-// Mock the AsciiDocEditor so tests don't depend on CodeMirror/Lezer
+// Mock the AsciiDocEditor so tests don't depend on CodeMirror/Lezer.
+// jest.fn() wrapper lets tests inspect the props passed to the editor (e.g., onChange).
 jest.mock('@/components/editor/asciidoc-editor', () => ({
-  AsciiDocEditor: ({ content, canEdit, projectId, fileNodeId }: { content: string; canEdit: boolean; projectId?: string; fileNodeId?: string }) => (
+  AsciiDocEditor: jest.fn(({ content, canEdit, projectId, fileNodeId }: { content: string; canEdit: boolean; projectId?: string; fileNodeId?: string; onChange?: (v: string) => void }) => (
     <div
       data-testid="asciidoc-editor"
       data-can-edit={String(canEdit)}
       data-project-id={projectId ?? ''}
       data-file-node-id={fileNodeId ?? ''}
     >{content}</div>
-  ),
+  )),
 }));
 
 // Mock file-tree-node so rendered nodes are simple divs
@@ -59,12 +60,13 @@ jest.mock('@/hooks/use-editor-preferences', () => ({
   })),
 }));
 
+// jest.fn() wrapper lets tests inspect content/scrollToLine props passed to the preview.
 jest.mock('@/components/asciidoc-preview', () => ({
-  AsciiDocPreview: ({ onCollapse }: { onCollapse?: () => void }) => (
+  AsciiDocPreview: jest.fn(({ onCollapse }: { content?: string; onCollapse?: () => void }) => (
     <div data-testid="asciidoc-preview">
       {onCollapse && <button aria-label="collapse preview" onClick={onCollapse} />}
     </div>
-  ),
+  )),
   isAsciiDocFile: (name: string) => name.endsWith('.adoc'),
 }));
 
@@ -95,7 +97,16 @@ const defaultProps = {
 describe('ProjectEditorLayout', () => {
   beforeEach(() => {
     mockFetch();
+    sessionStorage.clear();
     mockUseFileTreeEvents.mockReset();
+    jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+      selectedFile: null,
+      contentState: { content: null, isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+    jest.requireMock('@/components/editor/asciidoc-editor').AsciiDocEditor.mockClear();
+    jest.requireMock('@/components/asciidoc-preview').AsciiDocPreview.mockClear();
   });
 
   // T002: shell renders with required data-testids
@@ -291,6 +302,78 @@ describe('ProjectEditorLayout', () => {
     rerender(<ProjectEditorLayout {...defaultProps} projectId="p1" />);
 
     await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toHaveTextContent('updated content'));
+  });
+
+  // Issue 4: liveContent must NOT be reset by external contentState.content changes while the user is editing
+  it('keeps user-typed content in the preview after an external contentState.content update', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'f1', nodeName: 'doc.adoc', nodePath: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: 'saved content', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+
+    // Open the preview panel
+    const expandButton = await screen.findByRole('button', { name: /expand preview/i });
+    fireEvent.click(expandButton);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument());
+
+    // Trigger onChange (simulates user typing)
+    const { AsciiDocEditor: MockEditor } = jest.requireMock('@/components/editor/asciidoc-editor');
+    const onChangeCallback: ((v: string) => void) | undefined = MockEditor.mock.calls.at(-1)?.[0]?.onChange;
+    expect(onChangeCallback).toBeDefined();
+    act(() => onChangeCallback!('user typed content'));
+
+    // Simulate an external content update (e.g., a background save poll returns new content)
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'f1', nodeName: 'doc.adoc', nodePath: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: 'server updated content', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => {});
+
+    // The preview must still show the user's typed content, not the server's version
+    const { AsciiDocPreview: MockPreview } = jest.requireMock('@/components/asciidoc-preview');
+    const lastPreviewContent: string | undefined = MockPreview.mock.calls.at(-1)?.[0]?.content;
+    expect(lastPreviewContent).toBe('user typed content');
+  });
+
+  // Issue 6: switching files must remount AsciiDocPreview so stale HTML is never shown
+  it('remounts AsciiDocPreview when switching between different AsciiDoc files', async () => {
+    const { useFileSelection } = jest.requireMock('@/hooks/use-file-selection');
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-a', nodeName: 'a.adoc', nodePath: '/a.adoc', nodeType: 'file' },
+      contentState: { content: '= File A', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+    const expandButton = await screen.findByRole('button', { name: /expand preview/i });
+    fireEvent.click(expandButton);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument());
+
+    const firstPreviewElement = screen.getByTestId('asciidoc-preview');
+
+    // Switch to a different AsciiDoc file
+    useFileSelection.mockReturnValue({
+      selectedFile: { nodeId: 'file-b', nodeName: 'b.adoc', nodePath: '/b.adoc', nodeType: 'file' },
+      contentState: { content: '= File B', isLoading: false, error: null, isBinary: false },
+      selectFile: jest.fn(),
+      clearSelection: jest.fn(),
+    });
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument());
+
+    const secondPreviewElement = screen.getByTestId('asciidoc-preview');
+
+    // key={selectedFile.nodeId} must force a remount — a new DOM element must appear
+    expect(secondPreviewElement).not.toBe(firstPreviewElement);
   });
 
   // Issue C1: AsciiDocEditor must receive projectId and fileNodeId for auto-save to work

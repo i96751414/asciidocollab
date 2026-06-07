@@ -312,6 +312,35 @@ describe('useAsciidocPreview', () => {
     expect(mockScrollIntoView).toHaveBeenCalledTimes(2);
   });
 
+  // (stale-content) content changed while disabled; re-enabling must use fresh content
+  it('sends fresh content to the worker when re-enabled after content changed while disabled', () => {
+    const { result, rerender } = renderHook(
+      ({ content, isEnabled }: { content: string; isEnabled: boolean }) =>
+        useAsciidocPreview({ content, isEnabled, scrollToLine: null }),
+      { initialProps: { content: 'initial content', isEnabled: true } },
+    );
+
+    // Complete an initial render so state reaches up-to-date
+    act(() => jest.advanceTimersByTime(200));
+    act(() => lastWorker().emit({ requestId: 1, ok: true, html: '<p>initial</p>', error: null }));
+    expect(result.current.state).toBe('up-to-date');
+
+    // Disable the preview
+    act(() => rerender({ content: 'initial content', isEnabled: false }));
+    expect(result.current.state).toBe('idle');
+
+    // Content changes while disabled (user edits file in another tab, etc.)
+    act(() => rerender({ content: 'updated content', isEnabled: false }));
+
+    // Re-enable — worker must receive the UPDATED content, not the stale initial content
+    act(() => rerender({ content: 'updated content', isEnabled: true }));
+    act(() => jest.advanceTimersByTime(200));
+
+    const allCalls = lastWorker().postMessage.mock.calls;
+    const lastCall = allCalls.at(-1)?.[0];
+    expect(lastCall?.content).toBe('updated content');
+  });
+
   // (l) debounce is cleared when isEnabled transitions to false mid-debounce
   it('clears pending debounce when isEnabled transitions to false before the timer fires', () => {
     const { result, rerender } = renderHook(

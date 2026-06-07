@@ -64,7 +64,6 @@ model Project {
 
   members       ProjectMember[]
   fileNodes     FileNode[]
-  assets        Asset[]
   gitRepository GitRepository?
   auditLogs     AuditLog[]
   templates     Template[]      @relation("TemplateSourceProject")
@@ -96,7 +95,9 @@ model FileNode {
   parent   FileNode?  @relation("FileNodeHierarchy", fields: [parentId], references: [id])
   children FileNode[] @relation("FileNodeHierarchy")
   document Document?
+  asset    Asset?
 
+  @@unique([projectId, path])
   @@index([projectId])
   @@index([parentId])
 }
@@ -114,22 +115,14 @@ model Document {
 }
 
 model Asset {
-  id          String    @id @default(uuid()) @db.Uuid
-  projectId   String    @db.Uuid
-  filename    String
-  storagePath String
-  mimeType    String
-  sizeBytes   BigInt
-  parentId    String?   @db.Uuid
-  uploadedAt  DateTime  @default(now())
-  updatedAt   DateTime?
+  id         String    @id @db.Uuid
+  mimeType   String
+  sizeBytes  BigInt
+  uploadedAt DateTime  @default(now())
+  updatedAt  DateTime?
 
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent   Asset?  @relation("AssetVersion", fields: [parentId], references: [id])
-  versions Asset[] @relation("AssetVersion")
+  fileNode FileNode @relation(fields: [id], references: [id], onDelete: Cascade)
 
-  @@index([projectId])
-  @@index([projectId, storagePath])
   @@map("assets")
 }
 

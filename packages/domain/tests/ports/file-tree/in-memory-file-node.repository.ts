@@ -27,8 +27,27 @@ export class InMemoryFileNodeRepository implements FileNodeRepository {
     );
   }
 
-  /** Stores a file node in memory, overwriting any existing entry with the same ID. */
+  /**
+   * Stores a file node in memory.
+   *
+   * Mirrors the database @@unique([projectId, path]) constraint: throws if a
+   * different node in the same project already occupies the same path.
+   */
   async save(fileNode: FileNode): Promise<void> {
+    const existing = this.storage.get(fileNode.id.value);
+    if (!existing) {
+      for (const node of this.storage.values()) {
+        if (
+          node.projectId.value === fileNode.projectId.value &&
+          node.path.value === fileNode.path.value &&
+          node.id.value !== fileNode.id.value
+        ) {
+          throw new Error(
+            `FileNode path '${fileNode.path.value}' already exists in project ${fileNode.projectId.value}`,
+          );
+        }
+      }
+    }
     this.storage.set(fileNode.id.value, fileNode);
   }
 

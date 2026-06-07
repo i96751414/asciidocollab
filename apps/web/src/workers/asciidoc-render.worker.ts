@@ -65,20 +65,22 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
 
     let html = String(asciidocDocument.convert());
 
-    // Inject data-source-line next to each id="..." attribute so the preview
-    // hook can use querySelector('[data-source-line="N"]') for click-to-scroll.
-    for (const { id, lineNum } of blockSourceLines) {
-      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      html = html.replace(
-        new RegExp(`id="${escaped}"`),
-        `id="${id}" data-source-line="${lineNum}"`,
-      );
+    // Inject data-source-line next to each id="..." attribute in a single pass
+    // so the preview hook can use querySelector('[data-source-line="N"]').
+    if (blockSourceLines.length > 0) {
+      const lineMap = new Map(blockSourceLines.map(({ id, lineNum }) => [id, lineNum]));
+      html = html.replaceAll(/id="([^"]+)"/g, (_, id: string) => {
+        const lineNumber = lineMap.get(id);
+        return lineNumber === undefined ? `id="${id}"` : `id="${id}" data-source-line="${lineNumber}"`;
+      });
     }
 
     // The showtitle <h1> is the document title and has no id attribute.
     // Inject data-source-line directly so click-to-scroll works for line 1.
+    // Use string replace (not /^<h1>/) to handle a leading newline Asciidoctor
+    // sometimes emits in embedded mode.
     if (docTitleLineNum !== null) {
-      html = html.replace(/^<h1>/, `<h1 data-source-line="${docTitleLineNum}">`);
+      html = html.replace('<h1>', `<h1 data-source-line="${docTitleLineNum}">`);
     }
 
     postMessage({ requestId, ok: true, html, error: null } satisfies RenderResult);

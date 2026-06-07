@@ -222,6 +222,20 @@ describe('asciidoc-render.worker', () => {
     expect(level0Section.setId).not.toHaveBeenCalled();
   });
 
+  // (l) docTitleLineNum is injected even when the converted HTML starts with a leading newline
+  it('injects data-source-line into <h1> when converted HTML has a leading newline before the tag', () => {
+    const level0Section = makeBlock({ lineNumber: 1, id: null, context: 'section', level: 0 });
+    // Asciidoctor sometimes emits a leading newline before the h1 in embedded mode.
+    mockConvert.mockReturnValueOnce('\n<h1>Title With Leading Newline</h1>');
+    mockFindBy.mockReturnValueOnce([level0Section]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 10, content: '= Title With Leading Newline' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    expect(result.html).toContain('<h1 data-source-line="1">');
+  });
+
   // (k) level-0 section does not add a blockSourceLine entry (no id injection attempt)
   it('level-0 section is excluded from blockSourceLines so no id-based injection is attempted', () => {
     const level0Section = makeBlock({ lineNumber: 1, id: null, context: 'section', level: 0 });

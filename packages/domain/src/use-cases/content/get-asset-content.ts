@@ -1,7 +1,6 @@
 import { UserId } from '../../value-objects/user-id';
 import { ProjectId } from '../../value-objects/project-id';
-import { AssetId } from '../../value-objects/asset-id';
-import { FilePath } from '../../value-objects/file-path';
+import { FileNodeId } from '../../value-objects/file-node-id';
 import { MimeType } from '../../value-objects/mime-type';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AssetRepository } from '../../ports/file-tree/asset.repository';
@@ -23,28 +22,35 @@ export class GetAssetContentUseCase {
     private readonly fileStore: ProjectFileStore,
   ) {}
 
-  /** Validates membership, locates the asset record, reads its bytes from disk, and returns them with metadata. */
+  /**
+   * Validates membership, locates the FileNode and Asset records, reads their
+   * bytes from disk, and returns them with metadata.
+   */
   async execute(
     actorId: UserId,
     projectId: ProjectId,
-    assetId: AssetId,
+    fileNodeId: FileNodeId,
   ): Promise<Result<{ bytes: Buffer; mimeType: MimeType; filename: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    const asset = await this.assetRepo.findById(assetId);
-    if (!asset || asset.projectId.value !== projectId.value) {
-      return { success: false, error: new FileNodeNotFoundError(assetId.value) };
+    const fileNode = await this.fileNodeRepo.findById(fileNodeId);
+    if (!fileNode || fileNode.projectId.value !== projectId.value) {
+      return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
     }
 
-    const filePath = FilePath.create(asset.storagePath);
-    const bytes = await this.fileStore.read(projectId, filePath);
+    const asset = await this.assetRepo.findById(fileNodeId);
+    if (!asset) {
+      return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
+    }
+
+    const bytes = await this.fileStore.read(projectId, fileNode.path);
     if (!bytes) {
-      return { success: false, error: new ContentNotFoundError(asset.storagePath) };
+      return { success: false, error: new ContentNotFoundError(fileNode.path.value) };
     }
 
-    return { success: true, value: { bytes, mimeType: asset.mimeType, filename: asset.filename } };
+    return { success: true, value: { bytes, mimeType: asset.mimeType, filename: fileNode.name } };
   }
 }

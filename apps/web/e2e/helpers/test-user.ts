@@ -37,6 +37,11 @@ export async function ensureTestUser(): Promise<void> {
         'Reset the database or insert the test user manually.',
       );
     }
+
+    throw new Error(
+      `ensureTestUser: /auth/register returned unexpected status ${registerResp.status()}. ` +
+      'The API may be misconfigured or the test database may be in an unexpected state.',
+    );
   } finally {
     await context.dispose();
   }

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -100,6 +100,9 @@ export function ProjectEditorLayout({
   const lastScrolledLine = useRef<number | null>(null);
   // Track live editor content so the preview reflects what the user is typing.
   const [liveContent, setLiveContent] = useState('');
+  // True once the user has typed in the current file — prevents server updates from
+  // overwriting in-progress edits.
+  const userHasEditedReference = useRef(false);
   const { selectedFile, contentState, selectFile } = useFileSelection(projectId);
   const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
 
@@ -116,13 +119,27 @@ export function ProjectEditorLayout({
     setScrollRequest({ line });
   }, []);
 
-  // Sync live content when a different file is loaded.
+  const handleChange = useCallback((value: string) => {
+    userHasEditedReference.current = true;
+    setLiveContent(value);
+  }, []);
+
+  // When switching to a different file, reset edit tracking and load initial content.
   useEffect(() => {
+    userHasEditedReference.current = false;
     setLiveContent(contentState.content ?? '');
-  }, [selectedFile?.nodeId, contentState.content]);
+  }, [selectedFile?.nodeId]);
+
+  // Apply server-pushed content updates only while the user hasn't typed anything.
+  useEffect(() => {
+    if (!userHasEditedReference.current) {
+      setLiveContent(contentState.content ?? '');
+    }
+  }, [contentState.content]);
 
   // Reset scroll position whenever a different file is opened.
-  useEffect(() => {
+  // useLayoutEffect prevents a one-frame flash of the old scroll position.
+  useLayoutEffect(() => {
     setScrollRequest(null);
     lastScrolledLine.current = null;
   }, [selectedFile?.nodeId]);
@@ -210,12 +227,13 @@ export function ProjectEditorLayout({
                 projectId={projectId}
                 onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
                 onLineClick={handleLineClick}
-                onChange={setLiveContent}
+                onChange={handleChange}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
             <Panel defaultSize={50} minSize={20} className="overflow-hidden border-l" data-testid="preview-panel">
               <AsciiDocPreview
+                key={selectedFile?.nodeId}
                 content={liveContent}
                 isEnabled={previewOpen}
                 scrollToLine={scrollRequest}
@@ -233,7 +251,7 @@ export function ProjectEditorLayout({
                 contentState={contentState}
                 canEdit={canEdit}
                 projectId={projectId}
-                onChange={setLiveContent}
+                onChange={handleChange}
               />
             </div>
             {showPreview && !previewOpen && (
