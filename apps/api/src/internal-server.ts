@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { readFileSync } from 'node:fs';
 import type { PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { authPluginWrapped } from './plugins/auth';
@@ -18,17 +19,31 @@ export interface InternalServerDeps {
   config: Config;
 }
 
-/** Creates the internal Fastify server that exposes the collab auth endpoint on the loopback interface. */
+/** Creates the internal Fastify server that exposes the collab auth endpoint. When TLS cert paths are configured, the server requires mutual TLS; otherwise it binds to the loopback interface over plain HTTP. */
 export async function createInternalServer(deps: InternalServerDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+  const { cert, key, clientCa } = deps.config.collab.internalTls;
+  const useTls = Boolean(cert && key && clientCa);
+
+  const app: FastifyInstance = useTls
+    ? Fastify({
+        logger: false,
+        https: {
+          requestCert: true,
+          rejectUnauthorized: true,
+          ca: readFileSync(clientCa),
+          cert: readFileSync(cert),
+          key: readFileSync(key),
+        },
+      })
+    : Fastify({ logger: false });
 
   app.decorate('config', deps.config);
   app.decorate('prisma', deps.prisma);
   app.decorate('repos', deps.repos);
   app.decorate('services', deps.services);
 
-  await app.register(authPluginWrapped);
-  await app.register(collabAuthRoute);
+  app.register(authPluginWrapped);
+  app.register(collabAuthRoute);
 
   return app;
 }

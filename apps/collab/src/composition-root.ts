@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
@@ -11,6 +12,7 @@ import {
 import { OpenCollaborationSessionUseCase, CloseCollaborationSessionUseCase } from '@asciidocollab/domain';
 import { PersistenceExtension } from './extensions/persistence';
 import { AuthHookExtension } from './extensions/auth-hook';
+import { createMtlsFetch } from './extensions/mtls-fetch';
 import { createCollabServer } from './server';
 import { createCollabConfig } from './config/collab-config';
 import pino from 'pino';
@@ -36,10 +38,18 @@ export async function compositionRoot() {
 
   const logger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
 
+  const tlsCert = config.get('apiInternalTls.cert') as string;
+  const tlsKey = config.get('apiInternalTls.key') as string;
+  const tlsCa = config.get('apiInternalTls.ca') as string;
+  const mtlsFetch = tlsCert && tlsKey && tlsCa
+    ? createMtlsFetch(readFileSync(tlsCert), readFileSync(tlsKey), readFileSync(tlsCa))
+    : undefined;
+
   const authHookExtension = new AuthHookExtension({
     apiInternalUrl: config.get('apiInternalUrl'),
     authTimeoutMs: config.get('authTimeoutMs'),
     logger,
+    ...(mtlsFetch && { fetch: mtlsFetch }),
   });
 
   const persistenceExtension = new PersistenceExtension(

@@ -25,7 +25,7 @@ export default async function AccountPage({ searchParams }: AccountPagePropertie
   const emailConfirmed = parameters.confirmed === 'email';
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Account</h2>
         <p className="text-muted-foreground">Manage your account settings</p>

@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { DeleteFileUseCase, PermissionDeniedError } from '@asciidocollab/domain';
 import { fileTreeDeleteRoutes } from '../../src/routes/projects/file-tree-delete';
 
 jest.mock('../../src/plugins/require-auth', () => ({
@@ -61,6 +62,8 @@ function buildTestServer(options: { activeSession?: boolean; memberRole?: string
 }
 
 describe('DELETE /projects/:projectId/files/:fileNodeId', () => {
+  afterEach(() => jest.restoreAllMocks());
+
   test('returns 204 on successful deletion', async () => {
     const app = buildTestServer();
     const response = await app.inject({
@@ -85,5 +88,68 @@ describe('DELETE /projects/:projectId/files/:fileNodeId', () => {
     const body = JSON.parse(response.body);
     expect(body.error).toEqual(expect.objectContaining({ code: 'CONFLICT' }));
     expect(typeof body.error.message).toBe('string');
+  });
+
+  test('returns 403 FORBIDDEN when use case fails with PermissionDeniedError', async () => {
+    jest.spyOn(DeleteFileUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new PermissionDeniedError(),
+    });
+
+    const app = buildTestServer();
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}`,
+    });
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
+  });
+
+  test('returns 204 without emitting event when fileNode not found before delete', async () => {
+    jest.spyOn(DeleteFileUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: undefined,
+    });
+
+    const app = buildTestServer();
+    const repos = (app as unknown as { repos: { fileNode: { findById: jest.Mock } } }).repos;
+    repos.fileNode.findById.mockResolvedValue(null);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}`,
+    });
+    expect(response.statusCode).toBe(204);
+    const bus = (app as unknown as { fileTreeEventBus: { emit: jest.Mock } }).fileTreeEventBus;
+    expect(bus.emit).not.toHaveBeenCalled();
+  });
+
+  test('emits event with parentId=null when file node has no parent', async () => {
+    jest.spyOn(DeleteFileUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: undefined,
+    });
+
+    const app = buildTestServer();
+    const repos = (app as unknown as { repos: { fileNode: { findById: jest.Mock } } }).repos;
+    repos.fileNode.findById.mockResolvedValue({
+      id: { value: FILE_NODE_ID },
+      projectId: { value: PROJECT_ID },
+      parentId: null,
+      type: { value: 'file' },
+      name: 'root.adoc',
+      path: { value: '/root.adoc' },
+    });
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}`,
+    });
+    expect(response.statusCode).toBe(204);
+    const bus = (app as unknown as { fileTreeEventBus: { emit: jest.Mock } }).fileTreeEventBus;
+    expect(bus.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ parentId: null }),
+    );
   });
 });

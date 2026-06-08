@@ -160,6 +160,79 @@ describe('AcceptUserInvitationUseCase', () => {
     if (!result.success) expect(result.error).toBeInstanceOf(DuplicateEmailError);
   });
 
+  test('returns ValidationError when display name exceeds 100 characters', async () => {
+    await invitationRepo.save(makeValidInvitation());
+    const longName = 'a'.repeat(101);
+
+    const result = await useCase.execute(RAW_TOKEN, longName, validPassword);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
+  test('returns ValidationError when password is too weak', async () => {
+    await invitationRepo.save(makeValidInvitation());
+
+    const result = await useCase.execute(RAW_TOKEN, 'New User', 'weak');
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
+  test('returns ValidationError when password is too common', async () => {
+    await invitationRepo.save(makeValidInvitation());
+    (commonPasswordChecker.isCommon as jest.Mock).mockReturnValue(true);
+
+    const result = await useCase.execute(RAW_TOKEN, 'New User', validPassword);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
+  test('returns ValidationError when password is breached', async () => {
+    await invitationRepo.save(makeValidInvitation());
+    (breachChecker.isBreached as jest.Mock).mockResolvedValue(true);
+
+    const result = await useCase.execute(RAW_TOKEN, 'New User', validPassword);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
+  test('succeeds when breach checker throws (non-blocking)', async () => {
+    await invitationRepo.save(makeValidInvitation('breach-check-fail@example.com'));
+    (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('HIBP unavailable'));
+
+    const result = await useCase.execute(RAW_TOKEN, 'New User', validPassword);
+
+    expect(result.success).toBe(true);
+  });
+
+  test('returns DuplicateEmailError when save throws with P2002 database constraint code', async () => {
+    await invitationRepo.save(makeValidInvitation('conflict@example.com'));
+    const dbConstraintError = Object.assign(new Error('Unique constraint violation'), { code: 'P2002' });
+    (passwordHasher.hash as jest.Mock).mockResolvedValue('hashed');
+    const failingUserRepo = {
+      findByEmail: jest.fn().mockResolvedValue(null),
+      save: jest.fn().mockRejectedValue(dbConstraintError),
+    };
+    const conflictUseCase = new AcceptUserInvitationUseCase(
+      failingUserRepo as never,
+      invitationRepo,
+      auditLogRepo,
+      tokenGenerator,
+      passwordHasher,
+      policy,
+      commonPasswordChecker,
+      breachChecker,
+    );
+
+    const result = await conflictUseCase.execute(RAW_TOKEN, 'New User', validPassword);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(DuplicateEmailError);
+  });
+
   test('success: user created with emailVerified=true and registrationMethod=INVITED', async () => {
     await invitationRepo.save(makeValidInvitation('success@example.com'));
 

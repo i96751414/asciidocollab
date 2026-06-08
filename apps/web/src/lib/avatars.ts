@@ -13,7 +13,7 @@ export interface DiceBearStyleEntry {
 const PORTRAIT_BG = { backgroundColor: ['b6e3f4', 'c0aede', 'ffd5dc', 'd1d4f9'], backgroundType: ['solid'] };
 
 export const DICEBEAR_STYLES: Record<string, DiceBearStyleEntry> = {
-  'initial-face': { style: collection.initials, label: 'Initial Face' },
+  'initial-face': { style: collection.initials, label: 'Initials' },
   'bottts-neutral': { style: collection.botttsNeutral, label: 'Bottts Neutral' },
   'pixel-art': { style: collection.pixelArt, label: 'Pixel Art' },
   'fun-emoji': { style: collection.funEmoji, label: 'Fun Emoji' },

@@ -1,8 +1,8 @@
 import convict from 'convict';
 import { COLLAB_INTERNAL_PORT_DEFAULT } from '@asciidocollab/shared';
 
-/** Configuration schema for the collaboration server. */
-export interface CollabConfigSchema {
+/** Typed configuration interface for the collaboration server. */
+export interface CollabConfig {
   /** WebSocket port for the collaboration server. */
   port: number;
   /** Internal URL used by the auth hook to reach apps/api internal server. */
@@ -15,11 +15,20 @@ export interface CollabConfigSchema {
   storagePath: string;
   /** PostgreSQL connection URL. */
   databaseUrl: string;
+  /** mTLS client certificate paths for connecting to the apps/api internal server. Leave empty to use plain HTTP (loopback only). */
+  apiInternalTls: {
+    /** Path to the PEM file containing the client certificate presented to apps/api. */
+    cert: string;
+    /** Path to the PEM file containing the client private key. */
+    key: string;
+    /** Path to the PEM file containing the CA certificate used to validate the apps/api server certificate. */
+    ca: string;
+  };
 }
 
 /** Creates a new convict configuration instance for the collaboration server. */
 export function createCollabConfig() {
-  return convict<CollabConfigSchema>({
+  return convict<CollabConfig>({
     port: {
       doc: 'WebSocket port for the collaboration server.',
       format: 'port',
@@ -65,8 +74,25 @@ export function createCollabConfig() {
       sensitive: true,
       env: 'ASCIIDOCOLLAB_DATABASE_URL',
     },
+    apiInternalTls: {
+      cert: {
+        doc: 'Path to PEM file containing the client certificate presented to apps/api. Empty string disables mTLS (loopback HTTP only).',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_API_INTERNAL_TLS_CERT',
+      },
+      key: {
+        doc: 'Path to PEM file containing the client private key for mTLS.',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_API_INTERNAL_TLS_KEY',
+      },
+      ca: {
+        doc: 'Path to PEM file containing the CA certificate used to validate the apps/api server certificate.',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_API_INTERNAL_TLS_CA',
+      },
+    },
   });
 }
-
-/** Typed convict config instance for the collaboration server. */
-export type CollabConfig = ReturnType<typeof createCollabConfig>;

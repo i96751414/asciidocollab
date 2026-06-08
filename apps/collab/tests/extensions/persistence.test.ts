@@ -159,6 +159,50 @@ describe('PersistenceExtension', () => {
     });
   });
 
+  describe('resolveFilePath edge cases', () => {
+    it('does not bootstrap when document record is missing (findByYjsStateId returns null)', async () => {
+      const { yjsStateStore, projectFileStore, fileNodeRepository } = makeStores();
+      const documentRepository = {
+        findByYjsStateId: jest.fn().mockResolvedValue(null),
+        findById: jest.fn(),
+        findByFileNodeId: jest.fn(),
+        findByFileNodeIds: jest.fn(),
+        save: jest.fn(),
+        delete: jest.fn(),
+      } as unknown as jest.Mocked<DocumentRepository>;
+
+      const extension = new PersistenceExtension(yjsStateStore, projectFileStore, documentRepository, fileNodeRepository);
+      const document = makeDocument();
+      await extension.onLoadDocument({ documentName, document: document, context: {} } as never);
+
+      // No state, no file lookup (resolveFilePath returned null)
+      expect(projectFileStore.read).not.toHaveBeenCalled();
+      expect(yjsStateStore.save).not.toHaveBeenCalled();
+    });
+
+    it('does not write file content in onStoreDocument when resolveFilePath returns null', async () => {
+      const { yjsStateStore, projectFileStore, fileNodeRepository } = makeStores();
+      const documentRepository = {
+        findByYjsStateId: jest.fn().mockResolvedValue(null),
+        findById: jest.fn(),
+        findByFileNodeId: jest.fn(),
+        findByFileNodeIds: jest.fn(),
+        save: jest.fn(),
+        delete: jest.fn(),
+      } as unknown as jest.Mocked<DocumentRepository>;
+
+      const extension = new PersistenceExtension(yjsStateStore, projectFileStore, documentRepository, fileNodeRepository);
+      const document = makeDocument();
+      document.getText('codemirror').insert(0, 'some content');
+
+      await extension.onStoreDocument({ documentName, document: document, context: {} } as never);
+
+      // YJS state IS saved (from the yjsStateId in the room name), but file content is skipped
+      expect(yjsStateStore.save).toHaveBeenCalledTimes(1);
+      expect(projectFileStore.write).not.toHaveBeenCalled();
+    });
+  });
+
   describe('onStoreDocument', () => {
     it('(c) writes encoded codemirror text to both YjsStateStore and ProjectFileStore', async () => {
       const { yjsStateStore, projectFileStore, documentRepository, fileNodeRepository } = makeStores();

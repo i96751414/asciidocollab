@@ -7,7 +7,7 @@ export default async function AdminPage() {
   await requireAdminOrRedirect('/dashboard/admin');
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold">Administrator Settings</h1>
         <p className="text-muted-foreground">Manage users and system configuration.</p>

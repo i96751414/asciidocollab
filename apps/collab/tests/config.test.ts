@@ -66,4 +66,26 @@ describe('createCollabConfig', () => {
       }).not.toThrow();
     });
   });
+
+  it('apiInternalTls.cert defaults to empty string (mTLS disabled in development)', () => {
+    const config = createCollabConfig();
+    expect(config.get('apiInternalTls.cert')).toBe('');
+  });
+
+  it('apiInternalTls.key defaults to empty string', () => {
+    const config = createCollabConfig();
+    expect(config.get('apiInternalTls.key')).toBe('');
+  });
+
+  it('apiInternalTls.ca defaults to empty string', () => {
+    const config = createCollabConfig();
+    expect(config.get('apiInternalTls.ca')).toBe('');
+  });
+
+  it('reads apiInternalTls.cert from ASCIIDOCOLLAB_COLLAB_API_INTERNAL_TLS_CERT', () => {
+    withEnvironment({ ASCIIDOCOLLAB_COLLAB_API_INTERNAL_TLS_CERT: '/certs/client.pem' }, () => {
+      const config = createCollabConfig();
+      expect(config.get('apiInternalTls.cert')).toBe('/certs/client.pem');
+    });
+  });
 });

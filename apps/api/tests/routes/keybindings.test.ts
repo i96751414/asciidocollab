@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { UpdateKeyBindingUseCase, ResetKeyBindingUseCase, ValidationError } from '@asciidocollab/domain';
 import { keybindingsRoutes } from '../../src/routes/users/keybindings';
 
 // Mock requireAuth
@@ -101,6 +102,50 @@ describe('Keybindings routes', () => {
     const app = await buildTestServer();
     const deleteResponse = await app.inject({ method: 'DELETE', url: '/users/me/keybindings/file-tree:rename' });
     expect(deleteResponse.statusCode).toBe(204);
+    await app.close();
+  });
+});
+
+describe('Keybindings routes — error fallbacks', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('PATCH returns 500 for unexpected error', async () => {
+    jest.spyOn(UpdateKeyBindingUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: Object.assign(new Error('unexpected'), { name: 'UnexpectedError' }) as never,
+    });
+    const app = await buildTestServer();
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/users/me/keybindings/file-tree:rename',
+      payload: { keyCombo: 'F3' },
+    });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
+    await app.close();
+  });
+
+  it('DELETE returns 400 VALIDATION_ERROR when use case fails with ValidationError', async () => {
+    jest.spyOn(ResetKeyBindingUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new ValidationError('invalid action') as never,
+    });
+    const app = await buildTestServer();
+    const response = await app.inject({ method: 'DELETE', url: '/users/me/keybindings/unknown:action' });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
+    await app.close();
+  });
+
+  it('DELETE returns 500 for unexpected error', async () => {
+    jest.spyOn(ResetKeyBindingUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: Object.assign(new Error('unexpected'), { name: 'UnexpectedError' }) as never,
+    });
+    const app = await buildTestServer();
+    const response = await app.inject({ method: 'DELETE', url: '/users/me/keybindings/file-tree:rename' });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
     await app.close();
   });
 });

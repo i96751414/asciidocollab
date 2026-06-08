@@ -1,5 +1,10 @@
 import Fastify from 'fastify';
 import { Readable } from 'stream';
+import {
+  DownloadProjectUseCase,
+  PermissionDeniedError,
+  ProjectNotFoundError,
+} from '@asciidocollab/domain';
 import { projectDownloadRoute } from '../../../src/routes/projects/download';
 
 jest.mock('../../../src/plugins/require-auth', () => ({
@@ -142,5 +147,64 @@ describe('GET /projects/:projectId/download', () => {
     // Second request — rate limited
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/download` });
     expect(response.statusCode).toBe(429);
+  });
+});
+
+describe('GET /projects/:projectId/download — use case error paths', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('returns 403 FORBIDDEN when actor is not a member (use case error)', async () => {
+    jest.spyOn(DownloadProjectUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new PermissionDeniedError(),
+    });
+    const app = buildTestServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/download` });
+    expect(response.statusCode).toBe(403);
+  });
+
+  test('returns 404 when project not found', async () => {
+    jest.spyOn(DownloadProjectUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new ProjectNotFoundError(PROJECT_ID),
+    });
+    const app = buildTestServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/download` });
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('PROJECT_NOT_FOUND');
+  });
+
+  test('returns 500 for unexpected use case error', async () => {
+    jest.spyOn(DownloadProjectUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new Error('unexpected') as never,
+    });
+    const app = buildTestServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/download` });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
+  });
+
+  test('skips files where readStream returns null (null stream)', async () => {
+    jest.spyOn(DownloadProjectUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: {
+        projectName: 'My Project',
+        files: [
+          {
+            fileNode: {
+              id: { value: FILE_NODE_ID },
+              path: { value: '/readme.adoc' },
+            } as never,
+            relativePath: 'readme.adoc',
+          },
+        ],
+      },
+    });
+    const app = buildTestServer({ readStreamResult: null });
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/download` });
+    // File is skipped but archive still completes
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toMatch(/application\/zip/);
   });
 });

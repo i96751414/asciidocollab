@@ -167,4 +167,203 @@ describe('createCollabServer', () => {
     expect(server).toBeDefined();
     expect(typeof server.destroy).toBe('function');
   });
+
+  it('onConnect throws when document is not found — rejects the WebSocket connection', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn(),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn().mockResolvedValue(null), // document not found
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onConnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onConnect) return;
+
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    await expect(
+      cfg.onConnect({ documentName: `${projectId}/${yjsStateId}`, context: {} }),
+    ).rejects.toThrow('Document not found');
+
+    expect(sessionCallbacks.onRoomOpen).not.toHaveBeenCalled();
+  });
+
+  it('onConnect throws and does NOT store documentId when onRoomOpen fails', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const mockDocument = { id: { value: 'doc-id' }, fileNodeId: { value: 'fn-id' } };
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn().mockResolvedValue({ success: false, error: new Error('DB unavailable') }),
+      onRoomClose: jest.fn(),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn().mockResolvedValue(mockDocument),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onConnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onConnect) return;
+
+    const context: Record<string, unknown> = {};
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    await expect(
+      cfg.onConnect({ documentName: `${projectId}/${yjsStateId}`, context }),
+    ).rejects.toThrow('DB unavailable');
+
+    expect(context.documentId).toBeUndefined();
+  });
+
+  it('onDisconnect does nothing when context has no documentId (onConnect never succeeded)', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn(),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn(),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    const mockHocuspocusDocument = { getConnectionsCount: jest.fn().mockReturnValue(0) };
+
+    await cfg.onDisconnect({
+      clientsCount: 0,
+      documentName: `${projectId}/${yjsStateId}`,
+      context: {}, // no documentId stored
+      document: mockHocuspocusDocument,
+    });
+
+    expect(sessionCallbacks.onRoomClose).not.toHaveBeenCalled();
+  });
+
+  it('onDisconnect logs error but does not throw when onRoomClose fails', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const documentId = { value: '550e8400-e29b-41d4-a716-446655440010' };
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn().mockResolvedValue({ success: false, error: new Error('Close failed') }),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn(),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    const mockHocuspocusDocument = { getConnectionsCount: jest.fn().mockReturnValue(0) };
+
+    await expect(
+      cfg.onDisconnect({
+        clientsCount: 0,
+        documentName: `${projectId}/${yjsStateId}`,
+        context: { documentId },
+        document: mockHocuspocusDocument,
+      }),
+    ).resolves.toBeUndefined(); // must not throw
+
+    expect(sessionCallbacks.onRoomClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('onDisconnect catches and logs when onRoomClose throws (not just fails)', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const documentId = { value: '550e8400-e29b-41d4-a716-446655440010' };
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn().mockRejectedValue(new Error('DB connection lost')),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn(),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    const mockHocuspocusDocument = { getConnectionsCount: jest.fn().mockReturnValue(0) };
+
+    // When onRoomClose rejects, onDisconnect must absorb the error and not propagate it
+    await expect(
+      cfg.onDisconnect({
+        clientsCount: 0,
+        documentName: `${projectId}/${yjsStateId}`,
+        context: { documentId },
+        document: mockHocuspocusDocument,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(sessionCallbacks.onRoomClose).toHaveBeenCalledTimes(1);
+  });
 });

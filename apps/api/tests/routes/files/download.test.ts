@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { Readable } from 'stream';
+import { DownloadFileUseCase } from '@asciidocollab/domain';
 import { fileDownloadRoute } from '../../../src/routes/files/download';
 
 jest.mock('../../../src/plugins/require-auth', () => ({
@@ -165,5 +166,23 @@ describe('GET /projects/:projectId/files/:fileNodeId/download', () => {
     // Second request — rate limited
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/download` });
     expect(response.statusCode).toBe(429);
+  });
+});
+
+describe('GET /projects/:projectId/files/:fileNodeId/download — use case error paths', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('returns 500 INTERNAL_ERROR for unexpected use case error', async () => {
+    jest.spyOn(DownloadFileUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new Error('unexpected') as never,
+    });
+    const app = buildTestServer();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/download`,
+    });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
   });
 });

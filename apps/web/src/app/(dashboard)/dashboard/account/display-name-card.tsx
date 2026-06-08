@@ -108,19 +108,19 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
 
             <div className="space-y-2">
               <Label>Avatar style</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {Object.entries(DICEBEAR_STYLES).map(([key, entry]) => (
                   <button
                     key={key}
                     type="button"
                     aria-pressed={selectedStyle === key}
                     onClick={() => setSelectedAvatarKey(key)}
-                    className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs transition-colors hover:bg-accent ${
+                    className={`flex flex-col items-center gap-0.5 rounded-md border p-1.5 text-[10px] w-14 flex-shrink-0 transition-colors hover:bg-accent ${
                       selectedStyle === key ? "border-primary bg-accent" : "border-border"
                     }`}
                   >
-                    <Avatar avatarKey={key} displayName={displayName || initialDisplayName} size={40} />
-                    {entry.label}
+                    <Avatar avatarKey={key} displayName={displayName || initialDisplayName} size={32} />
+                    <span className="truncate w-full text-center leading-none">{entry.label}</span>
                   </button>
                 ))}
               </div>

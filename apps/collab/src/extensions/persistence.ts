@@ -5,6 +5,7 @@ import {
   DocumentRepository,
   FileNodeRepository,
   FilePath,
+  YjsStateId,
 } from '@asciidocollab/domain';
 import { parseRoomName } from '../server';
 

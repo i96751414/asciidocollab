@@ -430,7 +430,7 @@ async function start() {
 
   await internalServer.listen({
     port: appConfig.collab.internalPort,
-    host: '127.0.0.1',
+    host: appConfig.collab.internalHost,
   });
 
   const shutdown = async () => {

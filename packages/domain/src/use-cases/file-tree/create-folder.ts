@@ -8,6 +8,7 @@ import { ProjectMemberRepository } from '../../ports/project/project-member.repo
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { PermissionDeniedError } from '../../errors/permission-denied';
+import { buildParentPath } from './file-tree-helpers';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { FileConflictError } from '../../errors/file-conflict';
 import { DomainError } from '../../errors/domain-error';
@@ -48,7 +49,7 @@ export class CreateFolderUseCase {
     }
 
     FileName.create(name); // throws ValidationError for invalid names
-    const parentPath = parent.path.value === '/' ? '/' : `${parent.path.value}/`;
+    const parentPath = buildParentPath(parent.path.value);
     const newPath = FilePath.create(`${parentPath}${name}`);
 
     await this.fileStore.createDirectory(projectId, newPath);

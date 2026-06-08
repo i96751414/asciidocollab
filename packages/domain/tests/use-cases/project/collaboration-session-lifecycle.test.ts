@@ -45,6 +45,20 @@ describe('CollaborationSession use cases', () => {
       const result = await openUseCase.execute(projectId, documentId, failingRepo);
       expect(result.success).toBe(false);
     });
+
+    test('wraps a non-Error thrown value in a new Error', async () => {
+      const failingRepo = {
+        ...repo,
+        open: jest.fn().mockRejectedValue('plain string rejection'),
+        isActive: jest.fn().mockResolvedValue(false),
+        close: jest.fn(),
+        closeAllForProject: jest.fn(),
+        closeAll: jest.fn(),
+      };
+      const result = await openUseCase.execute(projectId, documentId, failingRepo);
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBeInstanceOf(Error);
+    });
   });
 
   describe('CloseCollaborationSessionUseCase', () => {
@@ -75,6 +89,20 @@ describe('CollaborationSession use cases', () => {
       };
       const result = await closeUseCase.execute(projectId, documentId, failingRepo);
       expect(result.success).toBe(false);
+    });
+
+    test('wraps a non-Error thrown value in a new Error', async () => {
+      const failingRepo = {
+        ...repo,
+        close: jest.fn().mockRejectedValue('plain string rejection'),
+        isActive: jest.fn().mockResolvedValue(true),
+        open: jest.fn(),
+        closeAllForProject: jest.fn(),
+        closeAll: jest.fn(),
+      };
+      const result = await closeUseCase.execute(projectId, documentId, failingRepo);
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBeInstanceOf(Error);
     });
   });
 });

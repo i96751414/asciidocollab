@@ -39,4 +39,4 @@ export { FileTreeEventDto } from './file-tree-event.dto';
 export { KeyBindingDto } from './key-binding.dto';
 export { EditorPreferencesDto } from './editor-preferences.dto';
 export { AuditLogDto, AuditLogPageDto } from './audit-log.dto';
-export { CollabAuthRole, CollabAuthResponse, COLLAB_INTERNAL_PORT_DEFAULT } from './collab.dto';
+export { CollabAuthRole, CollabAuthResponse } from './collab.dto';
