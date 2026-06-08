@@ -2,6 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DisplayNameCard } from '@/app/(dashboard)/dashboard/account/display-name-card';
 
+const mockRefresh = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: mockRefresh }),
+}));
+
 const mockUpdateProfile = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/lib/api', () => ({
   authApi: {
@@ -19,12 +24,29 @@ jest.mock('@/components/avatar', () => ({
 
 jest.mock('@/lib/avatars', () => ({
   DICEBEAR_STYLES: {
-    'initial-face': { style: {}, label: 'Initial Face' },
-    'bottts-neutral': { style: {}, label: 'Bottts Neutral' },
-    'pixel-art': { style: {}, label: 'Pixel Art' },
+    'initials': { style: {}, label: 'Initials' },
+    'initial-face': {
+      style: {}, label: 'Initial Face',
+      variants: [
+        { id: 'e1', options: { eyesVariant: 'variant01', backgroundColor: ['#111'] } },
+        { id: 'e2', options: { eyesVariant: 'variant02', backgroundColor: ['#222'] } },
+        { id: 'e3', options: { eyesVariant: 'variant03', backgroundColor: ['#333'] } },
+      ],
+    },
+    'bottts-neutral': {
+      style: {}, label: 'Bottts Neutral',
+      variants: [
+        { id: 'v1', options: { seed: 'v1' } },
+        { id: 'v2', options: { seed: 'v2' } },
+        { id: 'v3', options: { seed: 'v3' } },
+      ],
+    },
+    'pixel-art': {
+      style: {}, label: 'Pixel Art',
+      variants: [{ id: 'v1', options: { seed: 'v1' } }],
+    },
   },
-  DEFAULT_AVATAR_STYLE: 'initial-face',
-  AVATAR_VARIANT_SEEDS: ['v1', 'v2', 'v3'],
+  DEFAULT_AVATAR_STYLE: 'initials',
 }));
 
 describe('DisplayNameCard with avatar picker', () => {
@@ -34,7 +56,7 @@ describe('DisplayNameCard with avatar picker', () => {
 
   test('renders all DiceBear styles as selectable options', () => {
     render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
-    for (const label of ['Initial Face', 'Bottts Neutral', 'Pixel Art']) {
+    for (const label of ['Initials', 'Initial Face', 'Bottts Neutral', 'Pixel Art']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -58,14 +80,48 @@ describe('DisplayNameCard with avatar picker', () => {
     });
   });
 
-  test('variant picker appears only for non-initials styles', () => {
+  test('refreshes the route after saving so the top-right menu updates immediately', async () => {
     render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.click(screen.getByRole('button', { name: /bottts neutral/i }));
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  test('does not refresh when the save fails', async () => {
+    mockUpdateProfile.mockRejectedValueOnce(new Error('nope'));
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.click(screen.getByRole('button', { name: /bottts neutral/i }));
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  test('variant picker appears for styles with variants, including Initial Face eyes', () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    // Plain Initials has no variants.
     expect(screen.queryByText('Variant')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /bottts neutral/i }));
     expect(screen.getByText('Variant')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Variant 1' })).toBeInTheDocument();
+    // Initial Face exposes its eyes as variants while keeping the name's initials.
     fireEvent.click(screen.getByRole('button', { name: /initial face/i }));
+    expect(screen.getByText('Variant')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Variant 3' })).toBeInTheDocument();
+    // Back to plain Initials — no variants.
+    fireEvent.click(screen.getByRole('button', { name: /initials/i }));
     expect(screen.queryByText('Variant')).not.toBeInTheDocument();
+  });
+
+  test('selecting an Initial Face eyes variant saves style:variant', async () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.click(screen.getByRole('button', { name: /initial face/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Variant 2' }));
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => {
+      expect(mockUpdateProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ displayName: 'Alice', avatarKey: 'initial-face:e2' }),
+      );
+    });
   });
 
   test('selecting a variant saves style:seed', async () => {

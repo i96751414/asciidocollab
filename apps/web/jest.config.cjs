@@ -7,6 +7,7 @@ const sharedTransform = {
       module: 'commonjs',
       moduleResolution: 'node',
       esModuleInterop: true,
+      resolveJsonModule: true,
       rootDir: '.',
       ignoreDeprecations: '6.0',
       paths: {

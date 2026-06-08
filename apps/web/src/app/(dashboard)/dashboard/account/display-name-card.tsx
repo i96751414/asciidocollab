@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
-import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE, AVATAR_VARIANT_SEEDS } from "@/lib/avatars";
+import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE } from "@/lib/avatars";
 import { authApi, ApiError } from "@/lib/api";
 import { useTouchedFields } from "@/hooks/use-touched-fields";
 
@@ -34,6 +35,7 @@ interface DisplayNameCardProperties {
 
 /** Card allowing the user to update their display name and choose an avatar style and variant. */
 export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: initialAvatarKey = null }: DisplayNameCardProperties) {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [selectedAvatarKey, setSelectedAvatarKey] = useState<string>(initialAvatarKey ?? DEFAULT_AVATAR_STYLE);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
   const colonIndex = selectedAvatarKey.indexOf(':');
   const selectedStyle = colonIndex === -1 ? selectedAvatarKey : selectedAvatarKey.slice(0, colonIndex);
   const selectedVariant = colonIndex === -1 ? null : selectedAvatarKey.slice(colonIndex + 1);
+  const variants = DICEBEAR_STYLES[selectedStyle]?.variants ?? [];
 
   const validation = schema.safeParse({ displayName });
   const isFormValid = validation.success;
@@ -68,6 +71,8 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
         await authApi.updateProfile({ displayName, avatarKey: selectedAvatarKey });
         if (successTimerReference.current) clearTimeout(successTimerReference.current);
         setSuccessMessage("Saved");
+        // Re-run the server layout so the top-right menu (name + avatar) reflects the change immediately.
+        router.refresh();
         successTimerReference.current = setTimeout(() => setSuccessMessage(null), 3000);
       } catch (error_) {
         setSubmitError(
@@ -126,22 +131,22 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
               </div>
             </div>
 
-            {selectedStyle !== 'initial-face' && (
+            {variants.length > 0 && (
               <div className="space-y-2">
                 <Label>Variant</Label>
                 <div className="flex flex-wrap gap-2">
-                  {AVATAR_VARIANT_SEEDS.map((seed, index) => (
+                  {variants.map((variant, index) => (
                     <button
-                      key={seed}
+                      key={variant.id}
                       type="button"
                       aria-label={`Variant ${index + 1}`}
-                      aria-pressed={selectedVariant === seed}
-                      onClick={() => setSelectedAvatarKey(`${selectedStyle}:${seed}`)}
+                      aria-pressed={selectedVariant === variant.id}
+                      onClick={() => setSelectedAvatarKey(`${selectedStyle}:${variant.id}`)}
                       className={`rounded-md border p-1.5 transition-colors hover:bg-accent ${
-                        selectedVariant === seed ? "border-primary bg-accent" : "border-border"
+                        selectedVariant === variant.id ? "border-primary bg-accent" : "border-border"
                       }`}
                     >
-                      <Avatar avatarKey={`${selectedStyle}:${seed}`} displayName="" size={40} />
+                      <Avatar avatarKey={`${selectedStyle}:${variant.id}`} displayName={displayName || initialDisplayName} size={40} />
                     </button>
                   ))}
                 </div>
