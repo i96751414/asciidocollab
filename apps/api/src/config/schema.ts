@@ -1,5 +1,6 @@
 import convict from 'convict';
 import './formats';
+import { COLLAB_INTERNAL_PORT_DEFAULT } from '@asciidocollab/shared';
 
 /**
  * Convict schema definition for AsciiDoCollab API server.
@@ -562,6 +563,14 @@ export function createConfig() {
       },
     },
   },
+  collab: {
+    internalPort: {
+      doc: 'Loopback port apps/api binds its internal collab auth server to.',
+      format: 'port',
+      default: COLLAB_INTERNAL_PORT_DEFAULT,
+      env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT',
+    },
+  },
   });
 }
 
@@ -802,5 +811,10 @@ export interface Config {
       /** Individual file download rate limit window in milliseconds. */
       rateLimitWindow: number;
     };
+  };
+  /** Collaboration server configuration. */
+  collab: {
+    /** Loopback port apps/api binds its internal collab auth server to. */
+    internalPort: number;
   };
 }

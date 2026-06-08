@@ -1,5 +1,7 @@
 import { DeleteFileUseCase } from '../../../src/use-cases/file-tree/delete-file';
 import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
+import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
+import { ActiveCollaborationSessionError } from '../../../src/errors/active-collaboration-session';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
@@ -420,6 +422,125 @@ describe('DeleteFileUseCase — yjsStateStore failure tolerance', () => {
     );
 
     const result = await useCase3folder.execute(actorId3, subfolderId, projectId3);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('DeleteFileUseCase — active-session guard', () => {
+  const actorG = UserId.create('550e8400-e29b-41d4-a716-000000000001');
+  const projectG = ProjectId.create('550e8400-e29b-41d4-a716-000000000002');
+  const rootIdG = FileNodeId.create('550e8400-e29b-41d4-a716-000000000003');
+  const fileIdG = FileNodeId.create('550e8400-e29b-41d4-a716-000000000004');
+  const documentIdG = DocumentId.create('550e8400-e29b-41d4-a716-000000000005');
+  const subFolderIdG = FileNodeId.create('550e8400-e29b-41d4-a716-000000000006');
+  const childFileIdG = FileNodeId.create('550e8400-e29b-41d4-a716-000000000007');
+  const childDocumentIdG = DocumentId.create('550e8400-e29b-41d4-a716-000000000008');
+
+  async function buildGuardRepos(options: {
+    fileSessionActive?: boolean;
+    childSessionActive?: boolean;
+  } = {}) {
+    const projectMemberRepo = new InMemoryProjectMemberRepository();
+    const fileNodeRepo = new InMemoryFileNodeRepository();
+    const documentRepo = new InMemoryDocumentRepository();
+    const auditLogRepo = new InMemoryAuditLogRepository();
+    const collabSessionRepo = new InMemoryCollaborationSessionRepository();
+
+    const member = new ProjectMember(projectG, actorG, Role.create('editor'));
+    await projectMemberRepo.addMember(member);
+
+    const root = new FileNode(rootIdG, projectG, null, 'root', FileNodeType.create('folder'), FilePath.create('/'));
+    await fileNodeRepo.save(root);
+
+    const file = new FileNode(fileIdG, projectG, rootIdG, 'file.adoc', FileNodeType.create('file'), FilePath.create('/file.adoc'));
+    await fileNodeRepo.save(file);
+
+    const document = new Document(documentIdG, fileIdG, ContentId.create('550e8400-e29b-41d4-a716-000000000009'), YjsStateId.create('550e8400-e29b-41d4-a716-000000000010'), MimeType.create('text/asciidoc'));
+    await documentRepo.save(document);
+
+    const subFolder = new FileNode(subFolderIdG, projectG, rootIdG, 'sub', FileNodeType.create('folder'), FilePath.create('/sub'));
+    await fileNodeRepo.save(subFolder);
+
+    const childFile = new FileNode(childFileIdG, projectG, subFolderIdG, 'child.adoc', FileNodeType.create('file'), FilePath.create('/sub/child.adoc'));
+    await fileNodeRepo.save(childFile);
+
+    const childDocument = new Document(childDocumentIdG, childFileIdG, ContentId.create('550e8400-e29b-41d4-a716-000000000011'), YjsStateId.create('550e8400-e29b-41d4-a716-000000000012'), MimeType.create('text/asciidoc'));
+    await documentRepo.save(childDocument);
+
+    if (options.fileSessionActive) {
+      await collabSessionRepo.open(projectG, documentIdG);
+    }
+    if (options.childSessionActive) {
+      await collabSessionRepo.open(projectG, childDocumentIdG);
+    }
+
+    return { projectMemberRepo, fileNodeRepo, documentRepo, auditLogRepo, collabSessionRepo };
+  }
+
+  it('(a) single file with active session → ActiveCollaborationSessionError', async () => {
+    const repos = await buildGuardRepos({ fileSessionActive: true });
+    const useCase = new DeleteFileUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.auditLogRepo,
+      undefined,
+      undefined,
+      repos.collabSessionRepo,
+    );
+
+    const result = await useCase.execute(actorG, fileIdG, projectG);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ActiveCollaborationSessionError);
+    }
+  });
+
+  it('(b) folder with one active descendant file → ActiveCollaborationSessionError', async () => {
+    const repos = await buildGuardRepos({ childSessionActive: true });
+    const useCase = new DeleteFileUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.auditLogRepo,
+      undefined,
+      undefined,
+      repos.collabSessionRepo,
+    );
+
+    const result = await useCase.execute(actorG, subFolderIdG, projectG);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ActiveCollaborationSessionError);
+    }
+  });
+
+  it('(c) no active sessions → deletion proceeds', async () => {
+    const repos = await buildGuardRepos({});
+    const useCase = new DeleteFileUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.auditLogRepo,
+      undefined,
+      undefined,
+      repos.collabSessionRepo,
+    );
+
+    const result = await useCase.execute(actorG, fileIdG, projectG);
+    expect(result.success).toBe(true);
+  });
+
+  it('(d) no repo provided → deletion proceeds', async () => {
+    const repos = await buildGuardRepos({ fileSessionActive: true });
+    const useCase = new DeleteFileUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.auditLogRepo,
+    );
+
+    const result = await useCase.execute(actorG, fileIdG, projectG);
     expect(result.success).toBe(true);
   });
 });

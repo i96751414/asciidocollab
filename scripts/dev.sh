@@ -73,12 +73,14 @@ success "Database schema applied."
 
 # ─── Process cleanup on exit ──────────────────────────────────────────────────
 API_PID=""
+COLLAB_PID=""
 WEB_PID=""
 
 cleanup() {
   echo ""
   info "Shutting down …"
   [[ -n "$API_PID" ]] && kill "$API_PID" 2>/dev/null || true
+  [[ -n "$COLLAB_PID" ]] && kill "$COLLAB_PID" 2>/dev/null || true
   [[ -n "$WEB_PID" ]] && kill "$WEB_PID" 2>/dev/null || true
   info "Stopped. Docker services are still running — stop them with: docker compose down"
 }
@@ -88,6 +90,10 @@ trap cleanup EXIT INT TERM
 info "Starting API server …"
 (cd "$ROOT/apps/api" && NODE_ENV=development node dist/index.js) &
 API_PID=$!
+
+info "Starting collab server …"
+(cd "$ROOT/apps/collab" && NODE_ENV=development node dist/index.js) &
+COLLAB_PID=$!
 
 info "Starting web app …"
 (cd "$ROOT/apps/web" && pnpm dev) &
@@ -99,6 +105,7 @@ echo -e "  ${GREEN}AsciiDoCollab is running${RESET}"
 echo ""
 echo -e "  Web app   →  ${CYAN}http://localhost:3000${RESET}"
 echo -e "  API       →  ${CYAN}http://localhost:4000${RESET}"
+echo -e "  Collab    →  ${CYAN}ws://localhost:${ASCIIDOCOLLAB_COLLAB_PORT:-4002}${RESET}"
 echo -e "  API docs  →  ${CYAN}http://localhost:4000/documentation${RESET}"
 echo -e "  Email UI  →  ${CYAN}http://localhost:8025${RESET}  (captured emails)"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
@@ -107,4 +114,4 @@ echo -e "  Press ${YELLOW}Ctrl+C${RESET} to stop the app servers."
 echo -e "  Run ${YELLOW}docker compose down${RESET} to also stop the database."
 echo ""
 
-wait "$API_PID" "$WEB_PID"
+wait "$API_PID" "$COLLAB_PID" "$WEB_PID"

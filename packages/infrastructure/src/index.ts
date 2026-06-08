@@ -13,6 +13,7 @@ export { PrismaProjectRepository } from './persistence/project/prisma-project.re
 export { PrismaProjectMemberRepository } from './persistence/project/prisma-project-member.repository';
 export { PrismaTemplateRepository } from './persistence/project/prisma-template.repository';
 export { PrismaGitRepositoryRepository } from './persistence/project/prisma-git-repository.repository';
+export { PrismaCollaborationSessionRepository } from './persistence/project/prisma-collaboration-session-repository';
 
 // file-tree/
 export { PrismaFileNodeRepository } from './persistence/file-tree/prisma-file-node.repository';

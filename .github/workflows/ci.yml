@@ -53,6 +53,9 @@ jobs:
       - name: Type-check — API
         run: npx tsc -p apps/api/tsconfig.json --noEmit
 
+      - name: Type-check — collab
+        run: npx tsc -p apps/collab/tsconfig.json --noEmit
+
       - name: Type-check — web
         run: npx tsc -p apps/web/tsconfig.json --noEmit
 
@@ -95,6 +98,9 @@ jobs:
 
       - name: API unit tests
         run: pnpm --filter @asciidocollab/api test
+
+      - name: Collab unit tests
+        run: pnpm --filter @asciidocollab/collab test
 
       - name: Web unit tests
         run: pnpm --filter @asciidocollab/web test
@@ -173,6 +179,8 @@ jobs:
           ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
 
       - name: Start API server
+        # Note: ASCIIDOCOLLAB_COLLAB_PORT and ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT must be added
+        # to this job when Phase 9 adds collaboration E2E tests (see T054).
         run: nohup pnpm --filter @asciidocollab/api start &
         env:
           NODE_ENV: test

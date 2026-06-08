@@ -12,7 +12,7 @@ const CONTENT_ID = '660e8400-e29b-41d4-a716-446655440004';
 const DOC_ID = '770e8400-e29b-41d4-a716-446655440005';
 const YJS_STATE_ID = '880e8400-e29b-41d4-a716-446655440006';
 
-function buildTestServer(options: { contentId?: string } = {}) {
+function buildTestServer(options: { contentId?: string; activeSession?: boolean } = {}) {
   const app = Fastify();
   app.decorate('repos', {
     projectMember: { findByCompositeKey: jest.fn().mockResolvedValue({ role: { value: 'viewer' } }) },
@@ -28,6 +28,9 @@ function buildTestServer(options: { contentId?: string } = {}) {
         updatedAt: new Date('2024-01-01'),
       }),
       save: jest.fn().mockResolvedValue(undefined),
+    },
+    collaborationSession: {
+      isActive: jest.fn().mockResolvedValue(options.activeSession ?? false),
     },
   });
   app.decorate('stores', {
@@ -81,5 +84,19 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
     expect(response.headers['etag']).toBeDefined();
     expect(typeof response.headers['etag']).toBe('string');
     expect((response.headers['etag'] as string).length).toBeGreaterThan(0);
+  });
+
+  test('returns 409 with { error: { code, message } } when a collaboration session is active', async () => {
+    const app = buildTestServer({ activeSession: true });
+    const response = await app.inject({
+      method: 'PUT',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
+      payload: '= Updated',
+      headers: { 'content-type': 'text/plain' },
+    });
+    expect(response.statusCode).toBe(409);
+    const body = JSON.parse(response.body);
+    expect(body.error).toEqual(expect.objectContaining({ code: 'CONFLICT' }));
+    expect(typeof body.error.message).toBe('string');
   });
 });

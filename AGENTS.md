@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/017-ui-ux-overhaul/plan.md
+Active feature plan: specs/018-collaboration-server/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

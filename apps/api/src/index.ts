@@ -34,6 +34,7 @@ import {
   FilesystemYjsStateStore,
   PrismaKeyBindingRepository,
   PrismaEditorPreferencesRepository,
+  PrismaCollaborationSessionRepository,
 } from '@asciidocollab/infrastructure';
 import {
   UserRepository,
@@ -53,6 +54,7 @@ import {
   SessionRepository,
   KeyBindingRepository,
   EditorPreferencesRepository,
+  CollaborationSessionRepository,
   ProjectFileStore,
   YjsStateStore,
   PasswordHasher,
@@ -110,6 +112,7 @@ import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
 import { keybindingsRoutes } from './routes/users/keybindings';
 import { editorPreferencesRoutes } from './routes/editor-preferences';
+import { createInternalServer } from './internal-server';
 import type { FastifyInstance } from 'fastify';
 
 /** Dependency container passed to `buildServer` to wire repositories and services. */
@@ -152,6 +155,8 @@ export interface AppContainer {
     keyBinding: KeyBindingRepository;
     /** Repository for editor preferences. */
     editorPreferences: EditorPreferencesRepository;
+    /** Repository for active collaboration sessions. */
+    collaborationSession: CollaborationSessionRepository;
   };
   /** Storage adapters for file and Yjs state persistence. */
   stores?: {
@@ -174,8 +179,8 @@ export interface AppContainer {
     tokenGenerator: TokenGenerator;
     /** Service for encrypting and decrypting session data. */
     sessionEncryption: SessionEncryption;
-    /** Prisma-backed session store for use with the auth plugin. */
-    prismaSessionStore: PrismaSessionStore;
+    /** Prisma-backed session store for use with the auth plugin. Undefined if SESSION_SECRET is not set. */
+    prismaSessionStore: PrismaSessionStore | undefined;
     /** Notifier for password-reset emails. */
     passwordResetNotifier: PasswordResetNotifier;
     /** Notifier for email-change confirmation emails. */
@@ -230,6 +235,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       session: new PrismaSessionRepository(app.prisma),
       keyBinding: new PrismaKeyBindingRepository(app.prisma),
       editorPreferences: new PrismaEditorPreferencesRepository(app.prisma),
+      collaborationSession: new PrismaCollaborationSessionRepository(app.prisma),
     });
   }
 
@@ -414,6 +420,25 @@ async function start() {
   const app = await buildServer({ prisma });
   await registerAllRoutes(app);
   await app.listen({ port: appConfig.api.port, host: appConfig.api.host });
+
+  const internalServer = await createInternalServer({
+    prisma,
+    repos: app.repos,
+    services: app.services,
+    config: appConfig,
+  });
+
+  await internalServer.listen({
+    port: appConfig.collab.internalPort,
+    host: '127.0.0.1',
+  });
+
+  const shutdown = async () => {
+    await internalServer.close();
+  };
+
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
 }
 
 if (require.main === module) {
@@ -445,6 +470,7 @@ declare module 'fastify' {
       session: SessionRepository;
       keyBinding: KeyBindingRepository;
       editorPreferences: EditorPreferencesRepository;
+      collaborationSession: CollaborationSessionRepository;
     };
     stores: {
       fileStore: ProjectFileStore;

@@ -1,4 +1,4 @@
-import { DocumentRepository, UserRepository, ProjectRepository, FileNodeRepository, DocumentId, FilePath, FileNode, FileNodeType } from '@asciidocollab/domain';
+import { DocumentRepository, UserRepository, ProjectRepository, FileNodeRepository, DocumentId, FilePath, FileNode, FileNodeType, YjsStateId } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
 import { PrismaDocumentRepository } from '../../../src/persistence/file-tree/prisma-document.repository';
 import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
@@ -79,6 +79,21 @@ describe('PrismaDocumentRepository', () => {
     await repo.delete(document.id);
     const found = await repo.findById(document.id);
     expect(found).toBeNull();
+  });
+
+  it('should find a document by yjsStateId', async () => {
+    const fileNode = await setupFileNode();
+    const document = createTestDocument(fileNode.id);
+    await repo.save(document);
+
+    const found = await repo.findByYjsStateId(document.yjsStateId);
+    expect(found).not.toBeNull();
+    expect(found!.id.value).toBe(document.id.value);
+  });
+
+  it('should return null when finding by non-existent yjsStateId', async () => {
+    const result = await repo.findByYjsStateId(YjsStateId.create('00000000-0000-4000-8000-000000000002'));
+    expect(result).toBeNull();
   });
 
   async function setupFileNode(name = 'test.adoc'): Promise<FileNode> {
