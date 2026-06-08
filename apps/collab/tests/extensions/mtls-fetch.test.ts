@@ -5,36 +5,36 @@ jest.mock('node:https');
 
 const mockHttps = https as jest.Mocked<typeof https>;
 
-function makeFakeResponse(statusCode: number, body: Buffer) {
-  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
-  const res = {
+function makeFakeResponse(statusCode: number, _body: Buffer) {
+  const listeners: Record<string, ((...arguments_: unknown[]) => void)[]> = {};
+  const result = {
     statusCode,
     headers: { 'content-type': 'application/json' },
-    on(event: string, cb: (...args: unknown[]) => void) {
-      (listeners[event] ??= []).push(cb);
-      return res;
+    on(event: string, callback: (...arguments_: unknown[]) => void) {
+      (listeners[event] ??= []).push(callback);
+      return result;
     },
-    emit(event: string, ...args: unknown[]) {
-      for (const cb of listeners[event] ?? []) cb(...args);
+    emit(event: string, ...arguments_: unknown[]) {
+      for (const callback of listeners[event] ?? []) callback(...arguments_);
     },
   };
-  return res;
+  return result;
 }
 
 function makeFakeRequest() {
-  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
-  const req = {
-    on(event: string, cb: (...args: unknown[]) => void) {
-      (listeners[event] ??= []).push(cb);
-      return req;
+  const listeners: Record<string, ((...arguments_: unknown[]) => void)[]> = {};
+  const request = {
+    on(event: string, callback: (...arguments_: unknown[]) => void) {
+      (listeners[event] ??= []).push(callback);
+      return request;
     },
-    emit(event: string, ...args: unknown[]) {
-      for (const cb of listeners[event] ?? []) cb(...args);
+    emit(event: string, ...arguments_: unknown[]) {
+      for (const callback of listeners[event] ?? []) callback(...arguments_);
     },
     destroy: jest.fn(),
     end: jest.fn(),
   };
-  return req;
+  return request;
 }
 
 describe('createMtlsFetch', () => {
@@ -50,15 +50,15 @@ describe('createMtlsFetch', () => {
     const AgentMock = jest.fn();
     (mockHttps.Agent as unknown) = AgentMock;
     (mockHttps.request as jest.Mock).mockImplementation(() => {
-      const req = makeFakeRequest();
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from('{}'));
-        const [, cb] = (mockHttps.request as jest.Mock).mock.calls[0];
-        cb(res);
-        res.emit('data', Buffer.from('{}'));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from('{}'));
+        const [, callback] = (mockHttps.request as jest.Mock).mock.calls[0];
+        callback(result);
+        result.emit('data', Buffer.from('{}'));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
     createMtlsFetch(cert, key, ca);
@@ -75,19 +75,19 @@ describe('createMtlsFetch', () => {
     const responseBody = JSON.stringify({ role: 'editor' });
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
-    (mockHttps.request as jest.Mock).mockImplementation((_opts: unknown, cb: (res: unknown) => void) => {
-      const req = makeFakeRequest();
+    (mockHttps.request as jest.Mock).mockImplementation((_options: unknown, callback: (result: unknown) => void) => {
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from(responseBody));
-        cb(res);
-        res.emit('data', Buffer.from(responseBody));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from(responseBody));
+        callback(result);
+        result.emit('data', Buffer.from(responseBody));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    const response = await fetchFn('https://127.0.0.1:4001/internal/collab/auth?doc=x', {
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    const response = await fetchFunction('https://127.0.0.1:4001/internal/collab/auth?doc=x', {
       headers: { Cookie: 'session=abc' },
     });
 
@@ -103,13 +103,13 @@ describe('createMtlsFetch', () => {
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
     (mockHttps.request as jest.Mock).mockImplementation(() => {
-      const req = makeFakeRequest();
-      setImmediate(() => req.emit('error', new Error('ECONNREFUSED')));
-      return req;
+      const request = makeFakeRequest();
+      setImmediate(() => request.emit('error', new Error('ECONNREFUSED')));
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    await expect(fetchFn('https://127.0.0.1:4001/path')).rejects.toThrow('ECONNREFUSED');
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    await expect(fetchFunction('https://127.0.0.1:4001/path')).rejects.toThrow('ECONNREFUSED');
   });
 
   it('calls req.destroy() when the AbortSignal fires before the response arrives', async () => {
@@ -118,18 +118,18 @@ describe('createMtlsFetch', () => {
     const ca = Buffer.from('ca');
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
-    let capturedReq: ReturnType<typeof makeFakeRequest> | null = null;
+    let capturedRequest: ReturnType<typeof makeFakeRequest> | null = null;
     (mockHttps.request as jest.Mock).mockImplementation(() => {
-      capturedReq = makeFakeRequest();
-      return capturedReq;
+      capturedRequest = makeFakeRequest();
+      return capturedRequest;
     });
 
     const controller = new AbortController();
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    const fetchPromise = fetchFn('https://127.0.0.1:4001/path', { signal: controller.signal });
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    const fetchPromise = fetchFunction('https://127.0.0.1:4001/path', { signal: controller.signal });
 
     controller.abort();
-    expect(capturedReq!.destroy).toHaveBeenCalled();
+    expect(capturedRequest!.destroy).toHaveBeenCalled();
 
     // Let the promise settle (it may reject due to the abort)
     await fetchPromise.catch(() => undefined);
@@ -142,20 +142,20 @@ describe('createMtlsFetch', () => {
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
     let capturedOptions: { hostname?: string; path?: string } | null = null;
-    (mockHttps.request as jest.Mock).mockImplementation((opts: { hostname?: string; path?: string }, cb: (res: unknown) => void) => {
-      capturedOptions = opts;
-      const req = makeFakeRequest();
+    (mockHttps.request as jest.Mock).mockImplementation((options: { hostname?: string; path?: string }, callback: (result: unknown) => void) => {
+      capturedOptions = options;
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from('{}'));
-        cb(res);
-        res.emit('data', Buffer.from('{}'));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from('{}'));
+        callback(result);
+        result.emit('data', Buffer.from('{}'));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    await fetchFn(new URL('https://127.0.0.1:4001/internal/auth?doc=x'));
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    await fetchFunction(new URL('https://127.0.0.1:4001/internal/auth?doc=x'));
 
     expect(capturedOptions!.hostname).toBe('127.0.0.1');
     expect(capturedOptions!.path).toBe('/internal/auth?doc=x');
@@ -168,20 +168,20 @@ describe('createMtlsFetch', () => {
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
     let capturedOptions: { hostname?: string } | null = null;
-    (mockHttps.request as jest.Mock).mockImplementation((opts: { hostname?: string }, cb: (res: unknown) => void) => {
-      capturedOptions = opts;
-      const req = makeFakeRequest();
+    (mockHttps.request as jest.Mock).mockImplementation((options: { hostname?: string }, callback: (result: unknown) => void) => {
+      capturedOptions = options;
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from('{}'));
-        cb(res);
-        res.emit('data', Buffer.from('{}'));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from('{}'));
+        callback(result);
+        result.emit('data', Buffer.from('{}'));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    await fetchFn(new Request('https://127.0.0.1:4001/internal/auth'));
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    await fetchFunction(new Request('https://127.0.0.1:4001/internal/auth'));
 
     expect(capturedOptions!.hostname).toBe('127.0.0.1');
   });
@@ -193,20 +193,20 @@ describe('createMtlsFetch', () => {
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
     let capturedOptions: { headers?: Record<string, string> } | null = null;
-    (mockHttps.request as jest.Mock).mockImplementation((opts: { headers?: Record<string, string> }, cb: (res: unknown) => void) => {
-      capturedOptions = opts;
-      const req = makeFakeRequest();
+    (mockHttps.request as jest.Mock).mockImplementation((options: { headers?: Record<string, string> }, callback: (result: unknown) => void) => {
+      capturedOptions = options;
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from('{}'));
-        cb(res);
-        res.emit('data', Buffer.from('{}'));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from('{}'));
+        callback(result);
+        result.emit('data', Buffer.from('{}'));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
-    await fetchFn('https://127.0.0.1:4001/path', { headers: [['x-token', 'abc'], ['x-other', 'def']] });
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    await fetchFunction('https://127.0.0.1:4001/path', { headers: [['x-token', 'abc'], ['x-other', 'def']] });
 
     expect(capturedOptions!.headers?.['x-token']).toBe('abc');
     expect(capturedOptions!.headers?.['x-other']).toBe('def');
@@ -220,21 +220,21 @@ describe('createMtlsFetch', () => {
 
     (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
     let capturedOptions: { headers?: Record<string, string> } | null = null;
-    (mockHttps.request as jest.Mock).mockImplementation((opts: { headers?: Record<string, string> }, cb: (res: unknown) => void) => {
-      capturedOptions = opts;
-      const req = makeFakeRequest();
+    (mockHttps.request as jest.Mock).mockImplementation((options: { headers?: Record<string, string> }, callback: (result: unknown) => void) => {
+      capturedOptions = options;
+      const request = makeFakeRequest();
       setImmediate(() => {
-        const res = makeFakeResponse(200, Buffer.from(responseBody));
-        cb(res);
-        res.emit('data', Buffer.from(responseBody));
-        res.emit('end');
+        const result = makeFakeResponse(200, Buffer.from(responseBody));
+        callback(result);
+        result.emit('data', Buffer.from(responseBody));
+        result.emit('end');
       });
-      return req;
+      return request;
     });
 
-    const fetchFn = createMtlsFetch(cert, key, ca);
+    const fetchFunction = createMtlsFetch(cert, key, ca);
     const headers = new Headers({ 'x-custom': 'value' });
-    await fetchFn('https://127.0.0.1:4001/path', { headers });
+    await fetchFunction('https://127.0.0.1:4001/path', { headers });
 
     expect(capturedOptions!.headers?.['x-custom']).toBe('value');
   });

@@ -12,25 +12,25 @@ export function createMtlsFetch(
     const url =
       input instanceof URL
         ? input.href
-        : input instanceof Request
+        : (input instanceof Request
         ? input.url
-        : String(input);
+        : String(input));
 
     const parsedUrl = new URL(url);
     const headers: Record<string, string> = {};
 
     if (init?.headers) {
       if (init.headers instanceof Headers) {
-        init.headers.forEach((v, k) => { headers[k] = v; });
+        for (const [k, v] of init.headers.entries()) { headers[k] = v; }
       } else if (Array.isArray(init.headers)) {
-        for (const [k, v] of init.headers as [string, string][]) headers[k] = v;
+        Object.assign(headers, Object.fromEntries(init.headers));
       } else {
         Object.assign(headers, init.headers);
       }
     }
 
     return new Promise<Response>((resolve, reject) => {
-      const req = https.request(
+      const request = https.request(
         {
           hostname: parsedUrl.hostname,
           port: Number(parsedUrl.port) || 443,
@@ -39,36 +39,37 @@ export function createMtlsFetch(
           headers,
           agent,
         },
-        (res) => {
+        (response) => {
           const chunks: Buffer[] = [];
-          res.on('data', (c: Buffer) => chunks.push(c));
-          res.on('end', () => {
+          response.on('data', (c: Buffer) => chunks.push(c));
+          response.on('end', () => {
             const responseHeaders = new Headers();
-            for (const [k, v] of Object.entries(res.headers)) {
+            for (const [k, v] of Object.entries(response.headers)) {
               if (v !== undefined) {
                 responseHeaders.set(k, Array.isArray(v) ? v.join(', ') : v);
               }
             }
             resolve(
               new Response(Buffer.concat(chunks), {
-                status: res.statusCode ?? 200,
+                status: response.statusCode ?? 200,
                 headers: responseHeaders,
               }),
             );
           });
-          res.on('error', reject);
+          response.on('error', reject);
         },
       );
 
-      if (init?.signal) {
-        (init.signal as AbortSignal).addEventListener('abort', () => {
-          req.destroy();
+      const signal = init?.signal;
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          request.destroy();
           reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
         });
       }
 
-      req.on('error', reject);
-      req.end();
+      request.on('error', reject);
+      request.end();
     });
   };
 }

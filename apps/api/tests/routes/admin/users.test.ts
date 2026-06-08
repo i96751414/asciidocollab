@@ -45,10 +45,10 @@ describe('GET /admin/users', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: '/admin/users' });
+    const response = await app.inject({ method: 'GET', url: '/admin/users' });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.users).toHaveLength(1);
     expect(body.users[0].email).toBe('admin@example.com');
     expect(body.users[0].isAdmin).toBe(true);
@@ -61,23 +61,23 @@ describe('GET /admin/users', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: '/admin/users' });
+    const response = await app.inject({ method: 'GET', url: '/admin/users' });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('PERMISSION_DENIED');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('PERMISSION_DENIED');
   });
 });
 
 describe('GET /admin/users/:id/removal-preview', () => {
   it('returns 200 with projects that would be transferred', async () => {
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/admin/users/${TARGET_ID}/removal-preview`,
     });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.projectsToTransfer).toHaveLength(1);
     expect(body.projectsToTransfer[0].id).toBe('proj-1');
     expect(body.projectsToTransfer[0].name).toBe('Project One');

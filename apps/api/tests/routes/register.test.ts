@@ -37,14 +37,14 @@ describe('POST /auth/register — email verification paths', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/auth/register',
       payload: { email: 'user@example.com', password: 'Password1!', displayName: 'Test' },
     });
 
-    expect(res.statusCode).toBe(202);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(202);
+    const body = JSON.parse(response.body);
     expect(body.requiresEmailVerification).toBe(true);
     expect(body.message).toMatch(/check your email/i);
   });
@@ -60,14 +60,14 @@ describe('POST /auth/register — email verification paths', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/auth/register',
       payload: { email: 'duplicate@example.com', password: 'Password1!', displayName: 'Test' },
     });
 
-    expect(res.statusCode).toBe(202);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(202);
+    const body = JSON.parse(response.body);
     expect(body.requiresEmailVerification).toBeUndefined();
     expect(body.message).toMatch(/if this address/i);
   });

@@ -6,7 +6,6 @@ import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { AssetRepository } from '../../ports/file-tree/asset.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { ContentNotFoundError } from '../../errors/content-not-found';
 import { requireMemberAndFileNode } from './content-helpers';
 import { DomainError } from '../../errors/domain-error';

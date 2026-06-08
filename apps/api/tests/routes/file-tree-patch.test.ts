@@ -1,10 +1,6 @@
 import Fastify from 'fastify';
 import { fileTreePatchRoutes } from '../../src/routes/projects/file-tree-patch';
-import {
-  PermissionDeniedError,
-  FileConflictError,
-  FileNodeNotFoundError,
-} from '@asciidocollab/domain';
+import { FileConflictError } from '@asciidocollab/domain';
 
 jest.mock('../../src/plugins/require-auth', () => ({
   requireAuth: jest.fn((_request: unknown, _rep: unknown, done: () => void) => done()),
@@ -50,12 +46,12 @@ function buildRenameServer(options: {
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn().mockResolvedValue(
-        options.memberResult !== undefined ? options.memberResult : { role: { value: 'editor' } },
+        options.memberResult === undefined ? { role: { value: 'editor' } } : options.memberResult,
       ),
     },
     fileNode: {
       findById: jest.fn().mockResolvedValue(
-        options.findByIdOverride !== undefined ? options.findByIdOverride : mockFileNode,
+        options.findByIdOverride === undefined ? mockFileNode : options.findByIdOverride,
       ),
       findByParentId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
@@ -97,14 +93,14 @@ function buildMoveServer(options: {
 } = {}) {
   const app = Fastify();
 
-  const fileNode = options.fileNodeForMove !== undefined ? options.fileNodeForMove : mockFileNode;
-  const parentFolder = options.parentFolder !== undefined ? options.parentFolder : mockParentFolder;
-  const postMoveNode = options.postMoveNode !== undefined ? options.postMoveNode : mockFileNode;
+  const fileNode = options.fileNodeForMove === undefined ? mockFileNode : options.fileNodeForMove;
+  const parentFolder = options.parentFolder === undefined ? mockParentFolder : options.parentFolder;
+  const postMoveNode = options.postMoveNode === undefined ? mockFileNode : options.postMoveNode;
 
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn().mockResolvedValue(
-        options.memberResult !== undefined ? options.memberResult : { role: { value: 'editor' } },
+        options.memberResult === undefined ? { role: { value: 'editor' } } : options.memberResult,
       ),
     },
     fileNode: {
@@ -126,7 +122,7 @@ function buildMoveServer(options: {
   app.decorate('stores', {
     fileStore: {
       move: jest.fn().mockResolvedValue(
-        options.fileStoreMove !== undefined ? options.fileStoreMove : { success: true },
+        options.fileStoreMove === undefined ? { success: true } : options.fileStoreMove,
       ),
     },
   });
@@ -158,7 +154,7 @@ function buildRenameMoveServer(options: {
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn().mockResolvedValue(
-        options.memberResult !== undefined ? options.memberResult : { role: { value: 'editor' } },
+        options.memberResult === undefined ? { role: { value: 'editor' } } : options.memberResult,
       ),
     },
     fileNode: {
@@ -170,7 +166,7 @@ function buildRenameMoveServer(options: {
         .mockResolvedValueOnce(mockFileNode)   // move: source lookup
         .mockResolvedValueOnce(mockParentFolder) // move: parent lookup
         .mockResolvedValueOnce(               // post-op event lookup
-          options.postOpNode !== undefined ? options.postOpNode : mockFileNode,
+          options.postOpNode === undefined ? mockFileNode : options.postOpNode,
         ),
       findByParentId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),

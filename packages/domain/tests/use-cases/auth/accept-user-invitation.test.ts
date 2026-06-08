@@ -210,11 +210,11 @@ describe('AcceptUserInvitationUseCase', () => {
 
   test('returns DuplicateEmailError when save throws with P2002 database constraint code', async () => {
     await invitationRepo.save(makeValidInvitation('conflict@example.com'));
-    const dbConstraintError = Object.assign(new Error('Unique constraint violation'), { code: 'P2002' });
+    const databaseConstraintError = Object.assign(new Error('Unique constraint violation'), { code: 'P2002' });
     (passwordHasher.hash as jest.Mock).mockResolvedValue('hashed');
     const failingUserRepo = {
       findByEmail: jest.fn().mockResolvedValue(null),
-      save: jest.fn().mockRejectedValue(dbConstraintError),
+      save: jest.fn().mockRejectedValue(databaseConstraintError),
     };
     const conflictUseCase = new AcceptUserInvitationUseCase(
       failingUserRepo as never,

@@ -85,9 +85,9 @@ describe('GET /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    const result = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
+    expect(result.statusCode).toBe(403);
+    expect(JSON.parse(result.body).error.code).toBe('FORBIDDEN');
   });
 
   it('returns 404 NOT_FOUND on FileNodeNotFoundError', async () => {
@@ -97,9 +97,9 @@ describe('GET /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    const result = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
+    expect(result.statusCode).toBe(404);
+    expect(JSON.parse(result.body).error.code).toBe('NOT_FOUND');
   });
 
   it('returns 404 NOT_FOUND on ContentNotFoundError', async () => {
@@ -109,8 +109,8 @@ describe('GET /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
-    expect(res.statusCode).toBe(404);
+    const result = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
+    expect(result.statusCode).toBe(404);
   });
 
   it('returns 500 INTERNAL_ERROR for unrecognised error', async () => {
@@ -120,9 +120,9 @@ describe('GET /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
-    expect(res.statusCode).toBe(500);
-    expect(JSON.parse(res.body).error.code).toBe('INTERNAL_ERROR');
+    const result = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body).error.code).toBe('INTERNAL_ERROR');
   });
 
   it('omits ETag header when contentId is absent', async () => {
@@ -136,9 +136,9 @@ describe('GET /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['etag']).toBeUndefined();
+    const result = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content` });
+    expect(result.statusCode).toBe(200);
+    expect(result.headers['etag']).toBeUndefined();
   });
 });
 
@@ -150,14 +150,14 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const result = await app.inject({
       method: 'PUT',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
       payload: '= Content',
       headers: { 'content-type': 'text/plain' },
     });
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    expect(result.statusCode).toBe(403);
+    expect(JSON.parse(result.body).error.code).toBe('FORBIDDEN');
   });
 
   it('returns 404 NOT_FOUND on FileNodeNotFoundError', async () => {
@@ -167,13 +167,13 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const result = await app.inject({
       method: 'PUT',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
       payload: '= Content',
       headers: { 'content-type': 'text/plain' },
     });
-    expect(res.statusCode).toBe(404);
+    expect(result.statusCode).toBe(404);
   });
 
   it('returns 500 INTERNAL_ERROR for unrecognised error', async () => {
@@ -183,14 +183,14 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content (error paths)', () 
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const result = await app.inject({
       method: 'PUT',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
       payload: '= Content',
       headers: { 'content-type': 'text/plain' },
     });
-    expect(res.statusCode).toBe(500);
-    expect(JSON.parse(res.body).error.code).toBe('INTERNAL_ERROR');
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body).error.code).toBe('INTERNAL_ERROR');
   });
 });
 
@@ -219,13 +219,13 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const result = await app.inject({
       method: 'PUT',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
       payload: { data: '= Hello' },
       headers: { 'content-type': 'application/json' },
     });
-    expect(res.statusCode).toBe(204);
+    expect(result.statusCode).toBe(204);
   });
 
   test('accepts string body (non-Buffer, non-JSON) and returns 204', async () => {
@@ -255,13 +255,13 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
     app.register(fileContentRoutes);
     await app.ready();
 
-    const res = await app.inject({
+    const result = await app.inject({
       method: 'PUT',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
       payload: '= Hello world',
       headers: { 'content-type': 'text/markdown' },
     });
-    expect(res.statusCode).toBe(204);
+    expect(result.statusCode).toBe(204);
     await app.close();
   });
 

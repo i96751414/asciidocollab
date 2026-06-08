@@ -68,9 +68,9 @@ describe('startOrphanedRoomWatchdog', () => {
     const server = {
       documents: new Map([[roomName, { destroy: mockDestroy }]]),
     };
-    const dbError = new Error('connection timeout');
+    const databaseError = new Error('connection timeout');
     const documentRepo = {
-      findByYjsStateId: jest.fn().mockRejectedValue(dbError),
+      findByYjsStateId: jest.fn().mockRejectedValue(databaseError),
     } as unknown as DocumentRepository;
 
     const interval = startOrphanedRoomWatchdog(server, documentRepo, 100);

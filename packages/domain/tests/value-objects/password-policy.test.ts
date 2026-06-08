@@ -14,28 +14,28 @@ describe('validatePassword', () => {
   });
 
   it('returns an error message when password is shorter than minLength', () => {
-    const msg = validatePassword('Ab1@', { ...fullPolicy, minLength: 10 });
-    expect(msg).toContain('characters');
+    const message = validatePassword('Ab1@', { ...fullPolicy, minLength: 10 });
+    expect(message).toContain('characters');
   });
 
   it('returns an error message when uppercase is required but missing', () => {
-    const msg = validatePassword('lowercase1@', fullPolicy);
-    expect(msg).toContain('uppercase');
+    const message = validatePassword('lowercase1@', fullPolicy);
+    expect(message).toContain('uppercase');
   });
 
   it('returns an error message when lowercase is required but missing', () => {
-    const msg = validatePassword('UPPERCASE1@', fullPolicy);
-    expect(msg).toContain('lowercase');
+    const message = validatePassword('UPPERCASE1@', fullPolicy);
+    expect(message).toContain('lowercase');
   });
 
   it('returns an error message when digits are required but missing', () => {
-    const msg = validatePassword('NoDigitsHere@', fullPolicy);
-    expect(msg).toContain('digit');
+    const message = validatePassword('NoDigitsHere@', fullPolicy);
+    expect(message).toContain('digit');
   });
 
   it('returns an error message when symbols are required but missing', () => {
-    const msg = validatePassword('NoSymbol1A', fullPolicy);
-    expect(msg).toContain('symbol');
+    const message = validatePassword('NoSymbol1A', fullPolicy);
+    expect(message).toContain('symbol');
   });
 
   it('skips symbol check when requireSymbols is false', () => {

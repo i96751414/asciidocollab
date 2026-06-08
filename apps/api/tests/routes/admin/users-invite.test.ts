@@ -44,14 +44,14 @@ describe('POST /admin/users/invite', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/admin/users/invite',
       payload: { email: 'new@example.com' },
     });
 
-    expect(res.statusCode).toBe(202);
-    expect(JSON.parse(res.body).message).toBe('Invitation sent');
+    expect(response.statusCode).toBe(202);
+    expect(JSON.parse(response.body).message).toBe('Invitation sent');
   });
 
   it('returns 409 DUPLICATE_EMAIL when email is already registered', async () => {
@@ -61,14 +61,14 @@ describe('POST /admin/users/invite', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/admin/users/invite',
       payload: { email: 'new@example.com' },
     });
 
-    expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body).error.code).toBe('DUPLICATE_EMAIL');
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error.code).toBe('DUPLICATE_EMAIL');
   });
 
   it('returns 409 INVITATION_ALREADY_PENDING', async () => {
@@ -78,14 +78,14 @@ describe('POST /admin/users/invite', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/admin/users/invite',
       payload: { email: 'pending@example.com' },
     });
 
-    expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body).error.code).toBe('INVITATION_ALREADY_PENDING');
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error.code).toBe('INVITATION_ALREADY_PENDING');
   });
 
   it('returns 403 PERMISSION_DENIED', async () => {
@@ -95,14 +95,14 @@ describe('POST /admin/users/invite', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/admin/users/invite',
       payload: { email: 'denied@example.com' },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('PERMISSION_DENIED');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('PERMISSION_DENIED');
   });
 
   it('falls back to "Administrator" when actor user is not found', async () => {
@@ -114,12 +114,12 @@ describe('POST /admin/users/invite', () => {
     const app = buildTestServer();
     (app as unknown as { repos: { user: { findById: jest.Mock } } }).repos.user.findById.mockResolvedValue(null);
 
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/admin/users/invite',
       payload: { email: 'new@example.com' },
     });
 
-    expect(res.statusCode).toBe(202);
+    expect(response.statusCode).toBe(202);
   });
 });

@@ -52,7 +52,7 @@ function buildTestServer(options: BuildOptions = {}) {
   app.decorate('repos', {
     userInvitation: {
       findByTokenHash: jest.fn().mockResolvedValue(
-        options.invitation !== undefined ? options.invitation : validInvitation,
+        options.invitation === undefined ? validInvitation : options.invitation,
       ),
     },
     user: {

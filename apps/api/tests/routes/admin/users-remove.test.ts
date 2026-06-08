@@ -41,10 +41,10 @@ describe('DELETE /admin/users/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.projectsTransferred).toEqual(['proj-1', 'proj-2']);
   });
 
@@ -55,10 +55,10 @@ describe('DELETE /admin/users/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('CANNOT_REMOVE_SELF');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('CANNOT_REMOVE_SELF');
   });
 
   it('returns 403 CANNOT_REMOVE_LAST_ADMIN', async () => {
@@ -68,10 +68,10 @@ describe('DELETE /admin/users/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
   });
 
   it('returns 404 NOT_FOUND when user does not exist', async () => {
@@ -81,10 +81,10 @@ describe('DELETE /admin/users/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 
   it('returns 403 PERMISSION_DENIED for unrecognised error', async () => {
@@ -94,9 +94,9 @@ describe('DELETE /admin/users/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/admin/users/${TARGET_ID}` });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('PERMISSION_DENIED');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('PERMISSION_DENIED');
   });
 });

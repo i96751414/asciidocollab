@@ -844,7 +844,7 @@ export interface Config {
     internalPort: number;
     /** Host interface apps/api binds its internal collab auth server to. */
     internalHost: string;
-    /** mTLS certificate paths for the internal collab auth server. All fields empty disables mTLS. */
+    /** MTLS certificate paths for the internal collab auth server. All fields empty disables mTLS. */
     internalTls: {
       /** Path to the PEM file containing the server certificate. */
       cert: string;

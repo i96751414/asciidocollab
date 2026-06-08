@@ -17,7 +17,6 @@ jest.mock('../../../src/plugins/require-admin', () => ({
   requireAdmin: jest.fn((_request: unknown, _rep: unknown, done: () => void) => done()),
 }));
 
-const ACTOR_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 function buildTestServer() {
   const app = Fastify();
@@ -40,10 +39,10 @@ describe('GET /admin/settings', () => {
     jest.spyOn(GetMaxUploadSizeUseCase.prototype, 'execute').mockResolvedValue({ maxUploadSizeBytes: 10_485_760 });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: '/admin/settings' });
+    const response = await app.inject({ method: 'GET', url: '/admin/settings' });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.openRegistration).toBe(true);
     expect(body.maxUploadSizeBytes).toBe(10_485_760);
   });
@@ -56,13 +55,13 @@ describe('PATCH /admin/settings', () => {
     jest.spyOn(GetMaxUploadSizeUseCase.prototype, 'execute').mockResolvedValue({ maxUploadSizeBytes: 10_485_760 });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: '/admin/settings',
       payload: { openRegistration: true },
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
   });
 
   it('returns 403 when SetOpenRegistrationUseCase fails', async () => {
@@ -72,14 +71,14 @@ describe('PATCH /admin/settings', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: '/admin/settings',
       payload: { openRegistration: false },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('PERMISSION_DENIED');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('PERMISSION_DENIED');
   });
 
   it('updates maxUploadSizeBytes and returns 200', async () => {
@@ -88,14 +87,14 @@ describe('PATCH /admin/settings', () => {
     jest.spyOn(GetMaxUploadSizeUseCase.prototype, 'execute').mockResolvedValue({ maxUploadSizeBytes: 5_242_880 });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: '/admin/settings',
       payload: { maxUploadSizeBytes: 5_242_880 },
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).maxUploadSizeBytes).toBe(5_242_880);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).maxUploadSizeBytes).toBe(5_242_880);
   });
 
   it('returns 403 when SetMaxUploadSizeUseCase fails', async () => {
@@ -105,12 +104,12 @@ describe('PATCH /admin/settings', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: '/admin/settings',
       payload: { maxUploadSizeBytes: 1024 },
     });
 
-    expect(res.statusCode).toBe(403);
+    expect(response.statusCode).toBe(403);
   });
 });

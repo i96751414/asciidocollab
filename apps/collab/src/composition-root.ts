@@ -38,9 +38,9 @@ export async function compositionRoot() {
 
   const logger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
 
-  const tlsCert = config.get('apiInternalTls.cert') as string;
-  const tlsKey = config.get('apiInternalTls.key') as string;
-  const tlsCa = config.get('apiInternalTls.ca') as string;
+  const tlsCert = config.get('apiInternalTls.cert');
+  const tlsKey = config.get('apiInternalTls.key');
+  const tlsCa = config.get('apiInternalTls.ca');
   const mtlsFetch = tlsCert && tlsKey && tlsCa
     ? createMtlsFetch(readFileSync(tlsCert), readFileSync(tlsKey), readFileSync(tlsCa))
     : undefined;

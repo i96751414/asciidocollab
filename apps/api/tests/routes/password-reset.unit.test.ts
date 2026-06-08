@@ -32,14 +32,14 @@ describe('POST /auth/password/reset (unit)', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/auth/password/reset',
       payload: { token: 'some-token', newPassword: 'P@ssword123!' },
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('PASSWORD_REUSE');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('PASSWORD_REUSE');
   });
 
   it('returns 200 on successful password reset', async () => {
@@ -49,13 +49,13 @@ describe('POST /auth/password/reset (unit)', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/auth/password/reset',
       payload: { token: 'valid-token', newPassword: 'P@ssword123!' },
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).message).toBe('Password reset successfully');
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).message).toBe('Password reset successfully');
   });
 });

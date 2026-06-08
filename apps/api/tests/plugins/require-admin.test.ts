@@ -14,21 +14,21 @@ function buildTestServer(session: Record<string, unknown> = {}) {
 describe('requireAdmin', () => {
   it('passes when session.isAdmin is true', async () => {
     const app = buildTestServer({ isAdmin: true });
-    const res = await app.inject({ method: 'GET', url: '/test' });
-    expect(res.statusCode).toBe(200);
+    const response = await app.inject({ method: 'GET', url: '/test' });
+    expect(response.statusCode).toBe(200);
   });
 
   it('rejects with 403 when session.isAdmin is false', async () => {
     const app = buildTestServer({ isAdmin: false });
-    const res = await app.inject({ method: 'GET', url: '/test' });
-    expect(res.statusCode).toBe(403);
-    const body = JSON.parse(res.body);
+    const response = await app.inject({ method: 'GET', url: '/test' });
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
     expect(body.error.code).toBe('PERMISSION_DENIED');
   });
 
   it('rejects with 403 when session.isAdmin is undefined', async () => {
     const app = buildTestServer({});
-    const res = await app.inject({ method: 'GET', url: '/test' });
-    expect(res.statusCode).toBe(403);
+    const response = await app.inject({ method: 'GET', url: '/test' });
+    expect(response.statusCode).toBe(403);
   });
 });

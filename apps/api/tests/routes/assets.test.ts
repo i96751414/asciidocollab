@@ -64,30 +64,30 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('image.png'),
     });
 
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
     expect(body.assetId).toBe(ASSET_ID);
     await app.close();
   });
 
   it('returns 400 when no file is provided', async () => {
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody(null),
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
     await app.close();
   });
 
@@ -98,15 +98,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('image.png'),
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
     await app.close();
   });
 
@@ -117,15 +117,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('bad.exe'),
     });
 
-    expect(res.statusCode).toBe(415);
-    expect(JSON.parse(res.body).error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    expect(response.statusCode).toBe(415);
+    expect(JSON.parse(response.body).error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
     await app.close();
   });
 
@@ -136,15 +136,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('huge.bin'),
     });
 
-    expect(res.statusCode).toBe(413);
-    expect(JSON.parse(res.body).error.code).toBe('FILE_TOO_LARGE');
+    expect(response.statusCode).toBe(413);
+    expect(JSON.parse(response.body).error.code).toBe('FILE_TOO_LARGE');
     await app.close();
   });
 
@@ -155,15 +155,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('image.png'),
     });
 
-    expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body).error.code).toBe('CONFLICT');
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error.code).toBe('CONFLICT');
     await app.close();
   });
 
@@ -174,15 +174,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('image.png'),
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
     await app.close();
   });
 
@@ -193,15 +193,15 @@ describe('POST /projects/:projectId/assets', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/projects/${PROJECT_ID}/assets?parentId=${PARENT_ID}`,
       headers: multipartHeaders,
       payload: multipartBody('image.png'),
     });
 
-    expect(res.statusCode).toBe(500);
-    expect(JSON.parse(res.body).error.code).toBe('INTERNAL_ERROR');
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
     await app.close();
   });
 });
@@ -221,14 +221,14 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/projects/${PROJECT_ID}/assets/${ASSET_ID}`,
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toContain('image/png');
-    expect(res.headers['content-disposition']).toContain('image.png');
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('image/png');
+    expect(response.headers['content-disposition']).toContain('image.png');
     await app.close();
   });
 
@@ -239,12 +239,12 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/projects/${PROJECT_ID}/assets/${ASSET_ID}`,
     });
 
-    expect(res.statusCode).toBe(403);
+    expect(response.statusCode).toBe(403);
     await app.close();
   });
 
@@ -255,12 +255,12 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/projects/${PROJECT_ID}/assets/${ASSET_ID}`,
     });
 
-    expect(res.statusCode).toBe(404);
+    expect(response.statusCode).toBe(404);
     await app.close();
   });
 
@@ -271,12 +271,12 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/projects/${PROJECT_ID}/assets/${ASSET_ID}`,
     });
 
-    expect(res.statusCode).toBe(404);
+    expect(response.statusCode).toBe(404);
     await app.close();
   });
 
@@ -287,12 +287,12 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     const app = await buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'GET',
       url: `/projects/${PROJECT_ID}/assets/${ASSET_ID}`,
     });
 
-    expect(res.statusCode).toBe(500);
+    expect(response.statusCode).toBe(500);
     await app.close();
   });
 });

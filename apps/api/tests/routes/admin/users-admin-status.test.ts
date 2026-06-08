@@ -40,14 +40,14 @@ describe('PATCH /admin/users/:id/admin', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/admin/users/${TARGET_ID}/admin`,
       payload: { isAdmin: true },
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).message).toBe('Admin status updated');
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).message).toBe('Admin status updated');
   });
 
   it('returns 403 with CANNOT_MODIFY_SELF when actor tries to modify self', async () => {
@@ -57,14 +57,14 @@ describe('PATCH /admin/users/:id/admin', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/admin/users/${TARGET_ID}/admin`,
       payload: { isAdmin: false },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('CANNOT_MODIFY_SELF');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('CANNOT_MODIFY_SELF');
   });
 
   it('returns 403 with CANNOT_REMOVE_LAST_ADMIN', async () => {
@@ -74,14 +74,14 @@ describe('PATCH /admin/users/:id/admin', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/admin/users/${TARGET_ID}/admin`,
       payload: { isAdmin: false },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
   });
 
   it('returns 404 with NOT_FOUND when user does not exist', async () => {
@@ -91,14 +91,14 @@ describe('PATCH /admin/users/:id/admin', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/admin/users/${TARGET_ID}/admin`,
       payload: { isAdmin: true },
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 
   it('returns 403 PERMISSION_DENIED for unrecognised error names', async () => {
@@ -108,13 +108,13 @@ describe('PATCH /admin/users/:id/admin', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/admin/users/${TARGET_ID}/admin`,
       payload: { isAdmin: true },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('PERMISSION_DENIED');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('PERMISSION_DENIED');
   });
 });

@@ -1,10 +1,6 @@
 import Fastify from 'fastify';
 import { fileTreeCreateRoutes } from '../../src/routes/projects/file-tree-create';
-import {
-  PermissionDeniedError,
-  FileConflictError,
-  FileNodeNotFoundError,
-} from '@asciidocollab/domain';
+import { FileConflictError } from '@asciidocollab/domain';
 
 jest.mock('../../src/plugins/require-auth', () => ({
   requireAuth: jest.fn((_request: unknown, _rep: unknown, done: () => void) => done()),
@@ -13,7 +9,6 @@ jest.mock('../../src/plugins/require-auth', () => ({
 
 const PROJECT_ID = '550e8400-e29b-41d4-a716-446655440002';
 const PARENT_ID = '550e8400-e29b-41d4-a716-446655440003';
-const NEW_FILE_NODE_ID = '550e8400-e29b-41d4-a716-446655440004';
 
 const POST_URL = `/projects/${PROJECT_ID}/files`;
 
@@ -36,13 +31,13 @@ type BuildOptions = {
 function buildTestServer(options: BuildOptions = {}) {
   const app = Fastify();
 
-  const memberResult = options.memberResult !== undefined
-    ? options.memberResult
-    : { role: { value: 'editor' } };
+  const memberResult = options.memberResult === undefined
+    ? { role: { value: 'editor' } }
+    : options.memberResult;
 
-  const findByIdResult = options.findByIdResult !== undefined
-    ? options.findByIdResult
-    : parentFolderNode;
+  const findByIdResult = options.findByIdResult === undefined
+    ? parentFolderNode
+    : options.findByIdResult;
 
   app.decorate('repos', {
     projectMember: {

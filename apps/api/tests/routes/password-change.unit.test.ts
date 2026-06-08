@@ -39,13 +39,13 @@ describe('POST /auth/password/change (unit)', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/auth/password/change',
       payload: { currentPassword: 'OldP@ss1', newPassword: 'NewP@ss1' },
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
   });
 });

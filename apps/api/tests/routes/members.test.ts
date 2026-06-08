@@ -54,10 +54,10 @@ function buildTestServer() {
 describe('GET /api/projects/:id/members', () => {
   it('returns 200 with member list', async () => {
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.data.members).toHaveLength(2);
     expect(body.data.members[0].role).toBe('owner');
   });
@@ -67,9 +67,9 @@ describe('GET /api/projects/:id/members', () => {
     (app.repos as never as { projectMember: { findByCompositeKey: jest.Mock } })
       .projectMember.findByCompositeKey.mockResolvedValue(null);
 
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
   });
 
   it('returns 500 when a user lookup returns null', async () => {
@@ -77,9 +77,9 @@ describe('GET /api/projects/:id/members', () => {
     (app.repos as never as { user: { findById: jest.Mock } })
       .user.findById.mockResolvedValue(null);
 
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
-    expect(res.statusCode).toBe(500);
-    expect(JSON.parse(res.body).error.code).toBe('INTERNAL_ERROR');
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
   });
 
   it('returns 500 when repo throws', async () => {
@@ -87,8 +87,8 @@ describe('GET /api/projects/:id/members', () => {
     (app.repos as never as { projectMember: { findByProjectId: jest.Mock } })
       .projectMember.findByProjectId.mockRejectedValue(new Error('db error'));
 
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
-    expect(res.statusCode).toBe(500);
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}/members` });
+    expect(response.statusCode).toBe(500);
   });
 });
 
@@ -107,14 +107,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'invited@example.com', role: 'editor' },
     });
 
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
     expect(body.data.email).toBe('invited@example.com');
     expect(body.data.role).toBe('editor');
   });
@@ -126,14 +126,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'x@example.com', role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
   });
 
   it('returns 404 on UserNotFoundError', async () => {
@@ -143,14 +143,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'x@example.com', role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('USER_NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('USER_NOT_FOUND');
   });
 
   it('returns 409 ALREADY_A_MEMBER on ProjectMemberAlreadyExistsError', async () => {
@@ -160,14 +160,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'x@example.com', role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body).error.code).toBe('ALREADY_A_MEMBER');
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error.code).toBe('ALREADY_A_MEMBER');
   });
 
   it('returns 404 on ProjectNotFoundError', async () => {
@@ -177,14 +177,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'x@example.com', role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 
   it('returns 400 VALIDATION_ERROR for unrecognised error', async () => {
@@ -194,14 +194,14 @@ describe('POST /api/projects/:id/members', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/api/projects/${PROJECT_ID}/members`,
       payload: { email: 'x@example.com', role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -213,14 +213,14 @@ describe('PATCH /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
       payload: { role: 'owner' },
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.role).toBe('owner');
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.role).toBe('owner');
   });
 
   it('returns 404 MEMBER_NOT_FOUND on MemberNotFoundError', async () => {
@@ -230,14 +230,14 @@ describe('PATCH /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
       payload: { role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('MEMBER_NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('MEMBER_NOT_FOUND');
   });
 
   it('returns 403 on PermissionDeniedError', async () => {
@@ -247,13 +247,13 @@ describe('PATCH /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
       payload: { role: 'viewer' },
     });
 
-    expect(res.statusCode).toBe(403);
+    expect(response.statusCode).toBe(403);
   });
 });
 
@@ -265,13 +265,13 @@ describe('DELETE /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'DELETE',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.message).toContain('removed');
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.message).toContain('removed');
   });
 
   it('returns 409 CANNOT_REMOVE_LAST_OWNER', async () => {
@@ -281,13 +281,13 @@ describe('DELETE /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'DELETE',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
     });
 
-    expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body).error.code).toBe('CANNOT_REMOVE_LAST_OWNER');
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error.code).toBe('CANNOT_REMOVE_LAST_OWNER');
   });
 
   it('returns 404 on MemberNotFoundError', async () => {
@@ -297,12 +297,12 @@ describe('DELETE /api/projects/:id/members/:userId', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'DELETE',
       url: `/api/projects/${PROJECT_ID}/members/${TARGET_USER_ID}`,
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('MEMBER_NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('MEMBER_NOT_FOUND');
   });
 });

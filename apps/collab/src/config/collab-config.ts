@@ -15,7 +15,7 @@ export interface CollabConfig {
   storagePath: string;
   /** PostgreSQL connection URL. */
   databaseUrl: string;
-  /** mTLS client certificate paths for connecting to the apps/api internal server. Leave empty to use plain HTTP (loopback only). */
+  /** MTLS client certificate paths for connecting to the apps/api internal server. Leave empty to use plain HTTP (loopback only). */
   apiInternalTls: {
     /** Path to the PEM file containing the client certificate presented to apps/api. */
     cert: string;
