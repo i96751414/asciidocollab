@@ -50,6 +50,7 @@ jest.mock('@codemirror/state', () => ({
   StateField: { define: () => ({ field: true }) },
   StateEffect: { appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) }, define: () => ({ of: (v: unknown) => ({ value: v }) }) },
   Compartment: class { of(extension: unknown) { return extension; } reconfigure(extension: unknown) { return extension; } },
+  Prec: { highest: (extension: unknown) => extension, high: (extension: unknown) => extension, default: (extension: unknown) => extension, low: (extension: unknown) => extension, lowest: (extension: unknown) => extension },
 }));
 
 jest.mock('@codemirror/commands', () => ({
@@ -74,6 +75,7 @@ jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionS
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));
+jest.mock('@/lib/codemirror/asciidoc-theme', () => ({ asciidocTheme: [] }));
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({ asciidocFold: {} }));
 jest.mock('@/lib/codemirror/asciidoc-table-context', () => ({ tableContextField: { field: true } }));
 jest.mock('@/hooks/use-table-context', () => ({ useTableContext: () => null }));

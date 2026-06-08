@@ -86,15 +86,35 @@ describe('GET /api/projects', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: '/api/projects' });
+    const response = await app.inject({ method: 'GET', url: '/api/projects' });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.data).toHaveLength(1);
     expect(body.data[0].id).toBe(PROJECT_ID);
     expect(body.data[0].rootFolderId).toBe(ROOT_FOLDER_ID);
     expect(body.data[0].archivedAt).toBeNull();
     expect(body.pagination.total).toBe(1);
+  });
+
+  it('includes a fileCount that counts files only, excluding folders', async () => {
+    jest.spyOn(ListUserProjectsUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: { projects: [mockProject as never], total: 1, page: 1, limit: 20, totalPages: 1 },
+    });
+
+    const app = buildTestServer();
+    (app.repos as never as { fileNode: { findByProjectId: jest.Mock } }).fileNode.findByProjectId.mockResolvedValue([
+      { type: { value: 'file' } },
+      { type: { value: 'folder' } },
+      { type: { value: 'file' } },
+    ]);
+
+    const response = await app.inject({ method: 'GET', url: '/api/projects' });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.data[0].fileCount).toBe(2);
   });
 
   it('includes null user filtered from owners list', async () => {
@@ -105,9 +125,9 @@ describe('GET /api/projects', () => {
     const app = buildTestServer();
     (app.repos as never as { user: { findById: jest.Mock } }).user.findById.mockResolvedValue(null);
 
-    const res = await app.inject({ method: 'GET', url: '/api/projects' });
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data[0].owners).toHaveLength(0);
+    const response = await app.inject({ method: 'GET', url: '/api/projects' });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data[0].owners).toHaveLength(0);
   });
 
   it('returns 500 INTERNAL_ERROR when use case fails', async () => {
@@ -117,9 +137,9 @@ describe('GET /api/projects', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: '/api/projects' });
-    expect(res.statusCode).toBe(500);
-    expect(JSON.parse(res.body).error.code).toBe('INTERNAL_ERROR');
+    const response = await app.inject({ method: 'GET', url: '/api/projects' });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
   });
 
   it('applies pagination query params', async () => {
@@ -137,10 +157,10 @@ describe('GET /api/projects', () => {
 describe('GET /api/projects/:id', () => {
   it('returns 200 with project data including the caller role', async () => {
     const app = buildTestServer();
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
 
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
     expect(body.data.id).toBe(PROJECT_ID);
     expect(['owner', 'editor', 'viewer']).toContain(body.data.role);
   });
@@ -149,18 +169,18 @@ describe('GET /api/projects/:id', () => {
     const app = buildTestServer();
     (app.repos as never as { project: { findById: jest.Mock } }).project.findById.mockResolvedValue(null);
 
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 
   it('returns 403 when user is not a member', async () => {
     const app = buildTestServer();
     (app.repos as never as { projectMember: { findByProjectId: jest.Mock } }).projectMember.findByProjectId.mockResolvedValue([]);
 
-    const res = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    const response = await app.inject({ method: 'GET', url: `/api/projects/${PROJECT_ID}` });
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
   });
 });
 
@@ -176,14 +196,14 @@ describe('POST /api/projects', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/api/projects',
       payload: { name: 'My Project', description: 'desc', tags: ['a'] },
     });
 
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
     expect(body.data.id).toBe(PROJECT_ID);
     expect(body.data.rootFolderId).toBe(ROOT_FOLDER_ID);
     expect(body.data.description).toBe('desc');
@@ -200,14 +220,14 @@ describe('POST /api/projects', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/api/projects',
       payload: { name: 'My Project' },
     });
 
-    expect(res.statusCode).toBe(201);
-    expect(JSON.parse(res.body).data.description).toBeNull();
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body).data.description).toBeNull();
   });
 
   it('returns 400 when use case fails', async () => {
@@ -217,14 +237,14 @@ describe('POST /api/projects', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'POST',
       url: '/api/projects',
       payload: { name: 'ValidName' },
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -242,14 +262,14 @@ describe('PATCH /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}`,
       payload: { name: 'Updated Name' },
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.name).toBe('Updated Name');
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.name).toBe('Updated Name');
   });
 
   it('returns 403 when actor lacks permission', async () => {
@@ -259,14 +279,14 @@ describe('PATCH /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}`,
       payload: { name: 'x' },
     });
 
-    expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error.code).toBe('FORBIDDEN');
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
   });
 
   it('returns 404 when project does not exist', async () => {
@@ -276,14 +296,14 @@ describe('PATCH /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}`,
       payload: { name: 'x' },
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_FOUND');
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 });
 
@@ -296,10 +316,10 @@ describe('POST /api/projects/:id/archive', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.archivedAt).toBe(archivedAt.toISOString());
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.archivedAt).toBe(archivedAt.toISOString());
   });
 
   it('returns 400 ALREADY_ARCHIVED when project is already archived', async () => {
@@ -309,10 +329,10 @@ describe('POST /api/projects/:id/archive', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('ALREADY_ARCHIVED');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('ALREADY_ARCHIVED');
   });
 
   it('returns 404 when project not found', async () => {
@@ -322,9 +342,9 @@ describe('POST /api/projects/:id/archive', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/archive` });
 
-    expect(res.statusCode).toBe(404);
+    expect(response.statusCode).toBe(404);
   });
 });
 
@@ -336,10 +356,10 @@ describe('POST /api/projects/:id/restore', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.archivedAt).toBeNull();
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.archivedAt).toBeNull();
   });
 
   it('returns 400 NOT_ARCHIVED when project is not archived', async () => {
@@ -349,10 +369,10 @@ describe('POST /api/projects/:id/restore', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('NOT_ARCHIVED');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('NOT_ARCHIVED');
   });
 
   it('returns 403 when actor lacks permission', async () => {
@@ -362,9 +382,9 @@ describe('POST /api/projects/:id/restore', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
+    const response = await app.inject({ method: 'POST', url: `/api/projects/${PROJECT_ID}/restore` });
 
-    expect(res.statusCode).toBe(403);
+    expect(response.statusCode).toBe(403);
   });
 });
 
@@ -376,14 +396,14 @@ describe('PATCH /api/projects/:id — VALIDATION_ERROR fallback', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({
+    const response = await app.inject({
       method: 'PATCH',
       url: `/api/projects/${PROJECT_ID}`,
       payload: { name: 'x' },
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -395,10 +415,10 @@ describe('DELETE /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
 
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).data.id).toBe(PROJECT_ID);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.id).toBe(PROJECT_ID);
   });
 
   it('returns 403 when actor lacks permission', async () => {
@@ -408,9 +428,9 @@ describe('DELETE /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
 
-    expect(res.statusCode).toBe(403);
+    expect(response.statusCode).toBe(403);
   });
 
   it('returns 404 when project not found', async () => {
@@ -420,8 +440,8 @@ describe('DELETE /api/projects/:id', () => {
     });
 
     const app = buildTestServer();
-    const res = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
+    const response = await app.inject({ method: 'DELETE', url: `/api/projects/${PROJECT_ID}` });
 
-    expect(res.statusCode).toBe(404);
+    expect(response.statusCode).toBe(404);
   });
 });

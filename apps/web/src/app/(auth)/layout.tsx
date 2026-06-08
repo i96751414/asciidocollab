@@ -1,3 +1,5 @@
+import { Logo } from "@/components/logo";
+
 /** Content rendered centered inside the card container on unauthenticated pages. */
 interface AuthLayoutProperties {
   /** Page content to render centered inside the card container. */
@@ -11,6 +13,9 @@ export default function AuthLayout({ children }: AuthLayoutProperties) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-sm">
+        <div className="mb-6 flex justify-center">
+          <Logo href="/dashboard" iconSize={38} />
+        </div>
         {children}
       </div>
     </div>

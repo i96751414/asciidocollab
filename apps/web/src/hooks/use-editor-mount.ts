@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useCallback } from 'react';
-import { EditorState, Compartment } from '@codemirror/state';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
@@ -9,6 +9,7 @@ import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirr
 import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
+import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import {
   attributeCompletionSource,
@@ -136,6 +137,10 @@ export function useEditorMount({
         }),
         updateListener,
         lineClickHandler,
+        // Brand editor theme (chrome + syntax via --syntax-* vars), following light/dark
+        // automatically. Prec.highest so its highlight wins over the highlighters above:
+        // CodeMirror mounts higher-precedence style modules last, so they win the cascade.
+        Prec.highest(asciidocTheme),
         ...(softWrap ? [EditorView.lineWrapping] : []),
       ],
     });

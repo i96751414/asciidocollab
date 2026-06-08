@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512" role="img" aria-label="AsciiDoCollab">
+  <defs>
+    <linearGradient id="adc-teal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22899F"></stop>
+      <stop offset="1" stop-color="#15606E"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="19" fill="url(#adc-teal)"></rect>
+  <rect x="2" y="2" width="96" height="96" rx="19" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"></rect>
+  <path d="M21 3 H79 Q97 3 97 21" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"></path>
+  <g fill="#ffffff">
+    <rect x="23.5" y="29" width="26" height="9" rx="4.5"></rect>
+    <rect x="23.5" y="45" width="26" height="9" rx="4.5" opacity="0.78"></rect>
+    <rect x="23.5" y="61" width="40" height="9" rx="4.5" opacity="0.78"></rect>
+    <circle cx="58" cy="33.5" r="4.5"></circle>
+    <rect x="53.5" y="40" width="9" height="15" rx="4.5"></rect>
+    <circle cx="72" cy="49.5" r="4.5"></circle>
+    <rect x="67.5" y="56" width="9" height="15" rx="4.5"></rect>
+  </g>
+</svg>
