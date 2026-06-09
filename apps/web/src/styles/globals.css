@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* ───────────────────────────────────────────────────────────────────────────
+   AsciiDoCollab brand theme
+   Drop-in replacement for src/styles/globals.css
+   Only the token values in :root / .dark changed — the @theme mapping,
+   keyframes and base layer are identical to the shadcn default so nothing
+   else in the app needs to change. Brand anchor: AsciiDoc teal (#1F8197).
+   ─────────────────────────────────────────────────────────────────────────── */
+
 @theme {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -37,69 +45,79 @@
 }
 
 @keyframes accordion-down {
-  from {
-    height: 0;
-  }
-  to {
-    height: var(--radix-accordion-content-height);
-  }
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
 }
 
 @keyframes accordion-up {
-  from {
-    height: var(--radix-accordion-content-height);
-  }
-  to {
-    height: 0;
-  }
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
 }
 
 @layer base {
   :root {
     color-scheme: light;
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 192 22% 98%;
+    --foreground: 192 44% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 192 44% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --popover-foreground: 192 44% 11%;
+    --primary: 191 66% 36%;            /* AsciiDoc teal #1F8197 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 191 22% 94%;
+    --secondary-foreground: 192 40% 16%;
+    --muted: 191 20% 95%;
+    --muted-foreground: 196 14% 42%;
+    --accent: 190 38% 92%;
+    --accent-foreground: 191 66% 22%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 196 20% 88%;
+    --input: 196 20% 86%;
+    --ring: 191 66% 36%;
     --radius: 0.5rem;
+
+    /* editor syntax palette (brand-cohesive) */
+    --syntax-heading: 191 66% 36%;
+    --syntax-attr: 34 58% 42%;
+    --syntax-link: 214 58% 46%;
+    --syntax-string: 152 46% 35%;
+    --syntax-keyword: 280 34% 52%;
+    --syntax-comment: 196 14% 48%;
+    --syntax-punct: 196 12% 44%;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 195 38% 8%;           /* deep ink-teal #0E2A30-family */
+    --foreground: 190 22% 92%;
+    --card: 195 34% 11%;
+    --card-foreground: 190 22% 92%;
+    --popover: 195 34% 11%;
+    --popover-foreground: 190 22% 92%;
+    --primary: 189 54% 56%;            /* lifted teal for contrast on dark */
+    --primary-foreground: 195 45% 9%;
+    --secondary: 195 26% 17%;
+    --secondary-foreground: 190 22% 92%;
+    --muted: 195 24% 16%;
+    --muted-foreground: 192 14% 62%;
+    --accent: 195 28% 18%;
+    --accent-foreground: 189 54% 72%;
+    --destructive: 0 58% 44%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 195 24% 18%;
+    --input: 195 24% 20%;
+    --ring: 189 54% 56%;
+
+    /* editor syntax palette (brand-cohesive) */
+    --syntax-heading: 189 54% 62%;
+    --syntax-attr: 38 62% 62%;
+    --syntax-link: 214 64% 72%;
+    --syntax-string: 152 44% 62%;
+    --syntax-keyword: 280 46% 74%;
+    --syntax-comment: 192 14% 56%;
+    --syntax-punct: 192 12% 58%;
   }
 }
 

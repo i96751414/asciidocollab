@@ -57,3 +57,5 @@ export { DownloadFileUseCase } from './project/download-file';
 export type { DownloadFileResult } from './project/download-file';
 export { DownloadProjectUseCase } from './project/download-project';
 export type { DownloadProjectResult, DownloadProjectFile } from './project/download-project';
+export { OpenCollaborationSessionUseCase } from './project/open-collaboration-session';
+export { CloseCollaborationSessionUseCase } from './project/close-collaboration-session';

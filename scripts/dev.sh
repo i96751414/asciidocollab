@@ -11,6 +11,13 @@ die()     { echo -e "${RED}[dev]${RESET} $*" >&2; exit 1; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Capture a sane terminal snapshot up front so cleanup can restore it after a
+# TUI child (next dev) leaves it in raw / application cursor-key mode, and load
+# the process-tree stop helper so cleanup leaves no orphaned next-server, etc.
+source "$ROOT/scripts/lib/term.sh"
+source "$ROOT/scripts/lib/proc.sh"
+term_save
+
 # ─── Prerequisites ────────────────────────────────────────────────────────────
 check_cmd() { command -v "$1" &>/dev/null || die "Required command not found: $1. See README for install instructions."; }
 check_cmd node
@@ -53,7 +60,7 @@ set -a; source "$ENV_FILE"; set +a
 # because the official postgres image only accepts connections after its
 # POSTGRES_DB initialisation script has run.
 info "Starting infrastructure services (PostgreSQL + Mailpit) …"
-docker compose -f "$ROOT/docker-compose.yml" up -d --wait
+docker compose -f "$ROOT/docker-compose.dev.yml" up -d --wait
 success "PostgreSQL is ready."
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
@@ -73,14 +80,25 @@ success "Database schema applied."
 
 # ─── Process cleanup on exit ──────────────────────────────────────────────────
 API_PID=""
+COLLAB_PID=""
 WEB_PID=""
 
+_cleaned=0
 cleanup() {
+  # Guard against running twice (the INT trap fires, then the EXIT trap fires
+  # again as the script unwinds).
+  [[ "$_cleaned" == 1 ]] && return 0
+  _cleaned=1
+  trap '' INT TERM   # ignore further Ctrl-C while shutting down
   echo ""
   info "Shutting down …"
-  [[ -n "$API_PID" ]] && kill "$API_PID" 2>/dev/null || true
-  [[ -n "$WEB_PID" ]] && kill "$WEB_PID" 2>/dev/null || true
-  info "Stopped. Docker services are still running — stop them with: docker compose down"
+  # Stop each server and its children (stop_tree blocks until they exit, so the
+  # terminal is free to restore and no next-server is left orphaned).
+  stop_tree "$API_PID"
+  stop_tree "$COLLAB_PID"
+  stop_tree "$WEB_PID"
+  term_restore
+  info "Stopped. Docker services are still running — stop them with: docker compose -f docker-compose.dev.yml down"
 }
 trap cleanup EXIT INT TERM
 
@@ -88,6 +106,10 @@ trap cleanup EXIT INT TERM
 info "Starting API server …"
 (cd "$ROOT/apps/api" && NODE_ENV=development node dist/index.js) &
 API_PID=$!
+
+info "Starting collab server …"
+(cd "$ROOT/apps/collab" && NODE_ENV=development node dist/index.js) &
+COLLAB_PID=$!
 
 info "Starting web app …"
 (cd "$ROOT/apps/web" && pnpm dev) &
@@ -99,12 +121,13 @@ echo -e "  ${GREEN}AsciiDoCollab is running${RESET}"
 echo ""
 echo -e "  Web app   →  ${CYAN}http://localhost:3000${RESET}"
 echo -e "  API       →  ${CYAN}http://localhost:4000${RESET}"
+echo -e "  Collab    →  ${CYAN}ws://localhost:${ASCIIDOCOLLAB_COLLAB_PORT:-4002}${RESET}"
 echo -e "  API docs  →  ${CYAN}http://localhost:4000/documentation${RESET}"
 echo -e "  Email UI  →  ${CYAN}http://localhost:8025${RESET}  (captured emails)"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""
 echo -e "  Press ${YELLOW}Ctrl+C${RESET} to stop the app servers."
-echo -e "  Run ${YELLOW}docker compose down${RESET} to also stop the database."
+echo -e "  Run ${YELLOW}docker compose -f docker-compose.dev.yml down${RESET} to also stop the database."
 echo ""
 
-wait "$API_PID" "$WEB_PID"
+wait "$API_PID" "$COLLAB_PID" "$WEB_PID"

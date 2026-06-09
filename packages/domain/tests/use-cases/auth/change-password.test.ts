@@ -123,6 +123,65 @@ describe('ChangePasswordUseCase', () => {
     });
   });
 
+  describe('authentication guards', () => {
+    test('returns InvalidPasswordError when user is not found', async () => {
+      (userRepo.findById as jest.Mock).mockResolvedValue(null);
+
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('InvalidPasswordError');
+    });
+
+    test('returns InvalidPasswordError when current password is wrong', async () => {
+      (passwordHasher.verify as jest.Mock).mockResolvedValue(false);
+
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'WrongPassword1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('InvalidPasswordError');
+    });
+
+    test('returns PasswordReuseError when new password matches a recent password', async () => {
+      // Simulate a user with one entry in password history
+      const userWithHistory = new User(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        Email.create('test@example.com'),
+        'Test User',
+        'current-hash',
+        ['old-hash-1'],
+        null,
+        null,
+        new Timestamps(),
+      );
+      (userRepo.findById as jest.Mock).mockResolvedValue(userWithHistory);
+      // Current password verifies OK, but new password matches a history hash
+      (passwordHasher.verify as jest.Mock)
+        .mockResolvedValueOnce(true)  // current password is correct
+        .mockResolvedValueOnce(true); // new password matches 'old-hash-1'
+
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'OldP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('PasswordReuseError');
+    });
+  });
+
   describe('breach checker failure resilience', () => {
     test('allows password change when breach checker throws', async () => {
       (breachChecker.isBreached as jest.Mock).mockRejectedValue(new Error('HIBP API unavailable'));

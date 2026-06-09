@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { GetProjectTreeUseCase } from '@asciidocollab/domain';
 import { fileTreeGetRoutes } from '../../src/routes/projects/file-tree-get';
 
 jest.mock('../../src/plugins/require-auth', () => ({
@@ -126,6 +127,21 @@ describe('GET /projects/:projectId/files', () => {
 
     expect(response.statusCode).toBe(403);
 
+    await app.close();
+  });
+
+  it('returns 500 INTERNAL_ERROR for unexpected use case error', async () => {
+    jest.spyOn(GetProjectTreeUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new Error('unexpected failure') as never,
+    });
+    const app = buildTestServer();
+    await app.register(fileTreeGetRoutes);
+    await app.ready();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files` });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
+    jest.restoreAllMocks();
     await app.close();
   });
 });

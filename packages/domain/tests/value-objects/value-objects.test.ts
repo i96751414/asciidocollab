@@ -182,6 +182,15 @@ describe('Value Objects', () => {
     test('rejects Windows reserved name NUL with extension', () => {
       expect(() => FileName.create('NUL.txt')).toThrow(ValidationError);
     });
+
+    test('implements equals()', () => {
+      const a = FileName.create('document.adoc');
+      const b = FileName.create('document.adoc');
+      const c = FileName.create('other.adoc');
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+      expect(a.equals(null)).toBe(false);
+    });
   });
 
   describe('ProjectName', () => {
@@ -212,6 +221,15 @@ describe('Value Objects', () => {
       const exactName = 'a'.repeat(100);
       const name = ProjectName.create(exactName);
       expect(name.value).toBe(exactName);
+    });
+
+    test('implements equals()', () => {
+      const a = ProjectName.create('My Project');
+      const b = ProjectName.create('My Project');
+      const c = ProjectName.create('Other Project');
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+      expect(a.equals(null)).toBe(false);
     });
   });
 
@@ -254,6 +272,15 @@ describe('Value Objects', () => {
       const cat = TemplateCategory.create(exact);
       expect(cat.value).toBe(exact);
     });
+
+    test('implements equals()', () => {
+      const a = TemplateCategory.create('documentation');
+      const b = TemplateCategory.create('documentation');
+      const c = TemplateCategory.create('tutorial');
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+      expect(a.equals(null)).toBe(false);
+    });
   });
 
   describe('Role', () => {
@@ -276,6 +303,15 @@ describe('Value Objects', () => {
     test('rejects invalid provider', () => {
       expect(() => GitProvider.create('gitea')).toThrow();
     });
+
+    test('implements equals()', () => {
+      const a = GitProvider.create('github');
+      const b = GitProvider.create('github');
+      const c = GitProvider.create('gitlab');
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+      expect(a.equals(null)).toBe(false);
+    });
   });
 
   describe('FileNodeType enum', () => {
@@ -286,6 +322,15 @@ describe('Value Objects', () => {
 
     test('rejects invalid type', () => {
       expect(() => FileNodeType.create('symlink')).toThrow();
+    });
+
+    test('implements equals()', () => {
+      const file = FileNodeType.create('file');
+      const file2 = FileNodeType.create('file');
+      const folder = FileNodeType.create('folder');
+      expect(file.equals(file2)).toBe(true);
+      expect(file.equals(folder)).toBe(false);
+      expect(file.equals(null)).toBe(false);
     });
   });
 });

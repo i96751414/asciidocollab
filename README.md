@@ -1,4 +1,4 @@
-# AsciiDoCollab
+<p align="center"><img src="assets/banner.png" alt="AsciiDoCollab" width="100%"></p>
 
 > **⚠ Pre-MVP — not ready for production use.**
 > The editor and file management are built and working. Real-time co-editing — the central feature — is not yet

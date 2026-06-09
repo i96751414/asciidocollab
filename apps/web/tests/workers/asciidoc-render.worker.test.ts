@@ -236,6 +236,79 @@ describe('asciidoc-render.worker', () => {
     expect(result.html).toContain('<h1 data-source-line="1">');
   });
 
+  // (m) source blocks with a known language are syntax-highlighted (highlight.js)
+  it('applies highlight.js token spans to a known-language source block', () => {
+    const codeHtml =
+      '<div class="listingblock"><div class="content">' +
+      '<pre class="highlight"><code class="language-ruby" data-lang="ruby">' +
+      "def hello(name = &#39;World&#39;)\n  puts &quot;hi&quot;\nend" +
+      '</code></pre></div></div>';
+    mockConvert.mockReturnValueOnce(codeHtml);
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 30, content: '[,ruby]\n----\ndef hello\nend\n----' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    // The <pre> is marked as highlighted and ruby keywords become hljs spans.
+    expect(result.html).toContain('class="highlight hljs"');
+    expect(result.html).toContain('hljs-keyword');
+    // The escaped quote entities are unescaped before highlighting and the
+    // string body is re-emitted as an hljs-string token.
+    expect(result.html).toContain('hljs-string');
+  });
+
+  // (n) source blocks with an unknown language fall back to auto-detection
+  it('auto-detects highlighting for an unknown language', () => {
+    const codeHtml =
+      '<pre class="highlight"><code class="language-totally-unknown" data-lang="totally-unknown">' +
+      'const x = 1;' +
+      '</code></pre>';
+    mockConvert.mockReturnValueOnce(codeHtml);
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 31, content: 'code' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    expect(result.html).toContain('class="highlight hljs"');
+  });
+
+  // (p) HTML entities in code are unescaped in the correct order: a literal
+  // "&lt;" the user typed is emitted by Asciidoctor as "&amp;lt;". Decoding must
+  // replace "&amp;" LAST, so it round-trips back to "&amp;lt;" after highlight.js
+  // re-escapes — NOT collapse to "&lt;" (which would mean "&amp;" was decoded
+  // first and a real "<" was wrongly produced).
+  it('unescapes code entities in the correct order (ampersand last)', () => {
+    const codeHtml =
+      '<pre class="highlight"><code class="language-ruby" data-lang="ruby">' +
+      '# &amp;lt;' + // raw code text the user typed: "# &lt;"
+      '</code></pre>';
+    mockConvert.mockReturnValueOnce(codeHtml);
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 33, content: '[,ruby]\n----\n# &lt;\n----' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    // The literal "&lt;" text survives the decode→highlight→re-escape round-trip.
+    expect(result.html).toContain('&amp;lt;');
+  });
+
+  // (o) plain literal blocks (no language) are left untouched
+  it('leaves a plain literal block (no language) unmodified', () => {
+    const literalHtml = '<div class="literalblock"><div class="content"><pre>just text</pre></div></div>';
+    mockConvert.mockReturnValueOnce(literalHtml);
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 32, content: '----\njust text\n----' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    expect(result.html).toBe(literalHtml);
+    expect(result.html).not.toContain('hljs');
+  });
+
   // (k) level-0 section does not add a blockSourceLine entry (no id injection attempt)
   it('level-0 section is excluded from blockSourceLines so no id-based injection is attempted', () => {
     const level0Section = makeBlock({ lineNumber: 1, id: null, context: 'section', level: 0 });

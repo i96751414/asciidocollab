@@ -26,3 +26,4 @@ export { CannotRemoveSelfError } from './cannot-remove-self';
 export { CannotModifySelfAdminError } from './cannot-modify-self-admin';
 export { ContentNotFoundError } from './content-not-found';
 export { KeyBindingConflictError } from './key-binding-conflict';
+export { ActiveCollaborationSessionError } from './active-collaboration-session';

@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { ListAuditLogsUseCase } from '@asciidocollab/domain';
 import { auditLogsRoute } from '../../../src/routes/admin/audit-logs';
 
 jest.mock('../../../src/plugins/require-auth', () => ({
@@ -132,5 +133,64 @@ describe('Rate limiting', () => {
     await app.inject({ method: 'GET', url: '/admin/audit-logs' });
     const response = await app.inject({ method: 'GET', url: '/admin/audit-logs' });
     expect(response.statusCode).toBe(429);
+  });
+});
+
+describe('GET /admin/audit-logs — use case failure', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('returns 403 FORBIDDEN when use case returns failure', async () => {
+    jest.spyOn(ListAuditLogsUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: Object.assign(new Error('Permission denied'), { name: 'PermissionDeniedError' }) as never,
+    });
+    const app = buildTestServer();
+    const response = await app.inject({ method: 'GET', url: '/admin/audit-logs' });
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
+  });
+});
+
+describe('GET /admin/audit-logs — filter and DTO branches', () => {
+  test('parses fromDate and toDate when provided', async () => {
+    const app = buildTestServer();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/audit-logs?fromDate=2024-01-01T00:00:00Z&toDate=2024-12-31T23:59:59Z',
+    });
+    expect(response.statusCode).toBe(200);
+    const repos = (app as unknown as { repos: { auditLog: { findWithFilters: jest.Mock } } }).repos;
+    expect(repos.auditLog.findWithFilters).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromDate: expect.any(Date),
+        toDate: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+  });
+
+  test('maps null userId to null in DTO', async () => {
+    const app = buildTestServer();
+    // Override mock to return log with no userId
+    const repos = (app as unknown as { repos: { auditLog: { findWithFilters: jest.Mock } } }).repos;
+    repos.auditLog.findWithFilters.mockResolvedValue({
+      items: [{
+        id: { value: 'log-null-user' },
+        userId: null,
+        projectId: null,
+        action: 'ACTION_NULL',
+        resourceType: 'PAGE',
+        resourceId: '/page',
+        timestamp: new Date('2024-06-01T00:00:00Z'),
+        metadata: {},
+      }],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+    const response = await app.inject({ method: 'GET', url: '/admin/audit-logs' });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.items[0].userId).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
 import { Timestamps } from '../../value-objects/timestamps';
+import { cascadePathUpdate, buildParentPath } from './file-tree-helpers';
 
 /** Moves a file or folder to a different parent folder within the same project. */
 export class MoveFileUseCase {
@@ -48,7 +49,7 @@ export class MoveFileUseCase {
       return { success: false, error: new FileNodeNotFoundError(newParentId.value) };
     }
 
-    const parentPath = newParent.path.value === '/' ? '/' : `${newParent.path.value}/`;
+    const parentPath = buildParentPath(newParent.path.value);
     const newPath = FilePath.create(`${parentPath}${fileNode.name}`);
 
     const moveResult = await this.fileStore.move(projectId, fileNode.path, newPath);
@@ -68,29 +69,9 @@ export class MoveFileUseCase {
     await this.fileNodeRepo.save(updated);
 
     if (fileNode.type.value === 'folder') {
-      await this.cascadePathUpdate(fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+      await cascadePathUpdate(this.fileNodeRepo, fileNodeId, fileNode.path.value + '/', newPath.value + '/');
     }
 
     return { success: true, value: { fileNodeId, newPath } };
-  }
-
-  private async cascadePathUpdate(folderId: FileNodeId, oldPathPrefix: string, newPathPrefix: string): Promise<void> {
-    const children = await this.fileNodeRepo.findByParentId(folderId);
-    for (const child of children) {
-      const newChildPath = FilePath.create(newPathPrefix + child.path.value.slice(oldPathPrefix.length));
-      const updatedChild = new FileNode(
-        child.id,
-        child.projectId,
-        child.parentId,
-        child.name,
-        child.type,
-        newChildPath,
-        new Timestamps(child.createdAt, new Date()),
-      );
-      await this.fileNodeRepo.save(updatedChild);
-      if (child.type.value === 'folder') {
-        await this.cascadePathUpdate(child.id, oldPathPrefix + child.name + '/', newPathPrefix + child.name + '/');
-      }
-    }
   }
 }

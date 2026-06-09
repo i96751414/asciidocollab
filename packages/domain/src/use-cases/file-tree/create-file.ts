@@ -13,6 +13,7 @@ import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { PermissionDeniedError } from '../../errors/permission-denied';
+import { buildParentPath } from './file-tree-helpers';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
@@ -50,7 +51,7 @@ export class CreateFileUseCase {
     }
 
     FileName.create(name); // throws ValidationError for invalid names
-    const parentPath = parent.path.value === '/' ? '/' : `${parent.path.value}/`;
+    const parentPath = buildParentPath(parent.path.value);
     const newPath = FilePath.create(`${parentPath}${name}`);
 
     const storeResult = await this.fileStore.createExclusive(projectId, newPath, initialContent);

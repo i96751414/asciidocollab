@@ -8,6 +8,7 @@ import {
   PermissionDeniedError,
   FileNodeNotFoundError,
   ContentNotFoundError,
+  ActiveCollaborationSessionError,
 } from '@asciidocollab/domain';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
 
@@ -70,11 +71,15 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         request.server.repos.fileNode,
         request.server.repos.document,
         request.server.stores.fileStore,
+        request.server.repos.collaborationSession,
       );
 
       const result = await useCase.execute(actorId, projectId, fileNodeId, content);
 
       if (!result.success) {
+        if (result.error instanceof ActiveCollaborationSessionError) {
+          return reply.status(409).send({ error: { code: 'CONFLICT', message: 'This file is currently being edited by active collaborators. Please try again later.' } });
+        }
         if (result.error instanceof PermissionDeniedError) {
           return reply.status(403).send({ error: { code: 'FORBIDDEN', message: result.error.message } });
         }

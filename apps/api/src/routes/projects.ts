@@ -80,8 +80,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
 
     const projectsWithData = await Promise.all(
       result.value.projects.map(async (project) => {
-        const members = await request.server.repos.projectMember.findByProjectId(project.id);
+        const [members, fileNodes] = await Promise.all([
+          request.server.repos.projectMember.findByProjectId(project.id),
+          request.server.repos.fileNode.findByProjectId(project.id),
+        ]);
         const memberCount = members.length;
+        const fileCount = fileNodes.filter((node) => node.type.value === 'file').length;
 
         const userMembership = members.find((m) => m.userId.value === userId);
 
@@ -102,6 +106,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
           rootFolderId: project.rootFolderId?.value ?? null,
           archivedAt: project.archivedAt?.toISOString() ?? null,
           memberCount,
+          fileCount,
           role: userMembership?.role.value ?? 'viewer',
           createdAt: project.createdAt.toISOString(),
           updatedAt: project.updatedAt.toISOString(),

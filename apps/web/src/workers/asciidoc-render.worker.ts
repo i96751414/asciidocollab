@@ -1,8 +1,46 @@
 import Asciidoctor from 'asciidoctor';
+import hljs from 'highlight.js/lib/common';
 
 interface RenderRequest {
   requestId: number;
   content: string;
+}
+
+/** Reverses the minimal HTML escaping Asciidoctor applies inside code blocks. */
+function unescapeHtml(value: string): string {
+  return value
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&amp;', '&');
+}
+
+// Matches the <pre class="highlight"><code class="language-X" ...>...</code></pre>
+// markup Asciidoctor emits for a source block that declares a language. The code
+// body is HTML-escaped, so the only literal "</code>" is the real closing tag,
+// which makes the lazy capture safe.
+const SOURCE_BLOCK_RE =
+  /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g;
+
+/**
+ * Applies highlight.js syntax highlighting to every source block in the rendered
+ * HTML. Runs in the worker (string-only, no DOM) so the main thread stays free,
+ * and emits hljs token spans (.hljs-*) that the preview stylesheet themes.
+ */
+function highlightCodeBlocks(html: string): string {
+  return html.replaceAll(SOURCE_BLOCK_RE, (match, lang: string, attributes: string, body: string) => {
+    const code = unescapeHtml(body);
+    try {
+      const result = hljs.getLanguage(lang)
+        ? hljs.highlight(code, { language: lang })
+        : hljs.highlightAuto(code);
+      return `<pre class="highlight hljs"><code class="language-${lang}"${attributes}>${result.value}</code></pre>`;
+    } catch {
+      // Unknown/unsupported language — keep the original escaped markup.
+      return match;
+    }
+  });
 }
 
 interface RenderResult {
@@ -65,6 +103,10 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     }
 
     let html = String(asciidocDocument.convert());
+
+    // Syntax-highlight source blocks before the source-line pass below; this
+    // only rewrites the <code> bodies and never touches id="..." attributes.
+    html = highlightCodeBlocks(html);
 
     // Inject data-source-line next to each id="..." attribute in a single pass
     // so the preview hook can use querySelector('[data-source-line="N"]').

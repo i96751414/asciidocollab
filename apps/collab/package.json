@@ -1,0 +1,36 @@
+{
+  "name": "@asciidocollab/collab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "mutate": "stryker run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@asciidocollab/db": "workspace:*",
+    "@asciidocollab/domain": "workspace:*",
+    "@asciidocollab/infrastructure": "workspace:*",
+    "@asciidocollab/shared": "workspace:*",
+    "@hocuspocus/server": "^2.15.3",
+    "convict": "^6.2.5",
+    "pino": "^10.3.1",
+    "yjs": "^13.6.31"
+  },
+  "devDependencies": {
+    "@asciidocollab/testing": "workspace:*",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/jest-runner": "^9.6.1",
+    "@types/convict": "^6.1.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.12.4",
+    "jest": "^30.4.0",
+    "testcontainers": "^12.0.1",
+    "ts-jest": "^29.4.0"
+  }
+}

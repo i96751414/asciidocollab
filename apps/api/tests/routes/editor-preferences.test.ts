@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { GetEditorPreferencesUseCase, SaveEditorPreferencesUseCase } from '@asciidocollab/domain';
 import { editorPreferencesRoutes } from '../../src/routes/editor-preferences';
 
 jest.mock('../../src/plugins/require-auth', () => ({
@@ -117,5 +118,36 @@ describe('Editor Preferences Routes', () => {
     const app = buildTestServer(null);
     const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
     expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('Editor Preferences Routes — error paths', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('GET returns 500 when use case fails', async () => {
+    jest.spyOn(GetEditorPreferencesUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new Error('db error') as never,
+    });
+    const app = buildTestServer(null);
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body).error.code).toBe('INTERNAL_ERROR');
+  });
+
+  test('PUT returns 400 VALIDATION_ERROR when use case fails', async () => {
+    jest.spyOn(SaveEditorPreferencesUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new Error('invalid theme') as never,
+    });
+    const app = buildTestServer(null);
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/auth/me/editor-preferences',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fontSize: 14, theme: 'default' }),
+    });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
   });
 });

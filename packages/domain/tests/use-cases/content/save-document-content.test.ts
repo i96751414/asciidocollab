@@ -4,6 +4,8 @@ import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file
 import { InMemoryDocumentRepository } from '../../ports/file-tree/in-memory-document.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
+import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
+import { ActiveCollaborationSessionError } from '../../../src/errors/active-collaboration-session';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
@@ -163,5 +165,97 @@ describe('SaveDocumentContentUseCase', () => {
     // DB ContentId must not have changed
     const documentAfter = await documentRepo.findByFileNodeId(fileNodeId);
     expect(documentAfter?.contentId.value).toBe(contentIdBefore);
+  });
+});
+
+describe('SaveDocumentContentUseCase — active-session guard', () => {
+  const actorId2 = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const projectId2 = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
+  const rootFolderId2 = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
+  const fileNodeId2 = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
+  const documentId2 = DocumentId.create('bb0e8400-e29b-41d4-a716-446655440007');
+  const filePath2 = FilePath.create('/test.adoc');
+
+  async function buildRepos(withActiveSession: boolean) {
+    const projectMemberRepo = new InMemoryProjectMemberRepository();
+    const fileNodeRepo = new InMemoryFileNodeRepository();
+    const documentRepo = new InMemoryDocumentRepository();
+    const fileStore = new InMemoryProjectFileStore();
+    const collabSessionRepo = new InMemoryCollaborationSessionRepository();
+
+    const rootFolder = new FileNode(rootFolderId2, projectId2, null, 'root', FileNodeType.create('folder'), FilePath.create('/'));
+    await fileNodeRepo.save(rootFolder);
+
+    const fileNode2 = new FileNode(fileNodeId2, projectId2, rootFolderId2, 'test.adoc', FileNodeType.create('file'), filePath2);
+    await fileNodeRepo.save(fileNode2);
+
+    const yjsStateId2 = YjsStateId.create('dd0e8400-e29b-41d4-a716-446655440009');
+    const document2 = new Document(
+      documentId2,
+      fileNodeId2,
+      ContentId.create('cc0e8400-e29b-41d4-a716-446655440008'),
+      yjsStateId2,
+      MimeType.create('text/asciidoc'),
+    );
+    await documentRepo.save(document2);
+    await fileStore.write(projectId2, filePath2, Buffer.from('initial'));
+
+    const member2 = new ProjectMember(projectId2, actorId2, Role.create('editor'));
+    await projectMemberRepo.addMember(member2);
+
+    if (withActiveSession) {
+      await collabSessionRepo.open(projectId2, documentId2);
+    }
+
+    return { projectMemberRepo, fileNodeRepo, documentRepo, fileStore, collabSessionRepo };
+  }
+
+  it('(a) active session → returns ActiveCollaborationSessionError without writing', async () => {
+    const repos = await buildRepos(true);
+    const useCase = new SaveDocumentContentUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.fileStore,
+      repos.collabSessionRepo,
+    );
+
+    const result = await useCase.execute(actorId2, projectId2, fileNodeId2, Buffer.from('new content'));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ActiveCollaborationSessionError);
+    }
+    const stored = await repos.fileStore.read(projectId2, filePath2);
+    expect(stored?.toString()).toBe('initial');
+  });
+
+  it('(b) no active session → write proceeds normally', async () => {
+    const repos = await buildRepos(false);
+    const useCase = new SaveDocumentContentUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.fileStore,
+      repos.collabSessionRepo,
+    );
+
+    const result = await useCase.execute(actorId2, projectId2, fileNodeId2, Buffer.from('new content'));
+
+    expect(result.success).toBe(true);
+  });
+
+  it('(c) no collaborationSessionRepo → write always proceeds (backwards-compatible)', async () => {
+    const repos = await buildRepos(false);
+    const useCase = new SaveDocumentContentUseCase(
+      repos.projectMemberRepo,
+      repos.fileNodeRepo,
+      repos.documentRepo,
+      repos.fileStore,
+    );
+
+    const result = await useCase.execute(actorId2, projectId2, fileNodeId2, Buffer.from('no repo'));
+
+    expect(result.success).toBe(true);
   });
 });

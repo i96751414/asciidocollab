@@ -43,4 +43,25 @@ describe('UpdateKeyBindingUseCase', () => {
     const result = await useCase.execute(userId, 'file-tree:rename', 'F3');
     expect(result.success).toBe(true);
   });
+
+  it('does not conflict when an existing binding uses a different key combo', async () => {
+    // file-tree:delete is custom-bound to Alt+D — no conflict with F3 for file-tree:rename
+    await repo.upsert(userId, 'file-tree:delete', 'Alt+D');
+    const result = await useCase.execute(userId, 'file-tree:rename', 'F3');
+    expect(result.success).toBe(true);
+  });
+
+  it('skips the action being updated when checking for same-action binding conflicts', async () => {
+    // Re-binding an action to a different combo should not conflict with its own existing binding
+    await repo.upsert(userId, 'file-tree:rename', 'F4');
+    const result = await useCase.execute(userId, 'file-tree:rename', 'F3');
+    expect(result.success).toBe(true);
+  });
+
+  it('conflicts with the default key combo of another action in the same namespace', async () => {
+    // file-tree:delete defaults to 'Delete'; trying to bind file-tree:rename to 'Delete' should fail
+    const result = await useCase.execute(userId, 'file-tree:rename', 'Delete');
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(KeyBindingConflictError);
+  });
 });

@@ -38,6 +38,7 @@ module.exports = tseslint.config(
           './packages/infrastructure/tsconfig.eslint.json',
           './packages/testing/tsconfig.json',
           './apps/api/tsconfig.eslint.json',
+          './apps/collab/tsconfig.eslint.json',
           './apps/web/tsconfig.eslint.json',
         ],
         tsconfigRootDir: __dirname,

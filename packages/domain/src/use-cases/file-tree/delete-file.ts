@@ -10,9 +10,11 @@ import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { YjsStateStore } from '../../ports/storage/yjs-state-store';
 import { YjsStateId } from '../../value-objects/yjs-state-id';
+import { CollaborationSessionRepository } from '../../ports/project/collaboration-session.repository';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../../errors/cannot-delete-root-folder';
+import { ActiveCollaborationSessionError } from '../../errors/active-collaboration-session';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { randomUUID } from 'crypto';
@@ -31,6 +33,7 @@ export class DeleteFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly yjsStateStore?: YjsStateStore,
+    private readonly collaborationSessionRepo?: CollaborationSessionRepository,
   ) {}
 
   /**
@@ -63,8 +66,26 @@ export class DeleteFileUseCase {
       return { success: false, error: new CannotDeleteRootFolderError(fileNodeId.value) };
     }
 
+    // Hoist document lookup to avoid a second DB round-trip in the deletion path below.
+    const document = fileNode.type.value === 'file'
+      ? await this.documentRepo.findByFileNodeId(fileNodeId)
+      : null;
+
+    if (this.collaborationSessionRepo) {
+      if (fileNode.type.value === 'file') {
+        if (document) {
+          const isActive = await this.collaborationSessionRepo.isActive(projectId, document.id);
+          if (isActive) {
+            return { success: false, error: new ActiveCollaborationSessionError(document.id) };
+          }
+        }
+      } else {
+        const activeError = await this.findActiveSessionInFolder(fileNodeId, projectId, this.collaborationSessionRepo);
+        if (activeError) return { success: false, error: activeError };
+      }
+    }
+
     if (fileNode.type.value === 'file') {
-      const document = await this.documentRepo.findByFileNodeId(fileNodeId);
       if (document) {
         await this.documentRepo.delete(document.id);
       }
@@ -99,6 +120,30 @@ export class DeleteFileUseCase {
     await this.auditLogRepo.save(auditLog);
 
     return { success: true, value: undefined };
+  }
+
+  private async findActiveSessionInFolder(
+    folderId: FileNodeId,
+    projectId: ProjectId,
+    collaborationSessionRepo: CollaborationSessionRepository,
+  ): Promise<ActiveCollaborationSessionError | null> {
+    const stack: FileNodeId[] = [folderId];
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      const children = await this.fileNodeRepo.findByParentId(currentId);
+      for (const child of children) {
+        if (child.type.value === 'file') {
+          const document = await this.documentRepo.findByFileNodeId(child.id);
+          if (document) {
+            const isActive = await collaborationSessionRepo.isActive(projectId, document.id);
+            if (isActive) return new ActiveCollaborationSessionError(document.id);
+          }
+        } else {
+          stack.push(child.id);
+        }
+      }
+    }
+    return null;
   }
 
   private async deleteFolderRecursively(folderId: FileNodeId, projectId: ProjectId): Promise<void> {

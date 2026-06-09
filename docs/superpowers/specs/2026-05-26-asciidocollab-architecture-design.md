@@ -118,7 +118,8 @@ asciidocollab/
 ├── docker/
 │   ├── git-sandbox/              # Dockerfile for sandboxed git operations
 │   └── pdf/                      # Dockerfile for Asciidoctor-PDF Ruby service
-├── docker-compose.yml
+├── docker-compose.dev.yml
+├── docker-compose.e2e.yml
 ├── docker-compose.prod.yml
 └── pnpm-workspace.yaml
 ```

@@ -1,6 +1,7 @@
 import { Document } from '../../entities/document';
 import { DocumentId } from '../../value-objects/document-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
+import { YjsStateId } from '../../value-objects/yjs-state-id';
 
 /**
  * Repository interface for managing Document persistence.
@@ -41,9 +42,17 @@ export interface DocumentRepository {
 
   /**
    * Removes a document by its unique identifier.
-   * 
+   *
    * @param id - The unique identifier of the document to delete.
    * @returns A promise that resolves when the operation completes.
    */
   delete(id: DocumentId): Promise<void>;
+
+  /**
+   * Finds the document whose Yjs state file is identified by the given yjsStateId.
+   *
+   * @param yjsStateId - The Yjs state identifier to look up.
+   * @returns The matching document, or null if not found.
+   */
+  findByYjsStateId(yjsStateId: YjsStateId): Promise<Document | null>;
 }

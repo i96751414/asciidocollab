@@ -57,8 +57,9 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      onDragOver={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}
-      onDrop={node.type === 'folder' ? (event) => { event.stopPropagation(); const sourceId = event.dataTransfer.getData('text/plain'); onFolderDrop?.(node.id, sourceId); } : undefined}
+      onDragEnter={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; } : undefined}
+      onDragOver={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; } : undefined}
+      onDrop={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); const sourceId = event.dataTransfer.getData('text/plain'); onFolderDrop?.(node.id, sourceId); } : undefined}
     >
       {node.type === 'folder' ? (
         <>

@@ -64,11 +64,12 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  members       ProjectMember[]
-  fileNodes     FileNode[]
-  gitRepository GitRepository?
-  auditLogs     AuditLog[]
-  templates     Template[]      @relation("TemplateSourceProject")
+  members                ProjectMember[]
+  fileNodes              FileNode[]
+  gitRepository          GitRepository?
+  auditLogs              AuditLog[]
+  templates              Template[]      @relation("TemplateSourceProject")
+  collaborationSessions  CollaborationSession[]
 }
 
 model ProjectMember {
@@ -113,7 +114,23 @@ model Document {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  fileNode FileNode @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
+  fileNode              FileNode               @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
+  collaborationSessions CollaborationSession[]
+}
+
+model CollaborationSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  documentId String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, documentId])
+  @@index([projectId])
+  @@index([documentId])
+  @@map("collaboration_sessions")
 }
 
 model Asset {

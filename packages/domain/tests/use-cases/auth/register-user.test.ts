@@ -214,6 +214,30 @@ describe('RegisterUserUseCase', () => {
     });
   });
 
+  describe('first-user password validation', () => {
+    test('returns ValidationError when first-user password is too weak', async () => {
+      const result = await useCase.execute(
+        Email.create('first@example.com'),
+        'First User',
+        'weak',
+      );
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('ValidationError');
+    });
+
+    test('returns ValidationError when first-user password is too common', async () => {
+      (commonPasswordChecker.isCommon as jest.Mock).mockReturnValue(true);
+
+      const result = await useCase.execute(
+        Email.create('first@example.com'),
+        'First User',
+        'SecureP@ssw0rd123!',
+      );
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('ValidationError');
+    });
+  });
+
   describe('result interface', () => {
     test('result contains userId for first user', async () => {
       (breachChecker.isBreached as jest.Mock).mockResolvedValue(false);
@@ -347,6 +371,40 @@ describe('RegisterUserUseCase', () => {
 
       // After the fix (save-first order), email must NOT have been sent when save failed.
       expect(emailVerificationNotifier.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    test('returns ValidationError when self-registration password is too weak', async () => {
+      const result = await useCase.execute(
+        Email.create('weakpw@example.com'),
+        'User',
+        'weak',
+      );
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('ValidationError');
+    });
+
+    test('returns ValidationError when self-registration password is too common', async () => {
+      (commonPasswordChecker.isCommon as jest.Mock).mockReturnValue(true);
+
+      const result = await useCase.execute(
+        Email.create('commonpw@example.com'),
+        'User',
+        'SecureP@ssw0rd123!',
+      );
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('ValidationError');
+    });
+
+    test('returns ValidationError when self-registration password is breached', async () => {
+      (breachChecker.isBreached as jest.Mock).mockResolvedValue(true);
+
+      const result = await useCase.execute(
+        Email.create('breached@example.com'),
+        'User',
+        'SecureP@ssw0rd123!',
+      );
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.name).toBe('ValidationError');
     });
 
     // ── Bug #2 supplementary: new self-reg user reflects emailSent:true ───────

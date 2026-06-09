@@ -6,9 +6,9 @@ import { ProjectMemberRepository } from '../../ports/project/project-member.repo
 import { AssetRepository } from '../../ports/file-tree/asset.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { ContentNotFoundError } from '../../errors/content-not-found';
+import { requireMemberAndFileNode } from './content-helpers';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 
@@ -31,15 +31,9 @@ export class GetAssetContentUseCase {
     projectId: ProjectId,
     fileNodeId: FileNodeId,
   ): Promise<Result<{ bytes: Buffer; mimeType: MimeType; filename: string }, DomainError>> {
-    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
-    if (!member) {
-      return { success: false, error: new PermissionDeniedError() };
-    }
-
-    const fileNode = await this.fileNodeRepo.findById(fileNodeId);
-    if (!fileNode || fileNode.projectId.value !== projectId.value) {
-      return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
-    }
+    const access = await requireMemberAndFileNode(this.projectMemberRepo, this.fileNodeRepo, projectId, actorId, fileNodeId);
+    if (!access.success) return access;
+    const { fileNode } = access;
 
     const asset = await this.assetRepo.findById(fileNodeId);
     if (!asset) {

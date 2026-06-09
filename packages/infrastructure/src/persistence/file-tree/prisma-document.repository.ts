@@ -62,6 +62,17 @@ export class PrismaDocumentRepository implements DocumentRepository {
   async delete(id: DocumentId): Promise<void> {
     await this.prisma.document.deleteMany({ where: { id: id.value } });
   }
+
+  /**
+   * @param yjsStateId - The Yjs state identifier to look up.
+   * @returns The matching document, or null if not found.
+   */
+  async findByYjsStateId(yjsStateId: YjsStateId): Promise<Document | null> {
+    const record = await this.prisma.document.findFirst({
+      where: { yjsStateId: yjsStateId.value },
+    });
+    return record ? toDomainDocument(record) : null;
+  }
 }
 
 type DocumentRecord = {

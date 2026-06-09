@@ -105,7 +105,8 @@ describe('FileTree — Drag and Drop', () => {
     const fileNode = screen.getByText('document.adoc');
     const targetFolder = screen.getByText('folder-b');
 
-    fireEvent.dragStart(fileNode, { dataTransfer: { setData: jest.fn() } });
+    fireEvent.dragStart(fileNode, { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.dragEnter(targetFolder, { dataTransfer: { dropEffect: '' } });
     fireEvent.dragOver(targetFolder, { dataTransfer: { dropEffect: '' } });
     fireEvent.drop(targetFolder, { dataTransfer: { getData: jest.fn().mockReturnValue(FILE_1) } });
 

@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/017-ui-ux-overhaul/plan.md
+Active feature plan: specs/018-collaboration-server/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)
@@ -29,7 +29,7 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-
 |-------------------------|-----------------------------------------------------------|
 | Frontend                | Next.js 16 (App Router) + TypeScript 6                    |
 | Code editor             | CodeMirror 6 + `y-codemirror.next`                        |
-| HTML preview            | Asciidoctor.js (Web Worker, client-side)                  |
+| HTML preview            | Asciidoctor.js + highlight.js (Web Worker, client-side)   |
 | API server              | Fastify + TypeScript 6                                    |
 | Real-time CRDT          | Yjs                                                       |
 | Collaboration server    | Hocuspocus (standalone process)                           |
@@ -141,14 +141,26 @@ MUST NOT run `npx jest` from the repo root without `--filter` — it picks up co
 
 ### Pre-merge gate (all four jobs must pass with zero failures)
 
+Run the whole gate locally with one command:
+
 ```bash
-./scripts/ci-quality.sh      # Job 1: lint · types · architecture
-./scripts/ci-unit.sh         # Job 2: unit tests + coverage (needs Job 1)
-./scripts/ci-integration.sh  # Job 3: integration tests (needs Job 1)
-./scripts/ci-e2e.sh          # Job 4: E2E tests (needs Jobs 2+3, requires Docker + .env.local)
+pnpm gate    # = scripts/ci-gate.sh — runs all four jobs below, stops on first failure
 ```
 
-`ci-e2e.sh` handles infrastructure startup, API rate-limit overrides, Next.js build/start, and teardown automatically. E2E tests are mandatory before merge — they are the only layer that catches missing route registrations and broken API contracts.
+`pnpm gate` uses the **isolated** e2e job (`e2e-local.sh`), so it is safe to run while `scripts/dev.sh` is up — it never clashes on the dev ports or touches the dev database. **When asked to "run all quality gates with e2e", use `pnpm gate` (or `e2e-local.sh` for the e2e job) — never `ci-e2e.sh` while a dev stack is running** (see below). The individual jobs:
+
+```bash
+./scripts/ci-quality.sh      # Job 1: build · lint · types · architecture · audit
+./scripts/ci-unit.sh         # Job 2: unit tests + coverage (needs Job 1)
+./scripts/ci-integration.sh  # Job 3: integration tests via Testcontainers (needs Job 1)
+./scripts/e2e-local.sh       # Job 4: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
+```
+
+E2E tests are mandatory before merge — they are the only layer that catches missing route registrations and broken API contracts.
+
+**`e2e-local.sh` (= `pnpm e2e:local`) vs `ci-e2e.sh`:** both run the *same* Playwright suite. `e2e-local.sh` spins up a throwaway Postgres + Mailpit from `docker-compose.e2e.yml` on distinct ports (5433/1126/8126, API 4100, web 3100, collab-internal 4101) and tears down — it never touches your dev containers, ports, or data, so it coexists with a running `dev.sh`. `ci-e2e.sh` is the **CI** form: it targets the dev stack (`docker-compose.dev.yml`, ports 4000/3000) and runs `prisma db push --force-reset`, so running it locally while `dev.sh` is up would `EADDRINUSE` on 4000/3000 and wipe the dev database. `scripts/e2e-stack-up.sh` brings the isolated stack **up and leaves it running** for iterating on individual specs.
+
+Local e2e gotchas: (1) the isolated scripts offset the collab-internal port to 4101 so they coexist with a dev API on 4001; override `ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT` if 4101 is also taken; (2) dev and e2e share `apps/web/.next`, so a stale `.next` (a prior `next dev` build mixed with `next build`) can make the served HTML reference chunks that 404→500 and pages won't hydrate (e.g. the register button stays disabled) — `rm -rf apps/web/.next` before building if you hit this; (3) never `DROP SCHEMA` on the e2e DB while the API is running (it corrupts the Prisma pool) — reset the DB before the API starts.
 
 ### Quick local check — `apps/web` only
 
@@ -346,11 +358,13 @@ Rules:
 
 **Git sandboxing:** Each git operation spawns a short-lived Docker container from `docker/git-sandbox`. The container mounts only the requesting project's directory. Credentials are injected as environment variables — never written to disk.
 
-**HTML preview:** Asciidoctor.js runs in a dedicated Web Worker. Preview does not auto-render on every keystroke; user explicitly clicks Refresh to avoid blocking the editor thread.
+**HTML preview:** Asciidoctor.js runs in a dedicated Web Worker (`apps/web/src/workers/asciidoc-render.worker.ts`) and auto-renders on a debounce (`PREVIEW_DEBOUNCE_MS`, 1500 ms) so typing never blocks the editor thread — there is no manual Refresh button. The worker post-processes Asciidoctor's HTML with highlight.js (`highlightCodeBlocks`) to add `.hljs-*` token spans to fenced source blocks; the result is sanitized by DOMPurify on the main thread before injection. Preview styling (`styles/asciidoc-preview.css`) is driven by the app's `--*` design tokens, so it follows light/dark theme automatically — never hard-code preview colors.
 
 **Collaboration:** Hocuspocus maps each open document to a room keyed by `documentId`. On WebSocket connect, Hocuspocus calls the Fastify API to verify the user has at least `viewer` access. Yjs state is persisted to filesystem as `.yjs` binary files.
 
 **yjs in a CJS package:** `apps/api` is `"type": "commonjs"`. `yjs` ships `"type": "module"` but provides a CJS build via its `"require"` export condition. TypeScript TS1479/TS1542 fires for static imports of `yjs` from a CJS file because yjs's `"types"` export condition points to an ESM `.d.ts`. Workaround in `hocuspocus-persistence.ts`: `require('yjs')` at the top level cast against a local minimal interface (`Yjs`/`YjsDoc`) declaring only the two needed functions.
+
+**File-tree drag-and-drop (move):** Dragging a node onto a folder moves it (`MoveFileUseCase`); handlers live in `file-tree.tsx` (`handleTreeDragStart`) and `file-tree-node.tsx`. Two non-obvious cross-browser HTML5-DnD requirements — both bugs present as "drop does nothing": (1) guard the dragstart target with `instanceof Element`, **not** `HTMLElement` — browsers fire `dragstart` on the row's `<svg>` icon when grabbed there (WebKit always), and `SVGElement` is not an `HTMLElement`, so an `HTMLElement`-only guard silently skips `setData`; (2) set `effectAllowed`/`dropEffect` to `'move'` and give folders an `onDragEnter` that `preventDefault()`s, or Firefox/Safari resolve `dropEffect` to `none` and discard the drop. Note: Playwright (and synthetic event tests) paper over (2), so an e2e move test can pass while real users see nothing — cover the icon-grab case explicitly.
 
 **SSE real-time file tree:** The API broadcasts `FileTreeEventDto` over a per-project in-memory `EventTarget` bus (`FileTreeEventBus` plugin). The frontend connects via a `SharedWorker` that holds one `EventSource` per project and fans events to all tabs. `applyEvent()` handles `created/deleted/renamed/moved` events locally; `onUpdate` (called after any mutation) triggers `fetchTree()` as a reliable fallback. `applyEvent` is idempotent for `created` events to prevent duplicates when refetch beats SSE delivery.
 
@@ -379,16 +393,24 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 
 ---
 
-## Current Test Counts (as of Phase 016)
+## Current Test Counts (as of Phase 018)
 
 | Package                    | Tests |
 |----------------------------|-------|
-| `apps/web` (unit)          | 910   |
-| `apps/api` (unit)          | 151   |
-| `packages/domain` (unit)   | 465   |
-| `packages/infrastructure`  | 137   |
+| `apps/web` (unit)          | 1092  |
+| `apps/api` (unit)          | 391   |
+| `packages/domain` (unit)   | 536   |
+| `packages/infrastructure`  | 150   |
+| `apps/collab` (unit)       | 52    |
 | `packages/shared`          | 14    |
-| `apps/web` (e2e)           | 71    |
+| `apps/web` (e2e)           | 79    |
+
+> Known pre-existing gaps (not a regression of any single feature): `apps/web`
+> jest coverage sits just under the configured 90/93/90 thresholds, and
+> `packages/shared` reports 0% (it is types/DTOs only). The CI step
+> `pnpm --filter @asciidocollab/web test -- --coverage` is also mis-quoted — the
+> stray `--` makes jest treat `--coverage` as a path; run
+> `pnpm --filter @asciidocollab/web exec jest --coverage` instead.
 
 ## Pending Phases
 

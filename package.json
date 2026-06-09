@@ -11,7 +11,9 @@
     "test:coverage": "pnpm -r test -- --coverage",
     "typecheck": "tsc --noEmit && pnpm --filter @asciidocollab/api typecheck && pnpm --filter @asciidocollab/web typecheck",
     "fresh-onion": "fresh-onion",
-    "audit": "pnpm audit --audit-level=high"
+    "audit": "pnpm audit --audit-level=high",
+    "e2e:local": "scripts/e2e-local.sh",
+    "gate": "scripts/ci-gate.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -14,6 +14,12 @@ die()  { echo -e "${RED}[ci-e2e]${RESET} $*" >&2; exit 1; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Restore the terminal on exit in case a child left it in a raw/TUI mode, and
+# stop spawned server process trees cleanly (no orphaned next-server, etc.).
+source "$ROOT/scripts/lib/term.sh"
+source "$ROOT/scripts/lib/proc.sh"
+term_save
+
 # ─── Prerequisites ────────────────────────────────────────────────────────────
 command -v docker &>/dev/null || die "Docker is required."
 
@@ -37,14 +43,15 @@ API_PID=""; WEB_PID=""
 cleanup() {
   echo ""
   step "Shutting down servers …"
-  [[ -n "$API_PID" ]] && kill "$API_PID" 2>/dev/null || true
-  [[ -n "$WEB_PID" ]] && kill "$WEB_PID" 2>/dev/null || true
+  stop_tree "$API_PID"
+  stop_tree "$WEB_PID"
+  term_restore
 }
 trap cleanup EXIT INT TERM
 
 # ─── Infrastructure ──────────────────────────────────────────────────────────
 step "Starting PostgreSQL and Mailpit …"
-docker compose up -d postgres mailpit --wait
+docker compose -f "$ROOT/docker-compose.dev.yml" up -d postgres mailpit --wait
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 step "Building shared packages …"

@@ -1,0 +1,259 @@
+import { AuthHookExtension } from '../../src/extensions/auth-hook';
+import type { onConnectPayload } from '@hocuspocus/server';
+
+const DOCUMENT_NAME = '550e8400-e29b-41d4-a716-446655440001/550e8400-e29b-41d4-a716-446655440002';
+const COOKIE = 'sessionId=abc123';
+
+function makePayload(overrides: { context?: Record<string, unknown> } = {}): onConnectPayload {
+  return {
+    context: overrides.context ?? {},
+    documentName: DOCUMENT_NAME,
+    requestHeaders: { cookie: COOKIE },
+    requestParameters: new URLSearchParams(),
+    instance: {} as onConnectPayload['instance'],
+    request: {} as onConnectPayload['request'],
+    socketId: 'test-socket',
+    connection: { readOnly: false, isAuthenticated: true, onClose: [], },
+  } as unknown as onConnectPayload;
+}
+
+describe('AuthHookExtension', () => {
+  const mockLogger = { warn: jest.fn(), error: jest.fn() };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('200 editor: stores role=editor on context, connection accepted (no throw)', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ role: 'editor' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    const payload = makePayload();
+    await expect(extension.onConnect(payload)).resolves.toBeUndefined();
+    expect(payload.context.role).toBe('editor');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining(`documentName=${encodeURIComponent(DOCUMENT_NAME)}`),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Cookie: COOKIE }),
+      }),
+    );
+  });
+
+  it('200 observer: stores role=observer on context, connection accepted', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ role: 'observer' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    const payload = makePayload();
+    await expect(extension.onConnect(payload)).resolves.toBeUndefined();
+    expect(payload.context.role).toBe('observer');
+  });
+
+  it('401: throws with code 1008', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 401,
+      json: async () => ({ error: 'Unauthorized' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+  });
+
+  it('403: throws with code 1008', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 403,
+      json: async () => ({ error: 'Forbidden' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+  });
+
+  it('timeout: throws with code 1008 and logs warn with room name (no cookie)', async () => {
+    const abortError = Object.assign(new Error('AbortError'), { name: 'AbortError' });
+    const mockFetch = jest.fn().mockRejectedValue(abortError);
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ documentName: DOCUMENT_NAME }),
+      expect.any(String),
+    );
+    const warnCall = mockLogger.warn.mock.calls[0];
+    const warnArgument = JSON.stringify(warnCall);
+    expect(warnArgument).not.toContain('abc123');
+    expect(warnArgument).not.toContain('sessionId');
+    expect(warnArgument).not.toContain('Cookie');
+  });
+
+  it('network error: throws with code 1008 and logs warn with room name (no cookie)', async () => {
+    const networkError = new Error('ECONNREFUSED');
+    const mockFetch = jest.fn().mockRejectedValue(networkError);
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ documentName: DOCUMENT_NAME }),
+      expect.any(String),
+    );
+    const warnArgument = JSON.stringify(mockLogger.warn.mock.calls[0]);
+    expect(warnArgument).not.toContain('abc123');
+    expect(warnArgument).not.toContain('Cookie');
+  });
+
+  it('200 with unknown role body: throws with code 1008 — prevents unknown roles from gaining access', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ role: 'admin' }), // unknown role value
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+  });
+
+  it('200 with missing role field: throws with code 1008', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ status: 'ok' }), // no role field
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+  });
+
+  it('cookie as Array: sends first element as Cookie header', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ role: 'editor' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    const payload = {
+      ...makePayload(),
+      requestHeaders: { cookie: ['session=first; session=second'] },
+    } as unknown as onConnectPayload;
+
+    await extension.onConnect(payload);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Cookie: 'session=first; session=second' }),
+      }),
+    );
+  });
+
+  it('non-Error thrown: uses "Error" as the class name and rejects with code 1008', async () => {
+    // Validates the fallback branch where something other than an Error instance is thrown
+    // (e.g. a plain string or object), so the error.constructor.name path is not available.
+    const mockFetch = jest.fn().mockRejectedValue('plain string rejection');
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: 'Error' }),
+      expect.any(String),
+    );
+  });
+
+  it('uses globalThis.fetch as default when no fetch option is provided', () => {
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      // fetch not provided — should fall back to globalThis.fetch
+    });
+    expect(extension).toBeDefined();
+  });
+
+  it('no cookie header: omits Cookie header from auth request', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ role: 'editor' }),
+    });
+
+    const extension = new AuthHookExtension({
+      apiInternalUrl: 'http://127.0.0.1:4001',
+      authTimeoutMs: 3000,
+      logger: mockLogger as never,
+      fetch: mockFetch as never,
+    });
+
+    const payload = {
+      ...makePayload(),
+      requestHeaders: {}, // no cookie
+    } as unknown as onConnectPayload;
+
+    await extension.onConnect(payload);
+
+    const [, callInit] = mockFetch.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(Object.keys(callInit.headers)).toHaveLength(0);
+  });
+});

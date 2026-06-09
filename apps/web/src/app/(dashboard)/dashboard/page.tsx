@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="max-w-6xl mx-auto grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((index) => (
           <div key={index} className="h-48 rounded-lg border bg-muted animate-pulse" />
         ))}
@@ -50,14 +50,14 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
+      <div className="max-w-6xl mx-auto text-center py-12">
         <p className="text-destructive">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {deletedNotice && (
         <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">
           Project deleted successfully.

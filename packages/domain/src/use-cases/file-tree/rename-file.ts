@@ -1,5 +1,6 @@
 import { FileNode } from '../../entities/file-node';
 import { Timestamps } from '../../value-objects/timestamps';
+import { cascadePathUpdate } from './file-tree-helpers';
 import { AuditLog } from '../../entities/audit-log';
 import { UserId } from '../../value-objects/user-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
@@ -84,7 +85,7 @@ export class RenameFileUseCase {
       await this.fileNodeRepo.save(updatedFileNode);
 
       if (fileNode.type.value === 'folder') {
-        await this.cascadePathUpdate(fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+        await cascadePathUpdate(this.fileNodeRepo, fileNodeId, fileNode.path.value + '/', newPath.value + '/');
       }
     } catch (error) {
       if (this.fileStore) {
@@ -113,25 +114,5 @@ export class RenameFileUseCase {
       success: true,
       value: { fileNodeId, newName, newPath },
     };
-  }
-
-  private async cascadePathUpdate(folderId: FileNodeId, oldPathPrefix: string, newPathPrefix: string): Promise<void> {
-    const children = await this.fileNodeRepo.findByParentId(folderId);
-    for (const child of children) {
-      const newChildPath = FilePath.create(newPathPrefix + child.path.value.slice(oldPathPrefix.length));
-      const updatedChild = new FileNode(
-        child.id,
-        child.projectId,
-        child.parentId,
-        child.name,
-        child.type,
-        newChildPath,
-        new Timestamps(child.createdAt, new Date()),
-      );
-      await this.fileNodeRepo.save(updatedChild);
-      if (child.type.value === 'folder') {
-        await this.cascadePathUpdate(child.id, oldPathPrefix + child.name + '/', newPathPrefix + child.name + '/');
-      }
-    }
   }
 }

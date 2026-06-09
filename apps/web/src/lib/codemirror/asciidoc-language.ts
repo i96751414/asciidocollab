@@ -23,7 +23,7 @@ const asciidocHighlightProperties = styleTags({
   InlineMacro:        t.link,
   CrossReference:     t.link,
   Footnote:           t.string,
-  ListingBlock:       t.blockComment,
+  ListingBlock:       t.content,
   ExampleBlock:       t.string,
   SidebarBlock:       t.typeName,
   QuoteBlock:         t.quote,

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Urbanist } from "next/font/google";
 import { cookies } from "next/headers";
 import { ThemeProvider } from "@/components/theme-provider";
 import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const urbanist = Urbanist({ subsets: ["latin"], weight: ["800"], variable: "--font-urbanist" });
 
 export const metadata: Metadata = {
   title: "AsciiDoCollab",
@@ -29,7 +30,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={isDark ? 'dark' : ''}>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${urbanist.variable}`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

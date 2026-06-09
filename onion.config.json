@@ -4,13 +4,15 @@
     "shared": "./packages/shared/src",
     "infrastructure": "./packages/infrastructure/src",
     "api": "./apps/api/src",
-    "web": "./apps/web/src"
+    "web": "./apps/web/src",
+    "collab": "./apps/collab/src"
   },
   "rules": [
     { "from": "domain", "allowedImports": [] },
     { "from": "shared", "allowedImports": [] },
     { "from": "infrastructure", "allowedImports": ["domain", "shared"] },
     { "from": "api", "allowedImports": ["domain", "infrastructure", "shared"] },
+    { "from": "collab", "allowedImports": ["domain", "infrastructure", "shared"] },
     { "from": "web", "allowedImports": ["shared"] }
   ]
 }

@@ -6,8 +6,10 @@ import { ProjectMemberRepository } from '../../ports/project/project-member.repo
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
+import { CollaborationSessionRepository } from '../../ports/project/collaboration-session.repository';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
+import { requireMemberAndFileNode } from './content-helpers';
+import { ActiveCollaborationSessionError } from '../../errors/active-collaboration-session';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { Document } from '../../entities/document';
@@ -22,6 +24,7 @@ export class SaveDocumentContentUseCase {
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly documentRepo: DocumentRepository,
     private readonly fileStore: ProjectFileStore,
+    private readonly collaborationSessionRepo?: CollaborationSessionRepository,
   ) {}
 
   /** Validates membership, writes the content to disk, and bumps the document's content ID. */
@@ -31,19 +34,20 @@ export class SaveDocumentContentUseCase {
     fileNodeId: FileNodeId,
     content: Buffer,
   ): Promise<Result<{ contentId: string }, DomainError>> {
-    const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
-    if (!member) {
-      return { success: false, error: new PermissionDeniedError() };
-    }
-
-    const fileNode = await this.fileNodeRepo.findById(fileNodeId);
-    if (!fileNode || fileNode.projectId.value !== projectId.value) {
-      return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
-    }
+    const access = await requireMemberAndFileNode(this.projectMemberRepo, this.fileNodeRepo, projectId, actorId, fileNodeId);
+    if (!access.success) return access;
+    const { fileNode } = access;
 
     const document = await this.documentRepo.findByFileNodeId(fileNodeId);
     if (!document) {
       return { success: false, error: new FileNodeNotFoundError(fileNodeId.value) };
+    }
+
+    if (this.collaborationSessionRepo) {
+      const isActive = await this.collaborationSessionRepo.isActive(projectId, document.id);
+      if (isActive) {
+        return { success: false, error: new ActiveCollaborationSessionError(document.id) };
+      }
     }
 
     try {

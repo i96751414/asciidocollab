@@ -134,6 +134,13 @@ jest.mock('@codemirror/state', () => {
       of(extension: unknown) { return extension; }
       reconfigure(extension: unknown) { return extension; }
     },
+    Prec: {
+      highest: (extension: unknown) => extension,
+      high: (extension: unknown) => extension,
+      default: (extension: unknown) => extension,
+      low: (extension: unknown) => extension,
+      lowest: (extension: unknown) => extension,
+    },
   };
 });
 
@@ -201,6 +208,10 @@ jest.mock('@/hooks/use-editor-preferences', () => ({
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({
   asciidocHighlightStyle: {},
   asciidocHighlighting: () => ({}),
+}));
+
+jest.mock('@/lib/codemirror/asciidoc-theme', () => ({
+  asciidocTheme: [],
 }));
 
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({

@@ -219,13 +219,23 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
   useFileTreeKeyHandler(containerReference, bindings, keyCallbacks);
 
   const handleTreeDragStart = useCallback((event: React.DragEvent) => {
+    // Use Element (not HTMLElement) as the guard: browsers fire `dragstart` on
+    // the element under the pointer, which is the row's <svg> icon when the user
+    // grabs there (WebKit always does this). An SVGElement is an Element but not
+    // an HTMLElement, so an HTMLElement-only guard would silently drop those
+    // drags — the source id never gets set and, to the user, nothing happens on
+    // drop. `closest` walks up to the owning row regardless of the start target.
     const rawTarget = event.target;
-    if (!(rawTarget instanceof HTMLElement)) return;
+    if (!(rawTarget instanceof Element)) return;
     const container = rawTarget.closest('[data-node-id]');
     if (!(container instanceof HTMLElement)) return;
     const nodeId = container.dataset.nodeId;
     if (!nodeId) return;
     event.dataTransfer.setData('text/plain', nodeId);
+    // Declare this as a move operation so the browser computes a compatible
+    // dropEffect; without it some engines (Firefox, Safari) resolve dropEffect
+    // to "none" and silently discard the drop.
+    event.dataTransfer.effectAllowed = 'move';
     setDraggedNodeId(nodeId);
   }, []);
 

@@ -103,6 +103,8 @@ export interface Project {
   archivedAt: string | null;
   /** Total number of members in the project, included in list responses. */
   memberCount?: number;
+  /** Number of files (excluding folders) in the project, included in list responses. */
+  fileCount?: number;
   /** The calling user's role in this project, included when fetching as an authenticated member. */
   role?: ProjectMemberRole;
   /** ISO timestamp when the project was created. */
