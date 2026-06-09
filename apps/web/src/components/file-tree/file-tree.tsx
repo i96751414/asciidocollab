@@ -139,6 +139,12 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const containerReference = useRef<HTMLDivElement>(null);
   const autoExpandedReference = useRef(false);
+  const lastRevealedReference = useRef<string | null>(null);
+  const pendingScrollReference = useRef<string | null>(null);
+  // The id of the node currently being dragged, tracked the instant `dragstart` fires. This is the
+  // reliable source of truth for an in-tree move — see handleFolderDrop for why we don't depend on
+  // the dataTransfer payload.
+  const draggedNodeIdReference = useRef<string | null>(null);
 
   const userBindings = useKeyBindings('file-tree');
   const bindings = useMemo(() => new Map(userBindings), [userBindings]);
@@ -198,6 +204,33 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
     }
   }, [tree, toggleExpand]);
 
+  // Auto-reveal: when `selectedNodeId` changes to a node that may be hidden behind collapsed
+  // folders (e.g. a restored selection), expand its ancestors (FR-012). Keyed on
+  // `selectedNodeId` + `tree` (NOT `expandedState`) so manually collapsing a folder holding
+  // the selected node does not re-trigger a reveal (R4); the last-revealed ref makes it a
+  // one-shot per selection (R7). The scroll itself happens in the effect below, after the
+  // ancestor expansion has committed and the node is in the DOM.
+  useEffect(() => {
+    if (!selectedNodeId || !tree) return;
+    if (lastRevealedReference.current === selectedNodeId) return;
+    lastRevealedReference.current = selectedNodeId;
+    revealSelected(selectedNodeId);
+    pendingScrollReference.current = selectedNodeId;
+  }, [selectedNodeId, tree, revealSelected]);
+
+  // Scroll a freshly-revealed node into view once it is actually rendered. Runs after the
+  // expansion above commits (expandedState changes) and on the initial selection change; the
+  // pending ref ensures it fires exactly once per reveal and never on a manual collapse (R4).
+  useEffect(() => {
+    const target = pendingScrollReference.current;
+    if (!target) return;
+    const element = containerReference.current?.querySelector(`[data-node-id="${target}"]`);
+    if (element) {
+      element.scrollIntoView({ block: 'nearest' });
+      pendingScrollReference.current = null;
+    }
+  }, [selectedNodeId, expandedState, tree]);
+
   const onEvent = useCallback((event: FileTreeEventDto) => {
     setTree((previous) => applyEvent(previous, event));
   }, []);
@@ -236,16 +269,24 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
     // dropEffect; without it some engines (Firefox, Safari) resolve dropEffect
     // to "none" and silently discard the drop.
     event.dataTransfer.effectAllowed = 'move';
+    draggedNodeIdReference.current = nodeId;
     setDraggedNodeId(nodeId);
   }, []);
 
   const handleTreeDragEnd = useCallback(() => {
+    draggedNodeIdReference.current = null;
     setDraggedNodeId(null);
   }, []);
 
   const handleFolderDrop = useCallback((targetFolderId: string, sourceNodeId: string) => {
     if (!tree) return;
-    const sourceNode = findNodeInTree(tree, sourceNodeId);
+    // Prefer the id captured on `dragstart` over the dataTransfer payload. The setData→getData
+    // round-trip is an unreliable cross-browser link in HTML5 DnD — `getData('text/plain')` can
+    // come back empty on `drop` even though `setData` ran, which surfaces as "nothing happens on
+    // drop". The tracked ref is always set for an in-tree drag; fall back to the payload only for a
+    // drag that did not originate in this tree (where the ref is null).
+    const effectiveSourceId = draggedNodeIdReference.current ?? sourceNodeId;
+    const sourceNode = findNodeInTree(tree, effectiveSourceId);
     if (!sourceNode) return;
     // No-op: dropping onto the same parent
     if (sourceNode.parentId === targetFolderId) return;
@@ -258,14 +299,23 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
     const hasConflict = targetFolder.children.some((c) => c.name === sourceNode.name && c.id !== sourceNode.id);
 
     setMoveDialog({
-      sourceId: sourceNodeId,
+      sourceId: effectiveSourceId,
       targetId: targetFolderId,
       sourcePath: sourceNode.path,
       targetPath: targetFolder.path,
       hasConflict,
     });
+    draggedNodeIdReference.current = null;
     setDraggedNodeId(null);
   }, [tree]);
+
+  // Move the dragged node to the project root when it is dropped on the tree's empty (root) area.
+  // Returns true when it consumed an in-tree drag, so DragDropZone skips its OS-file upload path.
+  const handleRootDrop = useCallback((): boolean => {
+    if (!tree || !draggedNodeIdReference.current) return false;
+    handleFolderDrop(tree.id, draggedNodeIdReference.current);
+    return true;
+  }, [tree, handleFolderDrop]);
 
   const handleMoveConfirm = useCallback(async () => {
     if (!moveDialog) return;
@@ -377,7 +427,7 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
               <button onClick={() => setOperationError(null)} aria-label="dismiss error" className="ml-2 underline">Dismiss</button>
             </div>
           )}
-          <DragDropZone targetFolderId={tree.id} projectId={projectId} onComplete={fetchTree} data-testid="file-tree-drop-zone">
+          <DragDropZone targetFolderId={tree.id} projectId={projectId} onComplete={fetchTree} onNodeMove={handleRootDrop} className="min-h-[200px]" data-testid="file-tree-drop-zone">
             {tree.children.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No files yet. Create your first file.</p>
             ) : (

@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/018-collaboration-server/plan.md
+Active feature plan: specs/019-persist-file-selection/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

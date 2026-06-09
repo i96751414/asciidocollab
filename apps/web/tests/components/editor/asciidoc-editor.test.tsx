@@ -37,6 +37,7 @@ jest.mock('@codemirror/view', () => {
           doc: {
             toString: () => state.doc.toString(),
             lineAt: (_pos: number) => ({ number: 1, from: 0, text: '' }),
+            line: (number_: number) => ({ number: number_, from: 0, text: '' }),
             lines: 1,
           },
           readOnly,
@@ -60,7 +61,14 @@ jest.mock('@codemirror/view', () => {
         }
       }
 
-      dispatch(transaction: { changes?: { insert?: string }; effects?: { readOnly?: boolean } | Array<{ readOnly?: boolean }> }) {
+      dispatch(transaction: { changes?: { insert?: string }; effects?: { readOnly?: boolean } | Array<{ readOnly?: boolean }>; selection?: { anchor: number }; scrollIntoView?: boolean }) {
+        // Record selection dispatches (used to assert initialLine restore on mount).
+        if (transaction.selection) {
+          const sink = (globalThis as unknown as Record<string, unknown>);
+          const list = (sink['__cmSelectionDispatches'] as Array<unknown> | undefined) ?? [];
+          list.push({ anchor: transaction.selection.anchor, scrollIntoView: transaction.scrollIntoView });
+          sink['__cmSelectionDispatches'] = list;
+        }
         let docChanged = false;
         if (transaction.changes && typeof transaction.changes.insert === 'string') {
           const newContent = transaction.changes.insert;
@@ -464,6 +472,32 @@ describe('AsciiDocEditor', () => {
       render(<AsciiDocEditor content="= Hello" canEdit={true} projectId="p1" fileNodeId="f1" />);
       fireEvent.click(screen.getByRole('button', { name: /retry save/i }));
       expect(mockSave).toHaveBeenCalled();
+    });
+  });
+
+  // T011 / US2: cursor-line reporting and initialLine restore threading.
+  describe('cursor line reporting and initialLine restore', () => {
+    test('onCursorLineChange fires with the 1-based line when the cursor moves', () => {
+      const onCursorLineChange = jest.fn();
+      const { rerender } = render(
+        <AsciiDocEditor content="line one" canEdit={true} onCursorLineChange={onCursorLineChange} />,
+      );
+      // Trigger an update (content change fires the CM updateListener → onCursorChange → onCursorLineChange).
+      act(() => { rerender(<AsciiDocEditor content="line two" canEdit={true} onCursorLineChange={onCursorLineChange} />); });
+      expect(onCursorLineChange).toHaveBeenCalledWith(1);
+    });
+
+    test('threads initialLine into the mount, dispatching a scrolled selection', () => {
+      (globalThis as unknown as Record<string, unknown>)['__cmSelectionDispatches'] = [];
+      render(<AsciiDocEditor content="a\nb\nc" canEdit={true} initialLine={2} />);
+      const dispatches = (globalThis as unknown as Record<string, Array<{ scrollIntoView?: boolean }>>)['__cmSelectionDispatches'];
+      expect(dispatches.length).toBeGreaterThan(0);
+      expect(dispatches.some((d) => d.scrollIntoView === true)).toBe(true);
+    });
+
+    test('omitting onCursorLineChange causes no error when the cursor moves', () => {
+      const { rerender } = render(<AsciiDocEditor content="x" canEdit={true} />);
+      expect(() => act(() => { rerender(<AsciiDocEditor content="y" canEdit={true} />); })).not.toThrow();
     });
   });
 

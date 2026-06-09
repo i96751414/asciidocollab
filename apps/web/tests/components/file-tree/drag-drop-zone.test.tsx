@@ -128,6 +128,33 @@ describe('DragDropZone', () => {
     expect(parentDrop).not.toHaveBeenCalled();
   });
 
+  it('onNodeMove consumes an internal-node drop and skips the upload path', () => {
+    const onNodeMove = jest.fn(() => true);
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1" onNodeMove={onNodeMove}>
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    fireEvent.drop(zone, { dataTransfer: { items: {} as DataTransferItemList } });
+    expect(onNodeMove).toHaveBeenCalled();
+    expect(mockOnDrop).not.toHaveBeenCalled();
+  });
+
+  it('falls through to the upload path when onNodeMove returns false (an OS-file drop)', () => {
+    const onNodeMove = jest.fn(() => false);
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1" onNodeMove={onNodeMove}>
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    const mockItems = {} as DataTransferItemList;
+    fireEvent.drop(zone, { dataTransfer: { items: mockItems } });
+    expect(onNodeMove).toHaveBeenCalled();
+    expect(mockOnDrop).toHaveBeenCalledWith(mockItems);
+  });
+
   it('dismiss button passes clearProgress from hook as onDismiss to UploadProgressPanel', () => {
     mockUseDropUpload.mockReturnValue({
       onDrop: mockOnDrop,

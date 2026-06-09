@@ -38,6 +38,32 @@ describe('use-editor-mount onLineClick', () => {
   });
 });
 
+// T010 / US2: initialLine restores the cursor to a remembered line on mount, clamped to the
+// current document length ("closest valid line", FR-005). This file runs in the `node` jest
+// project (no DOM to mount a real EditorView), so behavior is pinned at the source level —
+// matching the existing convention in this file.
+describe('use-editor-mount initialLine restore', () => {
+  test('accepts an initialLine option in UseEditorMountOptions', () => {
+    expect(source).toContain('initialLine');
+  });
+
+  test('clamps the target line between 1 and the document line count', () => {
+    // targetLine = min(max(initialLine, 1), doc.lines)
+    expect(source).toContain('Math.min');
+    expect(source).toContain('Math.max');
+    expect(source).toContain('doc.lines');
+  });
+
+  test('scrolls the restored line into view on mount', () => {
+    expect(source).toContain('scrollIntoView');
+  });
+
+  test('only applies the jump when initialLine is provided (guarded)', () => {
+    // The mount effect must guard on initialLine so non-restore mounts are unaffected.
+    expect(source).toMatch(/if\s*\(\s*initialLine/);
+  });
+});
+
 describe('use-editor-mount scroll sync', () => {
   test('accepts onScrollLine option in UseEditorMountOptions', () => {
     expect(source).toContain('onScrollLine');

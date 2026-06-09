@@ -39,6 +39,15 @@ interface AsciiDocEditorProperties {
    * @param line - The 1-based line number at the top of the visible viewport.
    */
   onScrollLine?: (line: number) => void;
+  /** 1-based line to place the cursor on when this editor instance mounts (selection restore). */
+  initialLine?: number;
+  /**
+   * Called (the caller debounces) with the 1-based cursor line as it changes, so the position
+   * can be persisted for restore.
+   *
+   * @param line - The 1-based line the cursor is on.
+   */
+  onCursorLineChange?: (line: number) => void;
 }
 
 type EditorCssVariables = { '--editor-font-size': string } & React.CSSProperties;
@@ -61,6 +70,8 @@ export function AsciiDocEditor({
   onOpenUrl,
   onLineClick,
   onScrollLine,
+  initialLine,
+  onCursorLineChange,
 }: AsciiDocEditorProperties) {
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
@@ -89,6 +100,12 @@ export function AsciiDocEditor({
     onChange?.(value);
   }, [projectId, fileNodeId, save, onChange]);
 
+  // Track cursor position for the status bar and report the line up for persistence.
+  const handleCursorChange = useCallback((pos: { line: number; col: number; totalLines: number }) => {
+    setCursorPos(pos);
+    onCursorLineChange?.(pos.line);
+  }, [onCursorLineChange]);
+
   const { containerReference, viewReference, handleHeadingClick } = useEditorMount({
     content,
     canEdit,
@@ -96,12 +113,13 @@ export function AsciiDocEditor({
     includePaths,
     imagePaths,
     onDocChange: handleChange,
-    onCursorChange: setCursorPos,
+    onCursorChange: handleCursorChange,
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
     onOpenUrl,
     onLineClick,
     onScrollLine,
+    initialLine,
   });
 
   const tableContext = useTableContext(viewReference.current);

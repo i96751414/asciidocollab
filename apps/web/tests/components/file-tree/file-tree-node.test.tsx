@@ -426,6 +426,47 @@ describe('FileTreeNode — Download as ZIP (root project node)', () => {
     expect(onFolderDrop).toHaveBeenCalledWith('folder-1', 'file-1');
   });
 
+  it('handles drop on a FILE row → moves the dragged node into the file\'s parent folder', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-document.adoc');
+    fireEvent.dragEnter(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.dragOver(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'other-file' } });
+    // fileNode.parentId is 'folder-root' → the move targets that containing folder.
+    expect(onFolderDrop).toHaveBeenCalledWith('folder-root', 'other-file');
+  });
+
+  it('a file with no parent folder is not a drop target', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={{ ...fileNode, parentId: null }}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-document.adoc');
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'x' } });
+    expect(onFolderDrop).not.toHaveBeenCalled();
+  });
+
   it('renders actions for a node with no parent (root-level)', () => {
     render(
       <FileTreeNode

@@ -97,6 +97,18 @@ function buildMoveServer(options: {
   const parentFolder = options.parentFolder === undefined ? mockParentFolder : options.parentFolder;
   const postMoveNode = options.postMoveNode === undefined ? mockFileNode : options.postMoveNode;
 
+  // Resolve findById by ARGUMENT, not call order: the parent lookup is keyed on PARENT_ID, so it
+  // is immune to any drift in call count/order (a `mockResolvedValueOnce` sequence is not — a
+  // single extra/missing call shifts every later result, which can leave the post-op event lookup
+  // resolving to `undefined` and the 'moved' event silently un-emitted: a flaky "0 calls").
+  let moveFileLookups = 0;
+  const moveFindById = jest.fn((id: { value: string }) => {
+    if (id.value === PARENT_ID) return Promise.resolve(parentFolder);
+    moveFileLookups += 1;
+    // 1st fileNodeId lookup = MoveFileUseCase source; the next = the post-op event lookup.
+    return Promise.resolve(moveFileLookups === 1 ? fileNode : postMoveNode);
+  });
+
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn().mockResolvedValue(
@@ -104,13 +116,7 @@ function buildMoveServer(options: {
       ),
     },
     fileNode: {
-      // First call: resolve file node (for MoveFileUseCase source lookup)
-      // Second call: resolve parent folder (for MoveFileUseCase parent lookup)
-      // Third call: post-operation event lookup
-      findById: jest.fn()
-        .mockResolvedValueOnce(fileNode)
-        .mockResolvedValueOnce(parentFolder)
-        .mockResolvedValueOnce(postMoveNode),
+      findById: moveFindById,
       findByParentId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
     },
@@ -151,6 +157,19 @@ function buildRenameMoveServer(options: {
 } = {}) {
   const app = Fastify();
 
+  const postOpNode = options.postOpNode === undefined ? mockFileNode : options.postOpNode;
+  // Resolve findById by ARGUMENT, not call order (see buildMoveServer for why). The parent lookup
+  // is keyed on PARENT_ID; the source lookups (rename + move) return the file node; only the final
+  // post-op event lookup uses the override. This removes the order-dependence that made the
+  // 'emits a moved event' assertion flaky under the full parallel suite.
+  let renameMoveFileLookups = 0;
+  const renameMoveFindById = jest.fn((id: { value: string }) => {
+    if (id.value === PARENT_ID) return Promise.resolve(mockParentFolder);
+    renameMoveFileLookups += 1;
+    // 1st & 2nd fileNodeId lookups = rename/move source; the 3rd = the post-op event lookup.
+    return Promise.resolve(renameMoveFileLookups >= 3 ? postOpNode : mockFileNode);
+  });
+
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn().mockResolvedValue(
@@ -158,16 +177,7 @@ function buildRenameMoveServer(options: {
       ),
     },
     fileNode: {
-      // RenameFileUseCase calls findById once for the source node.
-      // MoveFileUseCase calls findById twice (source + parent).
-      // Post-op event calls findById once.
-      findById: jest.fn()
-        .mockResolvedValueOnce(mockFileNode)   // rename: source lookup
-        .mockResolvedValueOnce(mockFileNode)   // move: source lookup
-        .mockResolvedValueOnce(mockParentFolder) // move: parent lookup
-        .mockResolvedValueOnce(               // post-op event lookup
-          options.postOpNode === undefined ? mockFileNode : options.postOpNode,
-        ),
+      findById: renameMoveFindById,
       findByParentId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
     },

@@ -192,14 +192,28 @@ export function useAutoSave({
     };
   }, [url]);
 
-  // Cleanup all timers on unmount.
+  // Cleanup all timers on unmount and FLUSH any unsaved content. In-app (SPA) navigation does
+  // not fire `beforeunload`, so without this an edit made within the autosave debounce window is
+  // silently lost when the user leaves the page (or switches files — the editor is keyed by node
+  // id, so a switch unmounts this instance) before the debounce fires. The keepalive PUT is sent
+  // immediately and outlives the unmount. `url` is stable for the lifetime of this editor instance.
   useEffect(() => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       if (retryTimer.current) clearTimeout(retryTimer.current);
       if (pollTimer.current) clearInterval(pollTimer.current);
+      if (pendingContent.current !== null) {
+        void fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'text/plain' },
+          credentials: 'include',
+          body: pendingContent.current,
+          keepalive: true,
+        }).catch(() => { /* best-effort flush; the offline draft path is the fallback */ });
+        pendingContent.current = null;
+      }
     };
-  }, []);
+  }, []); // url is stable for this editor instance; flush must run exactly once, on unmount
 
   return { saveState, save };
 }
