@@ -18,6 +18,10 @@ Thumbs.db
 packages/shared/tests/**/*.d.ts
 packages/shared/tests/**/*.js
 packages/shared/tests/**/*.js.map
+apps/collab/tests/**/*.d.ts
+apps/collab/tests/**/*.d.ts.map
+apps/collab/tests/**/*.js
+apps/collab/tests/**/*.js.map
 
 TODO.txt
 
