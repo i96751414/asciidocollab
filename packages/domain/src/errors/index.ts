@@ -25,5 +25,7 @@ export { InvitationAlreadyPendingError } from './invitation-already-pending';
 export { CannotRemoveSelfError } from './cannot-remove-self';
 export { CannotModifySelfAdminError } from './cannot-modify-self-admin';
 export { ContentNotFoundError } from './content-not-found';
+export { CollabConnectionDeniedError } from './collab-connection-denied';
+export type { CollabConnectionDenialReason } from './collab-connection-denied';
 export { KeyBindingConflictError } from './key-binding-conflict';
 export { ActiveCollaborationSessionError } from './active-collaboration-session';

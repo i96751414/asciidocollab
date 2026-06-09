@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useCallback } from 'react';
-import { EditorState, Compartment, Prec } from '@codemirror/state';
+import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
@@ -25,6 +25,18 @@ import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
 
+/**
+ * Clamps a remembered 1-based line number to the document's valid range — the FR-005 "closest
+ * valid line" rule, applied when restoring a cursor that may exceed the current document length.
+ *
+ * @param line - The remembered 1-based line number.
+ * @param totalLines - The document's current line count.
+ * @returns A line number within `[1, totalLines]`.
+ */
+function clampToValidLine(line: number, totalLines: number): number {
+  return Math.min(Math.max(line, 1), totalLines);
+}
+
 interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
@@ -48,6 +60,17 @@ interface UseEditorMountOptions {
    * to the current document's line count ("closest valid line"); ignored when not provided.
    */
   initialLine?: number;
+  /**
+   * Collaboration binding extension (yCollab) for the collab path. When provided the editor
+   * mounts with an EMPTY document and is populated from Yjs sync (FR-004); native CodeMirror
+   * history is omitted to avoid double-undo (per-user undo is handled by the Yjs UndoManager).
+   */
+  collabExtension?: Extension;
+  /**
+   * Forces the editor to recreate when it changes, such as the Yjs room id on a file switch, so
+   * the collab binding rebinds to the new document. Stays undefined on the legacy path.
+   */
+  remountKey?: string;
 }
 
 /** Manages the full CodeMirror 6 view lifecycle: mount, teardown, content/readOnly sync. */
@@ -65,7 +88,10 @@ export function useEditorMount({
   onLineClick,
   onScrollLine,
   initialLine,
+  collabExtension,
+  remountKey,
 }: UseEditorMountOptions) {
+  const collabActive = collabExtension !== undefined;
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
@@ -77,6 +103,8 @@ export function useEditorMount({
   useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
   const onScrollLineReference = useRef(onScrollLine);
   useEffect(() => { onScrollLineReference.current = onScrollLine; }, [onScrollLine]);
+  // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
+  const collabLineRestoredReference = useRef(false);
 
   // Stable heading-click callback — viewReference is a ref, so no deps needed.
   const handleHeadingClick = useCallback((entry: { from: number }) => {
@@ -92,11 +120,30 @@ export function useEditorMount({
   // Mount / teardown the EditorView once.
   useEffect(() => {
     if (!containerReference.current) return;
+    collabLineRestoredReference.current = false;
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         onDocChange(update.state.doc.toString());
         try { onOutlineChange(update.state.field(outlineField)); } catch { /* field not installed */ }
+        // Collab path: the editor mounts empty and is populated by Yjs sync, so the remembered
+        // cursor line (FR-005) is restored when content FIRST arrives (not merely on `synced`,
+        // which can precede the populating transaction), clamped to the populated document.
+        // Scheduled to a microtask to avoid dispatching while an update is in progress.
+        if (
+          collabActive &&
+          initialLine !== undefined &&
+          !collabLineRestoredReference.current &&
+          update.state.doc.length > 0
+        ) {
+          collabLineRestoredReference.current = true;
+          queueMicrotask(() => {
+            const view = viewReference.current;
+            if (!view) return;
+            const targetLine = clampToValidLine(initialLine, view.state.doc.lines);
+            view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
+          });
+        }
       }
       const head = update.state.selection.main.head;
       const line = update.state.doc.lineAt(head);
@@ -114,15 +161,23 @@ export function useEditorMount({
     });
 
     const state = EditorState.create({
-      doc: content,
+      // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
+      doc: collabActive ? '' : content,
       extensions: [
         asciidoc(),
         syntaxHighlighting(asciidocHighlightStyle),
         syntaxHighlighting(defaultHighlightStyle),
-        history(),
-        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
+        ...(collabActive ? [] : [history()]),
+        keymap.of([...defaultKeymap, ...(collabActive ? [] : historyKeymap), ...searchKeymap]),
         search({ top: true }),
-        readOnlyCompartment.current.of(EditorState.readOnly.of(!canEdit)),
+        // readOnly blocks user input but not programmatic Yjs-applied updates, so observers
+        // still see live remote edits (research D8); editable.of(false) also drops the caret/
+        // contenteditable so there is no misleading editable affordance.
+        readOnlyCompartment.current.of([
+          EditorState.readOnly.of(!canEdit),
+          EditorView.editable.of(canEdit),
+        ]),
         lineNumbers(),
         highlightActiveLine(),
         asciidocFold,
@@ -141,6 +196,7 @@ export function useEditorMount({
             captionCompletionSource,
           ],
         }),
+        ...(collabExtension ? [collabExtension] : []),
         updateListener,
         lineClickHandler,
         // Brand editor theme (chrome + syntax via --syntax-* vars), following light/dark
@@ -157,9 +213,11 @@ export function useEditorMount({
 
     // Restore the cursor to a remembered line on mount, clamped to the current document
     // ("closest valid line", FR-005), and scroll it into view. Only runs when initialLine is
-    // provided — ordinary in-session mounts are unaffected.
-    if (initialLine !== undefined) {
-      const targetLine = Math.min(Math.max(initialLine, 1), view.state.doc.lines);
+    // provided — ordinary in-session mounts are unaffected. Skipped on the collab path: the
+    // doc mounts empty and is populated by Yjs sync, so the restore is deferred until after
+    // sync (handled by the editor component once `connectionState` reaches `synced`).
+    if (initialLine !== undefined && !collabActive) {
+      const targetLine = clampToValidLine(initialLine, view.state.doc.lines);
       view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
     }
 
@@ -200,22 +258,30 @@ export function useEditorMount({
       viewReference.current = null;
       onOutlineChange([]);
     };
-  }, []); // mount once — content/canEdit changes are handled by their own effects below
+    // Mount once per editor instance; recreate only when remountKey changes (collab room
+    // switch). content/canEdit changes are handled by their own effects below. Other closure
+    // values are intentionally captured at (re)mount time.
+  }, [remountKey]);
 
-  // Sync external content changes into the live view.
+  // Sync external content changes into the live view. Skipped on the collab path —
+  // yCollab owns the document content there (seeding from REST would desync, B3).
   useEffect(() => {
+    if (collabActive) return;
     if (!viewReference.current) return;
     const current = viewReference.current.state.doc.toString();
     if (current !== content) {
       viewReference.current.dispatch({ changes: { from: 0, to: current.length, insert: content } });
     }
-  }, [content]);
+  }, [content, collabActive]);
 
   // Sync canEdit changes via the Compartment — no view recreation needed.
   useEffect(() => {
     if (!viewReference.current) return;
     viewReference.current.dispatch({
-      effects: readOnlyCompartment.current.reconfigure(EditorState.readOnly.of(!canEdit)),
+      effects: readOnlyCompartment.current.reconfigure([
+        EditorState.readOnly.of(!canEdit),
+        EditorView.editable.of(canEdit),
+      ]),
     });
   }, [canEdit]);
 

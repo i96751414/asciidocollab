@@ -1,7 +1,18 @@
 import { renderHook, act } from '@testing-library/react';
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { getCollabDocumentInfo } from '@/lib/api/collab';
+
+jest.mock('@/lib/api/collab', () => ({ getCollabDocumentInfo: jest.fn() }));
+const mockGetCollabInfo = getCollabDocumentInfo as jest.Mock;
 
 const API_BASE = 'http://localhost:4000';
+
+// Most tests exercise the legacy REST path: no collaborative document (the
+// collab discovery returns null), so the GET /content fetch runs as before.
+beforeEach(() => {
+  mockGetCollabInfo.mockReset();
+  mockGetCollabInfo.mockResolvedValue(null);
+});
 
 function makeFetchResponse(body: string, contentType: string, ok = true): Response {
   return {
@@ -45,12 +56,16 @@ describe('useFileSelection', () => {
 
     act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
 
-    // While in-flight, isLoading should be true
+    // isLoading is set synchronously before the collab check + content fetch.
     expect(result.current.contentState.isLoading).toBe(true);
     expect(result.current.contentState.isBinary).toBe(false);
     expect(result.current.contentState.error).toBeNull();
 
-    // Cleanup by resolving
+    // Let the collab discovery resolve (null → legacy) so the content fetch starts.
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.contentState.isLoading).toBe(true);
+
+    // Cleanup by resolving the content fetch.
     await act(async () => {
       resolveFetch(makeFetchResponse('content', 'text/plain'));
       await Promise.resolve();
@@ -90,6 +105,38 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.isBinary).toBe(true);
     expect(result.current.contentState.content).toBeNull();
     expect(result.current.contentState.isLoading).toBe(false);
+  });
+
+  // Guard B: a TEXT file with no collaborative document (GET /collab 404) must be flagged
+  // collabUnavailable so the editor opens read-only instead of the clobbering legacy autosave path.
+  it('text file with no collab document sets collabUnavailable=true (read-only, never legacy edit)', async () => {
+    mockGetCollabInfo.mockResolvedValue(null); // 404 → no collaborative document
+    globalThis.fetch = jest.fn().mockResolvedValue(makeFetchResponse('= Title\n\nbody', 'text/asciidoc'));
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(result.current.contentState.collabUnavailable).toBe(true);
+    expect(result.current.contentState.content).toBe('= Title\n\nbody');
+    expect(result.current.contentState.isBinary).toBe(false);
+  });
+
+  // Guard B: binary assets are legitimately non-collaborative; they must NOT be flagged.
+  it('binary asset with no collab document does NOT set collabUnavailable', async () => {
+    mockGetCollabInfo.mockResolvedValue(null);
+    globalThis.fetch = jest.fn().mockResolvedValue(makeFetchResponse('', 'image/png'));
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('n1', 'image.png', '/image.png', 'file');
+    });
+
+    expect(result.current.contentState.collabUnavailable).toBe(false);
+    expect(result.current.contentState.isBinary).toBe(true);
   });
 
   // T014 (d): network error sets contentState.error
@@ -168,6 +215,8 @@ describe('useFileSelection', () => {
     const { result } = renderHook(() => useFileSelection('p1'));
 
     act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
+    // Let the collab discovery resolve so the first content fetch actually starts.
+    await act(async () => { await Promise.resolve(); });
     await act(async () => {
       await result.current.selectFile('n2', 'other.adoc', '/other.adoc', 'file');
     });
@@ -186,6 +235,8 @@ describe('useFileSelection', () => {
 
     const { result, unmount } = renderHook(() => useFileSelection('p1'));
     act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
+    // Let the collab discovery resolve so the content fetch (and its signal) is created.
+    await act(async () => { await Promise.resolve(); });
 
     expect(capturedSignal?.aborted).toBe(false);
     unmount();
@@ -218,6 +269,8 @@ describe('useFileSelection', () => {
 
     const { result } = renderHook(() => useFileSelection('p1'));
     act(() => { result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file'); });
+    // Let the collab discovery resolve so the content fetch (and its signal) is created.
+    await act(async () => { await Promise.resolve(); });
 
     expect(capturedSignal?.aborted).toBe(false);
 
@@ -291,6 +344,64 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.isLoading).toBe(false);
     expect(result.current.contentState.error).toBeNull();
     expect(result.current.contentState.isBinary).toBe(false);
+  });
+});
+
+// T018 / US1: on the collab path the GET /content fetch must be SKIPPED (the
+// collaboration server owns load/save); on 404 (asset) the legacy fetch runs.
+describe('useFileSelection — collab path (REST-skip refactor guard)', () => {
+  it('skips the GET /content fetch when the file is a collaborative document', async () => {
+    mockGetCollabInfo.mockResolvedValue({ yjsStateId: 'yjs-1', role: 'editor' });
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock;
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.contentState.collab).toEqual({ yjsStateId: 'yjs-1', role: 'editor' });
+    expect(result.current.contentState.content).toBeNull();
+    expect(result.current.contentState.isLoading).toBe(false);
+  });
+
+  it('runs the legacy GET /content fetch when there is no collaborative document (404 → null)', async () => {
+    mockGetCollabInfo.mockResolvedValue(null);
+    const fetchMock = jest.fn().mockResolvedValue(makeFetchResponse('= Legacy', 'text/plain'));
+    globalThis.fetch = fetchMock;
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE}/projects/p1/files/n1/content`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(result.current.contentState.collab).toBeNull();
+    expect(result.current.contentState.content).toBe('= Legacy');
+  });
+
+  it('surfaces an error and does NOT silently open the legacy editor when collab discovery throws', async () => {
+    // A non-404 failure (401/403/5xx) means the file IS a collaborative document but we could not
+    // confirm it. Falling through to the legacy REST GET/PUT path would mount an editable editor
+    // whose autosave PUTs bypass the Yjs document — a split-brain write. So surface an error and
+    // do NOT fetch /content.
+    mockGetCollabInfo.mockRejectedValue(new Error('api down'));
+    const fetchMock = jest.fn().mockResolvedValue(makeFetchResponse('= Fallback', 'text/plain'));
+    globalThis.fetch = fetchMock;
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.contentState.error).toBe('api down');
+    expect(result.current.contentState.content).toBeNull();
+    expect(result.current.contentState.isLoading).toBe(false);
   });
 });
 

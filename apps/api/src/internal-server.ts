@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { authPluginWrapped } from './plugins/auth';
 import { collabAuthRoute } from './routes/internal/collab-auth';
+import { storageProbeRoute } from './routes/internal/storage-probe';
 import type { AppContainer } from '.';
 import type { Config } from './config/schema';
 
@@ -44,6 +45,7 @@ export async function createInternalServer(deps: InternalServerDeps): Promise<Fa
 
   app.register(authPluginWrapped);
   app.register(collabAuthRoute);
+  app.register(storageProbeRoute);
 
   return app;
 }

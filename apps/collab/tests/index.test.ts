@@ -22,8 +22,11 @@ describe('apps/collab graceful shutdown', () => {
         prisma: mockPrisma,
         documentRepository: { findByYjsStateId: jest.fn() },
         config: { get: jest.fn().mockReturnValue(0) },
+        mtlsFetch: undefined,
       }),
     }));
+    // This suite exercises the shutdown sequence, not storage; stub the startup storage check.
+    jest.mock('../src/storage-probe', () => ({ verifySharedStorage: jest.fn().mockResolvedValue(undefined) }));
     jest.spyOn(process, 'on').mockImplementation((event: string, handler: (...arguments_: unknown[]) => void) => {
       if (event === 'SIGTERM' || event === 'SIGINT') {
         shutdownFns.push(handler as () => Promise<void>);

@@ -1,7 +1,13 @@
 'use client';
 import './editor-themes.css';
 import React from 'react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import type * as Y from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
+import type { CollabAuthRole } from '@asciidocollab/shared';
+import type { ConnectionState } from '@/hooks/use-collab-document';
+import { collabExtensions } from './editor-collab-extensions';
+import { CollabPresenceBar } from './collab-presence-bar';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
@@ -42,12 +48,44 @@ interface AsciiDocEditorProperties {
   /** 1-based line to place the cursor on when this editor instance mounts (selection restore). */
   initialLine?: number;
   /**
+   * Collaboration binding. When present the editor enters collab mode: it binds to the shared
+   * Y.Doc (empty initial doc, populated by sync), and the REST autosave/poll/draft/keepalive
+   * machinery is disabled — the collaboration server owns persistence (FR-006). Absent for the
+   * legacy REST path (binary assets, non-collaborative files, offline fallback).
+   */
+  collab?: CollabBinding | null;
+  /**
+   * Collaboration connection state for the status banner (FR-014). Passed independently of
+   * `collab` so the offline read-only fallback (no binding) can still show the offline banner.
+   */
+  connectionState?: ConnectionState;
+  /**
    * Called (the caller debounces) with the 1-based cursor line as it changes, so the position
    * can be persisted for restore.
    *
    * @param line - The 1-based line the cursor is on.
    */
   onCursorLineChange?: (line: number) => void;
+  /**
+   * True when this is editable text with no collaborative document (GET /collab 404). The editor
+   * opens read-only with a banner and the REST autosave stays disabled — silently writing through
+   * the legacy path would let two clients overwrite each other (no Yjs merge, no session lock).
+   */
+  collabUnavailable?: boolean;
+}
+
+/** Live collaboration binding passed to the editor when a file is a collaborative document. */
+export interface CollabBinding {
+  /** Shared Y.Doc owned by useCollabDocument. */
+  doc: Y.Doc;
+  /** Provider awareness for remote cursors/presence. */
+  awareness: Awareness;
+  /** Current connection lifecycle state (drives read-only/banners). */
+  connectionState: ConnectionState;
+  /** The user's collaboration role for this document. */
+  role: CollabAuthRole;
+  /** Yjs state id — used as the editor remount key on room switch. */
+  yjsStateId: string;
 }
 
 type EditorCssVariables = { '--editor-font-size': string } & React.CSSProperties;
@@ -72,7 +110,16 @@ export function AsciiDocEditor({
   onScrollLine,
   initialLine,
   onCursorLineChange,
+  collab,
+  connectionState,
+  collabUnavailable = false,
 }: AsciiDocEditorProperties) {
+  // The file is on the collab path whenever a binding is present OR a connection state is set —
+  // the latter covers the offline read-only fallback, where the binding is dropped but the file
+  // is still collaborative and must NOT re-enable the REST autosave machinery (FR-006).
+  // `collabUnavailable` (text doc with no collab document) also disables autosave: that file is
+  // opened read-only, and the legacy clobbering PUT path must never run for it.
+  const onCollabPath = collab != null || connectionState != null || collabUnavailable;
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
@@ -91,9 +138,22 @@ export function AsciiDocEditor({
     projectId: projectId ?? '',
     fileNodeId: fileNodeId ?? '',
     initialEtag: initialEtag ?? undefined,
+    // Collab path: the collaboration server owns persistence — disable autosave/poll/draft (FR-006).
+    enabled: !onCollabPath,
     onExternalChange: handleExternalChange,
     onDraftRecovered: handleDraftRecovered,
   });
+
+  // yCollab binding for the collab path; memoized on the doc/awareness identity so it is rebuilt
+  // only when the room changes (the editor remounts via remountKey at the same time).
+  const collabExtension = useMemo(
+    () => (collab ? collabExtensions(collab.doc, collab.awareness) : undefined),
+    [collab?.doc, collab?.awareness],
+  );
+
+  // Observers get a read-only editor that still renders live remote edits (FR-012). A text doc with
+  // no collaborative backing is also forced read-only so it can never be edited via legacy autosave.
+  const effectiveCanEdit = collab?.role === 'observer' || collabUnavailable ? false : canEdit;
 
   const handleChange = useCallback((value: string) => {
     if (projectId && fileNodeId) save(value);
@@ -108,7 +168,7 @@ export function AsciiDocEditor({
 
   const { containerReference, viewReference, handleHeadingClick } = useEditorMount({
     content,
-    canEdit,
+    canEdit: effectiveCanEdit,
     softWrap,
     includePaths,
     imagePaths,
@@ -120,6 +180,8 @@ export function AsciiDocEditor({
     onLineClick,
     onScrollLine,
     initialLine,
+    collabExtension,
+    remountKey: collab?.yjsStateId,
   });
 
   const tableContext = useTableContext(viewReference.current);
@@ -152,14 +214,14 @@ export function AsciiDocEditor({
       {isAsciiDoc && (
         <EditorToolbar
           view={viewReference.current}
-          canEdit={canEdit}
+          canEdit={effectiveCanEdit}
           fontSize={fontSize}
           theme={theme}
           setFontSize={setFontSize}
           setTheme={setTheme}
         />
       )}
-      {isAsciiDoc && canEdit && tableContext !== null && viewReference.current !== null && (
+      {isAsciiDoc && effectiveCanEdit && tableContext !== null && viewReference.current !== null && (
         <EditorTableContextToolbar
           view={viewReference.current}
           context={tableContext}
@@ -167,12 +229,16 @@ export function AsciiDocEditor({
           tableFrom={tableContext.tableFrom}
         />
       )}
+      {collab && <CollabPresenceBar awareness={collab.awareness} />}
       <EditorBanners
         externalChange={externalChangeBanner}
         draftContent={draftContent}
         onDismissExternalChange={() => setExternalChangeBanner(false)}
         onRestoreDraft={restoreDraft}
         onDiscardDraft={discardDraft}
+        connectionState={connectionState ?? collab?.connectionState}
+        readOnly={collab?.role === 'observer'}
+        collabUnavailable={collabUnavailable}
       />
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />

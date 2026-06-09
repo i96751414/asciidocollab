@@ -212,6 +212,89 @@ describe('createMtlsFetch', () => {
     expect(capturedOptions!.headers?.['x-other']).toBe('def');
   });
 
+  it('uses default port 443 when the URL has no explicit port number', async () => {
+    const cert = Buffer.from('cert');
+    const key = Buffer.from('key');
+    const ca = Buffer.from('ca');
+
+    (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
+    let capturedOptions: { port?: number } | null = null;
+    (mockHttps.request as jest.Mock).mockImplementation((options: { port?: number }, callback: (result: unknown) => void) => {
+      capturedOptions = options;
+      const request = makeFakeRequest();
+      setImmediate(() => {
+        const result = makeFakeResponse(200, Buffer.from('{}'));
+        callback(result);
+        result.emit('data', Buffer.from('{}'));
+        result.emit('end');
+      });
+      return request;
+    });
+
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    await fetchFunction('https://internal-api/path');
+
+    expect(capturedOptions!.port).toBe(443);
+  });
+
+  it('joins multi-value response headers with a comma', async () => {
+    const cert = Buffer.from('cert');
+    const key = Buffer.from('key');
+    const ca = Buffer.from('ca');
+
+    (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
+    (mockHttps.request as jest.Mock).mockImplementation((_options: unknown, callback: (result: unknown) => void) => {
+      const request = makeFakeRequest();
+      setImmediate(() => {
+        const fakeResponse = {
+          statusCode: 200,
+          headers: { 'set-cookie': ['a=1; Path=/', 'b=2; Path=/'] },
+          on(event: string, callback_: (...arguments_: unknown[]) => void) {
+            if (event === 'end') setImmediate(() => callback_());
+            if (event === 'data') setImmediate(() => callback_(Buffer.from('')));
+            return fakeResponse;
+          },
+        };
+        callback(fakeResponse);
+      });
+      return request;
+    });
+
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    const response = await fetchFunction('https://127.0.0.1:4001/path');
+
+    expect(response.headers.get('set-cookie')).toBe('a=1; Path=/, b=2; Path=/');
+  });
+
+  it('falls back to status 200 when the response statusCode is undefined', async () => {
+    const cert = Buffer.from('cert');
+    const key = Buffer.from('key');
+    const ca = Buffer.from('ca');
+
+    (mockHttps.Agent as unknown) = jest.fn().mockReturnValue({});
+    (mockHttps.request as jest.Mock).mockImplementation((_options: unknown, callback: (result: unknown) => void) => {
+      const request = makeFakeRequest();
+      setImmediate(() => {
+        const fakeResponse = {
+          statusCode: undefined,
+          headers: {},
+          on(event: string, callback_: (...arguments_: unknown[]) => void) {
+            if (event === 'end') setImmediate(() => callback_());
+            if (event === 'data') setImmediate(() => callback_(Buffer.from('')));
+            return fakeResponse;
+          },
+        };
+        callback(fakeResponse);
+      });
+      return request;
+    });
+
+    const fetchFunction = createMtlsFetch(cert, key, ca);
+    const response = await fetchFunction('https://127.0.0.1:4001/path');
+
+    expect(response.status).toBe(200);
+  });
+
   it('forwards Headers instance fields as plain header strings', async () => {
     const cert = Buffer.from('cert');
     const key = Buffer.from('key');

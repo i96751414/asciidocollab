@@ -54,6 +54,27 @@ fi
 # Source env file
 set -a; source "$ENV_FILE"; set +a
 
+# ─── Shared collaboration storage (CRITICAL) ──────────────────────────────────
+# The API and the collaboration server BOTH read and write project files. The
+# collab server owns persistence while a document is open (write-back on edit and
+# room teardown); the API serves GET /content, downloads, and previews from the
+# same files. If the two processes use different storage roots they silently
+# diverge: collaborative edits never reach the REST source of truth, downloads and
+# other clients see stale content, and REST writes overwrite collaborative edits
+# (and vice-versa) — i.e. users see different things and clobber each other.
+#
+# Each server defaults `storagePath` to a CWD-relative "./storage". Because we
+# start them from their own app directories below (apps/api, apps/collab), that
+# default would resolve to two DIFFERENT directories. Pin a single ABSOLUTE root
+# here so both processes share it regardless of CWD. (Respects an explicit
+# override from .env.local if the operator set one.)
+export ASCIIDOCOLLAB_STORAGE_PATH="${ASCIIDOCOLLAB_STORAGE_PATH:-$ROOT/.dev-storage}"
+info "Shared file storage: $ASCIIDOCOLLAB_STORAGE_PATH"
+
+# The browser connects to the collaboration WebSocket directly. Pin it so a
+# .env.local generated before the collaboration feature existed still works.
+export NEXT_PUBLIC_COLLAB_URL="${NEXT_PUBLIC_COLLAB_URL:-ws://localhost:${ASCIIDOCOLLAB_COLLAB_PORT:-4002}}"
+
 # ─── Docker services ──────────────────────────────────────────────────────────
 # --wait blocks until all services with healthchecks report healthy.
 # For postgres this means the DB and the asciidocollab database both exist,
@@ -103,9 +124,27 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ─── Start services ───────────────────────────────────────────────────────────
+API_PORT="${ASCIIDOCOLLAB_API_PORT:-4000}"
+INTERNAL_PORT="${ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT:-4001}"
+
 info "Starting API server …"
 (cd "$ROOT/apps/api" && NODE_ENV=development node dist/index.js) &
 API_PID=$!
+
+# Wait for the API BEFORE starting the collab server. The collab server runs a
+# startup storage-consistency check (and per-connection auth) against the API's
+# internal port; starting it before the API is listening makes that check fail.
+info "Waiting for the API (:$API_PORT public, :$INTERNAL_PORT internal) …"
+until curl -sf "http://localhost:${API_PORT}/health" &>/dev/null; do
+  kill -0 "$API_PID" 2>/dev/null || die "API exited before becoming ready — see output above."
+  sleep 0.5
+done
+until (exec 3<>"/dev/tcp/127.0.0.1/${INTERNAL_PORT}") 2>/dev/null; do
+  kill -0 "$API_PID" 2>/dev/null || die "API exited before its internal server came up — see output above."
+  sleep 0.5
+done
+exec 3>&- 2>/dev/null || true
+success "API is ready."
 
 info "Starting collab server …"
 (cd "$ROOT/apps/collab" && NODE_ENV=development node dist/index.js) &

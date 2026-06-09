@@ -88,4 +88,63 @@ describe('createCollabConfig', () => {
       expect(config.get('apiInternalTls.cert')).toBe('/certs/client.pem');
     });
   });
+
+  // T053 / CFG1: security config keys.
+  describe('security config keys', () => {
+    it('provides safe defaults for the security keys', () => {
+      const config = createCollabConfig();
+      expect(config.get('allowedOrigins')).toBe('');
+      expect(config.get('maxPayloadBytes')).toBe(1_048_576);
+      expect(config.get('maxConnectionsPerUser')).toBe(20);
+      expect(config.get('maxRoomsPerUser')).toBe(50);
+      expect(config.get('connectRatePerMin')).toBe(120);
+    });
+
+    it('reads allowedOrigins from ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS', () => {
+      withEnvironment({ ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS: 'https://a.example,https://b.example' }, () => {
+        const config = createCollabConfig();
+        expect(config.get('allowedOrigins')).toBe('https://a.example,https://b.example');
+      });
+    });
+
+    it.each([
+      ['ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES'],
+      ['ASCIIDOCOLLAB_COLLAB_MAX_CONNECTIONS_PER_USER'],
+      ['ASCIIDOCOLLAB_COLLAB_MAX_ROOMS_PER_USER'],
+      ['ASCIIDOCOLLAB_COLLAB_CONNECT_RATE_PER_MIN'],
+    ])('throws when %s is zero', (environmentKey) => {
+      withEnvironment({ [environmentKey]: '0' }, () => {
+        expect(() => {
+          const config = createCollabConfig();
+          config.validate();
+        }).toThrow();
+      });
+    });
+
+    it('throws when maxConnectionsPerUser is negative', () => {
+      withEnvironment({ ASCIIDOCOLLAB_COLLAB_MAX_CONNECTIONS_PER_USER: '-5' }, () => {
+        expect(() => {
+          const config = createCollabConfig();
+          config.validate();
+        }).toThrow();
+      });
+    });
+
+    it('accepts valid positive integers for all security limits', () => {
+      withEnvironment(
+        {
+          ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES: '2097152',
+          ASCIIDOCOLLAB_COLLAB_MAX_CONNECTIONS_PER_USER: '10',
+          ASCIIDOCOLLAB_COLLAB_MAX_ROOMS_PER_USER: '25',
+          ASCIIDOCOLLAB_COLLAB_CONNECT_RATE_PER_MIN: '60',
+        },
+        () => {
+          expect(() => {
+            const config = createCollabConfig();
+            config.validate();
+          }).not.toThrow();
+        },
+      );
+    });
+  });
 });

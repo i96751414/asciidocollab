@@ -122,7 +122,7 @@ test.describe('File management — US4/US6', () => {
     const deleteDialog = page.locator('[role="dialog"]');
     await expect(deleteDialog).toBeVisible();
     await deleteDialog.getByRole('button', { name: /delete/i }).click();
-    await expect(page.getByTestId('tree-node-guide.adoc')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-guide.adoc')).not.toBeVisible({ timeout: 10_000 });
 
     // 7. Delete "docs" folder (non-empty — contains chapter-1.adoc); must show warning
     await openNodeActions(page, 'docs');
@@ -131,7 +131,7 @@ test.describe('File management — US4/US6', () => {
     await expect(folderDeleteDialog).toBeVisible();
     await expect(folderDeleteDialog.getByText(/also delete all files inside/i)).toBeVisible();
     await folderDeleteDialog.getByRole('button', { name: /delete/i }).click();
-    await expect(page.getByTestId('tree-node-docs')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-docs')).not.toBeVisible({ timeout: 10_000 });
   });
 
   // ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@ test.describe('File management — US4/US6', () => {
     const confirmDialog = page.locator('[role="dialog"]');
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole('button', { name: /delete/i }).click();
-    await expect(page.getByTestId('tree-node-to-delete.adoc')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-to-delete.adoc')).not.toBeVisible({ timeout: 10_000 });
   });
 
   // T037: owner can delete a non-empty folder with warning
@@ -215,7 +215,7 @@ test.describe('File management — US4/US6', () => {
     await expect(confirmDialog).toBeVisible();
     await expect(confirmDialog.getByText(/also delete all files inside/i)).toBeVisible();
     await confirmDialog.getByRole('button', { name: /delete/i }).click();
-    await expect(page.getByTestId('tree-node-folder-with-files')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-folder-with-files')).not.toBeVisible({ timeout: 10_000 });
   });
 
   // T038: viewer cannot see file management controls

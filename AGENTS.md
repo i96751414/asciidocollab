@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/019-persist-file-selection/plan.md
+Active feature plan: specs/020-realtime-co-editing/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)
@@ -103,7 +103,8 @@ asciidocollab/
 │   │       └── value-objects/      # 22 VOs including FileName (validates against path traversal,
 │   │                               # control chars, Windows reserved names)
 │   ├── infrastructure/             # Prisma repos, filesystem stores, email sender
-│   ├── collaboration/              # Hocuspocus standalone server (shell — Phase 9+)
+│   ├── collaboration/              # Hocuspocus standalone server (apps/collab) — real-time Yjs co-editing,
+│   │                               # auth-hook, per-user connection/rate caps, Origin allowlist, max-payload
 │   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, etc.)
 │   ├── db/                         # Prisma schema, migrations
 │   └── testing/                    # Testcontainers helper, factories, shared test setup
@@ -144,21 +145,21 @@ MUST NOT run `npx jest` from the repo root without `--filter` — it picks up co
 Run the whole gate locally with one command:
 
 ```bash
-pnpm gate    # = scripts/ci-gate.sh — runs all four jobs below, stops on first failure
+pnpm gate    # = scripts/ci/gate.sh — runs all four jobs below, stops on first failure
 ```
 
-`pnpm gate` uses the **isolated** e2e job (`e2e-local.sh`), so it is safe to run while `scripts/dev.sh` is up — it never clashes on the dev ports or touches the dev database. **When asked to "run all quality gates with e2e", use `pnpm gate` (or `e2e-local.sh` for the e2e job) — never `ci-e2e.sh` while a dev stack is running** (see below). The individual jobs:
+`pnpm gate` uses the **isolated** e2e job (`scripts/ci/e2e-local.sh`), so it is safe to run while `scripts/dev.sh` is up — it never clashes on the dev ports or touches the dev database. **When asked to "run all quality gates with e2e", use `pnpm gate` (or `scripts/ci/e2e-local.sh` for the e2e job) — never `scripts/ci/e2e.sh` while a dev stack is running** (see below). The individual jobs (all under `scripts/ci/`):
 
 ```bash
-./scripts/ci-quality.sh      # Job 1: build · lint · types · architecture · audit
-./scripts/ci-unit.sh         # Job 2: unit tests + coverage (needs Job 1)
-./scripts/ci-integration.sh  # Job 3: integration tests via Testcontainers (needs Job 1)
-./scripts/e2e-local.sh       # Job 4: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
+./scripts/ci/quality.sh      # Job 1: build · lint · types · architecture · audit
+./scripts/ci/unit.sh         # Job 2: unit tests + coverage (needs Job 1)
+./scripts/ci/integration.sh  # Job 3: integration tests via Testcontainers (needs Job 1)
+./scripts/ci/e2e-local.sh    # Job 4: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
 ```
 
 E2E tests are mandatory before merge — they are the only layer that catches missing route registrations and broken API contracts.
 
-**`e2e-local.sh` (= `pnpm e2e:local`) vs `ci-e2e.sh`:** both run the *same* Playwright suite. `e2e-local.sh` spins up a throwaway Postgres + Mailpit from `docker-compose.e2e.yml` on distinct ports (5433/1126/8126, API 4100, web 3100, collab-internal 4101) and tears down — it never touches your dev containers, ports, or data, so it coexists with a running `dev.sh`. `ci-e2e.sh` is the **CI** form: it targets the dev stack (`docker-compose.dev.yml`, ports 4000/3000) and runs `prisma db push --force-reset`, so running it locally while `dev.sh` is up would `EADDRINUSE` on 4000/3000 and wipe the dev database. `scripts/e2e-stack-up.sh` brings the isolated stack **up and leaves it running** for iterating on individual specs.
+**`scripts/ci/e2e-local.sh` (= `pnpm e2e:local`) vs `scripts/ci/e2e.sh`:** both run the *same* Playwright suite. `e2e-local.sh` spins up a throwaway Postgres + Mailpit from `docker-compose.e2e.yml` on distinct ports (5433/1126/8126, API 4100, web 3100, collab-internal 4101) and tears down — it never touches your dev containers, ports, or data, so it coexists with a running `dev.sh`. `e2e.sh` is the **CI** form: it targets the dev stack (`docker-compose.dev.yml`, ports 4000/3000) and runs `prisma db push --force-reset`, so running it locally while `dev.sh` is up would `EADDRINUSE` on 4000/3000 and wipe the dev database. `scripts/e2e-stack-up.sh` brings the isolated stack **up and leaves it running** for iterating on individual specs.
 
 Local e2e gotchas: (1) the isolated scripts offset the collab-internal port to 4101 so they coexist with a dev API on 4001; override `ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT` if 4101 is also taken; (2) dev and e2e share `apps/web/.next`, so a stale `.next` (a prior `next dev` build mixed with `next build`) can make the served HTML reference chunks that 404→500 and pages won't hydrate (e.g. the register button stays disabled) — `rm -rf apps/web/.next` before building if you hit this; (3) never `DROP SCHEMA` on the e2e DB while the API is running (it corrupts the Prisma pool) — reset the DB before the API starts.
 
@@ -171,6 +172,13 @@ pnpm --filter @asciidocollab/web lint        # lint apps/web only
 ```
 
 `next lint` was removed in Next.js 16. CI runs `npx eslint .` from the repo root. `pnpm --filter @asciidocollab/web lint` runs `eslint src/ tests/ e2e/` directly.
+
+### Editor: collab vs legacy mode
+
+On opening a file the editor calls `GET /projects/:projectId/files/:fileNodeId/collab` (→ `{ yjsStateId, role }`, or 404 for binary assets). The result selects one of two paths:
+
+- **Collab mode** (text document): binds CodeMirror to a shared `Y.Text` over Hocuspocus (`use-collab-document` owns the provider+Y.Doc), mounts an **empty** doc populated by sync, and **disables** the legacy REST machinery — no `useAutoSave` PUT, ETag polling, localStorage drafts, or `beforeunload` keepalive. The collaboration server owns persistence (write-back + room-teardown flush). Observers get a read-only editor; if the WS never syncs within the timeout, the editor opens **offline read-only** seeded from `GET /content`. Per-user undo is a Yjs `UndoManager` (native CM history is dropped on this path).
+- **Legacy mode** (binary assets, non-collaborative files, offline fallback): unchanged `GET`/`PUT /content` REST load/save.
 
 ---
 
@@ -418,9 +426,9 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 |-------|----------------------------------------------------------------------------------------|
 | 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)      |
 | 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo) |
-| 10    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)   |
-| 11    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                 |
-| 12    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)            |
-| 13    | Templates + asset management (built-in templates, custom templates, image upload)      |
-| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                  |
+| 10    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)            |
+| 11    | Templates + asset management (built-in templates, custom templates, image upload)      |
+| 12    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)   |
+| 13    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                 |
+| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                   |
 | 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)      |

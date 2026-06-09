@@ -309,6 +309,62 @@ describe('asciidoc-render.worker', () => {
     expect(result.html).not.toContain('hljs');
   });
 
+  // (r) id attributes that are NOT in blockSourceLines are passed through unchanged
+  it('leaves an id unmodified when it has no corresponding source line entry', () => {
+    const block = makeBlock({ lineNumber: 5, id: 'known-para', context: 'paragraph' });
+    mockConvert.mockReturnValueOnce(
+      '<div id="known-para">Para</div>' +
+      '<div id="extra-anchor">Anchor</div>',
+    );
+    mockFindBy.mockReturnValueOnce([block]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 50, content: '= Doc' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    expect(result.html).toContain('id="known-para" data-source-line="5"');
+    // "extra-anchor" has no line number entry → kept verbatim
+    expect(result.html).toContain('id="extra-anchor"');
+    expect(result.html).not.toContain('id="extra-anchor" data-source-line');
+  });
+
+  // (s) a non-Error thrown value is converted via String() in the error message
+  it('serialises a non-Error thrown value as the error message', () => {
+    mockLoad.mockImplementationOnce(() => { throw 'string-only-error'; });
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 51, content: 'bad' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('string-only-error');
+  });
+
+  // (q) when hljs throws during highlight, the original markup is preserved unchanged
+  it('preserves original source-block markup when hljs.highlight throws', () => {
+    jest.doMock('highlight.js/lib/common', () => ({
+      __esModule: true,
+      default: {
+        getLanguage: jest.fn().mockReturnValue({ name: 'javascript' }),
+        highlight: jest.fn().mockImplementation(() => { throw new Error('hljs internal error'); }),
+        highlightAuto: jest.fn(),
+      },
+    }));
+
+    const codeHtml =
+      '<pre class="highlight"><code class="language-javascript">const x = 1;</code></pre>';
+    mockConvert.mockReturnValueOnce(codeHtml);
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 99, content: '[,javascript]\n----\nconst x = 1;\n----' });
+
+    const result = postMessageMock.mock.calls[0][0];
+    expect(result.ok).toBe(true);
+    // The original escaped markup is returned verbatim — no hljs class or spans.
+    expect(result.html).toBe(codeHtml);
+
+    jest.dontMock('highlight.js/lib/common');
+  });
+
   // (k) level-0 section does not add a blockSourceLine entry (no id injection attempt)
   it('level-0 section is excluded from blockSourceLines so no id-based injection is attempted', () => {
     const level0Section = makeBlock({ lineNumber: 1, id: null, context: 'section', level: 0 });

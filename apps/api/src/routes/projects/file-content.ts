@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   GetFileNodeContentUseCase,
   SaveDocumentContentUseCase,
+  GetDocumentCollabInfoUseCase,
   UserId,
   ProjectId,
   FileNodeId,
@@ -10,7 +11,9 @@ import {
   ContentNotFoundError,
   ActiveCollaborationSessionError,
 } from '@asciidocollab/domain';
+import type { CollabDocumentInfo } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
+import { logAuthorizationDenial } from '../audit-log-denial';
 
 /** Registers GET and PUT routes for reading/writing file content. */
 export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
@@ -51,6 +54,54 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         reply200.header('ETag', `"${result.value.contentId}"`);
       }
       return reply200.send(result.value.content);
+    },
+  );
+
+  app.get<{ Params: { projectId: string; fileNodeId: string } }>(
+    '/projects/:projectId/files/:fileNodeId/collab',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['projectId', 'fileNodeId'],
+          properties: {
+            projectId: { type: 'string', format: 'uuid' },
+            fileNodeId: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const actorId = UserId.create(getAuthenticatedUserId(request));
+      const projectId = ProjectId.create(request.params.projectId);
+      const fileNodeId = FileNodeId.create(request.params.fileNodeId);
+
+      const useCase = new GetDocumentCollabInfoUseCase(
+        request.server.repos.projectMember,
+        request.server.repos.fileNode,
+        request.server.repos.document,
+      );
+
+      const result = await useCase.execute(actorId, projectId, fileNodeId);
+
+      if (!result.success) {
+        if (result.error instanceof PermissionDeniedError) {
+          // Authorization-denial audit (SEC4 / §Audit): actor, resource, reason — never secrets.
+          logAuthorizationDenial(request.log, {
+            actor: actorId.value,
+            resource: `projects/${projectId.value}/files/${fileNodeId.value}`,
+            reason: 'not_a_member',
+          });
+          return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not a member of this project' } });
+        }
+        if (result.error instanceof FileNodeNotFoundError || result.error instanceof ContentNotFoundError) {
+          return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'No collaborative document for this file' } });
+        }
+        return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
+      }
+
+      const body: CollabDocumentInfo = { yjsStateId: result.value.yjsStateId, role: result.value.role };
+      return reply.status(200).send(body);
     },
   );
 

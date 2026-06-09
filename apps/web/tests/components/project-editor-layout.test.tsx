@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 // ── Heavy dependency mocks ───────────────────────────────────────────────────
 
+jest.mock('@/contexts/current-user-context', () => ({
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+}));
+
 jest.mock('@/components/file-tree/file-tree', () => ({
   FileTree: ({
     onSelectFile,

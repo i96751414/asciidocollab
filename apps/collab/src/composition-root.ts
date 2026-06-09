@@ -12,6 +12,7 @@ import {
 import { OpenCollaborationSessionUseCase, CloseCollaborationSessionUseCase } from '@asciidocollab/domain';
 import { PersistenceExtension } from './extensions/persistence';
 import { AuthHookExtension } from './extensions/auth-hook';
+import { ConnectionLimitExtension } from './extensions/connection-limit';
 import { createMtlsFetch } from './extensions/mtls-fetch';
 import { createCollabServer } from './server';
 import { createCollabConfig } from './config/collab-config';
@@ -45,11 +46,26 @@ export async function compositionRoot() {
     ? createMtlsFetch(readFileSync(tlsCert), readFileSync(tlsKey), readFileSync(tlsCa))
     : undefined;
 
+  const allowedOrigins = config
+    .get('allowedOrigins')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
   const authHookExtension = new AuthHookExtension({
     apiInternalUrl: config.get('apiInternalUrl'),
     authTimeoutMs: config.get('authTimeoutMs'),
     logger,
+    allowedOrigins,
     ...(mtlsFetch && { fetch: mtlsFetch }),
+  });
+
+  // Runs after the auth hook (which sets context.userId) and before persistence.
+  const connectionLimitExtension = new ConnectionLimitExtension({
+    maxConnectionsPerUser: config.get('maxConnectionsPerUser'),
+    maxRoomsPerUser: config.get('maxRoomsPerUser'),
+    connectRatePerMin: config.get('connectRatePerMin'),
+    logger,
   });
 
   const persistenceExtension = new PersistenceExtension(
@@ -60,8 +76,8 @@ export async function compositionRoot() {
   );
 
   const server = await createCollabServer(
-    { port: config.get('port') },
-    [authHookExtension, persistenceExtension],
+    { port: config.get('port'), maxPayloadBytes: config.get('maxPayloadBytes'), logger },
+    [authHookExtension, connectionLimitExtension, persistenceExtension],
     systemSettingRepo,
     {
       onRoomOpen: (projectId, documentId) =>
@@ -80,5 +96,7 @@ export async function compositionRoot() {
     openCollaborationSessionUseCase,
     closeCollaborationSessionUseCase,
     config,
+    // Exposed so startup can verify shared storage with the API over the same (optionally mTLS) channel.
+    mtlsFetch,
   };
 }

@@ -10,11 +10,9 @@ import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { YjsStateStore } from '../../ports/storage/yjs-state-store';
 import { YjsStateId } from '../../value-objects/yjs-state-id';
-import { CollaborationSessionRepository } from '../../ports/project/collaboration-session.repository';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../../errors/cannot-delete-root-folder';
-import { ActiveCollaborationSessionError } from '../../errors/active-collaboration-session';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { randomUUID } from 'crypto';
@@ -33,7 +31,6 @@ export class DeleteFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly yjsStateStore?: YjsStateStore,
-    private readonly collaborationSessionRepo?: CollaborationSessionRepository,
   ) {}
 
   /**
@@ -71,20 +68,10 @@ export class DeleteFileUseCase {
       ? await this.documentRepo.findByFileNodeId(fileNodeId)
       : null;
 
-    if (this.collaborationSessionRepo) {
-      if (fileNode.type.value === 'file') {
-        if (document) {
-          const isActive = await this.collaborationSessionRepo.isActive(projectId, document.id);
-          if (isActive) {
-            return { success: false, error: new ActiveCollaborationSessionError(document.id) };
-          }
-        }
-      } else {
-        const activeError = await this.findActiveSessionInFolder(fileNodeId, projectId, this.collaborationSessionRepo);
-        if (activeError) return { success: false, error: activeError };
-      }
-    }
-
+    // Note: deletion is allowed even while a collaboration room is open for this file. The
+    // CollaborationSession row is removed by the cascade on the deleted Document, and any
+    // connected clients are disconnected when the room's document disappears. Blocking the
+    // delete instead would make any file the user has merely opened impossible to delete.
     if (fileNode.type.value === 'file') {
       if (document) {
         await this.documentRepo.delete(document.id);
@@ -120,30 +107,6 @@ export class DeleteFileUseCase {
     await this.auditLogRepo.save(auditLog);
 
     return { success: true, value: undefined };
-  }
-
-  private async findActiveSessionInFolder(
-    folderId: FileNodeId,
-    projectId: ProjectId,
-    collaborationSessionRepo: CollaborationSessionRepository,
-  ): Promise<ActiveCollaborationSessionError | null> {
-    const stack: FileNodeId[] = [folderId];
-    while (stack.length > 0) {
-      const currentId = stack.pop()!;
-      const children = await this.fileNodeRepo.findByParentId(currentId);
-      for (const child of children) {
-        if (child.type.value === 'file') {
-          const document = await this.documentRepo.findByFileNodeId(child.id);
-          if (document) {
-            const isActive = await collaborationSessionRepo.isActive(projectId, document.id);
-            if (isActive) return new ActiveCollaborationSessionError(document.id);
-          }
-        } else {
-          stack.push(child.id);
-        }
-      }
-    }
-    return null;
   }
 
   private async deleteFolderRecursively(folderId: FileNodeId, projectId: ProjectId): Promise<void> {

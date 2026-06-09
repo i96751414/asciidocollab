@@ -22,13 +22,11 @@ interface YjsDocument {
 interface LoadPayload {
   documentName: string;
   document: YjsDocument;
-  context: Record<string, unknown>;
 }
 
 interface StorePayload {
   documentName: string;
   document: YjsDocument;
-  context: Record<string, unknown>;
 }
 
 /** Hocuspocus extension that persists Yjs state and syncs file content. */
@@ -68,17 +66,24 @@ export class PersistenceExtension {
     await this.yjsStateStore.save(projectId, yjsStateId, initialState);
   }
 
-  /** Saves Yjs state and syncs codemirror text to file storage (skipped for observers). */
-  async onStoreDocument({ documentName, document, context }: StorePayload): Promise<void> {
-    if (context.role === 'observer') return;
-
+  /**
+   * Saves Yjs state and syncs codemirror text to file storage. Observer writes are blocked at the
+   * transport layer (the auth hook sets `connection.readOnly`), NOT here: onStoreDocument is a
+   * document-level hook whose `context` does not reliably identify the writing connection, so
+   * gating on `context.role` would risk silently dropping a legitimate editor's edits in a mixed
+   * (editor + observer) room.
+   */
+  async onStoreDocument({ documentName, document }: StorePayload): Promise<void> {
     const { projectId, yjsStateId } = parseRoomName(documentName);
+
+    // Resolve the backing document FIRST. If it no longer exists (the file was deleted while its
+    // room was still open), skip every write — re-saving the Yjs state blob here would resurrect
+    // storage the delete just removed, leaving an orphan with no cleanup path.
+    const filePath = await this.resolveFilePath(yjsStateId);
+    if (!filePath) return;
 
     const state = Buffer.from(Y.encodeStateAsUpdate(document));
     await this.yjsStateStore.save(projectId, yjsStateId, state);
-
-    const filePath = await this.resolveFilePath(yjsStateId);
-    if (!filePath) return;
 
     const content = Buffer.from(document.getText('codemirror').toString(), 'utf8');
     await this.projectFileStore.write(projectId, filePath, content);

@@ -168,7 +168,11 @@ describe('createCollabServer', () => {
     expect(typeof server.destroy).toBe('function');
   });
 
-  it('onConnect throws when document is not found — rejects the WebSocket connection', async () => {
+  it('onConnect REJECTS when the document is not found (no untracked live room; preserves FR-011)', async () => {
+    // onConnect rejects on ANY failure rather than letting a live room exist without its session
+    // row. A document-not-found here is a sub-millisecond delete race (auth already confirmed the
+    // document existed); rejecting is consistent with the onRoomOpen-failure path and avoids an
+    // untracked connection that would mismatch onDisconnect's counting. onRoomOpen is not called.
     const settingRepo = {
       get: jest.fn().mockResolvedValue('30'),
       set: jest.fn(),
@@ -196,14 +200,20 @@ describe('createCollabServer', () => {
 
     const projectId = '550e8400-e29b-41d4-a716-446655440001';
     const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    const context: Record<string, unknown> = {};
     await expect(
-      cfg.onConnect({ documentName: `${projectId}/${yjsStateId}`, context: {} }),
+      cfg.onConnect({ documentName: `${projectId}/${yjsStateId}`, context }),
     ).rejects.toThrow('Document not found');
-
     expect(sessionCallbacks.onRoomOpen).not.toHaveBeenCalled();
+    expect(context.documentId).toBeUndefined();
   });
 
-  it('onConnect throws and does NOT store documentId when onRoomOpen fails', async () => {
+  it('onConnect REJECTS when onRoomOpen fails for an existing document (preserves the FR-011 edit lock)', async () => {
+    // The document EXISTS but the active-session row could not be created. The connection must be
+    // rejected, NOT failed open: a live room without a session row would let a concurrent REST
+    // PUT /content bypass spec-018's active-session edit lock (FR-011). (Trade-off: a rejection
+    // here fires no onDisconnect, so a repeated failure during a DB outage can inflate the user's
+    // ConnectionLimit count until restart — an accepted availability cost to protect data.)
     const settingRepo = {
       get: jest.fn().mockResolvedValue('30'),
       set: jest.fn(),
@@ -240,7 +250,47 @@ describe('createCollabServer', () => {
     expect(context.documentId).toBeUndefined();
   });
 
-  it('onDisconnect does nothing when context has no documentId (onConnect never succeeded)', async () => {
+  it('onDisconnect resolves the documentId by lookup when context lacks it, and closes the session', async () => {
+    // Regression: Hocuspocus does not preserve the onConnect-mutated context into onDisconnect,
+    // so context.documentId is absent in practice. onDisconnect must still resolve the document
+    // (by yjsStateId) and close the session — otherwise the room never closes and the file
+    // becomes permanently undeletable (an active-session 409).
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn().mockResolvedValue({ id: { value: '550e8400-e29b-41d4-a716-446655440010' } }),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    await cfg.onDisconnect({
+      clientsCount: 0,
+      documentName: '550e8400-e29b-41d4-a716-446655440001/550e8400-e29b-41d4-a716-446655440002',
+      context: {}, // Hocuspocus did not carry documentId across hooks
+      document: { getConnectionsCount: jest.fn().mockReturnValue(0) },
+    });
+
+    expect(documentRepository.findByYjsStateId).toHaveBeenCalled();
+    expect(sessionCallbacks.onRoomClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('onDisconnect does nothing when the document cannot be resolved', async () => {
     const settingRepo = {
       get: jest.fn().mockResolvedValue('30'),
       set: jest.fn(),
@@ -252,7 +302,7 @@ describe('createCollabServer', () => {
     };
 
     const documentRepository = {
-      findByYjsStateId: jest.fn(),
+      findByYjsStateId: jest.fn().mockResolvedValue(null),
       findById: jest.fn(),
       findByFileNodeId: jest.fn(),
       findByFileNodeIds: jest.fn(),
@@ -321,6 +371,77 @@ describe('createCollabServer', () => {
     ).resolves.toBeUndefined(); // must not throw
 
     expect(sessionCallbacks.onRoomClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the default writeback interval when the system setting is not configured', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo);
+
+    expect(server).toBeDefined();
+  });
+
+  it('skips onDisconnect processing when other clients are still connected (clientsCount > 0)', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const sessionCallbacks = {
+      onRoomOpen: jest.fn(),
+      onRoomClose: jest.fn(),
+    };
+
+    const documentRepository = {
+      findByYjsStateId: jest.fn(),
+      findById: jest.fn(),
+      findByFileNodeId: jest.fn(),
+      findByFileNodeIds: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as DocumentRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer({ port: 0 }, [extension], settingRepo, sessionCallbacks, documentRepository);
+
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    const projectId = '550e8400-e29b-41d4-a716-446655440001';
+    const yjsStateId = '550e8400-e29b-41d4-a716-446655440002';
+    // clientsCount > 0 means other clients remain — handler must return early
+    await cfg.onDisconnect({
+      clientsCount: 2,
+      documentName: `${projectId}/${yjsStateId}`,
+      context: {},
+      document: { getConnectionsCount: jest.fn().mockReturnValue(2) },
+    });
+
+    expect(documentRepository.findByYjsStateId).not.toHaveBeenCalled();
+    expect(sessionCallbacks.onRoomClose).not.toHaveBeenCalled();
+  });
+
+  it('wires a max-payload guard into the server when maxPayloadBytes is configured', async () => {
+    const settingRepo = {
+      get: jest.fn().mockResolvedValue('30'),
+      set: jest.fn(),
+    } as unknown as SystemSettingRepository;
+
+    const extension = makeExtension();
+    const server = await createCollabServer(
+      { port: 0, maxPayloadBytes: 1024 },
+      [extension],
+      settingRepo,
+    );
+
+    const cfg = (server as { configuration?: { beforeHandleMessage?: unknown } }).configuration;
+    if (cfg) {
+      expect(typeof cfg.beforeHandleMessage).toBe('function');
+    }
   });
 
   it('onDisconnect catches and logs when onRoomClose throws (not just fails)', async () => {

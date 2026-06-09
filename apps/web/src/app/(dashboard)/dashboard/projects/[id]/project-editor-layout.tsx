@@ -15,8 +15,14 @@ import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useLastSelection } from '@/hooks/use-last-selection';
+import { useCollabDocument, type ConnectionState } from '@/hooks/use-collab-document';
+import { useCurrentUser } from '@/contexts/current-user-context';
+import { getDocumentContent } from '@/lib/api/file-content';
+import { getCollabDocumentInfo } from '@/lib/api/collab';
+import type { CollabAuthRole } from '@asciidocollab/shared';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
+import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -34,6 +40,16 @@ interface ContentAreaProperties {
    * @param line - The 1-based line the cursor is on.
    */
   onCursorLineChange?: (line: number) => void;
+  /** Live collaboration binding for the selected file, or null on the legacy path. */
+  collab?: CollabBinding | null;
+  /** True when the file is collaborative but the provider/Y.Doc is not ready yet. */
+  collabPending?: boolean;
+  /** Collaboration connection state, for the editor's status banner. */
+  connectionState?: ConnectionState;
+  /** Content to render instead of contentState.content (offline read-only fallback). */
+  contentOverride?: string | null;
+  /** True when the file is editable text with no collaborative document — read-only, no autosave. */
+  collabUnavailable?: boolean;
 }
 
 function ContentArea({
@@ -46,11 +62,16 @@ function ContentArea({
   onChange,
   initialLine,
   onCursorLineChange,
+  collab,
+  collabPending,
+  connectionState,
+  contentOverride,
+  collabUnavailable,
 }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
   }
-  if (contentState.isLoading) {
+  if (contentState.isLoading || collabPending) {
     return (
       <div className="p-4 space-y-2">
         <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
@@ -77,7 +98,7 @@ function ContentArea({
   return (
     <AsciiDocEditor
       key={selectedFile.nodeId}
-      content={contentState.content ?? ''}
+      content={contentOverride ?? contentState.content ?? ''}
       canEdit={canEdit}
       projectId={projectId}
       fileNodeId={selectedFile.nodeId}
@@ -88,6 +109,9 @@ function ContentArea({
       onChange={onChange}
       initialLine={initialLine}
       onCursorLineChange={onCursorLineChange}
+      collab={collab}
+      connectionState={connectionState}
+      collabUnavailable={collabUnavailable}
     />
   );
 }
@@ -122,6 +146,72 @@ export function ProjectEditorLayout({
   // overwriting in-progress edits.
   const userHasEditedReference = useRef(false);
   const { selectedFile, contentState, selectFile, clearSelection } = useFileSelection(projectId);
+
+  // Collaboration binding for the selected file. `contentState.collab` is set by useFileSelection
+  // on the collab path (a backing collaborative document); otherwise this hook stays inert.
+  const currentUser = useCurrentUser();
+  const collabInfo = contentState.collab;
+  const { doc, awareness, connectionState } = useCollabDocument({
+    projectId,
+    yjsStateId: collabInfo?.yjsStateId ?? '',
+    enabled: collabInfo != null,
+    user: { userId: currentUser.userId, name: currentUser.displayName },
+  });
+
+  // Mid-session role enforcement (FR-012 / edge case "permission change mid-session"): the role
+  // is re-checked on reconnect, so a user demoted to viewer flips to read-only without a reload.
+  const [liveRole, setLiveRole] = useState<CollabAuthRole | null>(null);
+  useEffect(() => {
+    setLiveRole(collabInfo?.role ?? null);
+  }, [collabInfo?.yjsStateId, collabInfo?.role]);
+  const previousConnectionReference = useRef<ConnectionState>(connectionState);
+  useEffect(() => {
+    const previous = previousConnectionReference.current;
+    previousConnectionReference.current = connectionState;
+    if (collabInfo && selectedFile && previous === 'reconnecting' && connectionState === 'synced') {
+      getCollabDocumentInfo(projectId, selectedFile.nodeId)
+        .then((info) => { if (info) setLiveRole(info.role); })
+        .catch(() => { /* keep the current role; the server still rejects observer writes */ });
+    }
+  }, [connectionState, collabInfo, selectedFile?.nodeId, projectId]);
+  const effectiveRole: CollabAuthRole = liveRole ?? collabInfo?.role ?? 'editor';
+
+  const collabBinding: CollabBinding | null =
+    collabInfo && doc && awareness
+      ? { doc, awareness, connectionState, role: effectiveRole, yjsStateId: collabInfo.yjsStateId }
+      : null;
+  // Collaborative file whose provider/Y.Doc has not been created yet — show a placeholder
+  // rather than briefly mounting the legacy REST editor.
+  const collabPending = collabInfo != null && collabBinding == null;
+
+  // Offline fallback (FR-013): the collab server never synced within the timeout. Drop the
+  // (empty) Yjs binding and open the file read-only, seeded from GET /content, with a banner —
+  // no edits are accepted, so nothing is silently lost.
+  const offline = collabInfo != null && connectionState === 'offline';
+  const [offlineContent, setOfflineContent] = useState<string | null>(null);
+  useEffect(() => {
+    if (!offline || !selectedFile) {
+      setOfflineContent(null);
+      return;
+    }
+    let cancelled = false;
+    getDocumentContent(projectId, selectedFile.nodeId)
+      .then((text) => { if (!cancelled) setOfflineContent(text); })
+      .catch(() => { if (!cancelled) setOfflineContent(''); });
+    return () => { cancelled = true; };
+  }, [offline, selectedFile?.nodeId, projectId]);
+
+  // A text document with no collaborative backing (GET /collab 404) must open read-only — never
+  // the legacy editable REST path, whose uncoordinated PUTs let clients overwrite each other.
+  const collabUnavailable = contentState.collabUnavailable;
+
+  // Editor props derived from the collaboration mode (research D6 / EditorMode).
+  const editorCollab = offline ? null : collabBinding;
+  const editorCanEdit = offline || collabUnavailable ? false : canEdit;
+  const editorContentOverride = offline ? offlineContent : undefined;
+  const editorConnectionState = collabInfo ? connectionState : undefined;
+  const editorPending = collabPending || (offline && offlineContent === null);
+
   const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
   const { readLastSelection, rememberFile, rememberLine, clearLastSelection } = useLastSelection(userId, projectId);
   // The line to restore, paired with the file it belongs to. Applied only to that file's first
@@ -300,13 +390,18 @@ export function ProjectEditorLayout({
               <ContentArea
                 selectedFile={selectedFile}
                 contentState={contentState}
-                canEdit={canEdit}
+                canEdit={editorCanEdit}
                 projectId={projectId}
                 onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
                 onLineClick={handleLineClick}
                 onChange={handleChange}
                 initialLine={initialLine}
                 onCursorLineChange={handleCursorLineChange}
+                collab={editorCollab}
+                collabPending={editorPending}
+                connectionState={editorConnectionState}
+                contentOverride={editorContentOverride}
+                collabUnavailable={collabUnavailable}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
@@ -328,11 +423,16 @@ export function ProjectEditorLayout({
               <ContentArea
                 selectedFile={selectedFile}
                 contentState={contentState}
-                canEdit={canEdit}
+                canEdit={editorCanEdit}
                 projectId={projectId}
                 onChange={handleChange}
                 initialLine={initialLine}
                 onCursorLineChange={handleCursorLineChange}
+                collab={editorCollab}
+                collabPending={editorPending}
+                connectionState={editorConnectionState}
+                contentOverride={editorContentOverride}
+                collabUnavailable={collabUnavailable}
               />
             </div>
             {showPreview && !previewOpen && (

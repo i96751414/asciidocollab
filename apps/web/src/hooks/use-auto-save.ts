@@ -17,6 +17,13 @@ interface UseAutoSaveOptions {
    *  polling works from first load, without requiring a save first.
    */
   initialEtag?: string;
+  /**
+   * When false, the hook is fully inert: no PUT saves, no ETag polling, no
+   * localStorage drafts, no `beforeunload`/unmount keepalive. Used on the collab
+   * path where the collaboration server owns persistence (FR-006); `save()` is a
+   * no-op. Defaults to true (legacy REST path).
+   */
+  enabled?: boolean;
   onExternalChange?: () => void;
   onDraftRecovered?: (content: string) => void;
 }
@@ -33,6 +40,7 @@ export function useAutoSave({
   projectId,
   fileNodeId,
   initialEtag,
+  enabled = true,
   onExternalChange,
   onDraftRecovered,
 }: UseAutoSaveOptions): UseAutoSaveResult {
@@ -88,6 +96,8 @@ export function useAutoSave({
   }
 
   const save = useCallback((content: string) => {
+    // Collab path: the collaboration server owns persistence — never PUT.
+    if (!enabled) return;
     if (!navigator.onLine) {
       // Bump the generation so any in-flight save's generation guard fires and
       // it cannot removeItem the draft we are about to write.
@@ -105,10 +115,11 @@ export function useAutoSave({
     debounceTimer.current = setTimeout(() => {
       void performSave(content);
     }, AUTOSAVE_DEBOUNCE_MS);
-  }, [draftKey, performSave]);
+  }, [enabled, draftKey, performSave]);
 
   // beforeunload: dispatch keepalive fetch if unsaved
   useEffect(() => {
+    if (!enabled) return;
     function handleBeforeUnload() {
       if (pendingContent.current !== null) {
         void fetch(url, {
@@ -125,10 +136,11 @@ export function useAutoSave({
       globalThis.addEventListener('beforeunload', handleBeforeUnload);
       return () => globalThis.removeEventListener('beforeunload', handleBeforeUnload);
     }
-  }, [saveState, url]);
+  }, [enabled, saveState, url]);
 
   // Online/offline listeners
   useEffect(() => {
+    if (!enabled) return;
     function handleOnline() {
       const draft = localStorage.getItem(draftKey);
       if (draft) {
@@ -144,11 +156,11 @@ export function useAutoSave({
 
     globalThis.addEventListener('online', handleOnline);
     return () => globalThis.removeEventListener('online', handleOnline);
-  }, [draftKey, performSave]);
+  }, [enabled, draftKey, performSave]);
 
   // External change polling
   useEffect(() => {
-    if (!onExternalChange) return;
+    if (!enabled || !onExternalChange) return;
     pollTimer.current = setInterval(async () => {
       if (!storedEtag.current) return;
       // Skip polling while any save is in-flight: the server ETag will change as a result
@@ -172,15 +184,16 @@ export function useAutoSave({
       }
     }, EXTERNAL_CHANGE_POLL_INTERVAL_MS);
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
-  }, [url, onExternalChange]);
+  }, [enabled, url, onExternalChange]);
 
   // Draft recovery: runs on mount and whenever the target file changes.
   useEffect(() => {
+    if (!enabled) return;
     const draft = localStorage.getItem(draftKey);
     if (draft && onDraftRecovered) {
       onDraftRecovered(draft);
     }
-  }, [draftKey]); // onDraftRecovered intentionally omitted: it is stable (useCallback) at call sites
+  }, [enabled, draftKey]); // onDraftRecovered intentionally omitted: it is stable (useCallback) at call sites
 
   // Cancel debounce and retry timers when the target file (url) changes so
   // stale timers cannot fire against a stale URL after a file switch.

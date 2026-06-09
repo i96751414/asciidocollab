@@ -1,7 +1,6 @@
 import { DeleteFileUseCase } from '../../../src/use-cases/file-tree/delete-file';
 import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
 import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
-import { ActiveCollaborationSessionError } from '../../../src/errors/active-collaboration-session';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
@@ -477,42 +476,33 @@ describe('DeleteFileUseCase — active-session guard', () => {
     return { projectMemberRepo, fileNodeRepo, documentRepo, auditLogRepo, collabSessionRepo };
   }
 
-  it('(a) single file with active session → ActiveCollaborationSessionError', async () => {
+  // The delete guard was relaxed: deleting a file (or a folder containing one) with an active
+  // collaboration session now PROCEEDS. The session row is removed by the cascade on the deleted
+  // Document; blocking instead would make any merely-opened file impossible to delete.
+  it('(a) deleting a file with an active collaboration session proceeds', async () => {
     const repos = await buildGuardRepos({ fileSessionActive: true });
     const useCase = new DeleteFileUseCase(
       repos.projectMemberRepo,
       repos.fileNodeRepo,
       repos.documentRepo,
       repos.auditLogRepo,
-      undefined,
-      undefined,
-      repos.collabSessionRepo,
     );
 
     const result = await useCase.execute(actorG, fileIdG, projectG);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(ActiveCollaborationSessionError);
-    }
+    expect(result.success).toBe(true);
   });
 
-  it('(b) folder with one active descendant file → ActiveCollaborationSessionError', async () => {
+  it('(b) deleting a folder with an active descendant session proceeds', async () => {
     const repos = await buildGuardRepos({ childSessionActive: true });
     const useCase = new DeleteFileUseCase(
       repos.projectMemberRepo,
       repos.fileNodeRepo,
       repos.documentRepo,
       repos.auditLogRepo,
-      undefined,
-      undefined,
-      repos.collabSessionRepo,
     );
 
     const result = await useCase.execute(actorG, subFolderIdG, projectG);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(ActiveCollaborationSessionError);
-    }
+    expect(result.success).toBe(true);
   });
 
   it('(c) no active sessions → deletion proceeds', async () => {
@@ -522,9 +512,6 @@ describe('DeleteFileUseCase — active-session guard', () => {
       repos.fileNodeRepo,
       repos.documentRepo,
       repos.auditLogRepo,
-      undefined,
-      undefined,
-      repos.collabSessionRepo,
     );
 
     const result = await useCase.execute(actorG, fileIdG, projectG);
