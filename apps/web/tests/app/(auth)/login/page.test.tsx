@@ -14,7 +14,7 @@ jest.mock('@/lib/api', () => ({
     getOpenRegistrationStatus: jest.fn().mockResolvedValue({ openRegistration: false }),
   },
   ApiError: class ApiError extends Error {
-    constructor(public status: number, public code: string, message: string) {
+    constructor(public status: number, public code: string, message: string, public retryAfter?: number) {
       super(message);
     }
   },
@@ -111,6 +111,74 @@ describe('LoginForm rate limiting (US4)', () => {
     await waitFor(() => {
       expect(screen.getByText(/too many failed attempts/i)).toBeInTheDocument();
       expect(screen.getByText(/15 minutes/i)).toBeInTheDocument();
+    });
+  });
+
+  test('computes the lockout window from retryAfter when provided', async () => {
+    authApi.login.mockRejectedValue(new ApiError(429, 'RATE_LIMITED', 'Too many requests', 120));
+
+    render(<LoginForm redirectTo="/dashboard" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 minutes/i)).toBeInTheDocument();
+    });
+  });
+});
+
+describe('LoginForm validation and conditional UI', () => {
+  const { authApi, adminApi, ApiError } = require('@/lib/api');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('shows field validation errors and does not call login for an invalid form', async () => {
+    render(<LoginForm redirectTo="/dashboard" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'not-an-email' } });
+    // leave password empty
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(true);
+      expect(alerts.some((a) => /password is required/i.test(a.textContent ?? ''))).toBe(true);
+    });
+    expect(authApi.login).not.toHaveBeenCalled();
+  });
+
+  test('shows only the password error when the email is valid but password is empty', async () => {
+    render(<LoginForm redirectTo="/dashboard" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'valid@example.com' } });
+    fireEvent.submit(screen.getByRole('form'));
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.some((a) => /password is required/i.test(a.textContent ?? ''))).toBe(true);
+      expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(false);
+    });
+  });
+
+  test('defaults the lockout window to 15 minutes when no retryAfter is given', async () => {
+    authApi.login.mockRejectedValue(new ApiError(429, 'RATE_LIMITED', 'Too many requests'));
+    render(<LoginForm redirectTo="/dashboard" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
+    fireEvent.submit(screen.getByRole('form'));
+    await waitFor(() => expect(screen.getByText(/15 minutes/i)).toBeInTheDocument());
+  });
+
+  test('renders the session-expired notice when showExpiredNotice is set', () => {
+    render(<LoginForm redirectTo="/dashboard" showExpiredNotice />);
+    expect(screen.getByText(/your session has expired/i)).toBeInTheDocument();
+  });
+
+  test('shows the create-account link when open registration is enabled', async () => {
+    adminApi.getOpenRegistrationStatus.mockResolvedValue({ openRegistration: true });
+    render(<LoginForm redirectTo="/dashboard" />);
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /create an account/i })).toBeInTheDocument();
     });
   });
 });

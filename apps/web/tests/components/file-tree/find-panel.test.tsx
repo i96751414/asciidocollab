@@ -42,6 +42,16 @@ describe('FindPanel', () => {
     expect(onNext).toHaveBeenCalled();
   });
 
+  it('pressing Enter in the input fires onNext, other keys do not', () => {
+    const onNext = jest.fn();
+    render(<FindPanel {...defaultProps} onNext={onNext} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.keyDown(input, { key: 'a' });
+    expect(onNext).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
   it('clicking prev match button fires onPrev', () => {
     const onPrevious = jest.fn();
     render(<FindPanel {...defaultProps} onPrev={onPrevious} />);

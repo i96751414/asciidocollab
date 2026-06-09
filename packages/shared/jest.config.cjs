@@ -4,6 +4,11 @@ const config = {
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.ts'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: 'tsconfig.eslint.json',
+    }],
+  },
   coverageThreshold: {
     global: {
       branches: 90,
@@ -11,11 +16,6 @@ const config = {
       lines: 90,
       statements: 90,
     },
-  },
-  transform: {
-    '^.+\\.ts$': ['ts-jest', {
-      tsconfig: 'tsconfig.eslint.json',
-    }],
   },
 };
 

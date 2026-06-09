@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, renderHook } from '@testing-library/react';
 import { useFileTreeKeyHandler, type FileTreeKeyCallbacks } from '@/hooks/use-file-tree-key-handler';
 
 function TestComponent({ bindings, callbacks }: {
@@ -109,5 +109,20 @@ describe('useFileTreeKeyHandler', () => {
     fireEvent.keyDown(getByTestId('container'), { key: 'Alt' });
     fireEvent.keyDown(getByTestId('container'), { key: 'Meta' });
     expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it('an Alt-modified combo fires its callback', () => {
+    const onAlt = jest.fn();
+    const altBindings = new Map([['file-tree:alt-action', 'Alt+A']]);
+    const { getByTestId } = render(
+      <TestComponent bindings={altBindings} callbacks={{ 'file-tree:alt-action': onAlt }} />,
+    );
+    fireEvent.keyDown(getByTestId('container'), { key: 'a', altKey: true });
+    expect(onAlt).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing when the container ref is null', () => {
+    const ref = { current: null };
+    expect(() => renderHook(() => useFileTreeKeyHandler(ref, defaultBindings, {}))).not.toThrow();
   });
 });

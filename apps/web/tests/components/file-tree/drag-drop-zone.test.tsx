@@ -72,6 +72,17 @@ describe('DragDropZone', () => {
     expect(mockOnDrop).toHaveBeenCalledWith(mockItems);
   });
 
+  it('does not call onDrop when the drop has no dataTransfer items', () => {
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1">
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    fireEvent.drop(zone, { dataTransfer: {} });
+    expect(mockOnDrop).not.toHaveBeenCalled();
+  });
+
   it('UploadProgressPanel rendered when progress is non-empty', () => {
     mockUseDropUpload.mockReturnValue({
       onDrop: mockOnDrop,

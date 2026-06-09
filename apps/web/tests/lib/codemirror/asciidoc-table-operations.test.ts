@@ -341,3 +341,56 @@ describe('formatTable', () => {
     expect(() => formatTable(table)).not.toThrow();
   });
 });
+
+describe('table-operations branch edge cases', () => {
+  // A bracketed attribute line that is NOT a cols= spec: colSpecLine is kept but
+  // colSpecEntries stays null, exercising the non-cols round-trip path.
+  test('preserves a non-cols [%header] attribute line through serialize', () => {
+    const table = '[%header]\n|===\n|a |b\n|===';
+    const parsed = parseTable(table);
+    expect(parsed.colSpecLine).toBe('[%header]');
+    expect(parsed.colSpecEntries).toBeNull();
+    expect(serializeTable(parsed)).toContain('[%header]');
+  });
+
+  test('formatTable handles a header-only table (no body rows)', () => {
+    const headerOnly = '|===\n|a |b\n\n|===';
+    const parsed = parseTable(headerOnly);
+    expect(parsed.headerRows.length).toBeGreaterThan(0);
+    expect(parsed.bodyRows.length).toBe(0);
+    expect(() => formatTable(headerOnly)).not.toThrow();
+  });
+
+  test('removeColumn on a rowless table reports the last-column guard', () => {
+    const empty = '|===\n|===';
+    const result = removeColumn(empty, 0);
+    expect(result.ok).toBe(false);
+  });
+
+  test('formatTable returns the input unchanged for a rowless table', () => {
+    const empty = '|===\n|===';
+    expect(formatTable(empty)).toBe(empty);
+  });
+
+  test('addColumn after the final column appends a trailing cell', () => {
+    const result = addColumn(TABLE_2COL, 1, false);
+    const parsed = parseTable(result);
+    expect(parsed.bodyRows[0].cells.length).toBe(3);
+  });
+
+  test('moveColumn swaps cols= spec entries when present', () => {
+    const result = moveColumn(TABLE_WITH_COLS, 0, 'right');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const parsed = parseTable(result.value);
+      expect(parsed.colSpecEntries).toEqual(['2', '1']);
+    }
+  });
+
+  test('moveColumn reports a conflict when the destination column spans', () => {
+    // `2+` spans columns 0 and 1; column 2 is clean. Moving col 2 left lands on a span.
+    const tableSpan = '|===\n2+|wide |c\n|x |y |z\n|===';
+    const result = moveColumn(tableSpan, 2, 'left');
+    expect(result.ok).toBe(false);
+  });
+});

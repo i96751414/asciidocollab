@@ -93,4 +93,19 @@ describe('UploadProgressPanel', () => {
     render(<UploadProgressPanel progress={progress} onDismiss={jest.fn()} />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
+
+  it('shows 0% progress when the list is empty', () => {
+    render(<UploadProgressPanel progress={[]} onDismiss={jest.fn()} />);
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('renders a pending item icon and an error item without a message', () => {
+    const progress = [
+      makeProgress({ name: 'waiting.txt', status: 'pending' }),
+      makeProgress({ name: 'broken.txt', status: 'error' }),
+    ];
+    render(<UploadProgressPanel progress={progress} onDismiss={jest.fn()} />);
+    expect(screen.getByLabelText('pending')).toBeInTheDocument();
+    expect(screen.getByText('broken.txt')).toBeInTheDocument();
+  });
 });

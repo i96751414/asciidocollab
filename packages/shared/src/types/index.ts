@@ -1,4 +1,4 @@
 /**
  * @file Re-exports shared types used across the monorepo.
  */
-export { Result } from './result';
+export type { Result } from './result';

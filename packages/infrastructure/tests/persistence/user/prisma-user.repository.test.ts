@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
 import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
 import { createTestUser } from '../../helpers/test-data';
-import { UserId, Email } from '@asciidocollab/domain';
+import { UserId, Email, ProjectId } from '@asciidocollab/domain';
 
 describe('PrismaUserRepository', () => {
   let container: TestContainer;
@@ -72,5 +72,50 @@ describe('PrismaUserRepository', () => {
     expect(found!.passwordHash).toBeNull();
     expect(found!.samlSubject).toBe('saml|user');
     expect(found!.mfaSecret).toBeNull();
+  });
+
+  it('hasAny reflects whether any users exist', async () => {
+    expect(await repo.hasAny()).toBe(false);
+    await repo.save(createTestUser({ email: Email.create('hasany@example.com') }));
+    expect(await repo.hasAny()).toBe(true);
+  });
+
+  it('findAll returns every saved user', async () => {
+    await repo.save(createTestUser({ email: Email.create('all1@example.com') }));
+    await repo.save(createTestUser({ email: Email.create('all2@example.com') }));
+    const all = await repo.findAll();
+    expect(all).toHaveLength(2);
+  });
+
+  it('delete hard-removes a user', async () => {
+    const user = createTestUser({ email: Email.create('delete-me@example.com') });
+    await repo.save(user);
+    await repo.delete(user.id);
+    expect(await repo.findById(user.id)).toBeNull();
+  });
+
+  it('countAdmins counts only users with the admin flag', async () => {
+    await repo.save(createTestUser({ email: Email.create('admin1@example.com'), isAdmin: true }));
+    await repo.save(createTestUser({ email: Email.create('regular@example.com'), isAdmin: false }));
+    expect(await repo.countAdmins()).toBe(1);
+  });
+
+  it('search matches by display name or email', async () => {
+    await repo.save(createTestUser({ email: Email.create('alice@example.com'), displayName: 'Alice Cooper' }));
+    await repo.save(createTestUser({ email: Email.create('bob@example.com'), displayName: 'Bob Dylan' }));
+
+    const byName = await repo.search('cooper');
+    expect(byName.map((u) => u.email.value)).toContain('alice@example.com');
+
+    const byEmail = await repo.search('bob@example.com');
+    expect(byEmail.map((u) => u.email.value)).toContain('bob@example.com');
+  });
+
+  it('search can exclude members of a given project', async () => {
+    await repo.save(createTestUser({ email: Email.create('searchexclude@example.com'), displayName: 'Searchable' }));
+    // No memberships exist for this throwaway project id, so nothing is excluded —
+    // this exercises the excludeProjectId branch of the query builder.
+    const results = await repo.search('searchable', ProjectId.create('00000000-0000-4000-8000-0000000000aa'));
+    expect(results.map((u) => u.email.value)).toContain('searchexclude@example.com');
   });
 });

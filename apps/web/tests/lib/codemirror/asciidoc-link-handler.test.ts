@@ -145,4 +145,96 @@ describe('createLinkHandler', () => {
     const handler = createLinkHandler({});
     expect('extension' in handler).toBe(false);
   });
+
+  test('Cmd/Meta+click also triggers navigation', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    handler.handleMousedown(
+      { metaKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::chapters/intro.adoc[]\nSome text', 10),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('chapters/intro.adoc');
+  });
+
+  test('returns early when the click is not over a document position', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    const view = createMockView('include::chapters/intro.adoc[]', 10);
+    view.posAtCoords = () => null as unknown as number;
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      view,
+    );
+    expect(onNavigateToFile).not.toHaveBeenCalled();
+  });
+
+  test('availablePaths supplied as a getter function is read on each click', () => {
+    const onUnresolvedPath = jest.fn();
+    const handler = createLinkHandler({ onUnresolvedPath }, () => ['chapters/other.adoc']);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::missing.adoc[]', 10),
+    );
+    expect(onUnresolvedPath).toHaveBeenCalledWith('missing.adoc');
+  });
+
+  test('unresolved include with no onUnresolvedPath callback is a no-op', () => {
+    const handler = createLinkHandler({}, ['chapters/intro.adoc']);
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('include::missing.adoc[]', 10),
+      ),
+    ).not.toThrow();
+  });
+
+  test('include navigation tolerates absent callback and absent preventDefault', () => {
+    const handler = createLinkHandler({});
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('include::chapters/intro.adoc[]', 10),
+      ),
+    ).not.toThrow();
+  });
+
+  test('link: macro tolerates absent onOpenUrl and preventDefault', () => {
+    const handler = createLinkHandler({});
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('Visit link:https://example.com[text]', 10),
+      ),
+    ).not.toThrow();
+  });
+
+  test('bare URL tolerates absent onOpenUrl and preventDefault', () => {
+    const handler = createLinkHandler({});
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('Go to https://example.com for info', 15),
+      ),
+    ).not.toThrow();
+  });
+
+  test('Ctrl+click after a bare URL does not open it', () => {
+    const onOpenUrl = jest.fn();
+    const handler = createLinkHandler({ onOpenUrl });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('https://example.com   trailing', 25),
+    );
+    expect(onOpenUrl).not.toHaveBeenCalled();
+  });
+
+  test('Ctrl+click before a bare URL does not open it', () => {
+    const onOpenUrl = jest.fn();
+    const handler = createLinkHandler({ onOpenUrl });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('go    https://example.com', 1),
+    );
+    expect(onOpenUrl).not.toHaveBeenCalled();
+  });
 });

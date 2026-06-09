@@ -99,4 +99,30 @@ describe('KeyboardShortcutsCard', () => {
     const resetButtons = screen.getAllByRole('button', { name: /reset/i });
     expect(resetButtons[0]).toBeDisabled();
   });
+
+  it('builds a combo string including every modifier and upper-cases single characters', async () => {
+    render(<KeyboardShortcutsCard />);
+    fireEvent.click(screen.getByText('F2'));
+    const input = screen.getByPlaceholderText(/press a key/i);
+    fireEvent.keyDown(input, { key: 'a', ctrlKey: true, shiftKey: true, altKey: true, metaKey: true });
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith('file-tree:rename', 'Ctrl+Shift+Alt+Meta+A'),
+    );
+  });
+
+  it('shows the error message when updateBinding rejects with an Error', async () => {
+    mockUpdate.mockRejectedValueOnce(new Error('Shortcut already in use'));
+    render(<KeyboardShortcutsCard />);
+    fireEvent.click(screen.getByText('F2'));
+    fireEvent.keyDown(screen.getByPlaceholderText(/press a key/i), { key: 'F4' });
+    await waitFor(() => expect(screen.getByText('Shortcut already in use')).toBeInTheDocument());
+  });
+
+  it('shows a fallback message when updateBinding rejects with a non-Error', async () => {
+    mockUpdate.mockRejectedValueOnce('boom');
+    render(<KeyboardShortcutsCard />);
+    fireEvent.click(screen.getByText('F2'));
+    fireEvent.keyDown(screen.getByPlaceholderText(/press a key/i), { key: 'F5' });
+    await waitFor(() => expect(screen.getByText('Error')).toBeInTheDocument());
+  });
 });

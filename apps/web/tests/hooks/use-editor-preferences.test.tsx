@@ -334,3 +334,30 @@ test('localStorage cache updated when softWrap changes', async () => {
   const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
   expect(stored.softWrap).toBe(false);
 });
+
+test('loads valid scrollSync, softWrap, and theme from localStorage', () => {
+  // Never-resolving fetch so the server response cannot overwrite localStorage state.
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({
+    fontSize: 16, theme: 'default', scrollSyncEnabled: false, softWrap: false,
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.fontSize).toBe(16);
+  expect(result.current.theme).toBe('default');
+  expect(result.current.scrollSyncEnabled).toBe(false);
+  expect(result.current.softWrap).toBe(false);
+});
+
+test('ignores server response fields with the wrong types and keeps previous values', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 'big', theme: 123, scrollSyncEnabled: 'yes', softWrap: 'no' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  // All invalid → falls back to the defaults that were already in state.
+  expect(result.current.fontSize).toBe(14);
+  expect(result.current.theme).toBe('default');
+  expect(typeof result.current.scrollSyncEnabled).toBe('boolean');
+  expect(typeof result.current.softWrap).toBe('boolean');
+});

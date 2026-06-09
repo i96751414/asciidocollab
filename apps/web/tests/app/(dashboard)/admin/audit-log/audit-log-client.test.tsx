@@ -197,4 +197,45 @@ describe('AuditLogClient — sorting', () => {
     // ENTRY_B (2024-01-01, USER_LOGIN) is older → first in asc order
     expect(within(rows[0]).queryByText('USER_LOGIN')).toBeInTheDocument();
   });
+
+  test('clicking Timestamp twice toggles back to newest-first (desc)', async () => {
+    render(<AuditLogClient />);
+    const button = await screen.findByRole('button', { name: /timestamp/i });
+    await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
+    fireEvent.click(button);
+    fireEvent.click(button);
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(within(rows[0]).queryByText('FILE_UPLOAD')).toBeInTheDocument();
+  });
+});
+
+describe('AuditLogClient — loading, error, and empty states', () => {
+  test('shows a loading indicator before the first fetch resolves', () => {
+    mockGetAuditLogs.mockReturnValue(new Promise(() => { /* never resolves */ }));
+    render(<AuditLogClient />);
+    expect(screen.getByText(/loading…/i)).toBeInTheDocument();
+  });
+
+  test('shows an error message when the audit log fails to load', async () => {
+    mockGetAuditLogs.mockRejectedValue(new Error('boom'));
+    render(<AuditLogClient />);
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/failed to load audit log/i);
+    });
+  });
+
+  test('shows an empty-state message when there are no entries', async () => {
+    mockGetAuditLogs.mockResolvedValue(makePageResult([]));
+    render(<AuditLogClient />);
+    await waitFor(() => {
+      expect(screen.getByText(/no audit log entries found/i)).toBeInTheDocument();
+    });
+  });
+
+  test('falls back to the raw projectId when the project lookup fails', async () => {
+    mockGetProject.mockRejectedValue(new Error('not found'));
+    render(<AuditLogClient />);
+    await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
+    expect(screen.getByText('proj-1')).toBeInTheDocument();
+  });
 });

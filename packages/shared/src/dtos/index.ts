@@ -1,12 +1,12 @@
 /** @file Re-exports all DTO types from the shared package. */
-export { CreateProjectDto, CreateProjectResultDto } from './create-project.dto';
-export { RenameFileDto, RenameFileResultDto } from './rename-file.dto';
-export { DeleteFileDto } from './delete-file.dto';
-export { InviteUserDto } from './invite-user.dto';
-export { RemoveMemberDto } from './remove-member.dto';
-export { ChangeMemberRoleDto } from './change-member-role.dto';
-export { GetProjectTreeDto, FileTreeNodeDto, GetProjectTreeResultDto } from './get-project-tree.dto';
-export {
+export type { CreateProjectDto, CreateProjectResultDto } from './create-project.dto';
+export type { RenameFileDto, RenameFileResultDto } from './rename-file.dto';
+export type { DeleteFileDto } from './delete-file.dto';
+export type { InviteUserDto } from './invite-user.dto';
+export type { RemoveMemberDto } from './remove-member.dto';
+export type { ChangeMemberRoleDto } from './change-member-role.dto';
+export type { GetProjectTreeDto, FileTreeNodeDto, GetProjectTreeResultDto } from './get-project-tree.dto';
+export type {
   RegisterDto,
   LoginDto,
   ChangePasswordDto,
@@ -20,23 +20,23 @@ export {
   UpdateDisplayNameDto,
   RequestEmailChangeDto,
 } from './auth.dto';
-export {
+export type {
   ListUserProjectsResultDto,
   UpdateProjectDto,
   ArchiveProjectResultDto,
   RestoreProjectResultDto,
   ProjectDto,
 } from './project-management.dto';
-export { UserSearchResultDto } from './user-search.dto';
-export {
+export type { UserSearchResultDto } from './user-search.dto';
+export type {
   AdminUserDto,
   AdminSettingsDto,
   AdminInviteUserDto,
   AcceptInviteDto,
   UserRemovalPreviewDto,
 } from './admin.dto';
-export { FileTreeEventDto } from './file-tree-event.dto';
-export { KeyBindingDto } from './key-binding.dto';
-export { EditorPreferencesDto } from './editor-preferences.dto';
-export { AuditLogDto, AuditLogPageDto } from './audit-log.dto';
-export { CollabAuthRole, CollabAuthResponse } from './collab.dto';
+export type { FileTreeEventDto } from './file-tree-event.dto';
+export type { KeyBindingDto } from './key-binding.dto';
+export type { EditorPreferencesDto } from './editor-preferences.dto';
+export type { AuditLogDto, AuditLogPageDto } from './audit-log.dto';
+export type { CollabAuthRole, CollabAuthResponse } from './collab.dto';
