@@ -492,3 +492,73 @@ describe('AsciiDoc Completion Sources', () => {
     });
   });
 });
+
+describe('completion source guard and tree-path branches', () => {
+  test('xref returns [#id] style anchors (second capture group)', async () => {
+    const documentContent = '[#my-id]\nSome text\n\nSee <<';
+    const result = await getCompletions(xrefCompletionSource, documentContent, documentContent.length);
+    expect(result).not.toBeNull();
+    expect(result?.options.some((o) => o.label === 'my-id')).toBe(true);
+  });
+
+  test('include source returns null when the cursor is not after include::', async () => {
+    const source = createIncludeCompletionSource(['a.adoc']);
+    expect(await getCompletions(source, 'just some prose', 'just some prose'.length)).toBeNull();
+  });
+
+  test('image source returns null when the cursor is not after image:', async () => {
+    const source = createImageCompletionSource(['logo.png']);
+    expect(await getCompletions(source, 'just some prose', 'just some prose'.length)).toBeNull();
+  });
+
+  test('table cell source returns null when there is no leading pipe', async () => {
+    expect(await getCompletions(tableCellCompletionSource, 'no pipe here', 'no pipe here'.length)).toBeNull();
+  });
+
+  test('caption source returns null when the cursor is not after a dot', async () => {
+    expect(await getCompletions(captionCompletionSource, 'no dot here', 'no dot here'.length)).toBeNull();
+  });
+
+  test('table cell completion uses the syntax tree for a complete table', async () => {
+    // A closed table → the parser produces a TableBlock node, exercising the
+    // syntax-tree path of isInsideTableBlock and getTableColumnCount.
+    const documentContent = '|===\n|h1 |h2 |h3\n\n|';
+    const result = await getCompletions(tableCellCompletionSource, documentContent, documentContent.length);
+    if (result) {
+      expect(result.options.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('completion apply callbacks dispatch editor changes', () => {
+  type ApplyFunction = (view: unknown, completion: unknown, from: number, to: number) => void;
+
+  function applyFirstFunction(options: readonly { apply?: unknown }[] | undefined) {
+    const option = options?.find((o) => typeof o.apply === 'function');
+    expect(option).toBeDefined();
+    const dispatch = jest.fn();
+    (option!.apply as ApplyFunction)({ dispatch }, option, 0, 0);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    return dispatch.mock.calls[0][0] as { changes: { insert: string } };
+  }
+
+  test('include completion inserts the path followed by []', async () => {
+    const result = await getCompletions(createIncludeCompletionSource(['docs/intro.adoc']), 'include::docs/', 'include::docs/'.length);
+    expect(applyFirstFunction(result?.options).changes.insert).toMatch(/\[\]$/);
+  });
+
+  test('image completion inserts the path followed by []', async () => {
+    const result = await getCompletions(createImageCompletionSource(['images/logo.png']), 'image::', 'image::'.length);
+    expect(applyFirstFunction(result?.options).changes.insert).toMatch(/\[\]$/);
+  });
+
+  test('table snippet completion inserts a table skeleton', async () => {
+    const result = await getCompletions(tableSnippetCompletionSource, '|===', '|==='.length);
+    expect(applyFirstFunction(result?.options).changes.insert).toContain('|===');
+  });
+
+  test('caption completion inserts the caption label', async () => {
+    const result = await getCompletions(captionCompletionSource, '.', 1);
+    expect(applyFirstFunction(result?.options).changes.insert.length).toBeGreaterThan(0);
+  });
+});

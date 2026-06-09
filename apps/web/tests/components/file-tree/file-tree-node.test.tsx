@@ -383,4 +383,119 @@ describe('FileTreeNode — Download as ZIP (root project node)', () => {
 
     expect(link).not.toHaveAttribute('aria-disabled');
   });
+
+  it('ignores a second ZIP click while a download is already in progress', () => {
+    render(
+      <FileTreeNode
+        node={rootFolderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isProjectRoot
+      />,
+    );
+    const link = screen.getByRole('link', { name: /download as zip/i });
+    fireEvent.click(link);
+    fireEvent.click(link); // second click hits the in-progress guard
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('handles drag-over and drop on a folder row', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+        isExpanded
+        onToggle={jest.fn()}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-src');
+    fireEvent.dragEnter(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.dragOver(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'file-1' } });
+    expect(onFolderDrop).toHaveBeenCalledWith('folder-1', 'file-1');
+  });
+
+  it('handles drop on a FILE row → moves the dragged node into the file\'s parent folder', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-document.adoc');
+    fireEvent.dragEnter(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.dragOver(row, { dataTransfer: { dropEffect: '' } });
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'other-file' } });
+    // fileNode.parentId is 'folder-root' → the move targets that containing folder.
+    expect(onFolderDrop).toHaveBeenCalledWith('folder-root', 'other-file');
+  });
+
+  it('a file with no parent folder is not a drop target', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={{ ...fileNode, parentId: null }}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-document.adoc');
+    fireEvent.drop(row, { dataTransfer: { getData: () => 'x' } });
+    expect(onFolderDrop).not.toHaveBeenCalled();
+  });
+
+  it('renders actions for a node with no parent (root-level)', () => {
+    render(
+      <FileTreeNode
+        node={{ ...fileNode, parentId: null }}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
+  });
+
+  it('renders folder children with a collapsed default when no expandedState is supplied', () => {
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isExpanded
+        onToggle={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('document.adoc')).toBeInTheDocument();
+  });
 });

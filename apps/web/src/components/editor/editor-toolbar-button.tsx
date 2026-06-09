@@ -1,5 +1,6 @@
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utilities';
 
 interface EditorToolbarButtonProperties {
   icon: ReactNode;
@@ -19,9 +20,15 @@ export function EditorToolbarButton({
         <button
           type="button"
           aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-          className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted disabled:opacity-40 text-sm"
+          // Use aria-disabled (not the native `disabled` attribute) so the control
+          // stays hoverable/focusable and its tooltip — which carries the reason it
+          // is unavailable — can still be shown. The click is guarded below.
+          aria-disabled={disabled || undefined}
+          onClick={disabled ? undefined : onClick}
+          className={cn(
+            'h-7 w-7 flex items-center justify-center rounded text-sm hover:bg-muted',
+            disabled && 'opacity-40 cursor-default hover:bg-transparent',
+          )}
         >
           {icon}
         </button>

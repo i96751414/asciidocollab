@@ -8,6 +8,8 @@ import {
   createTestFolder,
 } from './helpers/test-project';
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -19,70 +21,74 @@ async function gotoProject(page: Page, projectId: string) {
 }
 
 /**
- * Simulates a native HTML5 drag-and-drop of one tree node onto a folder.
+ * Performs a GENUINE native HTML5 drag of one tree node onto a folder, driving Chromium's real
+ * drag pipeline via CDP (not synthetic `dispatchEvent`, which bypasses native DnD entirely and
+ * gives false confidence). `Input.setInterceptDrags` makes the browser fire the real `dragstart`
+ * (so the app's handlers run and the browser captures the drag data); we then dispatch real
+ * `dragEnter`/`dragOver`/`drop` events at the target.
  *
- * Playwright's mouse-based `dragTo` does NOT trigger HTML5 `dragstart` /
- * `dragover` / `drop` events reliably across engines, so we dispatch real
- * `DragEvent`s that share a single `DataTransfer` instance — exactly what the
- * browser does during a genuine drag. This faithfully exercises the component's
- * drag handlers, including the tree's `dragstart` listener that stores the
- * source id on the DataTransfer and the folder's `drop` listener that reads it.
- *
- * @param grabSelector - CSS selector, relative to the source row, of the element
- *   the `dragstart` is dispatched on. Browsers differ on whether `dragstart`
- *   targets the draggable element or the inner element under the pointer
- *   (WebKit fires it on the inner icon/text), so this lets a test pin down the
- *   exact target — e.g. the row's `<svg>` icon.
+ * When `stripData` is set, the `drop` is dispatched with an EMPTY dataTransfer. This reproduces the
+ * cross-browser failure mode where `getData('text/plain')` comes back empty on `drop` even though
+ * `setData` ran on `dragstart` — the move must still succeed because the app captures the dragged
+ * id in React state on `dragstart` rather than depending on the dataTransfer round-trip.
  */
-async function dragNodeOntoFolder(
+async function nativeDragOntoFolder(
   page: Page,
-  sourceName: string,
-  targetFolderName: string,
-  grabSelector?: string,
+  sourceTestId: string,
+  targetTestId: string,
+  options: { stripData?: boolean; dropAtBottom?: boolean } = {},
 ) {
-  await page.evaluate(
-    ({ sourceName, targetFolderName, grabSelector }) => {
-      const sourceRow = document.querySelector(`[data-testid="tree-node-${sourceName}"]`);
-      const target = document.querySelector(`[data-testid="tree-node-${targetFolderName}"]`);
-      if (!sourceRow || !target) {
-        throw new Error(`drag nodes not found: source=${!!sourceRow} target=${!!target}`);
-      }
-      const grab = grabSelector ? sourceRow.querySelector(grabSelector) : sourceRow;
-      if (!grab) throw new Error(`grab element not found for selector ${grabSelector}`);
+  const client = await page.context().newCDPSession(page);
+  await client.send('Input.setInterceptDrags', { enabled: true });
 
-      const dataTransfer = new DataTransfer();
-      const fire = (element: Element, type: string) =>
-        element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }));
+  const sb = await page.getByTestId(sourceTestId).boundingBox();
+  const tb = await page.getByTestId(targetTestId).boundingBox();
+  if (!sb || !tb) throw new Error(`drag source/target not found: ${sourceTestId} / ${targetTestId}`);
+  const sx = sb.x + sb.width / 2, sy = sb.y + sb.height / 2;
+  // `dropAtBottom` aims at the empty lower strip of a tall target (the root drop-zone) so the drop
+  // lands on the zone itself, not on a child node.
+  const tx = tb.x + tb.width / 2;
+  const ty = options.dropAtBottom ? tb.y + tb.height - 8 : tb.y + tb.height / 2;
 
-      fire(grab, 'dragstart');
-      fire(target, 'dragenter');
-      fire(target, 'dragover');
-      fire(target, 'drop');
-      fire(grab, 'dragend');
-    },
-    { sourceName, targetFolderName, grabSelector },
+  const dataPromise = new Promise<{ items: unknown[]; dragOperationsMask: number }>((resolve) =>
+    client.on('Input.dragIntercepted', (event: { data: { items: unknown[]; dragOperationsMask: number } }) => resolve(event.data)),
   );
+  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: sx, y: sy, button: 'left', buttons: 1, clickCount: 1 });
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: sx + 8, y: sy + 8, button: 'left', buttons: 1 });
+
+  const captured = await Promise.race([
+    dataPromise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+  ]);
+  if (!captured) throw new Error('native drag did not start (no dragstart) — the row may not be draggable');
+
+  const dropData = options.stripData ? { items: [], dragOperationsMask: captured.dragOperationsMask } : captured;
+  await client.send('Input.dispatchDragEvent', { type: 'dragEnter', x: tx, y: ty, data: dropData });
+  await client.send('Input.dispatchDragEvent', { type: 'dragOver', x: tx, y: ty, data: dropData });
+  await client.send('Input.dispatchDragEvent', { type: 'drop', x: tx, y: ty, data: dropData });
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', buttons: 0, clickCount: 1 });
 }
 
-async function confirmMoveAndAssert(page: Page, projectId: string, folderId: string, fileName: string) {
+/** Confirms the move dialog, then asserts (UI + API) that `name` ended up inside `folderId`. */
+async function confirmMoveAndAssert(page: Page, projectId: string, folderId: string, name: string) {
   const dialog = page.locator('[role="dialog"]');
-  await expect(dialog).toBeVisible({ timeout: 5000 });
+  await expect(dialog, 'a move confirmation dialog must appear on drop').toBeVisible({ timeout: 5000 });
   await dialog.getByRole('button', { name: /^confirm$/i }).click();
   await expect(dialog).not.toBeVisible({ timeout: 5000 });
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  // UI: the moved node is still rendered (under the auto-expanded target folder).
+  await expect(page.getByTestId(`tree-node-${name}`)).toBeVisible({ timeout: 5000 });
+
+  // API: it is now under the folder and no longer at the root.
   await expect
-    .poll(
-      async () => {
-        const response = await page.request.get(`${apiUrl}/projects/${projectId}/files`);
-        const tree = await response.json();
-        const folder = tree.children.find((c: { id: string }) => c.id === folderId);
-        const underFolder = folder?.children?.some((c: { name: string }) => c.name === fileName) ?? false;
-        const atRoot = tree.children.some((c: { name: string }) => c.name === fileName);
-        return underFolder && !atRoot;
-      },
-      { timeout: 5000 },
-    )
+    .poll(async () => {
+      const response = await page.request.get(`${apiUrl}/projects/${projectId}/files`);
+      const tree = await response.json();
+      const folder = tree.children.find((c: { id: string }) => c.id === folderId);
+      const underFolder = folder?.children?.some((c: { name: string }) => c.name === name) ?? false;
+      const atRoot = tree.children.some((c: { name: string }) => c.name === name);
+      return underFolder && !atRoot;
+    }, { timeout: 5000 })
     .toBe(true);
 }
 
@@ -90,7 +96,7 @@ async function confirmMoveAndAssert(page: Page, projectId: string, folderId: str
 // Suite
 // ---------------------------------------------------------------------------
 
-test.describe('File tree drag-and-drop move', () => {
+test.describe('File tree drag-and-drop move (native)', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -114,27 +120,79 @@ test.describe('File tree drag-and-drop move', () => {
     await expect(page.getByTestId('tree-node-docs')).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId('tree-node-intro.adoc')).toBeVisible({ timeout: 5000 });
 
-    await dragNodeOntoFolder(page, 'intro.adoc', 'docs');
+    await nativeDragOntoFolder(page, 'tree-node-intro.adoc', 'tree-node-docs');
     await confirmMoveAndAssert(page, projectId, folderId, 'intro.adoc');
-
-    await expect(page.getByTestId('tree-node-intro.adoc')).toBeVisible({ timeout: 5000 });
   });
 
-  // Regression: the drag must work no matter which part of the row the user
-  // grabs. Browsers fire `dragstart` on the element under the pointer, which is
-  // the row's <svg> icon when the user grabs there (this is what WebKit always
-  // does). If the tree's dragstart handler only recognises HTMLElement targets
-  // it silently drops the SVG case — the move is never recorded and, to the
-  // user, "nothing happens on drop".
-  test('dragging a file by its icon still moves it into the folder', async ({ page }) => {
+  // Regression: the move must NOT depend on the dataTransfer getData round-trip. When the browser
+  // hands the drop an empty dataTransfer (a real cross-browser HTML5-DnD failure mode), the move
+  // must still work via the id captured on dragstart — otherwise the drop is a silent no-op and,
+  // to the user, "nothing happens on drop".
+  test('moves a file even when the drop dataTransfer is empty (getData round-trip fails)', async ({ page }) => {
     const folderId = await createTestFolder(page, projectId, null, 'docs');
-    await createTestFile(page, projectId, null, 'intro.adoc');
+    await createTestFile(page, projectId, null, 'note.adoc');
 
     await gotoProject(page, projectId);
-    await expect(page.getByTestId('tree-node-intro.adoc')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-note.adoc')).toBeVisible({ timeout: 5000 });
 
-    // Grab the row by its file icon (an <svg>), not the text label.
-    await dragNodeOntoFolder(page, 'intro.adoc', 'docs', 'svg');
-    await confirmMoveAndAssert(page, projectId, folderId, 'intro.adoc');
+    await nativeDragOntoFolder(page, 'tree-node-note.adoc', 'tree-node-docs', { stripData: true });
+    await confirmMoveAndAssert(page, projectId, folderId, 'note.adoc');
+  });
+
+  test('dragging a folder into another folder moves it', async ({ page }) => {
+    const destinationId = await createTestFolder(page, projectId, null, 'dest');
+    await createTestFolder(page, projectId, null, 'src');
+
+    await gotoProject(page, projectId);
+    await expect(page.getByTestId('tree-node-src')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-dest')).toBeVisible({ timeout: 5000 });
+
+    await nativeDragOntoFolder(page, 'tree-node-src', 'tree-node-dest');
+    await confirmMoveAndAssert(page, projectId, destinationId, 'src');
+  });
+
+  // Dropping a file onto another FILE (not a folder) moves it into that file's containing folder.
+  test('dropping a file onto another file moves it into that file\'s folder', async ({ page }) => {
+    const folderId = await createTestFolder(page, projectId, null, 'docs');
+    await createTestFile(page, projectId, folderId, 'inside.adoc'); // a file already inside docs
+    await createTestFile(page, projectId, null, 'mover.adoc');      // a root file to move
+
+    await gotoProject(page, projectId);
+    // `docs` auto-expands, so inside.adoc is visible.
+    await expect(page.getByTestId('tree-node-inside.adoc')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tree-node-mover.adoc')).toBeVisible({ timeout: 5000 });
+
+    // Drop the root file ONTO the file inside docs → it should move INTO docs.
+    await nativeDragOntoFolder(page, 'tree-node-mover.adoc', 'tree-node-inside.adoc');
+    await confirmMoveAndAssert(page, projectId, folderId, 'mover.adoc');
+  });
+
+  // Dropping a file onto the empty root drop-zone moves it out to the project root.
+  test('dropping a file on the root area moves it to the project root', async ({ page }) => {
+    const folderId = await createTestFolder(page, projectId, null, 'docs');
+    await createTestFile(page, projectId, folderId, 'escape.adoc'); // nested inside docs
+
+    await gotoProject(page, projectId);
+    await expect(page.getByTestId('tree-node-escape.adoc')).toBeVisible({ timeout: 5000 });
+
+    // Drop the nested file onto the root drop-zone's empty lower area → move to root.
+    await nativeDragOntoFolder(page, 'tree-node-escape.adoc', 'file-tree-drop-zone', { dropAtBottom: true });
+
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog, 'a move dialog must appear when dropping on the root').toBeVisible({ timeout: 5000 });
+    await dialog.getByRole('button', { name: /^confirm$/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
+
+    // escape.adoc is now at the root and no longer under docs.
+    await expect
+      .poll(async () => {
+        const response = await page.request.get(`${apiUrl}/projects/${projectId}/files`);
+        const tree = await response.json();
+        const atRoot = tree.children.some((c: { name: string }) => c.name === 'escape.adoc');
+        const folder = tree.children.find((c: { id: string }) => c.id === folderId);
+        const underFolder = folder?.children?.some((c: { name: string }) => c.name === 'escape.adoc') ?? false;
+        return atRoot && !underFolder;
+      }, { timeout: 5000 })
+      .toBe(true);
   });
 });

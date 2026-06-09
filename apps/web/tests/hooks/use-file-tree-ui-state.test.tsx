@@ -184,4 +184,57 @@ describe('useFileTreeUIState', () => {
     act(() => { result.current.setOperationError(null); });
     expect(result.current.operationError).toBeNull();
   });
+
+  it('expandAll skips file children when collecting folder ids', () => {
+    // `tree` has only file children — exercises the non-folder branch of collectFolderIds.
+    const { result } = renderHook(() => useFileTreeUIState(tree, jest.fn()));
+    act(() => { result.current.expandAll(); });
+    expect(result.current.expandedState.size).toBe(0);
+  });
+
+  it('expandAll is a no-op when the tree is null', () => {
+    const { result } = renderHook(() => useFileTreeUIState(null, jest.fn()));
+    act(() => { result.current.expandAll(); });
+    expect(result.current.expandedState.size).toBe(0);
+  });
+
+  it('revealSelected is a no-op when the tree is null', () => {
+    const { result } = renderHook(() => useFileTreeUIState(null, jest.fn()));
+    act(() => { result.current.revealSelected('whatever'); });
+    expect(result.current.expandedState.size).toBe(0);
+  });
+
+  it('revealSelected is a no-op for a node with no ancestors / not found', () => {
+    const { result } = renderHook(() => useFileTreeUIState(tree, jest.fn()));
+    // root-level file → no ancestors; unknown id → findAncestors returns null
+    act(() => { result.current.revealSelected('f1'); });
+    act(() => { result.current.revealSelected('does-not-exist'); });
+    expect(result.current.expandedState.size).toBe(0);
+  });
+
+  it('revealSelected searches sibling folders before finding the target', () => {
+    const branchingTree: FileTreeNode = {
+      id: 'root', name: 'root', type: 'folder', path: '/', parentId: null,
+      children: [
+        { id: 'empty', name: 'empty', type: 'folder', path: '/empty', parentId: 'root', children: [] },
+        {
+          id: 'dir', name: 'dir', type: 'folder', path: '/dir', parentId: 'root',
+          children: [{ id: 'target', name: 't.adoc', type: 'file', path: '/dir/t.adoc', parentId: 'dir', children: [] }],
+        },
+      ],
+    };
+    const { result } = renderHook(() => useFileTreeUIState(branchingTree, jest.fn()));
+    act(() => { result.current.revealSelected('target'); });
+    expect(result.current.expandedState.get('dir')).toBe(true);
+    expect(result.current.expandedState.has('empty')).toBe(false);
+  });
+
+  it('handleNext and handlePrevious do nothing when there are no matches', () => {
+    const onSelectFile = jest.fn();
+    const { result } = renderHook(() => useFileTreeUIState(tree, onSelectFile));
+    act(() => { result.current.handleQueryChange('no-such-file'); });
+    act(() => { result.current.handleNext(); });
+    act(() => { result.current.handlePrevious(); });
+    expect(onSelectFile).not.toHaveBeenCalled();
+  });
 });

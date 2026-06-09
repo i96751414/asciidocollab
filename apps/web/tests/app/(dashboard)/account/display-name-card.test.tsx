@@ -151,4 +151,59 @@ describe('DisplayNameCard with avatar picker', () => {
     fireEvent.click(screen.getByRole('button', { name: /bottts neutral/i }));
     expect(screen.getByRole('button', { name: 'Variant 1' })).toHaveAttribute('aria-pressed', 'false');
   });
+
+  test('shows no error when a touched display-name field is still valid', () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.blur(screen.getByRole('textbox')); // touched, but value is valid
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('defaults the avatar style when avatarKey prop is omitted', () => {
+    render(<DisplayNameCard displayName="Alice" />);
+    expect(screen.getByRole('button', { name: /initials/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('shows a validation error and falls back to the initial name when cleared', async () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/display name cannot be empty/i);
+    });
+    // displayName is empty, so the avatar preview falls back to the initial name.
+    expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
+  });
+
+  test('submitting with no changes does not call the API', async () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => {
+      expect(mockUpdateProfile).not.toHaveBeenCalled();
+    });
+  });
+
+  test('shows the API error message when the update fails with an ApiError', async () => {
+    const { ApiError } = require('@/lib/api');
+    mockUpdateProfile.mockRejectedValueOnce(new ApiError('Display name already taken'));
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Alice 2' } });
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/display name already taken/i);
+    });
+  });
+
+  test('clears the previous success timer on a second save', async () => {
+    render(<DisplayNameCard displayName="Alice" avatarKey={null} />);
+    const input = screen.getByRole('textbox');
+
+    fireEvent.change(input, { target: { value: 'Alice 2' } });
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/saved/i));
+
+    fireEvent.change(input, { target: { value: 'Alice 3' } });
+    fireEvent.submit(screen.getByRole('form', { name: /update display name/i }));
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(2));
+  });
 });

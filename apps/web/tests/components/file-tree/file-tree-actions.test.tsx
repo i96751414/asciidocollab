@@ -63,6 +63,12 @@ jest.mock('@/lib/api/file-tree', () => ({
   },
 }));
 
+function openRenameAndConfirm() {
+  fireEvent.click(screen.getByText(/Rename/i));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'renamed.adoc' } });
+  fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+}
+
 describe('FileTreeActions', () => {
   const projectId = 'proj-1';
   const fileNodeId = 'node-1';
@@ -528,5 +534,67 @@ describe('FileTreeActions — Download ZIP (root)', () => {
       />,
     );
     expect(screen.queryByText(/download zip/i)).not.toBeInTheDocument();
+  });
+
+  describe('handleAction error and optional-callback branches', () => {
+    const baseProperties = {
+      projectId,
+      fileNodeId,
+      parentId,
+      nodeType: 'file' as const,
+      nodeName: 'test.adoc',
+      hasChildren: false,
+    };
+
+    it('reports a friendly message on a 409 conflict', async () => {
+      const { renameFileNode, FileTreeApiError } = jest.requireMock('@/lib/api/file-tree');
+      renameFileNode.mockRejectedValueOnce(new FileTreeApiError(409, 'CONFLICT', 'exists'));
+      const onError = jest.fn();
+      render(<FileTreeActions {...baseProperties} onError={onError} onUpdate={jest.fn()} />);
+      openRenameAndConfirm();
+      await waitFor(() =>
+        expect(onError).toHaveBeenCalledWith('A file or folder with that name already exists.'),
+      );
+    });
+
+    it('reports a generic message when the failure is not an Error', async () => {
+      const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+      renameFileNode.mockRejectedValueOnce('boom');
+      const onError = jest.fn();
+      render(<FileTreeActions {...baseProperties} onError={onError} onUpdate={jest.fn()} />);
+      openRenameAndConfirm();
+      await waitFor(() => expect(onError).toHaveBeenCalledWith('An error occurred.'));
+    });
+
+    it('tolerates missing onError and onUpdate callbacks on success', async () => {
+      const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+      renameFileNode.mockResolvedValueOnce(undefined);
+      render(<FileTreeActions {...baseProperties} />);
+      expect(() => openRenameAndConfirm()).not.toThrow();
+      await waitFor(() => expect(renameFileNode).toHaveBeenCalled());
+    });
+
+    it('confirms the dialog when Enter is pressed in the input', async () => {
+      const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+      render(<FileTreeActions {...baseProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      fireEvent.click(screen.getByText(/Rename/i));
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'via-enter.adoc' } });
+      fireEvent.keyDown(input, { key: 'a' }); // non-Enter: no submit
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() =>
+        expect(renameFileNode).toHaveBeenCalledWith(projectId, fileNodeId, 'via-enter.adoc'),
+      );
+    });
+
+    it('keeps the delete dialog open when deletion fails', async () => {
+      const { deleteFileNode } = jest.requireMock('@/lib/api/file-tree');
+      deleteFileNode.mockRejectedValueOnce(new Error('delete failed'));
+      render(<FileTreeActions {...baseProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      fireEvent.click(screen.getByText(/Delete/i));
+      fireEvent.click(screen.getByTestId('confirm-button'));
+      await waitFor(() => expect(deleteFileNode).toHaveBeenCalled());
+      expect(screen.getByTestId('confirmation-dialog')).toBeInTheDocument();
+    });
   });
 });

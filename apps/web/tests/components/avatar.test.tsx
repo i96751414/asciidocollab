@@ -74,6 +74,18 @@ describe('Avatar', () => {
     );
   });
 
+  test('ignores a variant when the style has no variants list', () => {
+    render(<Avatar avatarKey="initials:1" displayName="Eve" />);
+    // 'initials' has no variants → no variant options merged, seed stays the name.
+    expect(avatarConstructor).toHaveBeenCalledWith('initialsStyle', expect.objectContaining({ seed: 'Eve' }));
+  });
+
+  test('ignores a variant id that does not exist in the style', () => {
+    render(<Avatar avatarKey="bottts:99" displayName="Frank" />);
+    // Variant 99 is not found → falls back to the base options (seed = name).
+    expect(avatarConstructor).toHaveBeenCalledWith('bottsStyle', expect.objectContaining({ seed: 'Frank' }));
+  });
+
   test('namespaces svg ids so same-seed avatars on a page do not collide', () => {
     const { container: a } = render(<Avatar avatarKey="initial-face:1" displayName="Jane" />);
     const { container: b } = render(<Avatar avatarKey="initial-face:2" displayName="Jane" />);

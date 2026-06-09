@@ -86,6 +86,17 @@
     --syntax-keyword: 280 34% 52%;
     --syntax-comment: 196 14% 48%;
     --syntax-punct: 196 12% 44%;
+
+    /* semantic status tokens */
+    --success: 152 52% 32%;
+    --success-bg: 152 44% 93%;
+    --success-border: 152 40% 82%;
+    --warning: 33 70% 38%;
+    --warning-bg: 40 78% 93%;
+    --warning-border: 38 60% 80%;
+    --info: 217 59% 38%;
+    --info-bg: 214 90% 94%;
+    --info-border: 214 70% 84%;
   }
 
   .dark {
@@ -118,6 +129,17 @@
     --syntax-keyword: 280 46% 74%;
     --syntax-comment: 192 14% 56%;
     --syntax-punct: 192 12% 58%;
+
+    /* semantic status tokens */
+    --success: 152 46% 62%;
+    --success-bg: 152 32% 15%;
+    --success-border: 152 26% 26%;
+    --warning: 40 74% 64%;
+    --warning-bg: 38 36% 15%;
+    --warning-border: 38 30% 28%;
+    --info: 214 80% 72%;
+    --info-bg: 214 45% 18%;
+    --info-border: 214 35% 30%;
   }
 }
 

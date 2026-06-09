@@ -51,4 +51,42 @@ describe('ThemeProvider', () => {
       expect(document.documentElement.classList.contains('dark')).toBe(true);
     });
   });
+
+  test('removes the dark class when DB value is light', async () => {
+    document.documentElement.classList.add('dark');
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ appTheme: 'light' }) });
+    render(
+      <ThemeProvider>
+        <span>content</span>
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains('dark')).toBe(false);
+    });
+  });
+
+  test('falls back to the OS preference when no appTheme is stored', async () => {
+    globalThis.matchMedia = jest.fn().mockReturnValue({ matches: true }) as unknown as typeof matchMedia;
+    document.documentElement.classList.remove('dark');
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+    render(
+      <ThemeProvider>
+        <span>content</span>
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains('dark')).toBe(true);
+    });
+  });
+
+  test('ignores a non-ok response without throwing', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+    render(
+      <ThemeProvider>
+        <span data-testid="child2">content</span>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(screen.getByTestId('child2')).toBeInTheDocument();
+  });
 });

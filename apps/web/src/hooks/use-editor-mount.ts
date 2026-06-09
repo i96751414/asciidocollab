@@ -43,6 +43,11 @@ interface UseEditorMountOptions {
    * @param line - The 1-based line number at the top of the visible viewport.
    */
   onScrollLine?: (line: number) => void;
+  /**
+   * 1-based line to place the cursor on when the editor mounts (selection restore). Clamped
+   * to the current document's line count ("closest valid line"); ignored when not provided.
+   */
+  initialLine?: number;
 }
 
 /** Manages the full CodeMirror 6 view lifecycle: mount, teardown, content/readOnly sync. */
@@ -59,6 +64,7 @@ export function useEditorMount({
   onOpenUrl,
   onLineClick,
   onScrollLine,
+  initialLine,
 }: UseEditorMountOptions) {
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
@@ -148,6 +154,14 @@ export function useEditorMount({
     const view = new EditorView({ state, parent: containerReference.current });
     viewReference.current = view;
     try { onOutlineChange(view.state.field(outlineField)); } catch { /* field not installed */ }
+
+    // Restore the cursor to a remembered line on mount, clamped to the current document
+    // ("closest valid line", FR-005), and scroll it into view. Only runs when initialLine is
+    // provided — ordinary in-session mounts are unaffected.
+    if (initialLine !== undefined) {
+      const targetLine = Math.min(Math.max(initialLine, 1), view.state.doc.lines);
+      view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
+    }
 
     // Scroll sync: fire onScrollLine with the 1-based line at the top of the viewport.
     let scrollDebounce: ReturnType<typeof setTimeout> | null = null;

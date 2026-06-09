@@ -76,4 +76,24 @@ describe('useFileTreeEvents', () => {
     act(() => triggerMessage({ type: 'reconnect' }));
     expect(onReconnect).not.toHaveBeenCalled();
   });
+
+  it('ignores messages with no data or an unknown type', () => {
+    renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    act(() => triggerMessage(undefined));
+    act(() => triggerMessage({ type: 'something-else' }));
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(onReconnect).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op in environments without SharedWorker', () => {
+    const original = globalThis.SharedWorker;
+    // @ts-expect-error — simulate an environment without SharedWorker
+    delete globalThis.SharedWorker;
+    try {
+      renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+      expect(mockPort.postMessage).not.toHaveBeenCalled();
+    } finally {
+      globalThis.SharedWorker = original;
+    }
+  });
 });

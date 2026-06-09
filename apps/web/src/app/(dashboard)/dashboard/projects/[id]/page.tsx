@@ -8,7 +8,7 @@ interface ProjectPageProperties {
 /** Server component that delegates to the client-side project editor layout. */
 export default async function ProjectPage({ params }: ProjectPageProperties) {
   const { id } = await params;
-  const { project, currentUserRole, isAdmin } = await getProjectAccess(id, "viewer");
+  const { project, currentUserId, currentUserRole, isAdmin } = await getProjectAccess(id, "viewer");
   const canManage = currentUserRole === "owner";
   const canEdit = currentUserRole === "editor" || currentUserRole === "owner" || isAdmin;
 
@@ -19,6 +19,7 @@ export default async function ProjectPage({ params }: ProjectPageProperties) {
       projectDescription={project.description ?? null}
       canManage={canManage}
       canEdit={canEdit}
+      userId={currentUserId}
     />
   );
 }

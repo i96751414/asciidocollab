@@ -78,7 +78,7 @@ export function ProjectSettingsForm({ project, onSuccess }: ProjectSettingsFormP
       )}
 
       {success && (
-        <div className="p-3 text-sm text-green-600 bg-green-50 rounded-md">
+        <div className="rounded-md border p-3 text-sm border-[hsl(var(--success-border))] bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
           Project settings updated successfully.
         </div>
       )}

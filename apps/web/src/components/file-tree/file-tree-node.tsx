@@ -45,6 +45,20 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
   const isSelected = node.id === selectedNodeId;
   const hasChildren = node.children.length > 0;
 
+  // The folder a drop on this row targets: a folder drops INTO itself; a file drops into its
+  // containing folder (so dropping onto a file behaves like dropping onto its folder).
+  const dropTargetFolderId = node.type === 'folder' ? node.id : node.parentId;
+  const handleNodeDragOver = dropTargetFolderId
+    ? (event: React.DragEvent) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; }
+    : undefined;
+  const handleNodeDrop = dropTargetFolderId
+    ? (event: React.DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onFolderDrop?.(dropTargetFolderId, event.dataTransfer.getData('text/plain'));
+      }
+    : undefined;
+
   const nodeContent = (
     <div
       data-testid={`tree-node-${node.name}`}
@@ -57,9 +71,9 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      onDragEnter={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; } : undefined}
-      onDragOver={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; } : undefined}
-      onDrop={node.type === 'folder' ? (event) => { event.preventDefault(); event.stopPropagation(); const sourceId = event.dataTransfer.getData('text/plain'); onFolderDrop?.(node.id, sourceId); } : undefined}
+      onDragEnter={handleNodeDragOver}
+      onDragOver={handleNodeDragOver}
+      onDrop={handleNodeDrop}
     >
       {node.type === 'folder' ? (
         <>

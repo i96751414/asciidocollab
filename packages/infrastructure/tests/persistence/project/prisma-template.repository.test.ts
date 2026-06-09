@@ -1,8 +1,10 @@
 import { TemplateRepository } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
 import { PrismaTemplateRepository } from '../../../src/persistence/project/prisma-template.repository';
+import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
+import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
 import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
-import { createTestTemplate } from '../../helpers/test-data';
+import { createTestTemplate, createTestUser, createTestProject } from '../../helpers/test-data';
 import { TemplateId } from '@asciidocollab/domain';
 
 describe('PrismaTemplateRepository', () => {
@@ -62,5 +64,25 @@ describe('PrismaTemplateRepository', () => {
     const found = await repo.findById(template.id);
     expect(found).not.toBeNull();
     expect(found!.sourceProjectId).toBeNull();
+  });
+
+  it('round-trips a template that references a source project', async () => {
+    const userRepo = new PrismaUserRepository(client);
+    const projectRepo = new PrismaProjectRepository(client);
+    const user = createTestUser();
+    await userRepo.save(user);
+    const project = createTestProject();
+    await projectRepo.save(project);
+
+    const template = createTestTemplate({ sourceProjectId: project.id });
+    await repo.save(template);
+    const found = await repo.findById(template.id);
+    expect(found).not.toBeNull();
+    expect(found!.sourceProjectId?.value).toBe(project.id.value);
+
+    // Clean up project/user rows so other suites' beforeEach assumptions hold.
+    await client.template.deleteMany();
+    await client.project.deleteMany();
+    await client.user.deleteMany();
   });
 });

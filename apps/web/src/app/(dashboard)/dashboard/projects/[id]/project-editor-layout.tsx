@@ -1,9 +1,11 @@
 'use client';
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/back-button';
+import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
@@ -12,6 +14,7 @@ import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
 import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
+import { useLastSelection } from '@/hooks/use-last-selection';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 
@@ -23,6 +26,14 @@ interface ContentAreaProperties {
   onScrollLine?: (line: number) => void;
   onLineClick?: (line: number) => void;
   onChange?: (value: string) => void;
+  /** 1-based line to restore the cursor to on mount (only for the restored file). */
+  initialLine?: number;
+  /**
+   * Reports the 1-based cursor line up for debounced persistence.
+   *
+   * @param line - The 1-based line the cursor is on.
+   */
+  onCursorLineChange?: (line: number) => void;
 }
 
 function ContentArea({
@@ -33,6 +44,8 @@ function ContentArea({
   onScrollLine,
   onLineClick,
   onChange,
+  initialLine,
+  onCursorLineChange,
 }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
@@ -73,6 +86,8 @@ function ContentArea({
       onScrollLine={onScrollLine}
       onLineClick={onLineClick}
       onChange={onChange}
+      initialLine={initialLine}
+      onCursorLineChange={onCursorLineChange}
     />
   );
 }
@@ -83,6 +98,8 @@ interface ProjectEditorLayoutProperties {
   projectDescription: string | null;
   canManage: boolean;
   canEdit: boolean;
+  /** Authenticated user id — scopes the persisted last-selection so accounts stay isolated (FR-011). */
+  userId: string;
 }
 
 /** Three-panel editor layout: collapsible file tree, CM6 editor, AsciiDoc preview. */
@@ -92,6 +109,7 @@ export function ProjectEditorLayout({
   projectDescription,
   canManage,
   canEdit,
+  userId,
 }: ProjectEditorLayoutProperties) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -103,8 +121,64 @@ export function ProjectEditorLayout({
   // True once the user has typed in the current file — prevents server updates from
   // overwriting in-progress edits.
   const userHasEditedReference = useRef(false);
-  const { selectedFile, contentState, selectFile } = useFileSelection(projectId);
+  const { selectedFile, contentState, selectFile, clearSelection } = useFileSelection(projectId);
   const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
+  const { readLastSelection, rememberFile, rememberLine, clearLastSelection } = useLastSelection(userId, projectId);
+  // The line to restore, paired with the file it belongs to. Applied only to that file's first
+  // (restore) mount; cleared once the user navigates so in-session clicks never re-jump (Decision 4).
+  const [restoredLine, setRestoredLine] = useState<{ nodeId: string; line: number } | null>(null);
+  const lineDebounceReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Persist the file on every selection, then delegate to useFileSelection. Folders are
+  // ignored by rememberFile, so only content files are remembered. A user-initiated selection
+  // also ends the restore window, so the remembered line is never re-applied mid-session.
+  const handleSelectFile = useCallback(
+    (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => {
+      setRestoredLine(null);
+      rememberFile({ nodeId, nodeName, nodeType, path: nodePath });
+      selectFile(nodeId, nodeName, nodePath, nodeType);
+    },
+    [rememberFile, selectFile],
+  );
+
+  // Debounced cursor-line persistence — AsciiDoc files only (FR-006).
+  const handleCursorLineChange = useCallback((line: number) => {
+    if (!selectedFile || !isAsciiDocFile(selectedFile.nodeName)) return;
+    if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current);
+    lineDebounceReference.current = setTimeout(() => { rememberLine(line); }, 500);
+  }, [selectedFile, rememberLine]);
+
+  // Cancel any pending line-persistence debounce when the open file changes (or on unmount), so a
+  // stale timer from the previous file never merges its line into the newly-selected file's entry.
+  useEffect(() => () => { if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current); }, [selectedFile?.nodeId]);
+
+  // Restore the last opened file (and its cursor line) on mount. Synchronous localStorage read —
+  // never blocks first paint (FR-010); a no-op when nothing is stored.
+  //
+  // The empty dependency array already runs this once per real mount. We deliberately do NOT gate
+  // it behind a persistent ref: under React StrictMode (and any mount→unmount→remount cycle), the
+  // unmount aborts the first content fetch via useFileSelection's cleanup; a persistent guard would
+  // then suppress the re-fetch on remount, leaving the editor stuck on "Loading…" forever. Letting
+  // the effect re-run re-issues the fetch (the superseded request resolves to a harmless AbortError).
+  useEffect(() => {
+    const stored = readLastSelection();
+    if (!stored) return;
+    if (stored.line !== undefined) setRestoredLine({ nodeId: stored.nodeId, line: stored.line });
+    selectFile(stored.nodeId, stored.nodeName, stored.path, stored.nodeType);
+  }, []);
+
+  // Apply the restored line only to the restored file (matched by id); undefined otherwise.
+  const initialLine = restoredLine && selectedFile?.nodeId === restoredLine.nodeId
+    ? restoredLine.line
+    : undefined;
+
+  // The selected file is gone (content fetch 404). Clear the stale memory so it is not retried,
+  // and reset to the no-file state — no error is shown (FR-009 / US3).
+  useEffect(() => {
+    if (!contentState.notFound) return;
+    clearLastSelection();
+    clearSelection();
+  }, [contentState.notFound, clearLastSelection, clearSelection]);
 
   // Scroll-sync handler: dedup identical consecutive lines to avoid jitter.
   const handleScrollLine = useCallback((line: number) => {
@@ -162,30 +236,33 @@ export function ProjectEditorLayout({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-4 p-3 border-b shrink-0">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to projects
-        </Link>
-        <span className="font-semibold text-sm">{projectName}</span>
-        {projectDescription && (
-          <span className="text-xs text-muted-foreground">{projectDescription}</span>
-        )}
-        {canManage && (
-          <>
-            <Link
-              href={`/dashboard/projects/${projectId}/settings`}
-              className="text-sm text-muted-foreground hover:text-foreground ml-auto"
-            >
-              Settings
-            </Link>
-            <Link
-              href={`/dashboard/projects/${projectId}/members`}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Members
-            </Link>
-          </>
-        )}
+      <div className="flex items-center gap-3 h-14 px-3 border-b shrink-0">
+        <BackButton href="/dashboard" label="Back to projects" />
+        <LogoMark className="h-5 w-5 text-primary shrink-0" />
+        <div className="min-w-0 flex flex-col">
+          <span className="font-semibold text-sm truncate">{projectName}</span>
+          {projectDescription && (
+            <span className="text-xs text-muted-foreground truncate">{projectDescription}</span>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          {canManage && (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/dashboard/projects/${projectId}/settings`}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/dashboard/projects/${projectId}/members`}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Members
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Body: sidebar + content + preview */}
@@ -198,7 +275,7 @@ export function ProjectEditorLayout({
           <FileTree
             projectId={projectId}
             canEdit={canEdit}
-            onSelectFile={(nodeId, nodeName, nodePath, nodeType) => selectFile(nodeId, nodeName, nodePath, nodeType)}
+            onSelectFile={handleSelectFile}
             selectedNodeId={selectedFile?.nodeId ?? null}
             onCollapse={() => setSidebarOpen(false)}
           />
@@ -228,6 +305,8 @@ export function ProjectEditorLayout({
                 onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
                 onLineClick={handleLineClick}
                 onChange={handleChange}
+                initialLine={initialLine}
+                onCursorLineChange={handleCursorLineChange}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
@@ -252,6 +331,8 @@ export function ProjectEditorLayout({
                 canEdit={canEdit}
                 projectId={projectId}
                 onChange={handleChange}
+                initialLine={initialLine}
+                onCursorLineChange={handleCursorLineChange}
               />
             </div>
             {showPreview && !previewOpen && (

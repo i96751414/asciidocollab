@@ -1,5 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
+import {
+  Bold, Italic, Code, Highlighter, Subscript, Superscript,
+  Heading1, Heading2, Heading3, Heading4, Heading5,
+  ListOrdered, List, ListChecks, ListTree,
+  SquareCode, Box, PanelRight, Quote,
+  Info, Lightbulb, TriangleAlert, AlertCircle, Flame, Sigma, MessageSquare,
+  Table, Captions, Link, ArrowRightLeft, Asterisk, Image, Settings,
+} from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { EditorView } from '@codemirror/view';
 import { EditorToolbarButton } from './editor-toolbar-button';
@@ -72,62 +80,62 @@ function insertLinePrefix(view: EditorView, prefix: string) {
 interface ToolbarAction {
   label: string;
   shortcut: string;
-  icon: string;
+  icon: ComponentType<{ className?: string }>;
   action: (view: EditorView) => void;
 }
 
 const TEXT_FORMATTING: ToolbarAction[] = [
-  { label: 'Bold',        shortcut: 'Ctrl+B', icon: 'B',  action: (v) => wrapOrInsert(v, '*', '*', 'bold') },
-  { label: 'Italic',      shortcut: 'Ctrl+I', icon: 'I',  action: (v) => wrapOrInsert(v, '_', '_', 'italic') },
-  { label: 'Monospace',   shortcut: 'Ctrl+`', icon: 'M',  action: (v) => wrapOrInsert(v, '`', '`', 'code') },
-  { label: 'Highlight',   shortcut: '',       icon: 'H',  action: (v) => wrapOrInsert(v, '#', '#', 'highlight') },
-  { label: 'Subscript',   shortcut: '',       icon: '~',  action: (v) => wrapOrInsert(v, '~', '~', 'sub') },
-  { label: 'Superscript', shortcut: '',       icon: '^',  action: (v) => wrapOrInsert(v, '^', '^', 'sup') },
+  { label: 'Bold',        shortcut: 'Ctrl+B', icon: Bold,        action: (v) => wrapOrInsert(v, '*', '*', 'bold') },
+  { label: 'Italic',      shortcut: 'Ctrl+I', icon: Italic,      action: (v) => wrapOrInsert(v, '_', '_', 'italic') },
+  { label: 'Monospace',   shortcut: 'Ctrl+`', icon: Code,        action: (v) => wrapOrInsert(v, '`', '`', 'code') },
+  { label: 'Highlight',   shortcut: '',       icon: Highlighter, action: (v) => wrapOrInsert(v, '#', '#', 'highlight') },
+  { label: 'Subscript',   shortcut: '',       icon: Subscript,   action: (v) => wrapOrInsert(v, '~', '~', 'sub') },
+  { label: 'Superscript', shortcut: '',       icon: Superscript, action: (v) => wrapOrInsert(v, '^', '^', 'sup') },
 ];
 
 const STRUCTURE: ToolbarAction[] = [
-  { label: 'Heading 1', shortcut: '', icon: 'H1', action: (v) => insertLinePrefix(v, '= ') },
-  { label: 'Heading 2', shortcut: '', icon: 'H2', action: (v) => insertLinePrefix(v, '== ') },
-  { label: 'Heading 3', shortcut: '', icon: 'H3', action: (v) => insertLinePrefix(v, '=== ') },
-  { label: 'Heading 4', shortcut: '', icon: 'H4', action: (v) => insertLinePrefix(v, '==== ') },
-  { label: 'Heading 5', shortcut: '', icon: 'H5', action: (v) => insertLinePrefix(v, '===== ') },
-  { label: 'Ordered List',   shortcut: '', icon: '1.', action: (v) => insertLinePrefix(v, '. ') },
-  { label: 'Unordered List', shortcut: '', icon: '•',  action: (v) => insertLinePrefix(v, '* ') },
-  { label: 'Checklist',      shortcut: '', icon: '☐',  action: (v) => insertLinePrefix(v, '* [ ] ') },
-  { label: 'Description List', shortcut: '', icon: '::',action: (v) => insertLinePrefix(v, ':: ') },
+  { label: 'Heading 1', shortcut: '', icon: Heading1, action: (v) => insertLinePrefix(v, '= ') },
+  { label: 'Heading 2', shortcut: '', icon: Heading2, action: (v) => insertLinePrefix(v, '== ') },
+  { label: 'Heading 3', shortcut: '', icon: Heading3, action: (v) => insertLinePrefix(v, '=== ') },
+  { label: 'Heading 4', shortcut: '', icon: Heading4, action: (v) => insertLinePrefix(v, '==== ') },
+  { label: 'Heading 5', shortcut: '', icon: Heading5, action: (v) => insertLinePrefix(v, '===== ') },
+  { label: 'Ordered List',   shortcut: '', icon: ListOrdered, action: (v) => insertLinePrefix(v, '. ') },
+  { label: 'Unordered List', shortcut: '', icon: List,        action: (v) => insertLinePrefix(v, '* ') },
+  { label: 'Checklist',      shortcut: '', icon: ListChecks,  action: (v) => insertLinePrefix(v, '* [ ] ') },
+  { label: 'Description List', shortcut: '', icon: ListTree,  action: (v) => insertLinePrefix(v, ':: ') },
 ];
 
 const BLOCKS: ToolbarAction[] = [
-  { label: 'Code Block',    shortcut: '', icon: '{ }', action: (v) => insertSnippet(v, '----\n\n----\n') },
-  { label: 'Example Block', shortcut: '', icon: '===', action: (v) => insertSnippet(v, '====\n\n====\n') },
-  { label: 'Sidebar',       shortcut: '', icon: '***', action: (v) => insertSnippet(v, '****\n\n****\n') },
-  { label: 'Blockquote',    shortcut: '', icon: '"',   action: (v) => insertSnippet(v, '____\n\n____\n') },
-  { label: 'NOTE',       shortcut: '', icon: 'N', action: (v) => insertSnippet(v, '[NOTE]\n====\n\n====\n') },
-  { label: 'TIP',        shortcut: '', icon: 'T', action: (v) => insertSnippet(v, '[TIP]\n====\n\n====\n') },
-  { label: 'WARNING',    shortcut: '', icon: 'W', action: (v) => insertSnippet(v, '[WARNING]\n====\n\n====\n') },
-  { label: 'IMPORTANT',  shortcut: '', icon: '!', action: (v) => insertSnippet(v, '[IMPORTANT]\n====\n\n====\n') },
-  { label: 'CAUTION',    shortcut: '', icon: 'C', action: (v) => insertSnippet(v, '[CAUTION]\n====\n\n====\n') },
-  { label: 'STEM Block', shortcut: '', icon: '∑', action: (v) => insertSnippet(v, '[stem]\n++++\n\n++++\n') },
-  { label: 'Comment Block', shortcut: '', icon: '//', action: (v) => insertSnippet(v, '////\n\n////\n') },
+  { label: 'Code Block',    shortcut: '', icon: SquareCode, action: (v) => insertSnippet(v, '----\n\n----\n') },
+  { label: 'Example Block', shortcut: '', icon: Box,        action: (v) => insertSnippet(v, '====\n\n====\n') },
+  { label: 'Sidebar',       shortcut: '', icon: PanelRight, action: (v) => insertSnippet(v, '****\n\n****\n') },
+  { label: 'Blockquote',    shortcut: '', icon: Quote,      action: (v) => insertSnippet(v, '____\n\n____\n') },
+  { label: 'NOTE',       shortcut: '', icon: Info,          action: (v) => insertSnippet(v, '[NOTE]\n====\n\n====\n') },
+  { label: 'TIP',        shortcut: '', icon: Lightbulb,     action: (v) => insertSnippet(v, '[TIP]\n====\n\n====\n') },
+  { label: 'WARNING',    shortcut: '', icon: TriangleAlert, action: (v) => insertSnippet(v, '[WARNING]\n====\n\n====\n') },
+  { label: 'IMPORTANT',  shortcut: '', icon: AlertCircle,   action: (v) => insertSnippet(v, '[IMPORTANT]\n====\n\n====\n') },
+  { label: 'CAUTION',    shortcut: '', icon: Flame,         action: (v) => insertSnippet(v, '[CAUTION]\n====\n\n====\n') },
+  { label: 'STEM Block', shortcut: '', icon: Sigma,         action: (v) => insertSnippet(v, '[stem]\n++++\n\n++++\n') },
+  { label: 'Comment Block', shortcut: '', icon: MessageSquare, action: (v) => insertSnippet(v, '////\n\n////\n') },
   {
     label: 'Table',
     shortcut: '',
-    icon: '⊞',
+    icon: Table,
     action: (v) => insertSnippetAt(v, TABLE_SKELETON, '|===\n|'.length),
   },
   {
     label: 'Caption',
     shortcut: '',
-    icon: '.T',
+    icon: Captions,
     action: (v) => insertCaption(v),
   },
 ];
 
 const INLINE_REFS: ToolbarAction[] = [
-  { label: 'Link',            shortcut: '', icon: '🔗', action: (v) => insertSnippet(v, 'link:https://[label]') },
-  { label: 'Cross-reference', shortcut: '', icon: '→',  action: (v) => insertSnippet(v, '<<>>') },
-  { label: 'Footnote',        shortcut: '', icon: 'fn', action: (v) => insertSnippet(v, 'footnote:[text]') },
-  { label: 'Image',           shortcut: '', icon: '🖼', action: (v) => insertSnippet(v, 'image::path[alt]') },
+  { label: 'Link',            shortcut: '', icon: Link,           action: (v) => insertSnippet(v, 'link:https://[label]') },
+  { label: 'Cross-reference', shortcut: '', icon: ArrowRightLeft, action: (v) => insertSnippet(v, '<<>>') },
+  { label: 'Footnote',        shortcut: '', icon: Asterisk,       action: (v) => insertSnippet(v, 'footnote:[text]') },
+  { label: 'Image',           shortcut: '', icon: Image,          action: (v) => insertSnippet(v, 'image::path[alt]') },
 ];
 
 function ToolbarGroup({
@@ -142,7 +150,7 @@ function ToolbarGroup({
       {actions.map((action) => (
         <EditorToolbarButton
           key={action.label}
-          icon={<span className="text-xs font-mono leading-none">{action.icon}</span>}
+          icon={<action.icon className="h-4 w-4" />}
           label={action.label}
           shortcut={action.shortcut}
           onClick={() => view && action.action(view)}
@@ -179,14 +187,14 @@ export function EditorToolbar({
             <ToolbarGroup label="Inline/References"  actions={INLINE_REFS}     view={view} />
           </>
         )}
-        <button
-          type="button"
-          aria-label="Editor settings"
-          className="ml-auto px-2 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setSettingsOpen((previous) => !previous)}
-        >
-          ⚙
-        </button>
+        <div className="ml-auto flex items-center">
+          <EditorToolbarButton
+            icon={<Settings className="h-4 w-4" />}
+            label="Editor settings"
+            shortcut=""
+            onClick={() => setSettingsOpen((previous) => !previous)}
+          />
+        </div>
       </div>
       {settingsOpen && (
         <div className="border-b bg-background shadow-lg">

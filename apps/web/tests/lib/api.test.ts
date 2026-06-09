@@ -64,6 +64,27 @@ describe('authApi behavior', () => {
     await expect(authApi.login('user@example.com', 'wrong')).rejects.toBeInstanceOf(ApiError);
   });
 
+  test('error response without an error field falls back to default code and message', async () => {
+    fetchMock.mockReturnValueOnce(mockErrorResponse(500, {}));
+    await expect(authApi.login('user@example.com', 'wrong')).rejects.toMatchObject({
+      status: 500,
+      code: 'UNKNOWN_ERROR',
+      message: 'An unexpected error occurred',
+      retryAfter: undefined,
+    });
+  });
+
+  test('error response propagates retryAfter when present', async () => {
+    fetchMock.mockReturnValueOnce(
+      mockErrorResponse(429, { error: { code: 'RATE_LIMITED', message: 'Slow down', retryAfter: 30 } }),
+    );
+    await expect(authApi.login('user@example.com', 'wrong')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+      retryAfter: 30,
+    });
+  });
+
   test('multiple calls do not generate extra requests', async () => {
     fetchMock
       .mockReturnValueOnce(mockOkResponse({ message: 'Authenticated' }))
@@ -122,6 +143,15 @@ describe('authApi behavior', () => {
     await authApi.requestEmailChange('new@example.com');
     expect(String(fetchMock.mock.calls[0][0])).toContain('/auth/email/change-request');
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+  });
+
+  test('updateProfile sends PATCH to /auth/me/profile with the payload', async () => {
+    fetchMock.mockReturnValueOnce(mockOkResponse({ message: 'Profile updated' }));
+    const result = await authApi.updateProfile({ displayName: 'Renamed' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/auth/me/profile');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
+    expect(fetchMock.mock.calls[0][1].body).toContain('Renamed');
+    expect(result.message).toBe('Profile updated');
   });
 });
 
@@ -391,5 +421,38 @@ describe('adminApi behavior', () => {
     const result = await adminApi.getSessionStatus();
     expect(String(fetchMock.mock.calls[0][0])).toContain('/auth/session-status');
     expect(result.authenticated).toBe(true);
+  });
+
+  test('getAuditLogs without filters omits the query string', async () => {
+    fetchMock.mockReturnValueOnce(mockOkResponse({ items: [], total: 0, page: 1, limit: 20 }));
+    await adminApi.getAuditLogs();
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/admin/audit-logs');
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain('?');
+  });
+
+  test('getAuditLogs encodes every provided filter into the query string', async () => {
+    fetchMock.mockReturnValueOnce(mockOkResponse({ items: [], total: 0, page: 2, limit: 50 }));
+    await adminApi.getAuditLogs({
+      fromDate: '2026-01-01',
+      toDate: '2026-02-01',
+      userId: 'u1',
+      actionType: 'LOGIN',
+      page: 2,
+      limit: 50,
+    });
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('fromDate=2026-01-01');
+    expect(url).toContain('toDate=2026-02-01');
+    expect(url).toContain('userId=u1');
+    expect(url).toContain('actionType=LOGIN');
+    expect(url).toContain('page=2');
+    expect(url).toContain('limit=50');
+  });
+
+  test('getAuditLogActionTypes fetches /admin/audit-logs/action-types', async () => {
+    fetchMock.mockReturnValueOnce(mockOkResponse({ actionTypes: ['LOGIN', 'LOGOUT'] }));
+    const result = await adminApi.getAuditLogActionTypes();
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/admin/audit-logs/action-types');
+    expect(result.actionTypes).toEqual(['LOGIN', 'LOGOUT']);
   });
 });

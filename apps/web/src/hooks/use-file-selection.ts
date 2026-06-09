@@ -26,6 +26,8 @@ export interface FileContentState {
   error: string | null;
   /** True when the Content-Type is not text/*. */
   isBinary: boolean;
+  /** True when the content fetch returned a non-OK status — the file was deleted, moved, or forbidden. */
+  notFound: boolean;
 }
 
 const initialContentState: FileContentState = {
@@ -34,6 +36,7 @@ const initialContentState: FileContentState = {
   isLoading: false,
   error: null,
   isBinary: false,
+  notFound: false,
 };
 
 /** Manages file selection state and fetches file content with abort-on-navigate support. */
@@ -58,7 +61,7 @@ export function useFileSelection(projectId: string) {
 
       const controller = new AbortController();
       abortReference.current = controller;
-      setContentState({ content: null, etag: null, isLoading: true, error: null, isBinary: false });
+      setContentState({ content: null, etag: null, isLoading: true, error: null, isBinary: false, notFound: false });
 
       try {
         const response = await fetch(
@@ -66,15 +69,23 @@ export function useFileSelection(projectId: string) {
           { credentials: 'include', signal: controller.signal },
         );
 
+        // A non-OK response means the node no longer exists (deleted/moved → id changed) or is
+        // forbidden. Surface a `notFound` signal — no body read, no error UI — so the caller can
+        // clear stale memory and fall back gracefully (FR-009).
+        if (!response.ok) {
+          setContentState({ content: null, etag: null, isLoading: false, error: null, isBinary: false, notFound: true });
+          return;
+        }
+
         const contentType = response.headers.get('Content-Type') ?? '';
         if (!contentType.startsWith('text/')) {
-          setContentState({ content: null, etag: null, isLoading: false, error: null, isBinary: true });
+          setContentState({ content: null, etag: null, isLoading: false, error: null, isBinary: true, notFound: false });
           return;
         }
 
         const etag = response.headers.get('ETag');
         const text = await response.text();
-        setContentState({ content: text, etag, isLoading: false, error: null, isBinary: false });
+        setContentState({ content: text, etag, isLoading: false, error: null, isBinary: false, notFound: false });
       } catch (error_) {
         if (error_ instanceof DOMException && error_.name === 'AbortError') return;
         setContentState({
@@ -83,6 +94,7 @@ export function useFileSelection(projectId: string) {
           isLoading: false,
           error: error_ instanceof Error ? error_.message : 'An error occurred.',
           isBinary: false,
+          notFound: false,
         });
       }
     },

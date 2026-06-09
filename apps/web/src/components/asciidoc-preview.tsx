@@ -1,5 +1,8 @@
 'use client';
 import '../styles/asciidoc-preview.css';
+import { ArrowUpDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 
@@ -18,7 +21,7 @@ function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: b
     return <span className="text-xs text-muted-foreground" aria-label="not available">–</span>;
   }
   if (state === 'up-to-date') {
-    return <span className="text-xs text-green-600" aria-label="up to date">✓</span>;
+    return <span className="text-xs text-[hsl(var(--success))]" aria-label="up to date">✓</span>;
   }
   if (state === 'error') {
     return <span className="text-xs text-destructive" aria-label="preview error">⚠ Preview error</span>;
@@ -60,26 +63,31 @@ export function AsciiDocPreview({
         <div className="flex items-center gap-1">
           <SyncIndicator state={state} isEnabled={isEnabled} />
           {onToggleScrollSync && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={onToggleScrollSync}
-              className={`cursor-pointer rounded p-0.5 text-xs ${scrollSyncEnabled ? 'text-foreground' : 'text-muted-foreground'} hover:bg-accent hover:text-foreground`}
+              className={cn('h-6 w-6 text-muted-foreground', scrollSyncEnabled && 'bg-accent text-foreground')}
               aria-label={scrollSyncEnabled ? 'disable scroll sync' : 'enable scroll sync'}
               aria-pressed={scrollSyncEnabled}
               title="Scroll preview with editor"
               data-testid="scroll-sync-toggle"
             >
-              ↕
-            </button>
+              <ArrowUpDown className="h-4 w-4" />
+            </Button>
           )}
           {onCollapse && (
-            <button
-              onClick={onCollapse}
-              className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
               aria-label="collapse preview"
+              onClick={onCollapse}
             >
-              ›
-            </button>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </div>

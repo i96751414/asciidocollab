@@ -20,6 +20,24 @@ const tree: FileTreeNode = folder('root', 'root', [
 ], null);
 
 describe('useFindInTree', () => {
+  it('returns no matches and null navigation for a null tree', () => {
+    const { result } = renderHook(() => useFindInTree(null, new Map(), jest.fn()));
+    act(() => { result.current.setQuery('anything'); });
+    expect(result.current.matchCount).toBe(0);
+    let next: ReturnType<typeof result.current.nextMatch> = null;
+    let previous: ReturnType<typeof result.current.prevMatch> = null;
+    act(() => { next = result.current.nextMatch(); });
+    act(() => { previous = result.current.prevMatch(); });
+    expect(next).toBeNull();
+    expect(previous).toBeNull();
+  });
+
+  it('returns no matches for an empty query', () => {
+    const { result } = renderHook(() => useFindInTree(tree, new Map(), jest.fn()));
+    act(() => { result.current.setQuery(''); });
+    expect(result.current.matchCount).toBe(0);
+  });
+
   it('buildMatchList: DFS traversal collects matching nodes in document order', () => {
     const expandedState = new Map<string, boolean>();
     const setExpandedState = jest.fn();

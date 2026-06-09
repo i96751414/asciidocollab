@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/back-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { projectsApi, Project, ProjectMemberRole } from "@/lib/api";
@@ -55,29 +55,25 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <Link
-        href={`/dashboard/projects/${project.id}`}
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Back to project
-      </Link>
+      <div className="flex items-center gap-3">
+        <BackButton href={`/dashboard/projects/${project.id}`} label="Back to project" />
+        <div>
+          <h1 className="text-2xl font-bold">Project Settings</h1>
+          <p className="text-muted-foreground">Update {project.name} settings.</p>
+        </div>
+      </div>
       {isArchived && (
-        <div className="p-4 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium">
+        <div className="p-4 rounded-md border text-sm font-medium border-[hsl(var(--warning-border))] bg-[hsl(var(--warning-bg))] text-[hsl(var(--warning))]">
           This project is archived. Settings are read-only. Restore the project to make changes.
         </div>
       )}
-
-      <div>
-        <h1 className="text-2xl font-bold">Project Settings</h1>
-        <p className="text-muted-foreground">Update {project.name} settings.</p>
-      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
         )}
         {success && (
-          <div className="p-3 text-sm text-green-600 bg-green-50 rounded-md">
+          <div className="rounded-md border p-3 text-sm border-[hsl(var(--success-border))] bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
             Project settings updated successfully.
           </div>
         )}

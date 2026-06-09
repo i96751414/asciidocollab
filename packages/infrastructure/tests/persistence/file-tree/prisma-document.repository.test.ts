@@ -1,4 +1,4 @@
-import { DocumentRepository, UserRepository, ProjectRepository, FileNodeRepository, DocumentId, FilePath, FileNode, FileNodeType, YjsStateId } from '@asciidocollab/domain';
+import { DocumentRepository, UserRepository, ProjectRepository, FileNodeRepository, DocumentId, FilePath, FileNode, FileNodeType, YjsStateId, FileNodeId } from '@asciidocollab/domain';
 import { PrismaClient } from '@prisma/client';
 import { PrismaDocumentRepository } from '../../../src/persistence/file-tree/prisma-document.repository';
 import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.repository';
@@ -93,6 +93,11 @@ describe('PrismaDocumentRepository', () => {
 
   it('should return null when finding by non-existent yjsStateId', async () => {
     const result = await repo.findByYjsStateId(YjsStateId.create('00000000-0000-4000-8000-000000000002'));
+    expect(result).toBeNull();
+  });
+
+  it('should return null when finding by non-existent fileNodeId', async () => {
+    const result = await repo.findByFileNodeId(FileNodeId.create('00000000-0000-4000-8000-000000000003'));
     expect(result).toBeNull();
   });
 

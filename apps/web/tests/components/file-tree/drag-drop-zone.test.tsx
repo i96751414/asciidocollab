@@ -72,6 +72,17 @@ describe('DragDropZone', () => {
     expect(mockOnDrop).toHaveBeenCalledWith(mockItems);
   });
 
+  it('does not call onDrop when the drop has no dataTransfer items', () => {
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1">
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    fireEvent.drop(zone, { dataTransfer: {} });
+    expect(mockOnDrop).not.toHaveBeenCalled();
+  });
+
   it('UploadProgressPanel rendered when progress is non-empty', () => {
     mockUseDropUpload.mockReturnValue({
       onDrop: mockOnDrop,
@@ -115,6 +126,33 @@ describe('DragDropZone', () => {
 
     expect(childDrop).toHaveBeenCalledTimes(1);
     expect(parentDrop).not.toHaveBeenCalled();
+  });
+
+  it('onNodeMove consumes an internal-node drop and skips the upload path', () => {
+    const onNodeMove = jest.fn(() => true);
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1" onNodeMove={onNodeMove}>
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    fireEvent.drop(zone, { dataTransfer: { items: {} as DataTransferItemList } });
+    expect(onNodeMove).toHaveBeenCalled();
+    expect(mockOnDrop).not.toHaveBeenCalled();
+  });
+
+  it('falls through to the upload path when onNodeMove returns false (an OS-file drop)', () => {
+    const onNodeMove = jest.fn(() => false);
+    const { container } = render(
+      <DragDropZone targetFolderId="folder-1" projectId="proj-1" onNodeMove={onNodeMove}>
+        <div>content</div>
+      </DragDropZone>,
+    );
+    const zone = container.firstChild as HTMLElement;
+    const mockItems = {} as DataTransferItemList;
+    fireEvent.drop(zone, { dataTransfer: { items: mockItems } });
+    expect(onNodeMove).toHaveBeenCalled();
+    expect(mockOnDrop).toHaveBeenCalledWith(mockItems);
   });
 
   it('dismiss button passes clearProgress from hook as onDismiss to UploadProgressPanel', () => {

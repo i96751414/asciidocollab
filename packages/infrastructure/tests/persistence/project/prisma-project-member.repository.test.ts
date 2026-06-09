@@ -5,7 +5,7 @@ import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.
 import { PrismaProjectRepository } from '../../../src/persistence/project/prisma-project.repository';
 import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
 import { createTestUser, createTestProject, createTestProjectMember } from '../../helpers/test-data';
-import { ProjectId, UserId } from '@asciidocollab/domain';
+import { ProjectId, UserId, Email } from '@asciidocollab/domain';
 
 describe('PrismaProjectMemberRepository', () => {
   let container: TestContainer;
@@ -90,6 +90,29 @@ describe('PrismaProjectMemberRepository', () => {
     const found = await repo.findByCompositeKey(project.id, user.id);
     expect(found).not.toBeNull();
     expect(found!.role.value).toBe('owner');
+  });
+
+  it('findSoleOwnerProjects returns only projects where the user is the lone owner', async () => {
+    const soleOwner = createTestUser({ email: Email.create('soleowner@example.com') });
+    const coOwner = createTestUser({ email: Email.create('coowner@example.com') });
+    await userRepo.save(soleOwner);
+    await userRepo.save(coOwner);
+
+    const soloProject = createTestProject();
+    const sharedProject = createTestProject();
+    await projectRepo.save(soloProject);
+    await projectRepo.save(sharedProject);
+
+    // soleOwner is the only owner of soloProject.
+    await repo.addMember(createTestProjectMember(soloProject.id, soleOwner.id, { role: Role.create('owner') }));
+    // sharedProject has two owners → not sole.
+    await repo.addMember(createTestProjectMember(sharedProject.id, soleOwner.id, { role: Role.create('owner') }));
+    await repo.addMember(createTestProjectMember(sharedProject.id, coOwner.id, { role: Role.create('owner') }));
+
+    const sole = await repo.findSoleOwnerProjects(soleOwner.id);
+    const ids = sole.map((p) => p.id.value);
+    expect(ids).toContain(soloProject.id.value);
+    expect(ids).not.toContain(sharedProject.id.value);
   });
 
   async function setupProjectAndUser(): Promise<{ project: Project; user: User }> {

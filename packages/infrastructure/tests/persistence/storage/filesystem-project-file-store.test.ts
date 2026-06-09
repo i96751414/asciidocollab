@@ -129,6 +129,61 @@ describe('FilesystemProjectFileStore', () => {
     });
   });
 
+  describe('remove', () => {
+    it('removes an existing file', async () => {
+      await store.write(projectId, filePath, content);
+      await store.remove(projectId, filePath);
+      expect(await store.read(projectId, filePath)).toBeNull();
+    });
+
+    it('is a no-op when the file is already absent', async () => {
+      await expect(store.remove(projectId, FilePath.create('/never.txt'))).resolves.not.toThrow();
+    });
+  });
+
+  describe('removeDirectory', () => {
+    it('recursively removes a directory and its contents', async () => {
+      await store.write(projectId, FilePath.create('/dir/inner.txt'), content);
+      await store.removeDirectory(projectId, FilePath.create('/dir'));
+      expect(await store.read(projectId, FilePath.create('/dir/inner.txt'))).toBeNull();
+    });
+  });
+
+  describe('readStream', () => {
+    it('returns a readable stream for an existing file', async () => {
+      await store.write(projectId, filePath, content);
+      const stream = await store.readStream(projectId, filePath);
+      expect(stream).not.toBeNull();
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream!) chunks.push(chunk as Buffer);
+      expect(Buffer.concat(chunks)).toEqual(content);
+    });
+
+    it('returns null when the file does not exist', async () => {
+      expect(await store.readStream(projectId, FilePath.create('/missing.txt'))).toBeNull();
+    });
+  });
+
+  describe('move — directories', () => {
+    it('moves a directory to a new path', async () => {
+      await store.write(projectId, FilePath.create('/src/a.txt'), content);
+      const result = await store.move(projectId, FilePath.create('/src'), FilePath.create('/dst'));
+      expect(result.success).toBe(true);
+      expect(await store.read(projectId, FilePath.create('/dst/a.txt'))).toEqual(content);
+      expect(await store.read(projectId, FilePath.create('/src/a.txt'))).toBeNull();
+    });
+
+    it('returns FileConflictError when the destination directory already exists', async () => {
+      await store.write(projectId, FilePath.create('/from/a.txt'), content);
+      await store.createDirectory(projectId, FilePath.create('/to'));
+      const result = await store.move(projectId, FilePath.create('/from'), FilePath.create('/to'));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(FileConflictError);
+      }
+    });
+  });
+
   describe('move — concurrent exclusive moves to the same destination', () => {
     it('when two moves race to the same destination, exactly one succeeds and one returns FileConflictError', async () => {
       await store.write(projectId, FilePath.create('/a.txt'), Buffer.from('a'));

@@ -16,6 +16,7 @@ const defaultPolicy: PasswordPolicyDto = {
 const VALID_PASSWORD = 'SecurePass1!';
 
 jest.mock('@/lib/api', () => ({
+  ApiError: jest.requireActual('@/lib/api').ApiError,
   authApi: {
     register: jest.fn(),
     setupStatus: jest.fn().mockResolvedValue({
@@ -174,6 +175,83 @@ describe('RegisterForm (first-run setup)', () => {
 
     await waitFor(() => {
       expect(router.push).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  test('shows the check-email screen when verification is required', async () => {
+    authApi.register.mockResolvedValue({ requiresEmailVerification: true });
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/check your email/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument();
+  });
+
+  test('shows "Registration is closed" for a 403 REGISTRATION_CLOSED error', async () => {
+    const { ApiError } = require('@/lib/api');
+    authApi.register.mockRejectedValue(new ApiError(403, 'REGISTRATION_CLOSED', 'nope'));
+    render(<RegisterForm isFirstRun={false} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/registration is closed/i);
+    });
+  });
+
+  test('shows the server message for a non-closed 403 error', async () => {
+    const { ApiError } = require('@/lib/api');
+    authApi.register.mockRejectedValue(new ApiError(403, 'FORBIDDEN', 'Email domain not allowed'));
+    render(<RegisterForm isFirstRun={false} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/email domain not allowed/i);
+    });
+  });
+
+  test('shows the API message for a non-403 ApiError', async () => {
+    const { ApiError } = require('@/lib/api');
+    authApi.register.mockRejectedValue(new ApiError(409, 'CONFLICT', 'Email already registered'));
+    render(<RegisterForm isFirstRun={false} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/email already registered/i);
+    });
+  });
+
+  test('shows a generic message for a non-ApiError failure', async () => {
+    authApi.register.mockRejectedValue(new Error('network down'));
+    render(<RegisterForm isFirstRun={false} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/registration failed\. please try again/i);
+    });
+  });
+
+  test('shows the non-first-run copy when isFirstRun is false', () => {
+    render(<RegisterForm isFirstRun={false} passwordPolicy={defaultPolicy} />);
+    expect(screen.getByText(/register for access/i)).toBeInTheDocument();
+    expect(screen.queryByText(/set up your account/i)).not.toBeInTheDocument();
+  });
+
+  test('shows display-name and email validation errors on submit', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'not-an-email' } });
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.some((a) => /display name is required/i.test(a.textContent ?? ''))).toBe(true);
+      expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(true);
     });
   });
 });

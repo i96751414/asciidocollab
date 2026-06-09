@@ -242,6 +242,34 @@ describe('useFileSelection', () => {
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
+  // T016 / US3: a non-OK (404) content response must surface a `notFound` signal without
+  // populating content or error, so the layout can clear stale memory and fall back gracefully.
+  it('non-OK (404) content response sets notFound and leaves content/error empty', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue(
+      makeFetchResponse('Not Found', 'text/plain', false),
+    );
+
+    const { result } = renderHook(() => useFileSelection('p1'));
+
+    await act(async () => {
+      await result.current.selectFile('gone-1', 'gone.adoc', '/gone.adoc', 'file');
+    });
+
+    expect(result.current.contentState.notFound).toBe(true);
+    expect(result.current.contentState.content).toBeNull();
+    expect(result.current.contentState.error).toBeNull();
+    expect(result.current.contentState.isLoading).toBe(false);
+  });
+
+  it('an OK content response leaves notFound false', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue(makeFetchResponse('hi', 'text/plain'));
+    const { result } = renderHook(() => useFileSelection('p1'));
+    await act(async () => {
+      await result.current.selectFile('n1', 'doc.adoc', '/doc.adoc', 'file');
+    });
+    expect(result.current.contentState.notFound).toBe(false);
+  });
+
   // T014 (f): clearSelection resets state
   it('clearSelection resets selectedFile and contentState', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(

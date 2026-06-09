@@ -19,13 +19,13 @@ export function EditorBanners({
   return (
     <>
       {externalChange && (
-        <div role="status" className="px-3 py-1 text-xs bg-yellow-50 border-b border-yellow-200 text-yellow-800 flex items-center gap-2">
+        <div role="status" className="px-3 py-1 text-xs border-b flex items-center gap-2 bg-[hsl(var(--warning-bg))] border-[hsl(var(--warning-border))] text-[hsl(var(--warning))]">
           <span>This file was updated externally.</span>
           <button type="button" className="underline" onClick={onDismissExternalChange}>Dismiss</button>
         </div>
       )}
       {draftContent !== null && (
-        <div role="status" className="px-3 py-1 text-xs bg-blue-50 border-b border-blue-200 text-blue-800 flex items-center gap-2">
+        <div role="status" className="px-3 py-1 text-xs border-b flex items-center gap-2 bg-[hsl(var(--info-bg))] border-[hsl(var(--info-border))] text-[hsl(var(--info))]">
           <span>An unsaved draft was recovered.</span>
           <button type="button" className="underline" onClick={onRestoreDraft}>Restore</button>
           <button type="button" className="underline" onClick={onDiscardDraft}>Discard</button>

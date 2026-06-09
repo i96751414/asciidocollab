@@ -22,6 +22,12 @@ const sharedModuleNameMapper = {
   '\\.css$': '<rootDir>/tests/__mocks__/fileMock.cjs',
 };
 
+// Coverage measures application source only. Test infrastructure — Playwright
+// e2e helpers and jest test helpers/mocks — is not application code and must
+// not count toward (or against) the thresholds below. This is a project-level
+// option, so it must live inside each project entry (not at the root).
+const coveragePathIgnorePatterns = ['/node_modules/', '<rootDir>/e2e/', '<rootDir>/tests/'];
+
 const config = {
   projects: [
     {
@@ -30,6 +36,7 @@ const config = {
       testMatch: ['**/tests/**/*.test.ts'],
       transform: sharedTransform,
       moduleNameMapper: sharedModuleNameMapper,
+      coveragePathIgnorePatterns,
     },
     {
       displayName: 'jsdom',
@@ -38,17 +45,15 @@ const config = {
       transform: sharedTransform,
       moduleNameMapper: sharedModuleNameMapper,
       setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
+      coveragePathIgnorePatterns,
     },
   ],
-  // Branch coverage is lower (~80%) because several files need a live CodeMirror
-  // EditorView or complex DOM interactions to exercise all conditional paths.
-  // The other three metrics enforce a strict 90% floor.
   coverageThreshold: {
     global: {
-      lines: 93,
       statements: 90,
+      branches: 90,
       functions: 90,
-      branches: 80,
+      lines: 90,
     },
   },
 };

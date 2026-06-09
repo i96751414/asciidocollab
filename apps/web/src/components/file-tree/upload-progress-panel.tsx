@@ -54,7 +54,7 @@ export function UploadProgressPanel({ progress, onDismiss }: Properties) {
               <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="uploading" />
             )}
             {item.status === 'done' && (
-              <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="done" />
+              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" aria-label="done" />
             )}
             {item.status === 'error' && (
               <XCircle className="h-4 w-4 text-destructive" aria-label={`failed: ${item.errorMessage}`} />

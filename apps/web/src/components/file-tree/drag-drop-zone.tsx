@@ -12,10 +12,16 @@ interface Properties {
   'data-testid'?: string;
   /** Called after all uploads in a drop batch finish (success or error). Use to refresh the tree. */
   onComplete?: () => void;
+  /**
+   * Handles a drop of an in-tree node (a move) on the zone's empty area. Returns true when it
+   * consumed the drop — in which case the OS-file upload path is skipped. Used to make the root
+   * area a "move to root" target.
+   */
+  onNodeMove?: () => boolean;
 }
 
 /** Wraps content in a drag-and-drop zone that uploads dropped files into the target folder. */
-export function DragDropZone({ targetFolderId, projectId, children, className, onComplete, 'data-testid': testId }: Properties) {
+export function DragDropZone({ targetFolderId, projectId, children, className, onComplete, onNodeMove, 'data-testid': testId }: Properties) {
   const [isDragging, setIsDragging] = useState(false);
   const { onDrop, progress, clearProgress } = useDropUpload(targetFolderId, projectId, onComplete);
 
@@ -35,10 +41,13 @@ export function DragDropZone({ targetFolderId, projectId, children, className, o
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
+    // An in-tree node dropped on the empty zone is a move, not an upload. Let the move handler
+    // consume it first; only fall through to the OS-file upload path when it did not.
+    if (onNodeMove?.()) return;
     if (event.dataTransfer?.items) {
       onDrop(event.dataTransfer.items);
     }
-  }, [onDrop]);
+  }, [onDrop, onNodeMove]);
 
   return (
     <div

@@ -16,10 +16,16 @@ jest.mock('@/components/editor/asciidoc-editor', () => ({
   )),
 }));
 
-// Mock file-tree-node so rendered nodes are simple divs
+// Mock file-tree-node so rendered nodes are simple divs; clicking a file invokes onSelect.
 jest.mock('@/components/file-tree/file-tree-node', () => ({
-  FileTreeNode: ({ node }: { node: { name: string; id: string } }) => (
-    <div data-testid={`node-${node.name}`}>{node.name}</div>
+  FileTreeNode: ({ node, onSelect }: {
+    node: { name: string; id: string; path: string; type: 'file' | 'folder' };
+    onSelect?: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
+  }) => (
+    <div
+      data-testid={`node-${node.name}`}
+      onClick={() => node.type === 'file' && onSelect?.(node.id, node.name, node.path, node.type)}
+    >{node.name}</div>
   ),
 }));
 
@@ -60,6 +66,19 @@ jest.mock('@/hooks/use-editor-preferences', () => ({
   })),
 }));
 
+const mockReadLastSelection = jest.fn(() => null as unknown);
+const mockRememberFile = jest.fn();
+const mockRememberLine = jest.fn();
+const mockClearLastSelection = jest.fn();
+jest.mock('@/hooks/use-last-selection', () => ({
+  useLastSelection: jest.fn(() => ({
+    readLastSelection: mockReadLastSelection,
+    rememberFile: mockRememberFile,
+    rememberLine: mockRememberLine,
+    clearLastSelection: mockClearLastSelection,
+  })),
+}));
+
 // jest.fn() wrapper lets tests inspect content/scrollToLine props passed to the preview.
 jest.mock('@/components/asciidoc-preview', () => ({
   AsciiDocPreview: jest.fn(({ onCollapse }: { content?: string; onCollapse?: () => void }) => (
@@ -92,6 +111,7 @@ const defaultProps = {
   projectDescription: null,
   canManage: true,
   canEdit: true,
+  userId: 'user-1',
 };
 
 describe('ProjectEditorLayout', () => {
@@ -107,6 +127,11 @@ describe('ProjectEditorLayout', () => {
     });
     jest.requireMock('@/components/editor/asciidoc-editor').AsciiDocEditor.mockClear();
     jest.requireMock('@/components/asciidoc-preview').AsciiDocPreview.mockClear();
+    mockReadLastSelection.mockReset();
+    mockReadLastSelection.mockReturnValue(null);
+    mockRememberFile.mockReset();
+    mockRememberLine.mockReset();
+    mockClearLastSelection.mockReset();
   });
 
   // T002: shell renders with required data-testids
@@ -190,8 +215,8 @@ describe('ProjectEditorLayout', () => {
     expect(expandButton.querySelector('svg')).toBeInTheDocument();
   });
 
-  // T022b: all header navigation links have text-sm and text-muted-foreground
-  it('T022b: all header navigation links use text-sm and text-muted-foreground class tokens', async () => {
+  // T022b: header navigation links render as icon-bearing buttons (redesigned header)
+  it('T022b: header navigation links render lucide icons', async () => {
     render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
 
@@ -200,8 +225,7 @@ describe('ProjectEditorLayout', () => {
     const membersLink = screen.getByRole('link', { name: /members/i });
 
     for (const link of [backLink, settingsLink, membersLink]) {
-      expect(link).toHaveClass('text-sm');
-      expect(link).toHaveClass('text-muted-foreground');
+      expect(link.querySelector('svg')).toBeInTheDocument();
     }
   });
 
@@ -392,5 +416,201 @@ describe('ProjectEditorLayout', () => {
     const editor = screen.getByTestId('asciidoc-editor');
     expect(editor).toHaveAttribute('data-project-id', 'proj-123');
     expect(editor).toHaveAttribute('data-file-node-id', 'file-abc');
+  });
+
+  // T005 / US1: restore the last selection on mount and persist selections.
+  describe('last-selection restore & persistence', () => {
+    const treeWithFile = {
+      ...emptyRoot,
+      children: [
+        { id: 'file-1', name: 'doc.adoc', type: 'file' as const, path: '/doc.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+
+    it('auto-selects the stored file exactly once on mount', async () => {
+      const selectFile = jest.fn();
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: null,
+        contentState: { content: null, isLoading: false, error: null, isBinary: false },
+        selectFile,
+        clearSelection: jest.fn(),
+      });
+      mockReadLastSelection.mockReturnValue({ nodeId: 'f1', nodeName: 'intro.adoc', nodeType: 'file', path: '/intro.adoc' });
+
+      const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+
+      await waitFor(() => expect(selectFile).toHaveBeenCalledWith('f1', 'intro.adoc', '/intro.adoc', 'file'));
+
+      // Re-rendering must not re-trigger restoration (one-shot ref).
+      rerender(<ProjectEditorLayout {...defaultProps} />);
+      expect(selectFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not auto-select anything when no selection is stored', async () => {
+      const selectFile = jest.fn();
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: null,
+        contentState: { content: null, isLoading: false, error: null, isBinary: false },
+        selectFile,
+        clearSelection: jest.fn(),
+      });
+      mockReadLastSelection.mockReturnValue(null);
+
+      render(<ProjectEditorLayout {...defaultProps} />);
+      await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
+      expect(selectFile).not.toHaveBeenCalled();
+    });
+
+    it('persists the file via rememberFile when a file is selected in the tree', async () => {
+      mockFetch(treeWithFile);
+      const selectFile = jest.fn();
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: null,
+        contentState: { content: null, isLoading: false, error: null, isBinary: false },
+        selectFile,
+        clearSelection: jest.fn(),
+      });
+
+      render(<ProjectEditorLayout {...defaultProps} />);
+      await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('node-doc.adoc'));
+
+      expect(selectFile).toHaveBeenCalledWith('file-1', 'doc.adoc', '/doc.adoc', 'file');
+      expect(mockRememberFile).toHaveBeenCalledWith({ nodeId: 'file-1', nodeName: 'doc.adoc', nodeType: 'file', path: '/doc.adoc' });
+    });
+
+    // T017 / US3: a restored file whose content 404s clears the stale memory and resets the view.
+    it('clears stored memory and resets selection when the restored file is not found', async () => {
+      const clearSelection = jest.fn();
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: { nodeId: 'gone-1', nodeName: 'gone.adoc', path: '/gone.adoc', nodeType: 'file' },
+        contentState: { content: null, isLoading: false, error: null, isBinary: false, notFound: true },
+        selectFile: jest.fn(),
+        clearSelection,
+      });
+      mockReadLastSelection.mockReturnValue({ nodeId: 'gone-1', nodeName: 'gone.adoc', nodeType: 'file', path: '/gone.adoc' });
+
+      render(<ProjectEditorLayout {...defaultProps} />);
+
+      // Stale memory is cleared (not retried on a future visit) and the selection is reset.
+      await waitFor(() => expect(mockClearLastSelection).toHaveBeenCalled());
+      expect(clearSelection).toHaveBeenCalled();
+      // No error UI is surfaced for a missing file.
+      expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
+    });
+
+    it('passes the stored line to the editor as initialLine when restoring that file', async () => {
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: { nodeId: 'f1', nodeName: 'intro.adoc', path: '/intro.adoc', nodeType: 'file' },
+        contentState: { content: '= Intro', isLoading: false, error: null, isBinary: false, notFound: false },
+        selectFile: jest.fn(),
+        clearSelection: jest.fn(),
+      });
+      mockReadLastSelection.mockReturnValue({ nodeId: 'f1', nodeName: 'intro.adoc', nodeType: 'file', path: '/intro.adoc', line: 40 });
+
+      render(<ProjectEditorLayout {...defaultProps} />);
+
+      const { AsciiDocEditor: MockEditor } = jest.requireMock('@/components/editor/asciidoc-editor');
+      await waitFor(() => expect(MockEditor.mock.calls.at(-1)?.[0]?.initialLine).toBe(40));
+    });
+
+    it('debounces rememberLine for cursor moves in AsciiDoc files only', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+          selectedFile: { nodeId: 'f1', nodeName: 'intro.adoc', path: '/intro.adoc', nodeType: 'file' },
+          contentState: { content: '= Intro', isLoading: false, error: null, isBinary: false, notFound: false },
+          selectFile: jest.fn(),
+          clearSelection: jest.fn(),
+        });
+
+        render(<ProjectEditorLayout {...defaultProps} />);
+        const { AsciiDocEditor: MockEditor } = jest.requireMock('@/components/editor/asciidoc-editor');
+        const onCursorLineChange: ((line: number) => void) | undefined = MockEditor.mock.calls.at(-1)?.[0]?.onCursorLineChange;
+        expect(onCursorLineChange).toBeDefined();
+
+        act(() => { onCursorLineChange!(12); });
+        act(() => { jest.advanceTimersByTime(500); });
+        expect(mockRememberLine).toHaveBeenCalledWith(12);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('cancels a pending line-persistence debounce when the file is switched (no cross-file contamination)', async () => {
+      jest.useFakeTimers();
+      try {
+        const useFileSelection = jest.requireMock('@/hooks/use-file-selection').useFileSelection;
+        useFileSelection.mockReturnValue({
+          selectedFile: { nodeId: 'file-a', nodeName: 'a.adoc', path: '/a.adoc', nodeType: 'file' },
+          contentState: { content: '= A', isLoading: false, error: null, isBinary: false, notFound: false },
+          selectFile: jest.fn(),
+          clearSelection: jest.fn(),
+        });
+
+        const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+        const MockEditor = jest.requireMock('@/components/editor/asciidoc-editor').AsciiDocEditor;
+        const onCursorLineChangeA: ((line: number) => void) | undefined = MockEditor.mock.calls.at(-1)?.[0]?.onCursorLineChange;
+
+        // User moves the cursor on file A (starts a 500ms debounce)...
+        act(() => { onCursorLineChangeA!(10); });
+
+        // ...then switches to file B *before* the debounce fires.
+        useFileSelection.mockReturnValue({
+          selectedFile: { nodeId: 'file-b', nodeName: 'b.adoc', path: '/b.adoc', nodeType: 'file' },
+          contentState: { content: '= B', isLoading: false, error: null, isBinary: false, notFound: false },
+          selectFile: jest.fn(),
+          clearSelection: jest.fn(),
+        });
+        rerender(<ProjectEditorLayout {...defaultProps} />);
+
+        act(() => { jest.advanceTimersByTime(500); });
+
+        // The stale timer must NOT write file A's line 10 into file B's entry.
+        expect(mockRememberLine).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does not persist a line for non-AsciiDoc files', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+          selectedFile: { nodeId: 'f2', nodeName: 'notes.txt', path: '/notes.txt', nodeType: 'file' },
+          contentState: { content: 'plain', isLoading: false, error: null, isBinary: false, notFound: false },
+          selectFile: jest.fn(),
+          clearSelection: jest.fn(),
+        });
+
+        render(<ProjectEditorLayout {...defaultProps} />);
+        const { AsciiDocEditor: MockEditor } = jest.requireMock('@/components/editor/asciidoc-editor');
+        const onCursorLineChange: ((line: number) => void) | undefined = MockEditor.mock.calls.at(-1)?.[0]?.onCursorLineChange;
+
+        act(() => { onCursorLineChange?.(7); });
+        act(() => { jest.advanceTimersByTime(500); });
+        expect(mockRememberLine).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    // FR-010: the view renders its default/interactive state immediately; restoration never blocks it.
+    it('renders the default empty content state immediately even when a restore is pending', async () => {
+      const selectFile = jest.fn();
+      jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
+        selectedFile: null,
+        contentState: { content: null, isLoading: false, error: null, isBinary: false },
+        selectFile,
+        clearSelection: jest.fn(),
+      });
+      mockReadLastSelection.mockReturnValue({ nodeId: 'f1', nodeName: 'intro.adoc', nodeType: 'file', path: '/intro.adoc' });
+
+      render(<ProjectEditorLayout {...defaultProps} />);
+      // The content panel and its empty-state copy are present on first paint — not blocked on restore.
+      expect(screen.getByTestId('content-panel')).toBeInTheDocument();
+      expect(screen.getByText(/select a file from the tree/i)).toBeInTheDocument();
+    });
   });
 });

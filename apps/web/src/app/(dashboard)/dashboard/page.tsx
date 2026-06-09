@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Plus, Archive } from "lucide-react";
 import { projectsApi, Project } from "@/lib/api";
 import { ProjectCard } from "@/components/project-card";
 import { EmptyState } from "@/components/empty-state";
@@ -59,7 +60,7 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {deletedNotice && (
-        <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">
+        <div className="rounded-md border p-3 text-sm border-[hsl(var(--success-border))] bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
           Project deleted successfully.
         </div>
       )}
@@ -68,10 +69,16 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold">Your Projects</h2>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard/archived">Archived projects</Link>
+            <Link href="/dashboard/archived">
+              <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
+              Archived projects
+            </Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/dashboard/projects/new">New Project</Link>
+            <Link href="/dashboard/projects/new">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              New Project
+            </Link>
           </Button>
         </div>
       </div>

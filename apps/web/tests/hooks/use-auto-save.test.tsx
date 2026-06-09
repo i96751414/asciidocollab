@@ -347,6 +347,44 @@ test('on beforeunload with saveState !== "saved", a keepalive fetch is dispatche
   );
 });
 
+// ── Flush unsaved content on unmount (SPA navigation has no beforeunload) ─────
+
+test('unmounting with unsaved content (debounce still pending) flushes a keepalive PUT', () => {
+  const { result, unmount } = renderHook(() => useAutoSave(defaultOptions));
+
+  // Edit, but do NOT advance time — the autosave debounce has not fired yet.
+  act(() => result.current.save('edit made just before leaving'));
+  expect(result.current.saveState).toBe('unsaved');
+  expect(mockFetch).not.toHaveBeenCalled();
+
+  // Leaving the page in-app unmounts the editor before the debounce fires.
+  act(() => { unmount(); });
+
+  expect(mockFetch).toHaveBeenCalledWith(
+    expect.stringContaining('/projects/proj-1/files/file-1/content'),
+    expect.objectContaining({ method: 'PUT', keepalive: true, body: 'edit made just before leaving' }),
+  );
+});
+
+test('unmounting after the content was already saved does not flush a redundant PUT', async () => {
+  const { result, unmount } = renderHook(() => useAutoSave(defaultOptions));
+
+  act(() => result.current.save('content'));
+  await act(async () => {
+    jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  // The debounced save completed successfully (pendingContent cleared).
+  expect(result.current.saveState).toBe('saved');
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+
+  act(() => { unmount(); });
+
+  // No extra PUT on unmount — pendingContent was cleared by the successful save.
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
 // ── Issue 4: network errors while online must write draft to localStorage ────
 
 test('when the PUT fetch throws (network error while online), content is written to localStorage', async () => {

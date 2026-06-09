@@ -107,4 +107,12 @@ describe('asciidoc-outline StateField', () => {
 
     expect(state.field(outlineField)).toEqual([]);
   });
+
+  test('StateField is preserved across a selection-only (no-doc-change) transaction', () => {
+    const state = makeEditorState('== A Heading\n\nSome text\n');
+    const before = state.field(outlineField);
+    const after = state.update({ selection: { anchor: 1 } }).state.field(outlineField);
+    // No doc change → the same outline reference is kept.
+    expect(after).toBe(before);
+  });
 });
