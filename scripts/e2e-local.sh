@@ -22,6 +22,12 @@ die()  { echo -e "${RED}[e2e-local]${RESET} $*" >&2; exit 1; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Restore the terminal on exit in case a child left it in a raw/TUI mode, and
+# stop spawned server process trees cleanly (no orphaned next-server, etc.).
+source "$ROOT/scripts/lib/term.sh"
+source "$ROOT/scripts/lib/proc.sh"
+term_save
+
 command -v docker &>/dev/null || die "Docker is required."
 
 # ─── Isolated configuration (override via env if a port clashes) ─────────────
@@ -31,6 +37,12 @@ SMTP_PORT="${E2E_SMTP_PORT:-1126}"
 MAILPIT_UI_PORT="${E2E_MAILPIT_UI_PORT:-8126}"
 API_PORT="${E2E_API_PORT:-4100}"
 WEB_PORT="${E2E_WEB_PORT:-3100}"
+
+# Isolate from a running dev stack (scripts/dev.sh): the API also binds an
+# internal collab port (default 4001, already held by the dev API), so offset it.
+# The Next `.next` build dir is intentionally shared with dev — only containers
+# and ports are isolated.
+export ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT="${E2E_COLLAB_INTERNAL_PORT:-4101}"
 
 export ASCIIDOCOLLAB_DATABASE_URL="postgresql://asciidocollab:asciidocollab@localhost:${PG_PORT}/asciidocollab_e2e"
 export ASCIIDOCOLLAB_API_PORT="$API_PORT"
@@ -57,9 +69,12 @@ API_PID=""; WEB_PID=""
 cleanup() {
   echo ""
   step "Tearing down isolated stack …"
-  [[ -n "$API_PID" ]] && kill "$API_PID" 2>/dev/null || true
-  [[ -n "$WEB_PID" ]] && kill "$WEB_PID" 2>/dev/null || true
+  # Stop servers (and their children) while the DB is still up so the API can
+  # shut down gracefully, then tear the containers down.
+  stop_tree "$API_PID"
+  stop_tree "$WEB_PID"
   $COMPOSE down -v --remove-orphans 2>/dev/null || true
+  term_restore
 }
 trap cleanup EXIT INT TERM
 
