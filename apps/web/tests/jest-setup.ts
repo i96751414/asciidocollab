@@ -18,14 +18,3 @@ if (typeof globalThis.matchMedia !== 'function') {
     }),
   });
 }
-
-// jsdom has no fetch. Components that fire client requests from an effect (e.g.
-// useTheme loading the saved preference) would otherwise throw in tests that do
-// not care about networking. Provide a rejecting default — the callers already
-// handle failure — while tests that exercise fetch still assign their own mock.
-if (typeof globalThis.fetch !== 'function') {
-  Object.defineProperty(globalThis, 'fetch', {
-    writable: true,
-    value: () => Promise.reject(new Error('fetch is not mocked in this test')),
-  });
-}

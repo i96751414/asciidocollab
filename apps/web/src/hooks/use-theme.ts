@@ -50,11 +50,21 @@ function resolveTheme(theme: Theme): 'light' | 'dark' {
   return theme;
 }
 
-/** Reads and persists the user's colour-theme preference; applies the theme class to the document root. */
-export function useTheme(): UseThemeResult {
-  const [theme, setThemeState] = useState<Theme>('system');
+/**
+ * Reads and persists the user's colour-theme preference; applies the theme class to the document root.
+ *
+ * @param initialTheme - Stored preference already known to the caller, typically from the
+ *   server-loaded profile; when provided it seeds state and skips the redundant `/auth/me` fetch.
+ */
+export function useTheme(initialTheme?: Theme): UseThemeResult {
+  const [theme, setThemeState] = useState<Theme>(initialTheme ?? 'system');
 
   useEffect(() => {
+    // The preference is already known from the server profile — apply it and skip the fetch.
+    if (initialTheme !== undefined) {
+      applyThemeClass(resolveTheme(initialTheme));
+      return;
+    }
     fetch(`${API_BASE_URL}/auth/me`, { credentials: 'include' })
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
       .then((data: MeResponse) => {
@@ -67,7 +77,7 @@ export function useTheme(): UseThemeResult {
         const resolved = resolveOsPreference();
         applyThemeClass(resolved);
       });
-  }, []);
+  }, [initialTheme]);
 
   const setTheme = useCallback(async (newTheme: Theme) => {
     setThemeState(newTheme);

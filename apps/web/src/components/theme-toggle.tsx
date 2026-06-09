@@ -2,16 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, type Theme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utilities';
+
+interface ThemeToggleProperties {
+  className?: string;
+  /**
+   * The stored theme preference from the server-loaded profile. Passing it lets
+   * `useTheme` seed its state without a redundant `/auth/me` round-trip.
+   */
+  initialTheme?: Theme;
+}
 
 /**
  * Compact icon button that flips the application colour theme between light and
- * dark. Reuses the shared `useTheme` provider so it stays in sync with the
- * settings page; it does not own any theme state of its own.
+ * dark. Reuses the shared `useTheme` hook so it stays in sync with the settings
+ * page; it does not own any theme state of its own.
  */
-export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme();
+export function ThemeToggle({ className, initialTheme }: ThemeToggleProperties) {
+  const { resolvedTheme, setTheme } = useTheme(initialTheme);
   // The resolved theme depends on matchMedia / the persisted preference, neither
   // of which is known during SSR — so the server always renders the light-mode
   // (Moon) variant. Defer reflecting the real theme until after mount to keep the
@@ -28,7 +38,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       size="icon"
       aria-label={label}
       title={label}
-      className={`h-8 w-8 ${className ?? ''}`}
+      className={cn('h-8 w-8', className)}
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

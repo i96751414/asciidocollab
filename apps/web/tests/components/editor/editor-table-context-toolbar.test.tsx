@@ -128,7 +128,7 @@ describe('EditorTableContextToolbar', () => {
     );
 
     const removeRowButton = screen.getByRole('button', { name: /remove row/i });
-    expect(removeRowButton).toBeDisabled();
+    expect(removeRowButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('remove column button is disabled when columnCount is 1', () => {
@@ -144,7 +144,7 @@ describe('EditorTableContextToolbar', () => {
     );
 
     const removeColButton = screen.getByRole('button', { name: /remove column/i });
-    expect(removeColButton).toBeDisabled();
+    expect(removeColButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('move column left is disabled when cursor is at first column', () => {
@@ -160,7 +160,7 @@ describe('EditorTableContextToolbar', () => {
     );
 
     const moveLeftButton = screen.getByRole('button', { name: /move column left/i });
-    expect(moveLeftButton).toBeDisabled();
+    expect(moveLeftButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('move column right is disabled when cursor is at last column', () => {
@@ -176,7 +176,7 @@ describe('EditorTableContextToolbar', () => {
     );
 
     const moveRightButton = screen.getByRole('button', { name: /move column right/i });
-    expect(moveRightButton).toBeDisabled();
+    expect(moveRightButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('clicking an enabled action button dispatches a view change', () => {

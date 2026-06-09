@@ -132,7 +132,7 @@ export function UsersClient() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1 flex-wrap">
-                    {user.isAdmin && <span className="rounded bg-blue-100 px-1 text-xs text-blue-800">Admin</span>}
+                    {user.isAdmin && <span className="rounded px-1 text-xs bg-[hsl(var(--info-bg))] text-[hsl(var(--info))]">Admin</span>}
                     {user.emailVerified ? (
                       <span className="rounded px-1 text-xs bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">Verified</span>
                     ) : (

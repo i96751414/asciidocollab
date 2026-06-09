@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/back-button';
 import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
@@ -236,11 +237,7 @@ export function ProjectEditorLayout({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 h-14 px-3 border-b shrink-0">
-        <Button asChild variant="outline" size="icon" className="h-8 w-8 shrink-0">
-          <Link href="/dashboard" aria-label="Back to projects">
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+        <BackButton href="/dashboard" label="Back to projects" />
         <LogoMark className="h-5 w-5 text-primary shrink-0" />
         <div className="min-w-0 flex flex-col">
           <span className="font-semibold text-sm truncate">{projectName}</span>

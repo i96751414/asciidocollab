@@ -22,7 +22,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutPrope
         <div className="flex h-16 shrink-0 items-center justify-between border-b px-6">
           <Logo href="/dashboard" />
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            <ThemeToggle
+              initialTheme={profile.appTheme === "light" || profile.appTheme === "dark" ? profile.appTheme : "system"}
+            />
             <UserMenu profile={profile} />
           </div>
         </div>
