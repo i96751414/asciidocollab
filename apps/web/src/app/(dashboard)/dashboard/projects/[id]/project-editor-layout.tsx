@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
+import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
@@ -234,30 +235,37 @@ export function ProjectEditorLayout({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-4 p-3 border-b shrink-0">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to projects
-        </Link>
-        <span className="font-semibold text-sm">{projectName}</span>
-        {projectDescription && (
-          <span className="text-xs text-muted-foreground">{projectDescription}</span>
-        )}
-        {canManage && (
-          <>
-            <Link
-              href={`/dashboard/projects/${projectId}/settings`}
-              className="text-sm text-muted-foreground hover:text-foreground ml-auto"
-            >
-              Settings
-            </Link>
-            <Link
-              href={`/dashboard/projects/${projectId}/members`}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Members
-            </Link>
-          </>
-        )}
+      <div className="flex items-center gap-3 h-14 px-3 border-b shrink-0">
+        <Button asChild variant="outline" size="icon" className="h-8 w-8 shrink-0">
+          <Link href="/dashboard" aria-label="Back to projects">
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <LogoMark className="h-5 w-5 text-primary shrink-0" />
+        <div className="min-w-0 flex flex-col">
+          <span className="font-semibold text-sm truncate">{projectName}</span>
+          {projectDescription && (
+            <span className="text-xs text-muted-foreground truncate">{projectDescription}</span>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          {canManage && (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/dashboard/projects/${projectId}/settings`}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/dashboard/projects/${projectId}/members`}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Members
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Body: sidebar + content + preview */}

@@ -10,8 +10,8 @@ const STATE_LABELS: Record<EditorSaveState, string> = {
 const STATE_CLASSES: Record<EditorSaveState, string> = {
   error:   'text-destructive',
   saving:  'text-muted-foreground',
-  unsaved: 'text-yellow-600',
-  saved:   'text-green-600',
+  unsaved: 'text-[hsl(var(--warning))]',
+  saved:   'text-[hsl(var(--success))]',
 };
 
 interface EditorStatusBarProperties {

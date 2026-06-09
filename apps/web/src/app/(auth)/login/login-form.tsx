@@ -92,7 +92,7 @@ export function LoginForm({ redirectTo, showExpiredNotice }: LoginFormProperties
       </CardHeader>
       <CardContent>
         {showExpiredNotice && (
-          <div className="mb-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+          <div className="mb-4 rounded-md border p-3 text-sm border-[hsl(var(--warning-border))] bg-[hsl(var(--warning-bg))] text-[hsl(var(--warning))]">
             Your session has expired. Please sign in again.
           </div>
         )}

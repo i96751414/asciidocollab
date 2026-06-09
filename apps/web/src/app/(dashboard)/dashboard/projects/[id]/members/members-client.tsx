@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ProjectMember, ProjectMemberRole } from "@/lib/api";
 import { MemberList } from "@/components/member-list";
 import { InviteMemberForm } from "@/components/invite-member-form";
@@ -46,22 +48,22 @@ export function MembersClient({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Link
-        href={`/dashboard/projects/${projectId}`}
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Back to project
-      </Link>
+      <div className="flex items-center gap-3">
+        <Button asChild variant="outline" size="icon" className="h-8 w-8 shrink-0">
+          <Link href={`/dashboard/projects/${projectId}`} aria-label="Back to project">
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Manage Members</h1>
+          <p className="text-muted-foreground">Invite and manage members for {projectName}.</p>
+        </div>
+      </div>
       {isArchived && (
         <div className="p-4 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium">
           This project is archived. Member management is read-only.
         </div>
       )}
-
-      <div>
-        <h1 className="text-2xl font-bold">Manage Members</h1>
-        <p className="text-muted-foreground">Invite and manage members for {projectName}.</p>
-      </div>
 
       <SoleOwnerWarning visible={isSoleOwner} />
 

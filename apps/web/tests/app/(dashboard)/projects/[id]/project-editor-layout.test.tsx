@@ -215,8 +215,8 @@ describe('ProjectEditorLayout', () => {
     expect(expandButton.querySelector('svg')).toBeInTheDocument();
   });
 
-  // T022b: all header navigation links have text-sm and text-muted-foreground
-  it('T022b: all header navigation links use text-sm and text-muted-foreground class tokens', async () => {
+  // T022b: header navigation links render as icon-bearing buttons (redesigned header)
+  it('T022b: header navigation links render lucide icons', async () => {
     render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
 
@@ -225,8 +225,7 @@ describe('ProjectEditorLayout', () => {
     const membersLink = screen.getByRole('link', { name: /members/i });
 
     for (const link of [backLink, settingsLink, membersLink]) {
-      expect(link).toHaveClass('text-sm');
-      expect(link).toHaveClass('text-muted-foreground');
+      expect(link.querySelector('svg')).toBeInTheDocument();
     }
   });
 

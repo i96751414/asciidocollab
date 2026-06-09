@@ -159,7 +159,7 @@ export function DisplayNameCard({ displayName: initialDisplayName, avatarKey: in
               </p>
             )}
             {successMessage && (
-              <p role="status" className="text-sm text-green-700">
+              <p role="status" className="text-sm text-[hsl(var(--success))]">
                 {successMessage}
               </p>
             )}

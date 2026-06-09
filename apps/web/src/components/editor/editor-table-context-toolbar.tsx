@@ -1,5 +1,9 @@
 'use client';
 import React from 'react';
+import {
+  ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine,
+  ArrowLeft, ArrowRight, FoldVertical, FoldHorizontal, AlignJustify,
+} from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { EditorView } from '@codemirror/view';
 import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
@@ -25,7 +29,7 @@ interface Properties {
 
 interface TableAction {
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   disabled: boolean;
   disabledReason?: string;
   action: () => void;
@@ -66,19 +70,19 @@ export function EditorTableContextToolbar({ view, context, tableText, tableFrom 
   const actions: TableAction[] = [
     {
       label: 'Add Row Above',
-      icon: '↑+',
+      icon: ArrowUpToLine,
       disabled: false,
       action: () => dispatchOp((text) => addRow(text, cursorRowIndex - 1)),
     },
     {
       label: 'Add Row Below',
-      icon: '↓+',
+      icon: ArrowDownToLine,
       disabled: false,
       action: () => dispatchOp((text) => addRow(text, isInHeader ? -1 : cursorRowIndex)),
     },
     {
       label: 'Remove Row',
-      icon: '↕−',
+      icon: FoldVertical,
       disabled: isInHeader || rowCount <= 1,
       disabledReason: isInHeader
         ? 'Cannot remove the header row'
@@ -87,19 +91,19 @@ export function EditorTableContextToolbar({ view, context, tableText, tableFrom 
     },
     {
       label: 'Add Column Left',
-      icon: '←+',
+      icon: ArrowLeftToLine,
       disabled: false,
       action: () => dispatchOp((text) => addColumn(text, cursorColumnIndex, true)),
     },
     {
       label: 'Add Column Right',
-      icon: '+→',
+      icon: ArrowRightToLine,
       disabled: false,
       action: () => dispatchOp((text) => addColumn(text, cursorColumnIndex, false)),
     },
     {
       label: 'Remove Column',
-      icon: '↔−',
+      icon: FoldHorizontal,
       disabled: columnCount <= 1 || hasSpanAtCursor,
       disabledReason: columnCount <= 1
         ? 'Cannot remove the last column'
@@ -110,21 +114,21 @@ export function EditorTableContextToolbar({ view, context, tableText, tableFrom 
     },
     {
       label: 'Move Column Left',
-      icon: '←↔',
+      icon: ArrowLeft,
       disabled: columnCount <= 1 || cursorColumnIndex === 0 || hasSpanAtLeft,
       disabledReason: cursorColumnIndex === 0 ? 'Already at first column' : undefined,
       action: () => dispatchOp((text) => moveColumn(text, cursorColumnIndex, 'left')),
     },
     {
       label: 'Move Column Right',
-      icon: '↔→',
+      icon: ArrowRight,
       disabled: columnCount <= 1 || cursorColumnIndex >= columnCount - 1 || hasSpanAtRight,
       disabledReason: cursorColumnIndex >= columnCount - 1 ? 'Already at last column' : undefined,
       action: () => dispatchOp((text) => moveColumn(text, cursorColumnIndex, 'right')),
     },
     {
       label: 'Format Table',
-      icon: '⊟',
+      icon: AlignJustify,
       disabled: false,
       action: () => dispatchOp((text) => formatTable(text)),
     },
@@ -140,7 +144,7 @@ export function EditorTableContextToolbar({ view, context, tableText, tableFrom 
         {actions.map((action) => (
           <EditorToolbarButton
             key={action.label}
-            icon={<span className="text-xs font-mono leading-none">{action.icon}</span>}
+            icon={<action.icon className="h-4 w-4" />}
             label={action.label}
             shortcut={action.disabledReason ?? ''}
             onClick={action.action}

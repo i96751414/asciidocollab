@@ -18,7 +18,7 @@ function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: b
     return <span className="text-xs text-muted-foreground" aria-label="not available">–</span>;
   }
   if (state === 'up-to-date') {
-    return <span className="text-xs text-green-600" aria-label="up to date">✓</span>;
+    return <span className="text-xs text-[hsl(var(--success))]" aria-label="up to date">✓</span>;
   }
   if (state === 'error') {
     return <span className="text-xs text-destructive" aria-label="preview error">⚠ Preview error</span>;

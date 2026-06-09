@@ -108,7 +108,7 @@ export function UsersClient() {
           </Button>
         </form>
         {inviteMessage && (
-          <p role="alert" className={`text-sm ${inviteMessage.type === "success" ? "text-green-600" : "text-destructive"}`}>
+          <p role="alert" className={`text-sm ${inviteMessage.type === "success" ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
             {inviteMessage.text}
           </p>
         )}
@@ -134,9 +134,9 @@ export function UsersClient() {
                   <div className="flex gap-1 flex-wrap">
                     {user.isAdmin && <span className="rounded bg-blue-100 px-1 text-xs text-blue-800">Admin</span>}
                     {user.emailVerified ? (
-                      <span className="rounded bg-green-100 px-1 text-xs text-green-800">Verified</span>
+                      <span className="rounded px-1 text-xs bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">Verified</span>
                     ) : (
-                      <span className="rounded bg-yellow-100 px-1 text-xs text-yellow-800">Unverified</span>
+                      <span className="rounded px-1 text-xs bg-[hsl(var(--warning-bg))] text-[hsl(var(--warning))]">Unverified</span>
                     )}
                   </div>
                 </td>

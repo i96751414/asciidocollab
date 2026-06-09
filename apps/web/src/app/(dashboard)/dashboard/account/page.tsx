@@ -31,7 +31,7 @@ export default async function AccountPage({ searchParams }: AccountPagePropertie
         <p className="text-muted-foreground">Manage your account settings</p>
       </div>
       {emailConfirmed && (
-        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+        <div className="rounded-md border p-3 text-sm border-[hsl(var(--success-border))] bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
           Email address updated successfully.
         </div>
       )}

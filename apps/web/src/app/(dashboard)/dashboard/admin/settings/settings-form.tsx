@@ -53,7 +53,7 @@ export function AdminSettingsForm({ initialSettings }: AdminSettingsFormProperti
       </Card>
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {message && <p role="status" className="text-sm text-green-700">{message}</p>}
+      {message && <p role="status" className="text-sm text-[hsl(var(--success))]">{message}</p>}
 
       <Button onClick={handleSave} disabled={isPending}>
         {isPending ? 'Saving…' : 'Save Settings'}
