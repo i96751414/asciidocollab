@@ -80,6 +80,9 @@ export const asciidocHighlightStyle = HighlightStyle.define([
   { tag: [t.number, t.bool, t.atom], color: c("--syntax-attr") },
   { tag: [t.function(t.variableName), t.definition(t.variableName)], color: c("--syntax-link") },
   { tag: [t.typeName, t.className], color: c("--syntax-keyword") },
+  // Source/listing block bodies render as plain readable code (foreground),
+  // not dimmed like prose comments.
+  { tag: t.content, color: c("--foreground") },
   // Comments & block delimiters (----, ////, //)
   { tag: [t.comment, t.lineComment, t.blockComment], color: c("--syntax-comment"), fontStyle: "italic" },
   { tag: [t.contentSeparator], color: c("--syntax-comment") },
