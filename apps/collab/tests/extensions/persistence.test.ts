@@ -180,7 +180,10 @@ describe('PersistenceExtension', () => {
       expect(yjsStateStore.save).not.toHaveBeenCalled();
     });
 
-    it('does not write file content in onStoreDocument when resolveFilePath returns null', async () => {
+    it('skips ALL storage in onStoreDocument when the document no longer exists (deleted mid-session)', async () => {
+      // Regression: a file deleted while its collaboration room is still open must NOT be
+      // resurrected. The delete removed the Yjs state blob; onStoreDocument must not re-create it,
+      // or the deleted document leaves an orphaned blob on disk that nothing ever cleans up.
       const { yjsStateStore, projectFileStore, fileNodeRepository } = makeStores();
       const documentRepository = {
         findByYjsStateId: jest.fn().mockResolvedValue(null),
@@ -197,8 +200,8 @@ describe('PersistenceExtension', () => {
 
       await extension.onStoreDocument({ documentName, document: document, context: {} } as never);
 
-      // YJS state IS saved (from the yjsStateId in the room name), but file content is skipped
-      expect(yjsStateStore.save).toHaveBeenCalledTimes(1);
+      // Neither the Yjs blob nor the file is written — the document is gone.
+      expect(yjsStateStore.save).not.toHaveBeenCalled();
       expect(projectFileStore.write).not.toHaveBeenCalled();
     });
   });
@@ -228,17 +231,22 @@ describe('PersistenceExtension', () => {
       expect(writtenContent.toString('utf8')).toBe('hello world');
     });
 
-    it('(d) observer: does not write to either store when context.role is observer', async () => {
+    it('(d) persists regardless of context.role — observer writes are blocked at the WS layer, not here', async () => {
+      // onStoreDocument is a DOCUMENT-level hook: its `context` does not reliably identify the
+      // connection that produced the change, so gating the write on context.role could silently
+      // drop a legitimate EDITOR's edits in a mixed (editor + observer) room. Observer writes are
+      // already prevented at the transport layer (auth-hook sets connection.readOnly), so the
+      // store must persist whatever is in the document regardless of the context role it sees.
       const { yjsStateStore, projectFileStore, documentRepository, fileNodeRepository } = makeStores();
       const extension = new PersistenceExtension(yjsStateStore, projectFileStore, documentRepository, fileNodeRepository);
 
       const document = makeDocument();
-      document.getText('codemirror').insert(0, 'observer should not write');
+      document.getText('codemirror').insert(0, 'editor content in a mixed room');
 
       await extension.onStoreDocument({ documentName, document: document, context: { role: 'observer' } } as never);
 
-      expect(yjsStateStore.save).not.toHaveBeenCalled();
-      expect(projectFileStore.write).not.toHaveBeenCalled();
+      expect(yjsStateStore.save).toHaveBeenCalled();
+      expect(projectFileStore.write).toHaveBeenCalled();
     });
   });
 });

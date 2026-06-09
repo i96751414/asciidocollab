@@ -188,8 +188,6 @@ jobs:
           ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
 
       - name: Start API server
-        # Note: ASCIIDOCOLLAB_COLLAB_PORT and ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT must be added
-        # to this job when Phase 9 adds collaboration E2E tests (see T054).
         run: nohup pnpm --filter @asciidocollab/api start &
         env:
           NODE_ENV: test
@@ -198,6 +196,8 @@ jobs:
           ASCIIDOCOLLAB_API_HOST: 0.0.0.0
           ASCIIDOCOLLAB_API_FRONTEND_URL: http://localhost:3000
           ASCIIDOCOLLAB_API_CORS_ORIGINS: http://localhost:3000
+          # Shared with the collab server so its write-back is visible to GET /content.
+          ASCIIDOCOLLAB_STORAGE_PATH: ${{ github.workspace }}/.e2e-storage
           ASCIIDOCOLLAB_AUTH_SESSION_SECRET: ${{ secrets.CI_SESSION_SECRET || 'ci-test-session-secret-for-e2e-tests' }}
           # Must be a base64-encoded 32-byte string (AES-256). Value = base64("ci-test-encryption-key-32bytes!!")
           ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY: ${{ secrets.CI_ENCRYPTION_KEY || 'Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE=' }}
@@ -220,15 +220,42 @@ jobs:
           until curl -sf http://localhost:4000/health; do sleep 1; done
           echo "API is ready."
 
+      # Regression guard: the collab server must REFUSE to start when its storage root
+      # differs from the API's (the dev.sh data-loss bug). The API above uses
+      # .e2e-storage; this starts collab with a throwaway root and asserts it fails fast.
+      - name: Assert storage-consistency guard (collab refuses divergent storage)
+        run: bash scripts/system-tests/assert-storage-guard.sh
+        env:
+          ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
+          ASCIIDOCOLLAB_COLLAB_API_INTERNAL_URL: http://127.0.0.1:4001
+
+      - name: Start collaboration server
+        run: nohup pnpm --filter @asciidocollab/collab start &
+        env:
+          ASCIIDOCOLLAB_DATABASE_URL: postgresql://asciidocollab:asciidocollab@localhost:5432/asciidocollab
+          ASCIIDOCOLLAB_COLLAB_PORT: 4002
+          ASCIIDOCOLLAB_COLLAB_API_INTERNAL_URL: http://127.0.0.1:4001
+          ASCIIDOCOLLAB_STORAGE_PATH: ${{ github.workspace }}/.e2e-storage
+          # Empty allowlist disables the Origin check for the CI stack.
+          ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS: ''
+
+      - name: Wait for collab server to be ready
+        run: |
+          echo "Waiting for collab server..."
+          until (exec 3<>/dev/tcp/127.0.0.1/4002) 2>/dev/null; do sleep 1; done
+          echo "Collab server is ready."
+
       - name: Build Next.js
         run: pnpm --filter @asciidocollab/web build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_COLLAB_URL: ws://localhost:4002
 
       - name: Start Next.js
         run: nohup pnpm --filter @asciidocollab/web start &
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_COLLAB_URL: ws://localhost:4002
           INTERNAL_API_URL: http://localhost:4000
 
       - name: Wait for web to be ready
@@ -242,6 +269,7 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
           NEXT_PUBLIC_WEB_URL: http://localhost:3000
+          NEXT_PUBLIC_COLLAB_URL: ws://localhost:4002
           MAILPIT_URL: http://localhost:8025
 
       - name: Upload Playwright report

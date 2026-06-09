@@ -1,0 +1,153 @@
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
+import type { ConnectionState } from '@/hooks/use-collab-document';
+import type { CollabAuthRole } from '@asciidocollab/shared';
+
+// US4 / FR-012, FR-013: the offline read-only fallback and mid-session role
+// demotion are derived in the layout (research D6, EditorMode). These tests
+// drive the collaboration mode by controlling useCollabDocument + the file
+// selection, and assert the props the editor receives.
+
+let mockConnectionState: ConnectionState = 'synced';
+let mockCollabRole: CollabAuthRole = 'editor';
+
+jest.mock('@/contexts/current-user-context', () => ({
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+}));
+
+jest.mock('@/hooks/use-file-selection', () => ({
+  useFileSelection: () => ({
+    selectedFile: { nodeId: 'n1', nodeName: 'doc.adoc', nodeType: 'file', path: '/doc.adoc' },
+    contentState: {
+      content: null, etag: null, isLoading: false, error: null, isBinary: false, notFound: false,
+      collab: { yjsStateId: 'y1', role: mockCollabRole },
+    },
+    selectFile: jest.fn(),
+    clearSelection: jest.fn(),
+  }),
+}));
+
+jest.mock('@/hooks/use-collab-document', () => ({
+  useCollabDocument: () => ({ doc: {}, awareness: {}, connectionState: mockConnectionState }),
+}));
+
+const mockGetCollabInfo = jest.fn();
+jest.mock('@/lib/api/collab', () => ({ getCollabDocumentInfo: (...a: unknown[]) => mockGetCollabInfo(...a) }));
+
+const mockGetDocumentContent = jest.fn();
+jest.mock('@/lib/api/file-content', () => ({
+  getDocumentContent: (...a: unknown[]) => mockGetDocumentContent(...a),
+  API_BASE_URL: 'http://localhost:4000',
+}));
+
+jest.mock('@/hooks/use-editor-preferences', () => ({
+  useEditorPreferences: () => ({ scrollSyncEnabled: false, setScrollSyncEnabled: jest.fn() }),
+}));
+
+jest.mock('@/hooks/use-last-selection', () => ({
+  useLastSelection: () => ({
+    readLastSelection: () => null,
+    rememberFile: jest.fn(),
+    rememberLine: jest.fn(),
+    clearLastSelection: jest.fn(),
+  }),
+}));
+
+jest.mock('@/components/file-tree/file-tree', () => ({ FileTree: () => <div data-testid="file-tree" /> }));
+jest.mock('@/components/asciidoc-preview', () => ({
+  AsciiDocPreview: () => <div data-testid="preview" />,
+  isAsciiDocFile: (name: string) => name.endsWith('.adoc'),
+}));
+jest.mock('@/components/image-preview', () => ({ ImagePreview: () => <div /> }));
+jest.mock('react-resizable-panels', () => ({
+  PanelGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PanelResizeHandle: () => <div />,
+}));
+
+// Capture the props the editor receives.
+jest.mock('@/components/editor/asciidoc-editor', () => ({
+  AsciiDocEditor: ({ content, canEdit, collab, connectionState }: {
+    content: string; canEdit: boolean; collab?: { role: string } | null; connectionState?: string;
+  }) => (
+    <div
+      data-testid="editor"
+      data-can-edit={String(canEdit)}
+      data-collab-role={collab?.role ?? 'none'}
+      data-connection={connectionState ?? 'none'}
+    >
+      {content}
+    </div>
+  ),
+}));
+
+const defaultProps = {
+  projectId: 'p1',
+  projectName: 'Proj',
+  projectDescription: null,
+  canManage: false,
+  canEdit: true,
+  userId: 'u-test',
+};
+
+beforeEach(() => {
+  mockConnectionState = 'synced';
+  mockCollabRole = 'editor';
+  mockGetCollabInfo.mockReset();
+  mockGetDocumentContent.mockReset();
+});
+
+describe('ProjectEditorLayout — offline read-only fallback (T044)', () => {
+  test('when offline, the editor is read-only, seeded from GET /content, with the offline state', async () => {
+    mockConnectionState = 'offline';
+    mockGetDocumentContent.mockResolvedValue('= Offline Content');
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('editor')).toHaveTextContent('= Offline Content');
+    });
+    const editor = screen.getByTestId('editor');
+    expect(editor).toHaveAttribute('data-can-edit', 'false');
+    expect(editor).toHaveAttribute('data-connection', 'offline');
+    // The (empty) Yjs binding is dropped offline so the editor renders the REST content.
+    expect(editor).toHaveAttribute('data-collab-role', 'none');
+    expect(mockGetDocumentContent).toHaveBeenCalledWith('p1', 'n1');
+  });
+});
+
+describe('ProjectEditorLayout — observer role (T043 integration)', () => {
+  test('an observer gets a read-only collab editor', () => {
+    mockCollabRole = 'observer';
+    mockConnectionState = 'synced';
+
+    render(<ProjectEditorLayout {...defaultProps} />);
+
+    const editor = screen.getByTestId('editor');
+    expect(editor).toHaveAttribute('data-collab-role', 'observer');
+    expect(editor).toHaveAttribute('data-connection', 'synced');
+  });
+});
+
+describe('ProjectEditorLayout — mid-session role demotion (T046)', () => {
+  test('a reconnect that re-checks the role to observer flips the editor read-only', async () => {
+    mockConnectionState = 'synced';
+    mockCollabRole = 'editor';
+    mockGetCollabInfo.mockResolvedValue({ yjsStateId: 'y1', role: 'observer' });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('editor')).toHaveAttribute('data-collab-role', 'editor');
+
+    // Simulate a drop then restore: reconnecting → synced triggers the role re-check.
+    mockConnectionState = 'reconnecting';
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+    mockConnectionState = 'synced';
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('editor')).toHaveAttribute('data-collab-role', 'observer');
+    });
+    expect(mockGetCollabInfo).toHaveBeenCalledWith('p1', 'n1');
+  });
+});

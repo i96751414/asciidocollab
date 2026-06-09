@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bring up the ISOLATED e2e stack (Postgres + Mailpit + API + web) and KEEP IT
 # RUNNING in the foreground so targeted Playwright tests / screenshots can be run
-# against it from another shell. Mirrors scripts/e2e-local.sh but never runs the
+# against it from another shell. Mirrors scripts/ci/e2e-local.sh but never runs the
 # suite and never tears down until interrupted.
 #
 # Ports (override via env): PG 5433, SMTP 1126, Mailpit UI 8126, API 4100, web 3100.

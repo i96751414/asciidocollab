@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { compositionRoot } from './composition-root';
 import { startOrphanedRoomWatchdog } from './watchdog';
+import { verifySharedStorage } from './storage-probe';
 
 const logger = pino({
   redact: ['req.headers.cookie', 'req.headers.Cookie'],
@@ -9,6 +10,17 @@ const logger = pino({
 async function main() {
   const root = await compositionRoot();
   const { server, prisma, collaborationSessionRepo, config } = root;
+
+  // Refuse to start unless we share a physical storage root with the API. Running with
+  // divergent storage silently loses collaborative edits and lets the two sides overwrite
+  // each other, so this is a hard precondition rather than a warning (throws → exit 1 below).
+  await verifySharedStorage({
+    storagePath: config.get('storagePath'),
+    apiInternalUrl: config.get('apiInternalUrl'),
+    timeoutMs: config.get('authTimeoutMs'),
+    ...(root.mtlsFetch && { fetch: root.mtlsFetch }),
+    logger,
+  });
 
   await collaborationSessionRepo.closeAll();
 

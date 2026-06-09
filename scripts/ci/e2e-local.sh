@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local end-to-end tests against a fully ISOLATED stack.
 #
-# Unlike scripts/ci-e2e.sh — which targets the shared dev compose and runs a
+# Unlike scripts/ci/e2e.sh — which targets the shared dev compose and runs a
 # destructive `prisma db push --force-reset` on it — this script spins up a
 # SEPARATE Postgres + Mailpit (docker-compose.e2e.yml, distinct ports and
 # Compose project) and runs the API and web on distinct ports against a
@@ -10,8 +10,8 @@
 # Because the database is fresh and empty every run, only a plain `prisma db
 # push` is needed (no `--force-reset`).
 #
-# Usage:  scripts/e2e-local.sh          (or: pnpm e2e:local)
-# Override a clashing port:  E2E_WEB_PORT=3200 scripts/e2e-local.sh
+# Usage:  scripts/ci/e2e-local.sh        (or: pnpm e2e:local)
+# Override a clashing port:  E2E_WEB_PORT=3200 scripts/ci/e2e-local.sh
 set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'
@@ -19,7 +19,7 @@ step() { echo -e "${CYAN}[e2e-local]${RESET} $*"; }
 ok()   { echo -e "${GREEN}[e2e-local]${RESET} $*"; }
 die()  { echo -e "${RED}[e2e-local]${RESET} $*" >&2; exit 1; }
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 # Restore the terminal on exit in case a child left it in a raw/TUI mode, and
@@ -43,6 +43,14 @@ WEB_PORT="${E2E_WEB_PORT:-3100}"
 # The Next `.next` build dir is intentionally shared with dev — only containers
 # and ports are isolated.
 export ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT="${E2E_COLLAB_INTERNAL_PORT:-4101}"
+# Browser-facing collaboration WebSocket (offset from the dev default 4002).
+COLLAB_PORT="${E2E_COLLAB_PORT:-4102}"
+export ASCIIDOCOLLAB_COLLAB_PORT="$COLLAB_PORT"
+export ASCIIDOCOLLAB_COLLAB_API_INTERNAL_URL="http://127.0.0.1:${ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT}"
+# Shared file storage so the collab server's write-back is visible to the API's GET /content.
+export ASCIIDOCOLLAB_STORAGE_PATH="${ASCIIDOCOLLAB_STORAGE_PATH:-$ROOT/.e2e-storage}"
+# Empty allowlist disables the Origin check for the isolated local stack.
+export ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS=""
 
 export ASCIIDOCOLLAB_DATABASE_URL="postgresql://asciidocollab:asciidocollab@localhost:${PG_PORT}/asciidocollab_e2e"
 export ASCIIDOCOLLAB_API_PORT="$API_PORT"
@@ -65,13 +73,14 @@ export ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX=500
 export ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX=500
 
 # ─── Cleanup on exit ─────────────────────────────────────────────────────────
-API_PID=""; WEB_PID=""
+API_PID=""; WEB_PID=""; COLLAB_PID=""
 cleanup() {
   echo ""
   step "Tearing down isolated stack …"
   # Stop servers (and their children) while the DB is still up so the API can
   # shut down gracefully, then tear the containers down.
   stop_tree "$API_PID"
+  stop_tree "$COLLAB_PID"
   stop_tree "$WEB_PID"
   $COMPOSE down -v --remove-orphans 2>/dev/null || true
   term_restore
@@ -92,6 +101,9 @@ step "Creating schema on the throwaway database (plain db push) …"
 pnpm --filter @asciidocollab/db exec prisma db push
 
 # ─── API ─────────────────────────────────────────────────────────────────────
+# Both servers inherit the single shared ASCIIDOCOLLAB_STORAGE_PATH exported above.
+# (Divergent storage is exercised separately by scripts/system-tests/assert-storage-guard.sh,
+# which asserts the collab server fails fast rather than corrupting data.)
 step "Starting API on :${API_PORT} …"
 node "$ROOT/apps/api/dist/index.js" &
 API_PID=$!
@@ -99,22 +111,57 @@ step "Waiting for API …"
 until curl -sf "http://localhost:${API_PORT}/health" &>/dev/null; do sleep 1; done
 ok "API is ready."
 
-# ─── Web ─────────────────────────────────────────────────────────────────────
-step "Building Next.js (API → :${API_PORT}) …"
-NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" pnpm --filter @asciidocollab/web build
+# ─── Collaboration server ────────────────────────────────────────────────────
+step "Starting collaboration server on :${COLLAB_PORT} …"
+node "$ROOT/apps/collab/dist/index.js" &
+COLLAB_PID=$!
+step "Waiting for collab server …"
+# The collab server is a raw WebSocket endpoint (no HTTP /health), so probe the TCP port.
+until (exec 3<>"/dev/tcp/127.0.0.1/${COLLAB_PORT}") 2>/dev/null; do sleep 1; done
+exec 3>&- 2>/dev/null || true
+ok "Collab server is ready."
 
-step "Starting Next.js on :${WEB_PORT} …"
-NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" PORT="$WEB_PORT" pnpm --filter @asciidocollab/web start &
-WEB_PID=$!
+# ─── Web ─────────────────────────────────────────────────────────────────────
+# E2E_WEB_DEV=1 runs the web with `next dev` (the scripts/dev.sh code path: React
+# Strict Mode double-invokes effects, NEXT_PUBLIC_* are read at runtime) instead
+# of a production `next build` + `next start`. This exercises collaboration the
+# same way a real developer running scripts/dev.sh does.
+if [[ "${E2E_WEB_DEV:-}" == "1" ]]; then
+  step "Starting Next.js in DEV mode (next dev) on :${WEB_PORT} (mirrors scripts/dev.sh) …"
+  NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
+  NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \
+  PORT="$WEB_PORT" pnpm --filter @asciidocollab/web dev &
+  WEB_PID=$!
+else
+  step "Building Next.js (API → :${API_PORT}, collab → :${COLLAB_PORT}) …"
+  NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
+  NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \
+    pnpm --filter @asciidocollab/web build
+
+  step "Starting Next.js on :${WEB_PORT} …"
+  NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
+  NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \
+  PORT="$WEB_PORT" pnpm --filter @asciidocollab/web start &
+  WEB_PID=$!
+fi
 step "Waiting for web …"
 until curl -sf "http://localhost:${WEB_PORT}" &>/dev/null; do sleep 1; done
+# `next dev` compiles routes lazily on first request; warm the editor route so the
+# first Playwright navigation does not race the initial (slow) compile.
+if [[ "${E2E_WEB_DEV:-}" == "1" ]]; then
+  step "Warming dev routes (lazy compile) …"
+  curl -sf "http://localhost:${WEB_PORT}/dashboard" &>/dev/null || true
+fi
 ok "Web is ready."
 
 # ─── E2E suite ───────────────────────────────────────────────────────────────
+# Optionally filter to a subset of spec files (e.g. E2E_FILES=collab- for the
+# collaboration specs only); Playwright treats positional args as filename filters.
 step "Running Playwright E2E tests …"
 NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
 NEXT_PUBLIC_WEB_URL="http://localhost:${WEB_PORT}" \
+NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \
 MAILPIT_URL="http://localhost:${MAILPIT_UI_PORT}" \
-  pnpm --filter @asciidocollab/web e2e
+  pnpm --filter @asciidocollab/web e2e ${E2E_FILES:+-- "$E2E_FILES"}
 
 ok "E2E suite passed — isolated stack, dev data untouched."

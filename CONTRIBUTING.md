@@ -36,6 +36,12 @@ cd asciidocollab
 ./scripts/dev.sh
 ```
 
+`./scripts/dev.sh` starts **three** application processes — the API (`:4000` public,
+`:4001` internal), the collaboration WebSocket server (`apps/collab`, `:4002`), and the web
+app (`:3000`) — plus PostgreSQL and Mailpit via Docker. Real-time co-editing needs all three;
+the editor falls back to read-only if the collaboration server is unreachable. The Playwright
+e2e suite (`pnpm e2e:local`) likewise starts `apps/collab` automatically.
+
 See the [README](README.md) for full prerequisites and configuration instructions.
 
 ### Running tests

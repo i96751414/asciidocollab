@@ -14,6 +14,7 @@ jest.mock('@codemirror/view', () => ({
     state: { doc: { toString: () => string } };
     static updateListener = { of: (function_: unknown) => ({ function_ }) };
     static lineWrapping = {};
+    static editable = { of: (value: unknown) => ({ editable: value }) };
     static domEventHandlers = (_handlers: unknown) => ({});
 
     constructor({ state, parent }: {
@@ -65,6 +66,12 @@ jest.mock('@codemirror/language', () => ({
   defaultHighlightStyle: {},
 }));
 
+// The collab extensions module pulls in y-codemirror.next (ESM) which touches the real
+// @codemirror/state at load; this suite mocks that module, so stub the collab binding too.
+jest.mock('@/components/editor/editor-collab-extensions', () => ({
+  collabExtensions: jest.fn(() => ({})),
+  COLLAB_YTEXT_KEY: 'codemirror',
+}));
 jest.mock('@/lib/codemirror/asciidoc-language', () => ({ asciidoc: () => ({}) }));
 jest.mock('@/hooks/use-section-outline', () => ({ useSectionOutline: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true } }));

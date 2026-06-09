@@ -56,6 +56,65 @@ const defaultOptions = {
   fileNodeId: 'file-1',
 };
 
+// ── T019 / US1: collab path disables autosave/poll/draft/keepalive (B2/H1/H2) ──
+
+describe('useAutoSave enabled:false (collab path) — fully inert', () => {
+  test('save() issues no PUT after the debounce window', async () => {
+    const { result } = renderHook(() => useAutoSave({ ...defaultOptions, enabled: false }));
+
+    act(() => result.current.save('= collab edit'));
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS * 2);
+      await Promise.resolve();
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result.current.saveState).toBe('saved');
+  });
+
+  test('save() writes no offline draft to localStorage', () => {
+    isOnline = false;
+    const { result } = renderHook(() => useAutoSave({ ...defaultOptions, enabled: false }));
+    act(() => result.current.save('= offline collab edit'));
+    expect(mockLocalStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  test('no ETag polling HEAD request is started', async () => {
+    renderHook(() =>
+      useAutoSave({ ...defaultOptions, enabled: false, initialEtag: '"e"', onExternalChange: jest.fn() }),
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(EXTERNAL_CHANGE_POLL_INTERVAL_MS * 2);
+      await Promise.resolve();
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('no draft recovery callback fires even if a draft exists', () => {
+    localStorageStore[OFFLINE_QUEUE_KEY_PREFIX + 'file-1'] = '= stale draft';
+    const onDraftRecovered = jest.fn();
+    renderHook(() => useAutoSave({ ...defaultOptions, enabled: false, onDraftRecovered }));
+    expect(onDraftRecovered).not.toHaveBeenCalled();
+  });
+
+  test('beforeunload keepalive PUT is not sent', () => {
+    const { result } = renderHook(() => useAutoSave({ ...defaultOptions, enabled: false }));
+    act(() => result.current.save('= collab edit'));
+    fireWindowEvent('beforeunload');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('legacy path (enabled:true) still PUTs after the debounce', async () => {
+    const { result } = renderHook(() => useAutoSave({ ...defaultOptions, enabled: true }));
+    act(() => result.current.save('= legacy edit'));
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DEBOUNCE_MS);
+      await Promise.resolve();
+    });
+    expect(mockFetch).toHaveBeenCalled();
+  });
+});
+
 // ── Issue 1: save URL must not include spurious /api/ prefix ──────────────────
 
 test('PUT save URL is /projects/… without an /api/ prefix', async () => {

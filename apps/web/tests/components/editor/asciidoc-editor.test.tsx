@@ -21,6 +21,7 @@ jest.mock('@codemirror/view', () => {
         of: (function_: unknown) => ({ _isUpdateListener: true, _fn: function_ }),
       };
       static lineWrapping = {};
+      static editable = { of: (value: unknown) => ({ editable: value }) };
       static domEventHandlers = (_handlers: unknown) => ({});
 
       constructor({ state, parent }: {
@@ -173,6 +174,13 @@ jest.mock('@/lib/codemirror/asciidoc-language', () => ({
   asciidoc: () => ({}),
 }));
 
+// The collab extensions module pulls in y-codemirror.next (ESM) which touches the real
+// @codemirror/state at load; this suite mocks that module, so stub the collab binding too.
+jest.mock('@/components/editor/editor-collab-extensions', () => ({
+  collabExtensions: jest.fn(() => ({})),
+  COLLAB_YTEXT_KEY: 'codemirror',
+}));
+
 jest.mock('@codemirror/autocomplete', () => ({
   autocompletion: () => ({}),
   completionKeymap: [],
@@ -256,6 +264,21 @@ describe('AsciiDocEditor', () => {
     render(<AsciiDocEditor content="Some text" canEdit={false} />);
     const editor = screen.getByTestId('cm-editor');
     expect(editor.getAttribute('contenteditable')).toBe('false');
+  });
+
+  // FR-006: the REST autosave machinery must stay disabled on the collab path — including the
+  // OFFLINE read-only fallback (collab binding absent but a connectionState present). Otherwise
+  // ETag polling, beforeunload keepalive, and draft-recovery banners reactivate on a collab file.
+  test('disables autosave on the offline collab fallback (connectionState set, no binding)', () => {
+    mockUseAutoSave.mockClear();
+    render(<AsciiDocEditor content="x" canEdit={false} projectId="p1" fileNodeId="f1" connectionState="offline" />);
+    expect(mockUseAutoSave).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+  });
+
+  test('enables autosave on the legacy path (no collab binding, no connectionState)', () => {
+    mockUseAutoSave.mockClear();
+    render(<AsciiDocEditor content="x" canEdit={true} projectId="p1" fileNodeId="f1" />);
+    expect(mockUseAutoSave).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
   });
 
   test('the editor is editable when canEdit={true}', () => {

@@ -31,3 +31,61 @@ export const FONT_SIZE_MIN = 8;
 
 /** Maximum allowed editor font size in pixels. */
 export const FONT_SIZE_MAX = 32;
+
+/**
+ * WebSocket URL of the collaboration server (apps/collab).
+ *
+ * The browser auto-attaches the session cookie to the handshake, so no token
+ * is appended here (research D5). In production, collab must share a
+ * registrable domain with the web app for the cookie to be sent.
+ */
+export const COLLAB_URL =
+  process.env.NEXT_PUBLIC_COLLAB_URL ?? 'ws://localhost:4002';
+
+/**
+ * Maximum milliseconds to wait for the provider to reach `synced` before the
+ * editor falls back to offline read-only mode (research D6/D11). If the collab
+ * server is unreachable at open, this bounds how long the user waits.
+ */
+export const COLLAB_SYNC_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_COLLAB_SYNC_TIMEOUT_MS ?? 10_000,
+);
+
+/**
+ * Builds the canonical collaboration room name from a project id and Yjs state
+ * id. This is the format the collaboration server parses (`apps/collab`), so it
+ * must not drift: `${projectId}/${yjsStateId}`.
+ */
+export function collabRoomName(projectId: string, yjsStateId: string): string {
+  return `${projectId}/${yjsStateId}`;
+}
+
+/**
+ * A presence colour assigned to a collaborator, derived deterministically from
+ * their user id (see {@link file://./collab/color-for-user.ts}).
+ */
+export interface PresenceColor {
+  /** Primary cursor/caret colour. */
+  readonly color: string;
+  /** Lighter tint used for the selection-highlight background. */
+  readonly colorLight: string;
+}
+
+/**
+ * Fixed palette of presence colours. `colorForUser(userId)` hashes the user id
+ * to an index here so every client renders the same colour for a given user
+ * without server coordination (research D9). Each entry pairs a saturated
+ * cursor colour with a translucent tint for selection backgrounds.
+ */
+export const PRESENCE_COLOR_PALETTE: readonly PresenceColor[] = [
+  { color: '#30bced', colorLight: '#30bced33' },
+  { color: '#6eeb83', colorLight: '#6eeb8333' },
+  { color: '#ffbc42', colorLight: '#ffbc4233' },
+  { color: '#ecd444', colorLight: '#ecd44433' },
+  { color: '#ee6352', colorLight: '#ee635233' },
+  { color: '#9ac2c9', colorLight: '#9ac2c933' },
+  { color: '#8acb88', colorLight: '#8acb8833' },
+  { color: '#bd7ebe', colorLight: '#bd7ebe33' },
+  { color: '#f06595', colorLight: '#f0659533' },
+  { color: '#5c7cfa', colorLight: '#5c7cfa33' },
+] as const;

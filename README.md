@@ -62,7 +62,7 @@ code review and hardening. Real-time co-editing — the reason this project exis
 | File & folder management            | ✅ Built           |
 | AsciiDoc editor                     | ✅ Built           |
 | Live HTML preview                   | ✅ Built           |
-| Real-time collaboration             | ❌ Not started     |
+| Real-time collaboration             | ✅ Built           |
 | Git integration                     | ❌ Not started     |
 | PDF export                          | ❌ Not started     |
 
@@ -90,7 +90,8 @@ The script will:
 2. Create a `.env.local` from the provided template (auto-generating secrets)
 3. Install all dependencies
 4. Build the codebase and apply the database schema
-5. Start the API server (`http://localhost:4000`) and the web app (`http://localhost:3000`)
+5. Start the API server (`http://localhost:4000`), the collaboration WebSocket server
+   (`ws://localhost:4002`), and the web app (`http://localhost:3000`)
 
 **Local email preview** — all outbound emails (registration, password reset) are captured
 by [Mailpit](https://mailpit.axllent.org) and visible at `http://localhost:8025`. Nothing is sent to real addresses.
@@ -108,6 +109,17 @@ Copy `.env.example` to `.env.local` and edit as needed. The only values you must
 | `ASCIIDOCOLLAB_AUTH_SESSION_ENCRYPTION_KEY` | Session encryption key (run `openssl rand -base64 32`) |
 | `ASCIIDOCOLLAB_API_FRONTEND_URL`            | Your public frontend URL                               |
 | `ASCIIDOCOLLAB_AUTH_EMAIL_FROM`             | From address for outbound email                        |
+
+For **real-time collaboration**, the web client connects to the collaboration WebSocket server:
+
+| Variable                                                                                                                 | Purpose                                                                                        |
+|--------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| `NEXT_PUBLIC_COLLAB_URL`                                                                                                 | WebSocket URL of the collab server (default `ws://localhost:4002`; use `wss://` in production) |
+| `ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS`                                                                                   | Comma-separated allowlist of handshake Origins — **must** be set in production (CSWSH defence) |
+| `ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES` / `_MAX_CONNECTIONS_PER_USER` / `_MAX_ROOMS_PER_USER` / `_CONNECT_RATE_PER_MIN` | Per-user rate/size limits for the public WebSocket                                             |
+
+In production the collab server must share a registrable domain with the web app so the session
+cookie is sent on the WebSocket handshake (it carries no token); deploy it behind `wss://`.
 
 All other settings have secure defaults. See `.env.example` for the full list with descriptions.
 

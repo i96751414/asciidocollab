@@ -10,6 +10,16 @@ import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/p
 // This test uses the REAL useFileSelection (not mocked) so the abort path is exercised, with a
 // fetch that honours the abort signal exactly like the browser.
 
+// This test exercises the legacy REST restore path; the file is not a collaborative
+// document, so collab discovery returns null and the GET /content fetch runs.
+jest.mock('@/lib/api/collab', () => ({
+  getCollabDocumentInfo: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@/contexts/current-user-context', () => ({
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+}));
+
 // Stub the file tree so it doesn't fetch on its own.
 jest.mock('@/components/file-tree/file-tree', () => ({
   FileTree: () => <div data-testid="file-tree-stub" />,

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { YjsStateId, UserId, ProjectId } from '@asciidocollab/domain';
+import { YjsStateId, UserId, ProjectId, AuthorizeCollabConnectionUseCase } from '@asciidocollab/domain';
 import type { CollabAuthResponse } from '@asciidocollab/shared';
+import { logAuthorizationDenial } from '../audit-log-denial';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,30 +38,26 @@ export async function collabAuthRoute(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'Invalid documentName: both parts must be UUIDs' });
       }
 
-      const yjsStateId = YjsStateId.create(yjsStateIdString);
-      const projectId = ProjectId.create(projectIdString);
+      // Delegate the authorization decision (document ownership + membership + role mapping) to the
+      // domain use case, which is shared with the REST collab-info path so both gates agree.
+      const useCase = new AuthorizeCollabConnectionUseCase(
+        request.server.repos.projectMember,
+        request.server.repos.fileNode,
+        request.server.repos.document,
+      );
+      const result = await useCase.execute(
+        UserId.create(request.session.userId),
+        ProjectId.create(projectIdString),
+        YjsStateId.create(yjsStateIdString),
+      );
 
-      const document = await request.server.repos.document.findByYjsStateId(yjsStateId);
-      if (!document) {
+      if (!result.success) {
+        // Authorization-denial audit (SEC4 / §Audit): log actor, resource, reason; never the cookie.
+        logAuthorizationDenial(request.log, { actor: request.session.userId, resource: documentName, reason: result.error.reason });
         return reply.status(403).send({ error: 'Not a member of this project' });
       }
 
-      // Verify the document belongs to the project claimed in the room name.
-      // Without this check a user could craft a room name with their own projectId
-      // but another project's yjsStateId to join a document they have no access to.
-      const fileNode = await request.server.repos.fileNode.findById(document.fileNodeId);
-      if (!fileNode || !fileNode.projectId.equals(projectId)) {
-        return reply.status(403).send({ error: 'Not a member of this project' });
-      }
-
-      const userId = UserId.create(request.session.userId);
-      const member = await request.server.repos.projectMember.findByCompositeKey(projectId, userId);
-      if (!member) {
-        return reply.status(403).send({ error: 'Not a member of this project' });
-      }
-
-      const role: CollabAuthResponse['role'] = member.role.value === 'viewer' ? 'observer' : 'editor';
-      return reply.status(200).send({ role } satisfies CollabAuthResponse);
+      return reply.status(200).send({ role: result.value.role, userId: request.session.userId } satisfies CollabAuthResponse);
     },
   );
 }

@@ -73,9 +73,8 @@ describe('DELETE /projects/:projectId/files/:fileNodeId', () => {
     expect(response.statusCode).toBe(204);
   });
 
-  test('returns 409 with { error: { code, message } } when a collaboration session is active', async () => {
+  test('deleting succeeds (204) even when a collaboration session is active (guard relaxed)', async () => {
     const app = buildTestServer({ activeSession: true });
-    // Need a document so the session check fires
     const mockDocument = { id: { value: '550e8400-e29b-41d4-a716-446655440010' } };
     const repos = (app as unknown as { repos: { document: { findByFileNodeId: jest.Mock } } }).repos;
     repos.document.findByFileNodeId.mockResolvedValue(mockDocument);
@@ -84,10 +83,7 @@ describe('DELETE /projects/:projectId/files/:fileNodeId', () => {
       method: 'DELETE',
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}`,
     });
-    expect(response.statusCode).toBe(409);
-    const body = JSON.parse(response.body);
-    expect(body.error).toEqual(expect.objectContaining({ code: 'CONFLICT' }));
-    expect(typeof body.error.message).toBe('string');
+    expect(response.statusCode).toBe(204);
   });
 
   test('returns 403 FORBIDDEN when use case fails with PermissionDeniedError', async () => {

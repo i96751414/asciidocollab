@@ -3,6 +3,10 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
+jest.mock('@/contexts/current-user-context', () => ({
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+}));
+
 // Mock the AsciiDocEditor so tests don't depend on CodeMirror/Lezer.
 // jest.fn() wrapper lets tests inspect the props passed to the editor (e.g., onChange).
 jest.mock('@/components/editor/asciidoc-editor', () => ({

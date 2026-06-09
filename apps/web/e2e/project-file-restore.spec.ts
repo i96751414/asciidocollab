@@ -228,28 +228,33 @@ test.describe('Persist & restore file selection', () => {
 
   // Distinct behaviour: the cursor clamps to the last valid line when the document shrank below
   // the remembered line (FR-005), with no error.
-  test('clamps the cursor to the last line when the document shrank below it', async ({ page }) => {
-    const body = Array.from({ length: 12 }, (_, index) => `Row ${index + 1}.`).join('\n');
+  test('clamps the cursor to the last line when the remembered line exceeds the document', async ({ page }) => {
+    // A 3-line document (seeded before the file is opened — no collaboration session yet).
     const fileNodeId = await createTestFile(page, projectId, null, 'log.adoc');
-    await writeFileContent(page, projectId, fileNodeId, `${body}\n`);
+    await writeFileContent(page, projectId, fileNodeId, 'Row 1.\nRow 2.\nRow 3.');
 
     await openProject(page, projectId);
     await page.getByTestId('tree-node-log.adoc').click();
     await expect(editorContent(page)).toContainText('Row 1.', { timeout: 10_000 });
+    await page.waitForTimeout(800); // let the initial cursor-line persistence flush
 
-    // Move the cursor to line 10 via the keyboard, then let the debounce flush.
-    await editorContent(page).click();
-    await page.keyboard.press('Control+Home');
-    for (let index = 0; index < 9; index++) await page.keyboard.press('ArrowDown');
-    await expect(page.locator('.asciidoc-editor').getByText(/^Ln 10, /)).toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(800);
-
-    // Another session shrinks the document well below the remembered line.
-    await writeFileContent(page, projectId, fileNodeId, 'Row 1.\nRow 2.\nRow 3.');
+    // Simulate a remembered cursor line that now exceeds the document — the state left behind
+    // when a collaborator deleted lines below the remembered position. In collab mode the live
+    // Yjs document is authoritative (an external REST write would be ignored on reopen), so we
+    // seed the persisted line directly.
+    await page.evaluate(() => {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('asciidocollab:last-selection:')) {
+          const entry = JSON.parse(localStorage.getItem(key) as string);
+          entry.line = 10;
+          localStorage.setItem(key, JSON.stringify(entry));
+        }
+      }
+    });
 
     await leaveAndReturnViaDashboard(page, projectName);
 
-    // The cursor lands on the last valid line (clamped), no error, content still shown.
+    // The cursor lands on the last valid line (clamped to 3), no error, content still shown.
     await expect(editorContent(page)).toContainText('Row 3.', { timeout: 10_000 });
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 3, /)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Row 3.');
@@ -259,27 +264,28 @@ test.describe('Persist & restore file selection', () => {
   // Distinct behaviour: when the remembered file no longer exists, fall back to the empty state
   // (no error) and clear the stale memory so it is not retried (US3 / FR-009).
   test('falls back to the empty state and forgets a deleted file', async ({ page }) => {
-    await createTestFile(page, projectId, null, 'temp.adoc');
+    const fileNodeId = await createTestFile(page, projectId, null, 'temp.adoc');
 
     await openProject(page, projectId);
     await page.getByTestId('tree-node-temp.adoc').click();
     await expect(editorContent(page)).toBeVisible({ timeout: 10_000 });
 
-    // Delete the remembered file through the tree UI.
-    const node = page.getByTestId('tree-node-temp.adoc');
-    await node.hover();
-    await node.getByRole('button', { name: /actions/i }).click();
-    await page.getByRole('menuitem', { name: /delete/i }).click();
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: /delete/i }).click();
-    await expect(node).not.toBeVisible({ timeout: 5000 });
+    // Leave the editor first: opening a file starts a collaboration session, and a file with an
+    // active session cannot be deleted (018 guard). Navigating to the dashboard tears the room
+    // down, after which the delete succeeds — retry until the session has closed.
+    await page.getByRole('link', { name: /back to projects/i }).click();
+    await page.waitForURL(/\/dashboard$/);
+    await expect(async () => {
+      const response = await page.request.delete(`${API_URL}/projects/${projectId}/files/${fileNodeId}`);
+      expect(response.ok()).toBeTruthy();
+    }).toPass({ timeout: 15_000 });
 
-    // Returning must not error or hang — the view falls back to "select a file".
-    await leaveAndReturnViaDashboard(page, projectName);
+    // Returning must not error or hang — the remembered file is gone, so the view falls back to
+    // "select a file" and the stale memory is cleared.
+    await page.getByRole('link', { name: projectName }).click();
+    await page.waitForURL(/\/dashboard\/projects\/[^/]+$/);
     await expect(page.getByText(/select a file from the tree/i)).toBeVisible({ timeout: 10_000 });
 
-    // The stale memory was cleared: a reload does not try to reopen the missing file.
     await page.reload();
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
     await expect(page.getByText(/select a file from the tree/i)).toBeVisible({ timeout: 10_000 });

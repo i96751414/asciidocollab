@@ -58,7 +58,7 @@ describe('GET /internal/collab/auth', () => {
         url: `/internal/collab/auth?documentName=${DOCUMENT_NAME}`,
       });
       expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.body)).toEqual({ role: 'editor' });
+      expect(JSON.parse(response.body)).toEqual({ role: 'editor', userId: USER_ID });
     });
 
     test('findByCompositeKey is called with (projectId, userId) — args not swapped', async () => {
@@ -82,7 +82,7 @@ describe('GET /internal/collab/auth', () => {
         url: `/internal/collab/auth?documentName=${DOCUMENT_NAME}`,
       });
       expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.body)).toEqual({ role: 'editor' });
+      expect(JSON.parse(response.body)).toEqual({ role: 'editor', userId: USER_ID });
     });
   });
 
@@ -93,7 +93,7 @@ describe('GET /internal/collab/auth', () => {
       url: `/internal/collab/auth?documentName=${DOCUMENT_NAME}`,
     });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ role: 'observer' });
+    expect(JSON.parse(response.body)).toEqual({ role: 'observer', userId: USER_ID });
   });
 
   test('unauthenticated → 401', async () => {
@@ -112,6 +112,35 @@ describe('GET /internal/collab/auth', () => {
       url: `/internal/collab/auth?documentName=${DOCUMENT_NAME}`,
     });
     expect(response.statusCode).toBe(403);
+  });
+
+  // T060 / SEC4 / §Audit: authorization denials are logged with actor, resource, reason.
+  test('a 403 denial is logged with actor (userId), resource (documentName), and reason', async () => {
+    const warn = jest.fn();
+    const recordingLogger = {
+      level: 'info',
+      fatal: jest.fn(), error: jest.fn(), warn, info: jest.fn(), debug: jest.fn(),
+      trace: jest.fn(), silent: jest.fn(),
+      child() { return recordingLogger; },
+    };
+    const app = Fastify({ loggerInstance: recordingLogger });
+    app.addHook('preHandler', async (request) => {
+      (request as unknown as { session: { userId: string } }).session = { userId: USER_ID };
+    });
+    app.decorate('repos', {
+      document: { findByYjsStateId: jest.fn().mockResolvedValue(null) },
+      fileNode: { findById: jest.fn().mockResolvedValue(null) },
+      projectMember: { findByCompositeKey: jest.fn().mockResolvedValue(null) },
+    });
+    app.register(collabAuthRoute);
+
+    await app.inject({ method: 'GET', url: `/internal/collab/auth?documentName=${DOCUMENT_NAME}` });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ actor: USER_ID, resource: DOCUMENT_NAME, reason: expect.any(String) }),
+      expect.any(String),
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('Cookie');
   });
 
   test('malformed documentName (not UUIDs) → 400', async () => {

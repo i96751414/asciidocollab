@@ -6,7 +6,7 @@ CYAN='\033[0;36m'; GREEN='\033[0;32m'; RESET='\033[0m'
 step() { echo -e "${CYAN}[ci-quality]${RESET} $*"; }
 ok()   { echo -e "${GREEN}[ci-quality]${RESET} $*"; }
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 step "Building packages (generates declaration files) …"

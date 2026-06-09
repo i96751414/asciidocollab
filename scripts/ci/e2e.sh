@@ -11,7 +11,7 @@ step() { echo -e "${CYAN}[ci-e2e]${RESET} $*"; }
 ok()   { echo -e "${GREEN}[ci-e2e]${RESET} $*"; }
 die()  { echo -e "${RED}[ci-e2e]${RESET} $*" >&2; exit 1; }
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 # Restore the terminal on exit in case a child left it in a raw/TUI mode, and

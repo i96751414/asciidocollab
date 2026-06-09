@@ -1,6 +1,15 @@
 import convict from 'convict';
 import { COLLAB_INTERNAL_PORT_DEFAULT } from '@asciidocollab/shared';
 
+/** Builds a convict format that rejects anything other than a positive integer (>= 1). */
+function positiveInteger(name: string) {
+  return (value: number): void => {
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(`${name} must be a positive integer >= 1`);
+    }
+  };
+}
+
 /** Typed configuration interface for the collaboration server. */
 export interface CollabConfig {
   /** WebSocket port for the collaboration server. */
@@ -11,6 +20,16 @@ export interface CollabConfig {
   authTimeoutMs: number;
   /** Orphaned-room watchdog polling interval in milliseconds. */
   watchdogIntervalMs: number;
+  /** Comma-separated list of allowed WebSocket-handshake Origins; empty disables the check. */
+  allowedOrigins: string;
+  /** Maximum size in bytes of a single inbound collaboration message. */
+  maxPayloadBytes: number;
+  /** Maximum concurrent WebSocket connections per authenticated user. */
+  maxConnectionsPerUser: number;
+  /** Maximum distinct rooms a single user may join concurrently. */
+  maxRoomsPerUser: number;
+  /** Maximum new connections accepted per authenticated user per minute. */
+  connectRatePerMin: number;
   /** Root directory for per-project file storage. */
   storagePath: string;
   /** PostgreSQL connection URL. */
@@ -43,23 +62,45 @@ export function createCollabConfig() {
     },
     authTimeoutMs: {
       doc: 'Auth hook HTTP request timeout in milliseconds.',
-      format: (value: number): void => {
-        if (!Number.isInteger(value) || value < 1) {
-          throw new Error('authTimeoutMs must be a positive integer >= 1');
-        }
-      },
+      format: positiveInteger('authTimeoutMs'),
       default: 3000,
       env: 'ASCIIDOCOLLAB_COLLAB_AUTH_TIMEOUT_MS',
     },
     watchdogIntervalMs: {
       doc: 'Orphaned-room watchdog polling interval in milliseconds.',
-      format: (value: number): void => {
-        if (!Number.isInteger(value) || value < 1) {
-          throw new Error('watchdogIntervalMs must be a positive integer >= 1');
-        }
-      },
+      format: positiveInteger('watchdogIntervalMs'),
       default: 30_000,
       env: 'ASCIIDOCOLLAB_COLLAB_WATCHDOG_INTERVAL_MS',
+    },
+    allowedOrigins: {
+      doc: 'Comma-separated list of allowed WebSocket-handshake Origins. Empty disables the Origin check (development only — set this in production, SEC2).',
+      format: String,
+      default: '',
+      env: 'ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS',
+    },
+    maxPayloadBytes: {
+      doc: 'Maximum size in bytes of a single inbound collaboration message (SEC3).',
+      format: positiveInteger('maxPayloadBytes'),
+      default: 1_048_576,
+      env: 'ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES',
+    },
+    maxConnectionsPerUser: {
+      doc: 'Maximum concurrent WebSocket connections per authenticated user (SEC1).',
+      format: positiveInteger('maxConnectionsPerUser'),
+      default: 20,
+      env: 'ASCIIDOCOLLAB_COLLAB_MAX_CONNECTIONS_PER_USER',
+    },
+    maxRoomsPerUser: {
+      doc: 'Maximum distinct rooms a single user may join concurrently (SEC1).',
+      format: positiveInteger('maxRoomsPerUser'),
+      default: 50,
+      env: 'ASCIIDOCOLLAB_COLLAB_MAX_ROOMS_PER_USER',
+    },
+    connectRatePerMin: {
+      doc: 'Maximum new connections accepted per authenticated user per minute (SEC1).',
+      format: positiveInteger('connectRatePerMin'),
+      default: 120,
+      env: 'ASCIIDOCOLLAB_COLLAB_CONNECT_RATE_PER_MIN',
     },
     storagePath: {
       doc: 'Root directory for per-project file storage (shared with apps/api).',

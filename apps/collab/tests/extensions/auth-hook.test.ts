@@ -27,7 +27,7 @@ describe('AuthHookExtension', () => {
   it('200 editor: stores role=editor on context, connection accepted (no throw)', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       status: 200,
-      json: async () => ({ role: 'editor' }),
+      json: async () => ({ role: 'editor', userId: 'u-1' }),
     });
 
     const extension = new AuthHookExtension({
@@ -40,6 +40,8 @@ describe('AuthHookExtension', () => {
     const payload = makePayload();
     await expect(extension.onConnect(payload)).resolves.toBeUndefined();
     expect(payload.context.role).toBe('editor');
+    expect(payload.context.userId).toBe('u-1');
+    expect(payload.connection.readOnly).toBe(false);
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining(`documentName=${encodeURIComponent(DOCUMENT_NAME)}`),
       expect.objectContaining({
@@ -51,7 +53,7 @@ describe('AuthHookExtension', () => {
   it('200 observer: stores role=observer on context, connection accepted', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       status: 200,
-      json: async () => ({ role: 'observer' }),
+      json: async () => ({ role: 'observer', userId: 'u-1' }),
     });
 
     const extension = new AuthHookExtension({
@@ -64,6 +66,9 @@ describe('AuthHookExtension', () => {
     const payload = makePayload();
     await expect(extension.onConnect(payload)).resolves.toBeUndefined();
     expect(payload.context.role).toBe('observer');
+    // SEC: observers must be marked read-only at the WS connection level so Hocuspocus rejects
+    // their inbound document updates — client-side read-only is not an authorization boundary.
+    expect(payload.connection.readOnly).toBe(true);
   });
 
   it('401: throws with code 1008', async () => {
@@ -112,7 +117,7 @@ describe('AuthHookExtension', () => {
     await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ documentName: DOCUMENT_NAME }),
+      expect.objectContaining({ resource: DOCUMENT_NAME }),
       expect.any(String),
     );
     const warnCall = mockLogger.warn.mock.calls[0];
@@ -136,7 +141,7 @@ describe('AuthHookExtension', () => {
     await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ documentName: DOCUMENT_NAME }),
+      expect.objectContaining({ resource: DOCUMENT_NAME }),
       expect.any(String),
     );
     const warnArgument = JSON.stringify(mockLogger.warn.mock.calls[0]);
@@ -179,7 +184,7 @@ describe('AuthHookExtension', () => {
   it('cookie as Array: sends first element as Cookie header', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       status: 200,
-      json: async () => ({ role: 'editor' }),
+      json: async () => ({ role: 'editor', userId: 'u-1' }),
     });
 
     const extension = new AuthHookExtension({
@@ -236,7 +241,7 @@ describe('AuthHookExtension', () => {
   it('no cookie header: omits Cookie header from auth request', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       status: 200,
-      json: async () => ({ role: 'editor' }),
+      json: async () => ({ role: 'editor', userId: 'u-1' }),
     });
 
     const extension = new AuthHookExtension({

@@ -4,7 +4,6 @@ import {
   UserId,
   ProjectId,
   FileNodeId,
-  ActiveCollaborationSessionError,
 } from '@asciidocollab/domain';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
@@ -26,15 +25,11 @@ export async function fileTreeDeleteRoutes(app: FastifyInstance): Promise<void> 
         request.server.repos.auditLog,
         request.server.stores.fileStore,
         request.server.stores.yjsStateStore,
-        request.server.repos.collaborationSession,
       );
 
       const fileNodeBeforeDelete = await request.server.repos.fileNode.findById(fileNodeId);
       const result = await useCase.execute(actorId, fileNodeId, projectId);
       if (!result.success) {
-        if (result.error instanceof ActiveCollaborationSessionError) {
-          return reply.status(409).send({ error: { code: 'CONFLICT', message: 'This file is currently being edited by active collaborators. Please try again later.' } });
-        }
         return sendFileTreeError(reply, result.error);
       }
       if (fileNodeBeforeDelete) {
