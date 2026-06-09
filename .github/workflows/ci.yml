@@ -106,7 +106,8 @@ jobs:
         run: npx jest --coverage --coverageReporters=text lcov
 
       - name: Web unit tests with coverage
-        run: pnpm --filter @asciidocollab/web test -- --coverage
+        working-directory: apps/web
+        run: npx jest --coverage --coverageReporters=text lcov
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
@@ -118,6 +119,7 @@ jobs:
             packages/domain/coverage/
             apps/api/coverage/
             apps/collab/coverage/
+            apps/web/coverage/
           retention-days: 7
 
   # ── Infrastructure integration tests (testcontainers manages its own DB) ───
