@@ -8,12 +8,12 @@ function makePayload(origin?: string): onConnectPayload {
   return {
     context: {},
     documentName: DOCUMENT_NAME,
-    requestHeaders: { cookie: 'sessionId=abc', ...(origin ? { origin } : {}) },
+    requestHeaders: new Headers({ cookie: 'sessionId=abc', ...(origin ? { origin } : {}) }),
     requestParameters: new URLSearchParams(),
     instance: {} as onConnectPayload['instance'],
     request: {} as onConnectPayload['request'],
     socketId: 'test-socket',
-    connection: { readOnly: false, isAuthenticated: true, onClose: [] },
+    connectionConfig: { readOnly: false, isAuthenticated: true },
   } as unknown as onConnectPayload;
 }
 

@@ -74,7 +74,7 @@ export async function createCollabServer(
   systemSettingRepo: SystemSettingRepository,
   sessionCallbacks?: SessionCallbacks,
   documentRepository?: DocumentByYjsStateLookup,
-): Promise<ReturnType<typeof Server.configure>> {
+): Promise<Server> {
   // Inject the composition-root logger so session-hook logs share its redaction config; fall back
   // to a module default for callers (e.g. tests) that do not supply one.
   const logger = config.logger ?? defaultLogger;
@@ -159,7 +159,10 @@ export async function createCollabServer(
     ? createMaxPayloadGuard(config.maxPayloadBytes)
     : undefined;
 
-  const server = Server.configure({
+  // Hocuspocus v4: `Server` is a class wrapping the WS server + a Hocuspocus instance. The v2
+  // static `Server.configure({...})` is replaced by `new Server({...})`; `ServerConfiguration`
+  // extends the Hocuspocus `Configuration`, so the hooks/extensions/debounce config still apply.
+  const server = new Server({
     port: config.port,
     debounce: 2000,
     maxDebounce,

@@ -15,3 +15,6 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - nodemailer@8.0.10
+  - '@hocuspocus/common@4.1.1'
+  - '@hocuspocus/server@4.1.1'
+  - '@hocuspocus/provider@4.1.1'

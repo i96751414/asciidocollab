@@ -1,7 +1,7 @@
 import pino from 'pino';
-import { compositionRoot } from './composition-root';
-import { startOrphanedRoomWatchdog } from './watchdog';
-import { verifySharedStorage } from './storage-probe';
+import { compositionRoot } from './composition-root.js';
+import { startOrphanedRoomWatchdog } from './watchdog.js';
+import { verifySharedStorage } from './storage-probe.js';
 
 const logger = pino({
   redact: ['req.headers.cookie', 'req.headers.Cookie'],
@@ -25,8 +25,9 @@ async function main() {
   await collaborationSessionRepo.closeAll();
 
   const watchdogIntervalMs = config.get('watchdogIntervalMs');
+  // v4: the live-document map lives on the inner Hocuspocus instance, not the Server wrapper.
   const watchdogInterval = startOrphanedRoomWatchdog(
-    server,
+    server.hocuspocus,
     root.documentRepository,
     watchdogIntervalMs,
   );

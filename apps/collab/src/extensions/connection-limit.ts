@@ -1,6 +1,6 @@
 import type { Extension, onConnectPayload, onDisconnectPayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
-import { logCollabConnectionDenial } from '../audit-log-denial';
+import { logCollabConnectionDenial } from '../audit-log-denial.js';
 
 const POLICY_VIOLATION = { code: 1008, reason: 'Policy Violation' };
 const RATE_WINDOW_MS = 60_000;

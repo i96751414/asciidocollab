@@ -1,11 +1,17 @@
 /** @type {import('jest').Config} */
 const config = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
   testTimeout: 120_000,
+  // ESM mode: ts-jest emits ESM and jest loads it under --experimental-vm-modules (see test script).
+  extensionsToTreatAsEsm: ['.ts'],
+  // Source files use explicit .js specifiers (NodeNext); strip them so jest resolves the .ts source.
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   transform: {
     '^.+\\.ts$': ['ts-jest', {
+      useESM: true,
       tsconfig: 'tsconfig.eslint.json',
     }],
   },
