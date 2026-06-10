@@ -1,9 +1,9 @@
 // T019: Rate limit test for POST /auth/password/change
 // Must be in a separate file so env vars are set before the config singleton is created.
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
-import { passwordChangeRoute } from '../src/routes/password-change';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
+import { passwordChangeRoute } from '../src/routes/auth/password/change';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 
 const TEST_EMAIL = 'pwchange-rl@example.com';

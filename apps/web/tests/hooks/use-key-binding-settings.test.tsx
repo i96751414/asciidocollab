@@ -29,7 +29,7 @@ describe('useKeyBindingSettings', () => {
     renderHook(() => useKeyBindingSettings());
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('http://localhost:4000/users/me/keybindings'),
+        expect.stringContaining('http://localhost:4000/auth/me/keybindings'),
         expect.any(Object),
       );
     });
@@ -63,7 +63,7 @@ describe('useKeyBindingSettings', () => {
     });
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('http://localhost:4000/users/me/keybindings/file-tree%3Arename'),
+      expect.stringContaining('http://localhost:4000/auth/me/keybindings/file-tree%3Arename'),
       expect.objectContaining({ method: 'PATCH', credentials: 'include' }),
     );
   });
@@ -82,7 +82,7 @@ describe('useKeyBindingSettings', () => {
     });
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/users/me/keybindings/file-tree%3Arename'),
+      expect.stringContaining('/auth/me/keybindings/file-tree%3Arename'),
       expect.objectContaining({ method: 'DELETE' }),
     );
   });
@@ -133,7 +133,7 @@ describe('useKeyBindingSettings', () => {
     await act(async () => { await result.current.resetBinding('file-tree:rename'); });
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('http://localhost:4000/users/me/keybindings/file-tree%3Arename'),
+      expect.stringContaining('http://localhost:4000/auth/me/keybindings/file-tree%3Arename'),
       expect.objectContaining({ method: 'DELETE', credentials: 'include' }),
     );
   });

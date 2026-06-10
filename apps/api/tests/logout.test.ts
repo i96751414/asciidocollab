@@ -1,7 +1,7 @@
 import { buildServer } from '../src/index';
-import { loginRoute } from '../src/routes/login';
-import { registerRoute } from '../src/routes/register';
-import { logoutRoute } from '../src/routes/logout';
+import { loginRoute } from '../src/routes/auth/login';
+import { registerRoute } from '../src/routes/auth/register';
+import { logoutRoute } from '../src/routes/auth/logout';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

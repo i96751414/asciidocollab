@@ -1,5 +1,5 @@
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
+import { registerRoute } from '../src/routes/auth/register';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

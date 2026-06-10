@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
 import { projectRoutes } from '../src/routes/projects';
 import { memberRoutes } from '../src/routes/projects/members';
 import { requireAuth } from '../src/plugins/require-auth';

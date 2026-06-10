@@ -1,7 +1,7 @@
 // T013a: Integration tests for POST /auth/password/reset/request
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
+import { registerRoute } from '../src/routes/auth/register';
+import { passwordResetRequestRoute } from '../src/routes/auth/password/reset-request';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

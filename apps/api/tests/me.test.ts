@@ -1,8 +1,8 @@
 // T008: GET /auth/me returns displayName and email; 401 without session
 import { buildServer } from '../src/index';
-import { meRoute } from '../src/routes/me';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
+import { meRoute } from '../src/routes/auth/me';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

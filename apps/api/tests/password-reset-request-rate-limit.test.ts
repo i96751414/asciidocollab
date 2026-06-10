@@ -1,8 +1,8 @@
 // T013a: Rate limit test for POST /auth/password/reset/request
 // Separate file so env vars are set before the config singleton is created.
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
+import { registerRoute } from '../src/routes/auth/register';
+import { passwordResetRequestRoute } from '../src/routes/auth/password/reset-request';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 
 const TEST_EMAIL = 'pwreset-rl@example.com';
