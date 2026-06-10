@@ -645,4 +645,14 @@ describe('useAsciidocPreview', () => {
     expect(scrollSpyFirst).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     expect(scrollSpySecond).not.toHaveBeenCalled();
   });
+
+  it('forwards imagesDir to the worker as the image base path', () => {
+    renderHook(() =>
+      useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine: null, imagesDir: 'https://api/projects/p1/images' }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: '= Doc', imagesDir: 'https://api/projects/p1/images' }),
+    );
+  });
 });

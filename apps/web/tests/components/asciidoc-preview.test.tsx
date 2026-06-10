@@ -39,7 +39,7 @@ describe('AsciiDocPreview', () => {
     });
 
     const { container } = render(
-      <AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />,
+      <AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />,
     );
 
     const wrapper = container.querySelector('.asciidoc-preview-content');
@@ -50,14 +50,14 @@ describe('AsciiDocPreview', () => {
   // (b) shows rendering indicator when state is pending or rendering
   it('shows rendering indicator when state is pending', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'pending', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByTestId('sync-indicator')).toBeInTheDocument();
     expect(screen.queryByText('✓')).not.toBeInTheDocument();
   });
 
   it('shows rendering indicator when state is rendering', () => {
     mockUsePreview.mockReturnValue({ html: '<h1>A</h1>', state: 'rendering', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByTestId('sync-indicator')).toBeInTheDocument();
     expect(screen.queryByText('✓')).not.toBeInTheDocument();
   });
@@ -65,21 +65,21 @@ describe('AsciiDocPreview', () => {
   // (c) shows "✓" indicator when state is up-to-date
   it('shows ✓ indicator when state is up-to-date', () => {
     mockUsePreview.mockReturnValue({ html: '<h1>A</h1>', state: 'up-to-date', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByText('✓')).toBeInTheDocument();
   });
 
   // (d) shows "Preview not available" when isEnabled is false
   it('shows "Preview not available" message when isEnabled is false', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="" isEnabled={false} scrollToLine={null} />);
+    render(<AsciiDocPreview content="" isEnabled={false} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByText(/preview not available/i)).toBeInTheDocument();
   });
 
   // (e) data-testid="asciidoc-output" present when html is rendered
   it('renders data-testid="asciidoc-output" when HTML is present', () => {
     mockUsePreview.mockReturnValue({ html: '<p>Hello</p>', state: 'up-to-date', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByTestId('asciidoc-output')).toBeInTheDocument();
   });
 
@@ -93,7 +93,7 @@ describe('AsciiDocPreview', () => {
       error: 'Asciidoctor parse error',
       previewRef: fakeReference,
     });
-    render(<AsciiDocPreview content="bad" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="bad" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByText(/preview error/i)).toBeInTheDocument();
     expect(screen.getByText(/Asciidoctor parse error/)).toBeInTheDocument();
     // Previous HTML still rendered
@@ -103,7 +103,7 @@ describe('AsciiDocPreview', () => {
   // (b) isEnabled=false: indicator shows "–" and content shows neutral message
   it('shows – indicator and file-type message when isEnabled is false', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="" isEnabled={false} scrollToLine={null} />);
+    render(<AsciiDocPreview content="" isEnabled={false} projectId="proj-1" scrollToLine={null} />);
     expect(screen.getByText('–')).toBeInTheDocument();
     expect(screen.getByText(/preview not available for this file type/i)).toBeInTheDocument();
   });
@@ -111,7 +111,7 @@ describe('AsciiDocPreview', () => {
   // (c) error indicator hides when state transitions back to pending
   it('hides error indicator when state is pending', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'pending', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="= Hello" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="= Hello" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.queryByText(/preview error/i)).not.toBeInTheDocument();
   });
 
@@ -132,7 +132,7 @@ describe('AsciiDocPreview', () => {
 
   it('does not render scroll sync toggle when onToggleScrollSync is not provided', () => {
     mockUsePreview.mockReturnValue({ html: null, state: 'idle', error: null, previewRef: fakeReference });
-    render(<AsciiDocPreview content="" isEnabled={true} scrollToLine={null} />);
+    render(<AsciiDocPreview content="" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
     expect(screen.queryByTestId('scroll-sync-toggle')).not.toBeInTheDocument();
   });
 
@@ -185,7 +185,7 @@ describe('AsciiDocPreview', () => {
     it('renders the style control when onPreviewStyleChange is provided', () => {
       withHtml();
       render(
-        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
+        <AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
       );
       expect(screen.getByTestId('preview-style-asciidocollab')).toBeInTheDocument();
       expect(screen.getByTestId('preview-style-asciidoctor')).toBeInTheDocument();
@@ -193,20 +193,20 @@ describe('AsciiDocPreview', () => {
 
     it('does not render the style control when onPreviewStyleChange is absent', () => {
       withHtml();
-      render(<AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} />);
+      render(<AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
       expect(screen.queryByTestId('preview-style-asciidoctor')).not.toBeInTheDocument();
     });
 
     it('defaults the output data-preview-style to asciidocollab', () => {
       withHtml();
-      render(<AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} />);
+      render(<AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} />);
       expect(screen.getByTestId('asciidoc-output')).toHaveAttribute('data-preview-style', 'asciidocollab');
     });
 
     it('applies data-preview-style="asciidoctor" to the output when selected', () => {
       withHtml();
       render(
-        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
+        <AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
       );
       expect(screen.getByTestId('asciidoc-output')).toHaveAttribute('data-preview-style', 'asciidoctor');
     });
@@ -215,7 +215,7 @@ describe('AsciiDocPreview', () => {
       withHtml();
       const onChange = jest.fn();
       render(
-        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={onChange} />,
+        <AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={onChange} />,
       );
       fireEvent.click(screen.getByTestId('preview-style-asciidoctor'));
       expect(onChange).toHaveBeenCalledWith('asciidoctor');
@@ -224,11 +224,11 @@ describe('AsciiDocPreview', () => {
     it('does not alter the rendered HTML when the style changes', () => {
       withHtml();
       const { rerender } = render(
-        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
+        <AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
       );
       expect(screen.getByTestId('asciidoc-output').innerHTML).toContain('<h1>Doc</h1>');
       rerender(
-        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
+        <AsciiDocPreview content="= Doc" isEnabled={true} projectId="proj-1" scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
       );
       // Same sanitized HTML; only the style attribute flipped.
       expect(screen.getByTestId('asciidoc-output').innerHTML).toContain('<h1>Doc</h1>');

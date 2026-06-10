@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useRef, useCallback } from 'react';
 import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip } from '@codemirror/view';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
 import { autocompletion } from '@codemirror/autocomplete';
 import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
 import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
+import { macroFromDropPayload, padBlockMacro, macroPathRange } from '@/lib/codemirror/asciidoc-file-drop';
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
@@ -161,6 +162,49 @@ export function useEditorMount({
       },
     });
 
+    // Dropping a file from the tree inserts a macro: image:: for images, include:: otherwise.
+    // The tree sets the project-relative path on a custom dataTransfer type (see file-tree.tsx).
+    const fileDropHandler = EditorView.domEventHandlers({
+      drop(event, view) {
+        const raw = event.dataTransfer?.getData('application/x-asciidoc-node');
+        if (!raw) return false; // not a tree-file drag — let CodeMirror handle it normally
+        if (!view.state.facet(EditorView.editable)) return false; // read-only
+        event.preventDefault();
+        const macro = macroFromDropPayload(raw);
+        if (macro === null) return true;
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
+        const { doc } = view.state;
+        const charBefore = pos > 0 ? doc.sliceString(pos - 1, pos) : null;
+        const charAfter = pos < doc.length ? doc.sliceString(pos, pos + 1) : null;
+        const insert = padBlockMacro(macro, charBefore, charAfter);
+        view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
+        view.focus();
+        return true;
+      },
+    });
+
+    // Hover tooltip over include::/image:: paths advertising the Ctrl+click affordance.
+    const ctrlClickTooltip = hoverTooltip((view, pos) => {
+      const line = view.state.doc.lineAt(pos);
+      const range = macroPathRange(line.text);
+      if (!range) return null;
+      const start = line.from + range.start;
+      const end = line.from + range.end;
+      if (pos < start || pos > end) return null;
+      return {
+        pos: start,
+        end,
+        above: true,
+        create() {
+          const dom = document.createElement('div');
+          dom.textContent = `${navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}+click to open in the file tree`;
+          dom.style.padding = '2px 6px';
+          dom.style.fontSize = '12px';
+          return { dom };
+        },
+      };
+    });
+
     const state = EditorState.create({
       // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
       doc: collabActive ? '' : content,
@@ -203,6 +247,8 @@ export function useEditorMount({
         ...(collabExtension ? [collabExtension] : []),
         updateListener,
         lineClickHandler,
+        fileDropHandler,
+        ctrlClickTooltip,
         // Brand editor theme (chrome + syntax via --syntax-* vars), following light/dark
         // automatically. Prec.highest so its highlight wins over the highlighters above:
         // CodeMirror mounts higher-precedence style modules last, so they win the cascade.

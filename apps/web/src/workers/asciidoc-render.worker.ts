@@ -4,6 +4,8 @@ import hljs from 'highlight.js/lib/common';
 interface RenderRequest {
   requestId: number;
   content: string;
+  /** Base path Asciidoctor prepends to relative image targets (the project's image endpoint). */
+  imagesDir?: string;
 }
 
 /** Reverses the minimal HTML escaping Asciidoctor applies inside code blocks. */
@@ -76,14 +78,18 @@ function getProcessor(): ReturnType<typeof Asciidoctor> {
 }
 
 onmessage = function (event: MessageEvent<RenderRequest>) {
-  const { requestId, content } = event.data;
+  const { requestId, content, imagesDir } = event.data;
   try {
     const proc = getProcessor();
+    // `showtitle` renders the document title in embedded output. `imagesdir` is the base path
+    // prepended to relative image targets so `image::diagram.png[]` resolves to the project's
+    // asset endpoint; absolute-URL targets are left untouched by Asciidoctor.
+    const attributes: Record<string, string> = { showtitle: '' };
+    if (imagesDir) attributes.imagesdir = imagesDir;
     const asciidocDocument = proc.load(content, {
       safe: 'safe',
       sourcemap: true,
-      // Render the document title (= Title) in embedded output.
-      attributes: { showtitle: '' },
+      attributes,
     });
 
     // Collect source locations BEFORE conversion. Blocks that have no ID get a

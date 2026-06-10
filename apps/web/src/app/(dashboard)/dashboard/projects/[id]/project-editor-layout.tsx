@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
+import { ResizeHandle } from '@/components/ui/resize-handle';
+import { usePanelResize } from '@/hooks/use-panel-resize';
 import { BackButton } from '@/components/back-button';
 import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
@@ -31,6 +33,10 @@ interface ContentAreaProperties {
   projectId: string;
   onScrollLine?: (line: number) => void;
   onLineClick?: (line: number) => void;
+  // Ctrl+click on an include/image path — reveals and selects the target file in the tree.
+  onNavigateToFile?: (path: string) => void;
+  // Ctrl+click on a link or URL — opens it in a new tab.
+  onOpenUrl?: (url: string) => void;
   onChange?: (value: string) => void;
   /** 1-based line to restore the cursor to on mount (only for the restored file). */
   initialLine?: number;
@@ -59,6 +65,8 @@ function ContentArea({
   projectId,
   onScrollLine,
   onLineClick,
+  onNavigateToFile,
+  onOpenUrl,
   onChange,
   initialLine,
   onCursorLineChange,
@@ -106,6 +114,8 @@ function ContentArea({
       isAsciiDoc={isAsciiDocFile(selectedFile.nodeName)}
       onScrollLine={onScrollLine}
       onLineClick={onLineClick}
+      onNavigateToFile={onNavigateToFile}
+      onOpenUrl={onOpenUrl}
       onChange={onChange}
       initialLine={initialLine}
       onCursorLineChange={onCursorLineChange}
@@ -136,6 +146,9 @@ export function ProjectEditorLayout({
   userId,
 }: ProjectEditorLayoutProperties) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const sidebarResize = usePanelResize({
+    initialWidth: 256, min: 160, max: 480, side: 'start', storageKey: 'asciidoc-filetree-width',
+  });
   const [previewOpen, setPreviewOpen] = useState(false);
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
   // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
@@ -321,6 +334,18 @@ export function ProjectEditorLayout({
     });
   };
 
+  // Ctrl+click on a macro path asks the file tree to reveal + select that file. A bumped nonce
+  // makes each request distinct so repeat clicks on the same path re-fire.
+  const [openPathRequest, setOpenPathRequest] = useState<{ path: string; nonce: number } | null>(null);
+  const openPathNonce = useRef(0);
+  const handleNavigateToFile = useCallback((path: string) => {
+    openPathNonce.current += 1;
+    setOpenPathRequest({ path, nonce: openPathNonce.current });
+  }, []);
+  const handleOpenUrl = useCallback((url: string) => {
+    globalThis.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
   return (
@@ -357,10 +382,11 @@ export function ProjectEditorLayout({
 
       {/* Body: sidebar + content + preview */}
       <div className="flex flex-1 overflow-hidden">
-        {/* File tree panel */}
+        {/* File tree panel — resizable via the divider on its right edge. */}
         <div
           data-testid="file-tree-panel"
-          className={sidebarOpen ? 'w-64 shrink-0 border-r overflow-y-auto' : 'hidden'}
+          style={sidebarOpen ? { width: sidebarResize.width } : undefined}
+          className={sidebarOpen ? 'shrink-0 overflow-y-auto' : 'hidden'}
         >
           <FileTree
             projectId={projectId}
@@ -368,8 +394,17 @@ export function ProjectEditorLayout({
             onSelectFile={handleSelectFile}
             selectedNodeId={selectedFile?.nodeId ?? null}
             onCollapse={() => setSidebarOpen(false)}
+            openPathRequest={openPathRequest}
           />
         </div>
+        {sidebarOpen && (
+          <ResizeHandle
+            ariaLabel="Resize file tree"
+            onPointerDown={sidebarResize.onPointerDown}
+            onKeyDown={sidebarResize.onKeyDown}
+            isResizing={sidebarResize.isResizing}
+          />
+        )}
 
         {!sidebarOpen && (
           <Button
@@ -394,6 +429,8 @@ export function ProjectEditorLayout({
                 projectId={projectId}
                 onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
                 onLineClick={handleLineClick}
+                onNavigateToFile={handleNavigateToFile}
+                onOpenUrl={handleOpenUrl}
                 onChange={handleChange}
                 initialLine={initialLine}
                 onCursorLineChange={handleCursorLineChange}
@@ -404,12 +441,15 @@ export function ProjectEditorLayout({
                 collabUnavailable={collabUnavailable}
               />
             </Panel>
-            <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
-            <Panel defaultSize={50} minSize={20} className="overflow-hidden border-l" data-testid="preview-panel">
+            <PanelResizeHandle className="group relative z-10 flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
+              <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
+            </PanelResizeHandle>
+            <Panel defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">
               <AsciiDocPreview
                 key={selectedFile?.nodeId}
                 content={liveContent}
                 isEnabled={previewOpen}
+                projectId={projectId}
                 scrollToLine={scrollRequest}
                 onCollapse={togglePreview}
                 scrollSyncEnabled={scrollSyncEnabled}
@@ -427,6 +467,8 @@ export function ProjectEditorLayout({
                 contentState={contentState}
                 canEdit={editorCanEdit}
                 projectId={projectId}
+                onNavigateToFile={handleNavigateToFile}
+                onOpenUrl={handleOpenUrl}
                 onChange={handleChange}
                 initialLine={initialLine}
                 onCursorLineChange={handleCursorLineChange}

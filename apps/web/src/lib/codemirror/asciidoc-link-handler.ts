@@ -2,7 +2,10 @@ import { EditorView } from '@codemirror/view';
 
 // Pattern matchers for different link types within a line of text
 const INCLUDE_MACRO = /include::([^[\n]+)\[/;
-const LINK_MACRO = /(?:link|image):([^[\n]+)\[/;
+// Block (image::) and inline (image:) image macros. A local target navigates to the file in the
+// tree; an absolute http(s) target opens as a URL (handled in the matcher below).
+const IMAGE_MACRO = /image::?([^[\n]+)\[/;
+const LINK_MACRO = /link:([^[\n]+)\[/;
 const BARE_URL = /https?:\/\/[^\s[\]<>]+/;
 
 /** Callbacks for link navigation events from the editor. */
@@ -75,6 +78,26 @@ export function createLinkHandler(
     const includeMatch = INCLUDE_MACRO.exec(lineText);
     if (includeMatch) {
       const rawPath = includeMatch[1];
+      const normalized = normalizePath(rawPath);
+      if (!normalized) return;
+      if (currentPaths && !currentPaths.includes(normalized)) {
+        callbacks.onUnresolvedPath?.(rawPath);
+        return;
+      }
+      callbacks.onNavigateToFile?.(normalized);
+      event.preventDefault?.();
+      return;
+    }
+
+    const imageMatch = IMAGE_MACRO.exec(lineText);
+    if (imageMatch) {
+      const rawPath = imageMatch[1];
+      // An absolute URL image is opened in the browser; a local target navigates to the tree file.
+      if (/^https?:\/\//.test(rawPath)) {
+        callbacks.onOpenUrl?.(rawPath);
+        event.preventDefault?.();
+        return;
+      }
       const normalized = normalizePath(rawPath);
       if (!normalized) return;
       if (currentPaths && !currentPaths.includes(normalized)) {

@@ -8,6 +8,15 @@ import type { FileTreeNode as FileTreeNodeType } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+/**
+ * True when a drag carries OS files (a file or folder upload) rather than an in-tree node move.
+ * In-tree drags set the text/plain type, while OS-file drags expose the Files type. The optional
+ * chaining is defensive for synthetic test events that omit the types list.
+ */
+function isFileDrag(event: React.DragEvent): boolean {
+  return event.dataTransfer.types?.includes('Files') ?? false;
+}
+
 interface Properties {
   node: FileTreeNodeType;
   depth: number;
@@ -48,11 +57,18 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
   // The folder a drop on this row targets: a folder drops INTO itself; a file drops into its
   // containing folder (so dropping onto a file behaves like dropping onto its folder).
   const dropTargetFolderId = node.type === 'folder' ? node.id : node.parentId;
+  // The row only handles in-tree moves. For an OS-file drag it stays out of the way and lets the
+  // event bubble to the wrapping DragDropZone, which uploads into the correct folder. Intercepting
+  // it here (as before) swallowed the drop and broke uploads.
   const handleNodeDragOver = dropTargetFolderId
-    ? (event: React.DragEvent) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; }
+    ? (event: React.DragEvent) => {
+        if (isFileDrag(event)) return;
+        event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move';
+      }
     : undefined;
   const handleNodeDrop = dropTargetFolderId
     ? (event: React.DragEvent) => {
+        if (isFileDrag(event)) return;
         event.preventDefault();
         event.stopPropagation();
         onFolderDrop?.(dropTargetFolderId, event.dataTransfer.getData('text/plain'));
@@ -63,6 +79,8 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
     <div
       data-testid={`tree-node-${node.name}`}
       data-node-id={node.id}
+      data-node-path={node.path}
+      data-node-type={node.type}
       draggable
       className={cn(
         'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
@@ -108,13 +126,19 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
         </a>
       )}
       {canEdit && (
-        <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0">
+        // Stop clicks on the actions menu (trigger and items) from bubbling to the row's onClick,
+        // which would select/open the node — e.g. "Copy path" must not change the open file.
+        <span
+          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0"
+          onClick={(event) => event.stopPropagation()}
+        >
           <FileTreeActions
             projectId={projectId}
             fileNodeId={node.id}
             parentId={node.parentId ?? ''}
             nodeType={node.type}
             nodeName={node.name}
+            nodePath={node.path}
             hasChildren={hasChildren}
             canCreate={node.type === 'folder'}
             onUpdate={onUpdate}

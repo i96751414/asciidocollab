@@ -467,6 +467,45 @@ describe('FileTreeNode — Download as ZIP (root project node)', () => {
     expect(onFolderDrop).not.toHaveBeenCalled();
   });
 
+  it('ignores an OS-file drag so it bubbles to the DragDropZone for upload (no move)', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-src');
+    // A drop carrying the "Files" type is an upload, not an in-tree move.
+    fireEvent.drop(row, { dataTransfer: { types: ['Files'], getData: () => '' } });
+    expect(onFolderDrop).not.toHaveBeenCalled();
+  });
+
+  it('still handles an in-tree move drop (types = text/plain)', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-src');
+    fireEvent.drop(row, { dataTransfer: { types: ['text/plain'], getData: () => 'file-1' } });
+    expect(onFolderDrop).toHaveBeenCalledWith('folder-1', 'file-1');
+  });
+
   it('renders actions for a node with no parent (root-level)', () => {
     render(
       <FileTreeNode

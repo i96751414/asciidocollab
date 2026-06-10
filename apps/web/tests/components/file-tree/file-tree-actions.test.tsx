@@ -63,6 +63,11 @@ jest.mock('@/lib/api/file-tree', () => ({
   },
 }));
 
+const mockOnFiles = jest.fn();
+jest.mock('@/hooks/use-drop-upload', () => ({
+  useDropUpload: () => ({ onFiles: mockOnFiles, progress: [], clearProgress: jest.fn() }),
+}));
+
 function openRenameAndConfirm() {
   fireEvent.click(screen.getByText(/Rename/i));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'renamed.adoc' } });
@@ -595,6 +600,84 @@ describe('FileTreeActions — Download ZIP (root)', () => {
       fireEvent.click(screen.getByTestId('confirm-button'));
       await waitFor(() => expect(deleteFileNode).toHaveBeenCalled());
       expect(screen.getByTestId('confirmation-dialog')).toBeInTheDocument();
+    });
+  });
+
+  describe('upload actions', () => {
+    const folderProperties = {
+      projectId, fileNodeId, parentId,
+      nodeType: 'folder' as const, nodeName: 'src', hasChildren: false, canCreate: true,
+    };
+
+    it('a folder shows Upload Files… and Upload Folder… with backing inputs', () => {
+      render(<FileTreeActions {...folderProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      expect(screen.getByText(/Upload Files/i)).toBeInTheDocument();
+      expect(screen.getByText(/Upload Folder/i)).toBeInTheDocument();
+      expect(screen.getByTestId('upload-files-input')).toBeInTheDocument();
+      expect(screen.getByTestId('upload-folder-input')).toBeInTheDocument();
+    });
+
+    it('a file node shows no upload actions', () => {
+      render(
+        <FileTreeActions
+          projectId={projectId} fileNodeId={fileNodeId} parentId={parentId}
+          nodeType="file" nodeName="a.adoc" hasChildren={false}
+          onUpdate={jest.fn()} onError={jest.fn()}
+        />,
+      );
+      expect(screen.queryByText(/Upload Files/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('upload-files-input')).not.toBeInTheDocument();
+    });
+
+    it('clicking Upload Files… opens the hidden file picker', () => {
+      render(<FileTreeActions {...folderProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      const input = screen.getByTestId('upload-files-input') as HTMLInputElement;
+      const clickSpy = jest.spyOn(input, 'click').mockImplementation(() => {});
+      fireEvent.click(screen.getByText(/Upload Files/i));
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('clicking Upload Folder… opens the hidden directory picker', () => {
+      render(<FileTreeActions {...folderProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      const input = screen.getByTestId('upload-folder-input') as HTMLInputElement;
+      const clickSpy = jest.spyOn(input, 'click').mockImplementation(() => {});
+      fireEvent.click(screen.getByText(/Upload Folder/i));
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('choosing files runs the upload via onFiles', () => {
+      render(<FileTreeActions {...folderProperties} onUpdate={jest.fn()} onError={jest.fn()} />);
+      const input = screen.getByTestId('upload-files-input');
+      const file = new File(['x'], 'x.txt', { type: 'text/plain' });
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(mockOnFiles).toHaveBeenCalled();
+    });
+  });
+
+  describe('copy path', () => {
+    it('copies the project-relative path (no leading slash) to the clipboard', () => {
+      const writeText = jest.fn();
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      render(
+        <FileTreeActions
+          projectId={projectId} fileNodeId={fileNodeId} parentId={parentId}
+          nodeType="file" nodeName="pic.png" nodePath="/New Folder/pic.png" hasChildren={false}
+          onUpdate={jest.fn()} onError={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByText(/Copy path/i));
+      expect(writeText).toHaveBeenCalledWith('New Folder/pic.png');
+    });
+
+    it('does not show Copy path for the root node', () => {
+      render(
+        <FileTreeActions
+          projectId={projectId} fileNodeId={fileNodeId} parentId="" isRoot
+          nodeType="folder" nodeName="root" nodePath="/" hasChildren
+          onUpdate={jest.fn()} onError={jest.fn()}
+        />,
+      );
+      expect(screen.queryByText(/Copy path/i)).not.toBeInTheDocument();
     });
   });
 });

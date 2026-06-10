@@ -10,6 +10,7 @@ export type PreviewState = 'idle' | 'pending' | 'rendering' | 'up-to-date' | 'er
 interface RenderRequest {
   requestId: number;
   content: string;
+  imagesDir?: string;
 }
 
 interface RenderResult {
@@ -38,6 +39,8 @@ export interface UseAsciidocPreviewOptions {
   isEnabled: boolean;
   /** When set, the hook scrolls the preview to the element with the matching data-source-line. */
   scrollToLine: ScrollRequest | null;
+  /** Base path Asciidoctor prepends to relative image targets (the project's image endpoint). */
+  imagesDir?: string;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -60,10 +63,16 @@ export function useAsciidocPreview({
   content,
   isEnabled,
   scrollToLine,
+  imagesDir,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Held in a ref so the debounced render always posts the current base path without
+  // re-running the debounce effects when it changes (it is stable per editor session).
+  const imagesDirectoryReference = useRef(imagesDir);
+  imagesDirectoryReference.current = imagesDir;
 
   const workerReference = useRef<Worker | null>(null);
   const requestIdReference = useRef(0);
@@ -103,7 +112,7 @@ export function useAsciidocPreview({
       debounceReference.current = null;
       requestIdReference.current += 1;
       setState('rendering');
-      workerReference.current?.postMessage({ requestId: requestIdReference.current, content: currentContent } satisfies RenderRequest);
+      workerReference.current?.postMessage({ requestId: requestIdReference.current, content: currentContent, imagesDir: imagesDirectoryReference.current } satisfies RenderRequest);
     }, PREVIEW_DEBOUNCE_MS);
   };
 

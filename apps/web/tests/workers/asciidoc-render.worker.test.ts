@@ -65,7 +65,7 @@ function makeBlock(options: {
   return block as ReturnType<typeof jest.fn> & typeof block;
 }
 
-function sendMessage(data: { requestId: number; content: string }) {
+function sendMessage(data: { requestId: number; content: string; imagesDir?: string }) {
   if (onMessageHandler) {
     onMessageHandler({ data } as MessageEvent);
   } else {
@@ -141,6 +141,23 @@ describe('asciidoc-render.worker', () => {
     expect(postMessageMock).toHaveBeenCalledTimes(2);
     expect(postMessageMock.mock.calls[0][0].requestId).toBe(10);
     expect(postMessageMock.mock.calls[1][0].requestId).toBe(20);
+  });
+
+  // (e0) imagesDir is forwarded to Asciidoctor as the `imagesdir` attribute (image base path)
+  it('passes imagesDir to Asciidoctor as the imagesdir attribute', () => {
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 50, content: '= Doc', imagesDir: 'https://api/projects/p1/images' });
+    expect(mockLoad).toHaveBeenCalledWith(
+      '= Doc',
+      expect.objectContaining({ attributes: expect.objectContaining({ imagesdir: 'https://api/projects/p1/images' }) }),
+    );
+  });
+
+  it('omits the imagesdir attribute when no imagesDir is provided', () => {
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 51, content: '= Doc' });
+    const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
+    expect(options.attributes.imagesdir).toBeUndefined();
   });
 
   // (e2) checklist unicode glyphs are swapped for stateful <span class="checklist-box">

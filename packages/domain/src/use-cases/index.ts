@@ -50,6 +50,7 @@ export { CreateFolderUseCase } from './file-tree/create-folder';
 export { MoveFileUseCase } from './file-tree/move-file';
 export { UploadAssetUseCase } from './content/upload-asset';
 export { GetAssetContentUseCase } from './content/get-asset-content';
+export { GetAssetContentByPathUseCase } from './content/get-asset-content-by-path';
 export { GetKeyBindingsUseCase } from './settings/get-key-bindings';
 export { UpdateKeyBindingUseCase } from './settings/update-key-binding';
 export { ResetKeyBindingUseCase } from './settings/reset-key-binding';

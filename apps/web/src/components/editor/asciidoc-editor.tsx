@@ -20,6 +20,8 @@ import { EditorStatusBar } from './editor-status-bar';
 import { EditorToolbar } from './editor-toolbar';
 import { EditorTableContextToolbar } from './editor-table-context-toolbar';
 import { EditorSectionOutline } from './editor-section-outline';
+import { ResizeHandle } from '@/components/ui/resize-handle';
+import { usePanelResize } from '@/hooks/use-panel-resize';
 
 interface AsciiDocEditorProperties {
   content: string;
@@ -125,6 +127,9 @@ export function AsciiDocEditor({
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(true);
+  const outlineResize = usePanelResize({
+    initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
+  });
 
   const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
@@ -243,7 +248,15 @@ export function AsciiDocEditor({
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />
         {isAsciiDoc && outlineOpen && (
-          <div className="w-52 shrink-0 border-l overflow-hidden flex flex-col">
+          <ResizeHandle
+            ariaLabel="Resize outline"
+            onPointerDown={outlineResize.onPointerDown}
+            onKeyDown={outlineResize.onKeyDown}
+            isResizing={outlineResize.isResizing}
+          />
+        )}
+        {isAsciiDoc && outlineOpen && (
+          <div style={{ width: outlineResize.width }} className="shrink-0 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-2 py-1 border-b text-xs text-muted-foreground">
               <span>Outline</span>
               <button

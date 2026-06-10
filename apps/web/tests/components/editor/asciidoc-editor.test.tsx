@@ -22,7 +22,11 @@ jest.mock('@codemirror/view', () => {
       };
       static lineWrapping = {};
       static editable = { of: (value: unknown) => ({ editable: value }) };
-      static domEventHandlers = (_handlers: unknown) => ({});
+      static domEventHandlers = (handlers: Record<string, unknown>) => {
+        const sink = globalThis as unknown as Record<string, unknown[]>;
+        (sink['__cmDomHandlers'] ??= []).push(handlers);
+        return {};
+      };
 
       constructor({ state, parent }: {
         state: { doc: { toString: () => string }; readOnly?: boolean; _extensions?: unknown[] };
@@ -102,6 +106,7 @@ jest.mock('@codemirror/view', () => {
       destroy() { this.dom.remove(); }
     },
     keymap:                { of: () => ({}) },
+    hoverTooltip:          () => ({}),
     lineNumbers:           () => ({}),
     highlightActiveLine:   () => ({}),
     highlightSpecialChars: () => ({}),
@@ -251,6 +256,70 @@ import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useAutoSave } from '@/hooks/use-auto-save';
 const mockUseAutoSave = useAutoSave as jest.Mock;
+
+type DropHandler = { drop: (event: unknown, view: unknown) => boolean };
+function getDropHandler(): DropHandler {
+  const handlers = (globalThis as unknown as Record<string, DropHandler[]>)['__cmDomHandlers'] ?? [];
+  const found = handlers.find((h) => typeof h.drop === 'function');
+  if (!found) throw new Error('no drop handler registered');
+  return found;
+}
+function makeFakeView(editable: boolean, docLength: number) {
+  const dispatched: Array<{ changes?: { from: number; insert: string }; selection?: { anchor: number } }> = [];
+  const view = {
+    state: {
+      facet: () => editable,
+      selection: { main: { head: 0 } },
+      doc: { length: docLength, sliceString: () => 'x' },
+    },
+    posAtCoords: () => 2,
+    dispatch: (tr: { changes?: { from: number; insert: string }; selection?: { anchor: number } }) => dispatched.push(tr),
+    focus: jest.fn(),
+  };
+  return { view, dispatched };
+}
+
+describe('AsciiDocEditor file drop', () => {
+  beforeEach(() => { (globalThis as unknown as Record<string, unknown>)['__cmDomHandlers'] = []; });
+
+  test('dropping a tree file inserts the matching macro', () => {
+    render(<AsciiDocEditor content="line one\nline two" canEdit projectId="p1" fileNodeId="f1" />);
+    const { view, dispatched } = makeFakeView(true, 10);
+    const event = { dataTransfer: { getData: () => JSON.stringify({ path: 'New Folder/pic.png' }) }, preventDefault: jest.fn(), clientX: 0, clientY: 0 };
+    const handled = getDropHandler().drop(event, view);
+    expect(handled).toBe(true);
+    expect(dispatched[0].changes?.insert).toContain('image::New Folder/pic.png[pic]');
+  });
+
+  test('a non-node drop is left to CodeMirror (returns false)', () => {
+    render(<AsciiDocEditor content="x" canEdit projectId="p1" fileNodeId="f1" />);
+    const { view } = makeFakeView(true, 1);
+    const event = { dataTransfer: { getData: () => '' }, preventDefault: jest.fn() };
+    expect(getDropHandler().drop(event, view)).toBe(false);
+  });
+
+  test('drop with no coords falls back to the cursor and skips padding at an empty-doc edge', () => {
+    render(<AsciiDocEditor content="" canEdit projectId="p1" fileNodeId="f1" />);
+    const dispatched: Array<{ changes?: { insert: string } }> = [];
+    const view = {
+      state: { facet: () => true, selection: { main: { head: 0 } }, doc: { length: 0, sliceString: () => '' } },
+      posAtCoords: () => null,
+      dispatch: (tr: { changes?: { insert: string } }) => dispatched.push(tr),
+      focus: jest.fn(),
+    };
+    const event = { dataTransfer: { getData: () => JSON.stringify({ path: 'a/b.adoc' }) }, preventDefault: jest.fn() };
+    expect(getDropHandler().drop(event, view)).toBe(true);
+    expect(dispatched[0].changes?.insert).toBe('include::a/b.adoc[]');
+  });
+
+  test('a drop on a read-only editor is ignored (returns false)', () => {
+    render(<AsciiDocEditor content="x" canEdit={false} projectId="p1" fileNodeId="f1" />);
+    const { view, dispatched } = makeFakeView(false, 1);
+    const event = { dataTransfer: { getData: () => JSON.stringify({ path: 'a.png' }) }, preventDefault: jest.fn() };
+    expect(getDropHandler().drop(event, view)).toBe(false);
+    expect(dispatched).toHaveLength(0);
+  });
+});
 
 describe('AsciiDocEditor', () => {
   test('renders a CM6 editor element (not a <pre>) when given text content', () => {

@@ -10,6 +10,8 @@ import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
 const ASCIIDOC_EXTENSIONS = new Set(['.adoc', '.asciidoc', '.asc']);
 
 /** Returns true if the file name has an AsciiDoc extension (.adoc, .asciidoc, .asc). */
@@ -40,6 +42,8 @@ function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: b
 interface AsciiDocPreviewProperties {
   content: string;
   isEnabled: boolean;
+  /** Project id, used to resolve the base path for image macros in the preview. */
+  projectId: string;
   scrollToLine?: ScrollRequest | null;
   /** When provided, a collapse button is rendered in the header. */
   onCollapse?: () => void;
@@ -61,6 +65,7 @@ interface AsciiDocPreviewProperties {
 export function AsciiDocPreview({
   content,
   isEnabled,
+  projectId,
   scrollToLine = null,
   onCollapse,
   scrollSyncEnabled = false,
@@ -68,7 +73,10 @@ export function AsciiDocPreview({
   previewStyle = 'asciidocollab',
   onPreviewStyleChange,
 }: AsciiDocPreviewProperties) {
-  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine });
+  // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
+  // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
+  const imagesDirectory = `${API_BASE}/projects/${projectId}/images`;
+  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory });
 
   return (
     <div className="flex flex-col h-full">
