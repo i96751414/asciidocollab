@@ -28,10 +28,37 @@ import {
   inlineMacroToken,
   footnoteToken,
   blockTitleToken,
+  continuationLineToken,
 } from './asciidoc-parser.terms.js';
 
-const NEWLINE = 10, SPACE = 32, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
+const NEWLINE = 10, SPACE = 32, TAB = 9, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
 const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, SEMICOLON = 59;
+
+// True when a list marker begins at `offset` (used to allow leading whitespace before a marker,
+// which Asciidoctor permits). Each pattern requires a trailing space, so it never matches a bare
+// block delimiter line (`****`, `----`, `....`) — those have no space and are column-0 only.
+function startsListMarker(input: { peek: (offset: number) => number }, offset: number): boolean {
+  const code = input.peek(offset);
+  if (code === STAR) {
+    let n = 0;
+    while (input.peek(offset + n) === STAR) n++;
+    return input.peek(offset + n) === SPACE; // `* `, `** ` … (checklist is `* [x] `, also a space)
+  }
+  if (code === DASH) {
+    return input.peek(offset + 1) === SPACE; // single `- ` only; `--`/`----` are delimiters
+  }
+  if (code === DOT) {
+    let n = 0;
+    while (input.peek(offset + n) === DOT) n++;
+    return input.peek(offset + n) === SPACE; // `. `, `.. ` …
+  }
+  if (code >= 48 && code <= 57) {
+    let n = 0;
+    while (input.peek(offset + n) >= 48 && input.peek(offset + n) <= 57) n++;
+    return input.peek(offset + n) === DOT && input.peek(offset + n + 1) === SPACE; // `1. `
+  }
+  return false;
+}
 
 function isLineStart(input: { pos: number; peek: (offset: number) => number }): boolean {
   return input.pos === 0 || input.peek(-1) === NEWLINE;
@@ -58,8 +85,18 @@ function isAlphaNumberOrDash(code: number): boolean {
 }
 
 export const blockTokenizer = new ExternalTokenizer(
-  (input, _stack) => {
+  (input, stack) => {
     if (!isLineStart(input)) return;
+    if (input.next === -1) return;
+
+    // Asciidoctor allows list markers to be indented. Skip leading whitespace only when a real
+    // list marker follows, so the accepted marker token still spans from the line start.
+    let leadingWs = 0;
+    while (input.peek(leadingWs) === SPACE || input.peek(leadingWs) === TAB) leadingWs++;
+    if (leadingWs > 0 && startsListMarker(input, leadingWs)) {
+      for (let index = 0; index < leadingWs; index++) input.advance();
+    }
+
     const ch = input.next;
     if (ch === -1) return;
 
@@ -96,7 +133,8 @@ export const blockTokenizer = new ExternalTokenizer(
         // checkboxes on `-` as well as `*`); produces the existing ChecklistItem node.
         if (input.peek(count + 1) === LBRACK) {
           const boxChar = input.peek(count + 2);
-          if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) &&
+          // Checked box: `x`, `X`, or `*`; unchecked: a space. (Asciidoctor accepts all three.)
+          if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) &&
               input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
             for (let index = 0; index < count + 5; index++) input.advance();
             input.acceptToken(checklistMarker); return;
@@ -115,7 +153,7 @@ export const blockTokenizer = new ExternalTokenizer(
       if (count >= 4 && (afterStar === NEWLINE || afterStar === -1)) { consumeToEOL(input); input.acceptToken(sidebarDelim); return; }
       if (afterStar === SPACE && input.peek(count + 1) === LBRACK) {
         const boxChar = input.peek(count + 2);
-        if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) &&
+        if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) &&
             input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
           for (let index = 0; index < count + 5; index++) input.advance();
           input.acceptToken(checklistMarker); return;
@@ -293,6 +331,16 @@ export const blockTokenizer = new ExternalTokenizer(
         if (code === NEWLINE || code === -1 || code === SPACE) break;
         offset++;
       }
+    }
+
+    // ── List / description continuation ─────────────────────────────────────────
+    // The line began no block construct above. If it is non-blank and the parser is currently
+    // inside a list item or description entry (i.e. it can shift a continuation line), consume
+    // the whole line as the principal-text continuation. `Stack.canShift` keeps ordinary
+    // paragraphs — where no continuation is expected — untouched.
+    if (input.next !== NEWLINE && input.next !== -1 && stack.canShift(continuationLineToken)) {
+      consumeToEOL(input);
+      input.acceptToken(continuationLineToken);
     }
   },
   { contextual: true },

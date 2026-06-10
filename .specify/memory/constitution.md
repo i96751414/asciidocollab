@@ -1,3 +1,31 @@
+<!--
+SYNC IMPACT REPORT
+==================
+Version change: 2.0.0 → 2.1.0 (MINOR — five new principles added, none removed/redefined)
+
+Modified principles: none renamed or redefined (I–III unchanged)
+
+Added sections / principles:
+- IV. Reuse Before Rebuild
+- V. Theming via Design Tokens
+- VI. Style Isolation
+- VII. Per-User Preferences, Shared Content Immutability
+- VIII. Editor Pipeline Integrity (Sanitization & Scroll-Sync)
+
+Removed sections: none
+
+Templates requiring updates:
+- ✅ .specify/templates/plan-template.md — Constitution Check is generic
+  ("[Gates determined based on constitution file]"); no hardcoded principle list to edit.
+- ✅ .specify/templates/spec-template.md — no constitution-coupled mandatory sections changed.
+- ✅ .specify/templates/tasks-template.md — task categories remain principle-agnostic.
+- ✅ .specify/memory/architecture_constitution.md — new principles VI/VIII complement existing
+  layering rules; no conflict.
+- ✅ .specify/memory/security_constitution.md — principle IV (vendoring) aligns with dependency
+  scanning; no conflict.
+
+Follow-up TODOs: none. Ratification date retained from original adoption.
+-->
 # AsciiDoCollab Constitution — Governance
 
 ## Core Principles
@@ -53,6 +81,85 @@ Repository interfaces defined in `domain` MUST be testable via in-memory impleme
   fakes are impractical.
 - Integration tests against real infrastructure (Prisma + PostgreSQL, Docker, filesystem)
   are complementary to unit tests with in-memory fakes, not a replacement for them.
+
+---
+
+### IV. Reuse Before Rebuild
+
+Well-licensed open-source assets MUST be preferred over re-deriving equivalent work by hand.
+
+- Before authoring a stylesheet, parser, algorithm, or similar asset that a maintained
+  open-source project already provides under a compatible license, that source MUST be
+  reused.
+- Third-party files MUST be vendored **verbatim**, with their original license header and
+  attribution preserved. Hand-editing a vendored file is prohibited.
+- Vendored assets MUST remain **re-syncable**: record the upstream source and version/commit,
+  and apply local adaptations (e.g., scoping, generation) via a documented, repeatable build
+  step rather than in-place edits.
+- Rationale: re-deriving existing work invites drift, bugs, and licensing risk; verbatim
+  vendoring keeps fidelity and makes upstream updates a mechanical re-sync.
+
+---
+
+### V. Theming via Design Tokens
+
+Application UI styling MUST flow through the design-token system and work in both light and
+dark modes.
+
+- App chrome (toolbars, panels, menus, dialogs, and other framework UI) MUST derive colors
+  from design tokens — never hardcoded color literals.
+- Every themed surface MUST be legible and correct in both light and dark mode.
+- A deliberately mode-independent surface (e.g., a rendered-document style that is light-only
+  by design) is permitted ONLY when explicitly specified, and MUST be confined per Principle
+  VI so it does not affect token-driven chrome.
+- Rationale: tokenized theming guarantees consistent, mode-correct UI and prevents one-off
+  color literals from breaking dark mode.
+
+---
+
+### VI. Style Isolation
+
+Rendered-document (preview/output) styles MUST be scoped to their content surface and MUST
+NOT leak into application chrome.
+
+- Document-rendering stylesheets MUST be confined to the preview content container (via
+  build-time selector scoping, Shadow DOM, or equivalent). Global selectors from such
+  stylesheets MUST be neutralized so they cannot restyle the surrounding application.
+- Changing or selecting a document-rendering style MUST produce zero visible change to
+  application chrome outside the content surface.
+- Rationale: rendered content uses third-party global styles; without isolation they would
+  override the token-driven app UI and corrupt the interface.
+
+---
+
+### VII. Per-User Preferences, Shared Content Immutability
+
+User preferences MUST be scoped to the individual user and MUST NOT mutate shared content.
+
+- A preference is owned by and persisted against a single user; it MUST NOT be stored on, or
+  derived from, a shared document or project.
+- Applying or changing a preference MUST NOT alter shared document source or change what any
+  other user sees in their own view.
+- One user's preference MUST NOT affect a concurrent collaborator's rendering of the same
+  document.
+- Rationale: conflating personal preference with shared state breaks collaboration guarantees
+  and silently corrupts documents.
+
+---
+
+### VIII. Editor Pipeline Integrity (Sanitization & Scroll-Sync)
+
+Features MUST NOT regress the editor's content-sanitization or scroll-synchronization
+behavior.
+
+- Preview content sanitization MUST remain intact and unchanged for all rendering paths; new
+  features MUST NOT widen what is rendered without an explicit, reviewed security decision.
+- Scroll-synchronization behavior MUST be preserved; changes that touch the sync seam MUST be
+  covered by tests proving no regression.
+- Any change that necessarily affects either path MUST be called out in the plan's
+  Constitution Check and justified.
+- Rationale: sanitization is a security boundary and scroll-sync is a core UX guarantee;
+  silent regressions in either are high-cost and hard to detect.
 
 ---
 
@@ -138,4 +245,4 @@ document (including CLAUDE.md, AGENTS.md, or template files), this Constitution 
   intentional and justified, it MUST be documented in the PR description and the plan's
   complexity tracking section.
 
-**Version**: 2.0.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-28
+**Version**: 2.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-10

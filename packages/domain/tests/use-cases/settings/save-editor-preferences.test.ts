@@ -75,4 +75,56 @@ describe('SaveEditorPreferencesUseCase', () => {
       expect(getResult.value.softWrap).toBe(false);
     }
   });
+
+  test('previewStyle field accepted and persisted', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    const saveResult = await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' });
+    expect(saveResult.success).toBe(true);
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.previewStyle.value).toBe('asciidoctor');
+    }
+  });
+
+  test('previewStyle defaults to the brand style when omitted', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default' });
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.previewStyle.value).toBe('asciidocollab');
+    }
+  });
+
+  test('an omitted previewStyle preserves the previously saved value', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' });
+    await saveUseCase.execute(userId, { fontSize: 16, theme: 'default' });
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.previewStyle.value).toBe('asciidoctor');
+    }
+  });
+
+  test('invalid previewStyle returns ValidationError', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const useCase = new SaveEditorPreferencesUseCase(repo);
+    const result = await useCase.execute(userId, { fontSize: 14, theme: 'default', previewStyle: 'neon' });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
 });

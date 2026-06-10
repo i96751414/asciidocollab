@@ -24,6 +24,7 @@ apps/collab/tests/**/*.js
 apps/collab/tests/**/*.js.map
 
 TODO.txt
+.TODO.*
 
 # Mutation testing (Stryker)
 .stryker-tmp/

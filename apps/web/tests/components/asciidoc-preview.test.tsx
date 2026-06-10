@@ -13,6 +13,9 @@ const mockUsePreview = useAsciidocPreview as jest.Mock;
 
 const fakeReference: React.RefObject<HTMLDivElement> = { current: null };
 
+const withHtml = () =>
+  mockUsePreview.mockReturnValue({ html: '<h1>Doc</h1>', state: 'up-to-date', error: null, previewRef: fakeReference });
+
 beforeEach(() => {
   mockUsePreview.mockReset();
   mockUsePreview.mockReturnValue({
@@ -175,6 +178,62 @@ describe('AsciiDocPreview', () => {
     );
     fireEvent.click(screen.getByTestId('scroll-sync-toggle'));
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  // Preview style control (US1) + style application (US3)
+  describe('preview style', () => {
+    it('renders the style control when onPreviewStyleChange is provided', () => {
+      withHtml();
+      render(
+        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
+      );
+      expect(screen.getByTestId('preview-style-asciidocollab')).toBeInTheDocument();
+      expect(screen.getByTestId('preview-style-asciidoctor')).toBeInTheDocument();
+    });
+
+    it('does not render the style control when onPreviewStyleChange is absent', () => {
+      withHtml();
+      render(<AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} />);
+      expect(screen.queryByTestId('preview-style-asciidoctor')).not.toBeInTheDocument();
+    });
+
+    it('defaults the output data-preview-style to asciidocollab', () => {
+      withHtml();
+      render(<AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} />);
+      expect(screen.getByTestId('asciidoc-output')).toHaveAttribute('data-preview-style', 'asciidocollab');
+    });
+
+    it('applies data-preview-style="asciidoctor" to the output when selected', () => {
+      withHtml();
+      render(
+        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
+      );
+      expect(screen.getByTestId('asciidoc-output')).toHaveAttribute('data-preview-style', 'asciidoctor');
+    });
+
+    it('calls onPreviewStyleChange with the picked token', () => {
+      withHtml();
+      const onChange = jest.fn();
+      render(
+        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={onChange} />,
+      );
+      fireEvent.click(screen.getByTestId('preview-style-asciidoctor'));
+      expect(onChange).toHaveBeenCalledWith('asciidoctor');
+    });
+
+    it('does not alter the rendered HTML when the style changes', () => {
+      withHtml();
+      const { rerender } = render(
+        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidocollab" onPreviewStyleChange={jest.fn()} />,
+      );
+      expect(screen.getByTestId('asciidoc-output').innerHTML).toContain('<h1>Doc</h1>');
+      rerender(
+        <AsciiDocPreview content="= Doc" isEnabled={true} scrollToLine={null} previewStyle="asciidoctor" onPreviewStyleChange={jest.fn()} />,
+      );
+      // Same sanitized HTML; only the style attribute flipped.
+      expect(screen.getByTestId('asciidoc-output').innerHTML).toContain('<h1>Doc</h1>');
+      expect(screen.getByTestId('asciidoc-output')).toHaveAttribute('data-preview-style', 'asciidoctor');
+    });
   });
 
   // isAsciiDocFile helper

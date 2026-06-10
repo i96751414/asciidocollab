@@ -629,4 +629,89 @@ example block
       expect(hasNode(parseDocument(complexDocument), 'ExampleBlock')).toBe(true);
     });
   });
+
+  // ── Checkbox markers ──────────────────────────────────────────────────────────
+  describe('Checklist markers', () => {
+    test.each(['* [ ] todo\n', '* [x] done\n', '* [X] done\n', '* [*] done\n'])(
+      'recognises %j as a ChecklistItem',
+      (input) => {
+        expect(hasNode(parseDocument(input), 'ChecklistItem')).toBe(true);
+      },
+    );
+
+    test('the checked `[*]` marker does not open inline Bold', () => {
+      const tree = parseDocument('* [*] some text\n');
+      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+      expect(hasNode(tree, 'Bold')).toBe(false);
+    });
+
+    test('dash checklist `- [*] ` is recognised', () => {
+      expect(hasNode(parseDocument('- [*] done\n'), 'ChecklistItem')).toBe(true);
+    });
+  });
+
+  // ── List / description continuation ────────────────────────────────────────────
+  describe('Principal-text continuation', () => {
+    test('a wrapped ordered list item absorbs the next line as Continuation', () => {
+      const tree = parseDocument('. part of list\nstill part of list\n');
+      expect(collectNodes(tree, 'Continuation').length).toBe(1);
+      // The second line belongs to the OrderedListItem, not a standalone Paragraph.
+      expect(nodeAt(tree, 'OrderedListItem', 20)).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('a wrapped unordered list item absorbs the next line', () => {
+      const tree = parseDocument('* part of list\nstill part of list\n');
+      expect(nodeAt(tree, 'UnorderedListItem', 20)).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('a wrapped checklist item absorbs the next line', () => {
+      const tree = parseDocument('* [x] part\nstill part\n');
+      expect(nodeAt(tree, 'ChecklistItem', 13)).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('a wrapped description list entry absorbs the next line', () => {
+      const tree = parseDocument('Title:: part of description\nstill part of description\n');
+      // Description continuations use a distinct node so they inherit the label colour.
+      expect(collectNodes(tree, 'DescriptionContinuation').length).toBe(1);
+      expect(nodeAt(tree, 'DescriptionList', 35)).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('a blank line ends the continuation', () => {
+      const tree = parseDocument('. item\ncontinued\n\nA new paragraph.\n');
+      expect(collectNodes(tree, 'Continuation').length).toBe(1);
+      // The text after the blank line is its own Paragraph, not part of the list item.
+      expect(hasNode(tree, 'Paragraph')).toBe(true);
+    });
+
+    test('plain consecutive paragraph lines do NOT produce Continuation nodes', () => {
+      const tree = parseDocument('Just a paragraph.\nSecond line.\n');
+      expect(hasNode(tree, 'Continuation')).toBe(false);
+    });
+  });
+
+  // ── Indented list markers ───────────────────────────────────────────────────────
+  describe('Leading-whitespace list markers', () => {
+    test.each([
+      [' * indented unordered\n', 'UnorderedListItem'],
+      ['  . indented ordered\n', 'OrderedListItem'],
+      ['  1. indented numbered\n', 'OrderedListItem'],
+      ['  * [x] indented checklist\n', 'ChecklistItem'],
+    ])('recognises %j as %s', (input, nodeType) => {
+      expect(hasNode(parseDocument(input), nodeType)).toBe(true);
+    });
+
+    test('an indented list item still absorbs its continuation line', () => {
+      const tree = parseDocument(' * part of list\nstill part of list\n');
+      expect(nodeAt(tree, 'UnorderedListItem', 20)).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('indented plain text is not mistaken for a list', () => {
+      expect(hasNode(parseDocument('   just indented text\n'), 'UnorderedListItem')).toBe(false);
+    });
+  });
 });

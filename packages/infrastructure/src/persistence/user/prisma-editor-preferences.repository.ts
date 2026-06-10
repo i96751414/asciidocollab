@@ -3,6 +3,7 @@ import {
   EditorPreferences,
   EditorPreferencesId,
   EditorTheme,
+  PreviewStyle,
   UserId,
   Timestamps,
 } from '@asciidocollab/domain';
@@ -26,7 +27,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
   async save(prefs: EditorPreferences): Promise<void> {
     await this.prisma.editorPreferences.upsert({
       where: { userId: prefs.userId.value },
-      update: { fontSize: prefs.fontSize, theme: prefs.theme.value, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap },
+      update: { fontSize: prefs.fontSize, theme: prefs.theme.value, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle.value },
       create: {
         id: prefs.id.value,
         userId: prefs.userId.value,
@@ -34,6 +35,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
         theme: prefs.theme.value,
         scrollSyncEnabled: prefs.scrollSyncEnabled,
         softWrap: prefs.softWrap,
+        previewStyle: prefs.previewStyle.value,
       },
     });
   }
@@ -45,6 +47,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     theme: string;
     scrollSyncEnabled: boolean;
     softWrap: boolean;
+    previewStyle: string;
     createdAt: Date;
     updatedAt: Date;
   }): EditorPreferences {
@@ -52,6 +55,9 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     if (!themeResult.success) {
       throw new Error(`EditorPreferences row ${row.id} has unrecognised theme "${row.theme}": ${themeResult.error.message}`);
     }
+    // A corrupt/unknown stored preview style must not break rendering — fall back to the
+    // default rather than throwing (FR-015), unlike the stricter handling of `theme`.
+    const previewStyle = PreviewStyle.parseOrDefault(row.previewStyle);
     return new EditorPreferences(
       EditorPreferencesId.create(row.id),
       UserId.create(row.userId),
@@ -60,6 +66,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
       row.scrollSyncEnabled,
       new Timestamps(row.createdAt, row.updatedAt),
       row.softWrap,
+      previewStyle,
     );
   }
 }

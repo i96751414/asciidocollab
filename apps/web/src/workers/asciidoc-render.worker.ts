@@ -23,6 +23,23 @@ function unescapeHtml(value: string): string {
 const SOURCE_BLOCK_RE =
   /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g;
 
+// Asciidoctor renders checklist items as a leading unicode glyph in the paragraph text
+// (&#10003; "✓" when checked, &#10063; "❏" otherwise) — emitted only as these numeric
+// entities, so matching them is precise and never touches ordinary prose. We swap each for
+// a stateful <span>, letting the preview stylesheets render a real checkbox (brand style) or
+// reproduce the original glyph (faithful Asciidoctor style) instead of the bare character.
+function styleChecklistMarkers(html: string): string {
+  return html
+    .replaceAll(
+      '<p>&#10003; ',
+      '<p class="checklist-item"><span class="checklist-box checklist-box--checked" aria-hidden="true"></span>',
+    )
+    .replaceAll(
+      '<p>&#10063; ',
+      '<p class="checklist-item"><span class="checklist-box" aria-hidden="true"></span>',
+    );
+}
+
 /**
  * Applies highlight.js syntax highlighting to every source block in the rendered
  * HTML. Runs in the worker (string-only, no DOM) so the main thread stays free,
@@ -107,6 +124,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // Syntax-highlight source blocks before the source-line pass below; this
     // only rewrites the <code> bodies and never touches id="..." attributes.
     html = highlightCodeBlocks(html);
+    html = styleChecklistMarkers(html);
 
     // Inject data-source-line next to each id="..." attribute in a single pass
     // so the preview hook can use querySelector('[data-source-line="N"]').

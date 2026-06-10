@@ -45,6 +45,33 @@ export function isAlphaNumberOrDash(code: number): boolean {
 }
 
 /**
+ * True when a list marker begins at `offset` (mirror of the production helper). Each pattern
+ * requires a trailing space, so it never matches a bare block delimiter (`****`/`----`/`....`).
+ */
+export function startsListMarker(input: InputStream, offset: number): boolean {
+  const code = input.peek(offset);
+  if (code === STAR) {
+    let n = 0;
+    while (input.peek(offset + n) === STAR) n++;
+    return input.peek(offset + n) === SPACE;
+  }
+  if (code === DASH) {
+    return input.peek(offset + 1) === SPACE;
+  }
+  if (code === DOT) {
+    let n = 0;
+    while (input.peek(offset + n) === DOT) n++;
+    return input.peek(offset + n) === SPACE;
+  }
+  if (code >= 48 && code <= 57) {
+    let n = 0;
+    while (input.peek(offset + n) >= 48 && input.peek(offset + n) <= 57) n++;
+    return input.peek(offset + n) === DOT && input.peek(offset + n + 1) === SPACE;
+  }
+  return false;
+}
+
+/**
  * Creates an ExternalTokenizer for the AsciiDoc grammar that handles all block-level
  * and inline token patterns. Identical logic to the production tokenizer in
  * `asciidoc-block-tokens.ts` but using the shared helper functions for type safety.
@@ -53,8 +80,8 @@ export function isAlphaNumberOrDash(code: number): boolean {
  */
 export function createTestBlockTokenizer(terms: Record<string, number>): ExternalTokenizer {
   return new ExternalTokenizer(
-    (input: InputStream) => {
-      const ch = input.next;
+    (input: InputStream, stack) => {
+      let ch = input.next;
       if (ch === -1) return;
       const atLineStart = isLineStart(input);
 
@@ -91,6 +118,15 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
 
       if (!atLineStart) return;
 
+      // Indented list markers: skip leading whitespace only when a real list marker follows
+      // (mirrors the production tokenizer), then re-read the current char for the block branches.
+      let leadingWs = 0;
+      while (input.peek(leadingWs) === SPACE || input.peek(leadingWs) === 9 /* TAB */) leadingWs++;
+      if (leadingWs > 0 && startsListMarker(input, leadingWs)) {
+        for (let index = 0; index < leadingWs; index++) input.advance();
+        ch = input.next;
+      }
+
       // Equals-based: docTitle, headings, exampleDelim
       if (ch === EQUALS) {
         let count = 0;
@@ -117,7 +153,7 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
         if (count === 1 && after === SPACE) {
           if (input.peek(count + 1) === LBRACK) {
             const boxChar = input.peek(count + 2);
-            if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) &&
+            if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) &&
                 input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
               for (let index = 0; index < count + 5; index++) input.advance();
               input.acceptToken(terms['checklistMarker']); return;
@@ -134,7 +170,7 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
         if (count >= 4 && (after === NEWLINE || after === -1)) { consumeToEOL(input); input.acceptToken(terms['sidebarDelim']); return; }
         if (after === SPACE && input.peek(count + 1) === LBRACK) {
           const boxChar = input.peek(count + 2);
-          if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) && input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
+          if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) && input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
             for (let index = 0; index < count + 5; index++) input.advance();
             input.acceptToken(terms['checklistMarker']); return;
           }
@@ -255,6 +291,13 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
           if (code === NEWLINE || code === -1 || code === SPACE) break;
           offset++;
         }
+      }
+
+      // List / description continuation (mirrors the production tokenizer): a non-blank line
+      // that started no block construct, attached only when the parser can shift it.
+      if (input.next !== NEWLINE && input.next !== -1 && stack.canShift(terms['continuationLineToken'])) {
+        consumeToEOL(input);
+        input.acceptToken(terms['continuationLineToken']);
       }
     },
     { contextual: true },

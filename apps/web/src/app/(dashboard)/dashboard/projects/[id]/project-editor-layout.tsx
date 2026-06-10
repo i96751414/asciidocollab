@@ -212,7 +212,7 @@ export function ProjectEditorLayout({
   const editorConnectionState = collabInfo ? connectionState : undefined;
   const editorPending = collabPending || (offline && offlineContent === null);
 
-  const { scrollSyncEnabled, setScrollSyncEnabled } = useEditorPreferences();
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle } = useEditorPreferences();
   const { readLastSelection, rememberFile, rememberLine, clearLastSelection } = useLastSelection(userId, projectId);
   // The line to restore, paired with the file it belongs to. Applied only to that file's first
   // (restore) mount; cleared once the user navigates so in-session clicks never re-jump (Decision 4).
@@ -414,6 +414,8 @@ export function ProjectEditorLayout({
                 onCollapse={togglePreview}
                 scrollSyncEnabled={scrollSyncEnabled}
                 onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
+                previewStyle={previewStyle}
+                onPreviewStyleChange={setPreviewStyle}
               />
             </Panel>
           </PanelGroup>

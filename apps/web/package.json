@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "build:worker": "tsc --project src/workers/tsconfig.json",
-    "predev": "pnpm run build:worker && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
-    "prebuild": "pnpm run build:worker && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "build:asciidoctor-style": "node scripts/build-asciidoctor-style.mjs",
+    "predev": "pnpm run build:worker && pnpm run build:asciidoctor-style && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "prebuild": "pnpm run build:worker && pnpm run build:asciidoctor-style && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -70,6 +71,8 @@
     "eslint": "^9.39.0",
     "eslint-config-next": "16.2.6",
     "jest-environment-jsdom": "^30.4.1",
+    "postcss": "^8.5.15",
+    "postcss-prefix-selector": "^2.1.1",
     "shadcn": "^4.8.3",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3"

@@ -7,9 +7,16 @@ import { UserId } from '@asciidocollab/domain';
 import { EditorPreferencesId } from '@asciidocollab/domain';
 import { EditorPreferences } from '@asciidocollab/domain';
 import { EditorTheme } from '@asciidocollab/domain';
+import { PreviewStyle } from '@asciidocollab/domain';
 
 function makeTheme(v: string) {
   const r = EditorTheme.parse(v);
+  if (!r.success) throw r.error;
+  return r.value;
+}
+
+function makePreviewStyle(v: string) {
+  const r = PreviewStyle.parse(v);
   if (!r.success) throw r.error;
   return r.value;
 }
@@ -108,5 +115,50 @@ describe('PrismaEditorPreferencesRepository', () => {
     });
 
     await expect(repo.findByUserId(userId)).rejects.toThrow();
+  });
+
+  it('round-trips the previewStyle value', async () => {
+    const prefs = new EditorPreferences(
+      EditorPreferencesId.create('550e8400-e29b-41d4-a716-446655440000'),
+      userId,
+      14,
+      makeTheme('default'),
+      false,
+      undefined,
+      true,
+      makePreviewStyle('asciidoctor'),
+    );
+    await repo.save(prefs);
+    const retrieved = await repo.findByUserId(userId);
+    expect(retrieved?.previewStyle.value).toBe('asciidoctor');
+  });
+
+  it('defaults previewStyle to the brand style when the column holds its default', async () => {
+    const prefs = new EditorPreferences(
+      EditorPreferencesId.create('550e8400-e29b-41d4-a716-446655440000'),
+      userId,
+      14,
+      makeTheme('default'),
+    );
+    await repo.save(prefs);
+    const retrieved = await repo.findByUserId(userId);
+    expect(retrieved?.previewStyle.value).toBe('asciidocollab');
+  });
+
+  // Unlike `theme`, a corrupt previewStyle must fall back to the default rather than throw,
+  // so the preview keeps rendering (FR-015).
+  it('falls back to the default when the DB row contains an unrecognised previewStyle', async () => {
+    await client.editorPreferences.create({
+      data: {
+        id: '550e8400-e29b-41d4-a716-446655440098',
+        userId: userId.value,
+        fontSize: 14,
+        theme: 'default',
+        previewStyle: 'totally-invalid-style',
+      },
+    });
+
+    const retrieved = await repo.findByUserId(userId);
+    expect(retrieved?.previewStyle.value).toBe('asciidocollab');
   });
 });

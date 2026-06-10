@@ -15,6 +15,7 @@ const putBodySchema = {
     theme: { type: 'string', enum: ['default', 'high-contrast', 'dracula', 'tomorrow', 'espresso'] },
     scrollSyncEnabled: { type: 'boolean' },
     softWrap: { type: 'boolean' },
+    previewStyle: { type: 'string', enum: ['asciidocollab', 'asciidoctor'] },
   },
   additionalProperties: false,
 };
@@ -38,12 +39,13 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         theme: result.value.theme.value,
         scrollSyncEnabled: result.value.scrollSyncEnabled,
         softWrap: result.value.softWrap,
+        previewStyle: result.value.previewStyle.value,
       };
       return reply.status(200).send(dto);
     }
   );
 
-  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean } }>(
+  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string } }>(
     '/auth/me/editor-preferences',
     {
       preHandler: requireAuth,
@@ -57,6 +59,7 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         theme: request.body.theme,
         scrollSyncEnabled: request.body.scrollSyncEnabled,
         softWrap: request.body.softWrap,
+        previewStyle: request.body.previewStyle,
       });
 
       if (!result.success) {

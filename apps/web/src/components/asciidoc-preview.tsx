@@ -1,10 +1,14 @@
 'use client';
+// The generated, scoped Asciidoctor stylesheet is imported first so the brand stylesheet
+// (asciidoc-preview.css) wins on equal specificity for the few rules we deliberately override.
+import '../styles/asciidoctor-style.generated.css';
 import '../styles/asciidoc-preview.css';
 import { ArrowUpDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
+import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
 
 const ASCIIDOC_EXTENSIONS = new Set(['.adoc', '.asciidoc', '.asc']);
 
@@ -43,6 +47,14 @@ interface AsciiDocPreviewProperties {
   scrollSyncEnabled?: boolean;
   /** Called when the user toggles the scroll sync option. */
   onToggleScrollSync?: () => void;
+  /** Currently selected preview rendering style. Defaults to the brand look. */
+  previewStyle?: PreviewStyleValue;
+  /**
+   * Called when the user picks a different preview style in the header control.
+   *
+   * @param style - The newly selected style token.
+   */
+  onPreviewStyleChange?: (style: PreviewStyleValue) => void;
 }
 
 /** Live preview panel that renders AsciiDoc source as styled HTML via a Web Worker. */
@@ -53,6 +65,8 @@ export function AsciiDocPreview({
   onCollapse,
   scrollSyncEnabled = false,
   onToggleScrollSync,
+  previewStyle = 'asciidocollab',
+  onPreviewStyleChange,
 }: AsciiDocPreviewProperties) {
   const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine });
 
@@ -61,6 +75,9 @@ export function AsciiDocPreview({
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
         <div className="flex items-center gap-1">
+          {onPreviewStyleChange && (
+            <PreviewStyleControl value={previewStyle} onChange={onPreviewStyleChange} compact />
+          )}
           <SyncIndicator state={state} isEnabled={isEnabled} />
           {onToggleScrollSync && (
             <Button
@@ -107,6 +124,7 @@ export function AsciiDocPreview({
             <div
               data-testid="asciidoc-output"
               className="asciidoc-preview-content"
+              data-preview-style={previewStyle}
               // dangerouslySetInnerHTML is intentional: content is sanitized by DOMPurify in useAsciidocPreview.
               dangerouslySetInnerHTML={{ __html: html }}
             />

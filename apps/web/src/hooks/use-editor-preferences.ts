@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api/file-content';
+import { isPreviewStyleValue, type PreviewStyleValue } from '@/components/preview-style-control';
+
+// Re-exported so consumers/tests that read preferences can validate tokens from one import.
+export { isPreviewStyleValue } from '@/components/preview-style-control';
+export type { PreviewStyleValue } from '@/components/preview-style-control';
 
 /** Valid editor theme values. */
 export type EditorThemeValue = 'default' | 'high-contrast' | 'dracula' | 'tomorrow' | 'espresso';
@@ -25,11 +30,12 @@ interface EditorPrefs {
   theme: EditorThemeValue;
   scrollSyncEnabled: boolean;
   softWrap: boolean;
+  previewStyle: PreviewStyleValue;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab' };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -40,11 +46,13 @@ function loadFromStorage(): EditorPrefs {
       const parsed: unknown = JSON.parse(raw);
       if (isStoredPrefs(parsed)) {
         const rawTheme = parsed.theme;
+        const rawPreviewStyle = parsed.previewStyle;
         return {
           fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : DEFAULT_PREFS.fontSize,
           theme: typeof rawTheme === 'string' && isEditorThemeValue(rawTheme) ? rawTheme : DEFAULT_PREFS.theme,
           scrollSyncEnabled: typeof parsed.scrollSyncEnabled === 'boolean' ? parsed.scrollSyncEnabled : DEFAULT_PREFS.scrollSyncEnabled,
           softWrap: typeof parsed.softWrap === 'boolean' ? parsed.softWrap : DEFAULT_PREFS.softWrap,
+          previewStyle: typeof rawPreviewStyle === 'string' && isPreviewStyleValue(rawPreviewStyle) ? rawPreviewStyle : DEFAULT_PREFS.previewStyle,
         };
       }
     }
@@ -58,10 +66,12 @@ interface UseEditorPreferencesResult {
   theme: EditorThemeValue;
   scrollSyncEnabled: boolean;
   softWrap: boolean;
+  previewStyle: PreviewStyleValue;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
   setSoftWrap: (enabled: boolean) => void;
+  setPreviewStyle: (style: PreviewStyleValue) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -79,6 +89,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         theme: typeof data.theme === 'string' && isEditorThemeValue(data.theme) ? data.theme : previous.theme,
         scrollSyncEnabled: typeof data.scrollSyncEnabled === 'boolean' ? data.scrollSyncEnabled : previous.scrollSyncEnabled,
         softWrap: typeof data.softWrap === 'boolean' ? data.softWrap : previous.softWrap,
+        previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -91,6 +102,9 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
+      }).catch(() => {
+        // Transient save failure (e.g. offline): the change still applies for the current
+        // session (state + localStorage) and is reconciled on the next successful save.
       });
     }, DEBOUNCE_MS);
   }
@@ -131,5 +145,14 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap };
+  const setPreviewStyle = useCallback((previewStyle: PreviewStyleValue) => {
+    setPrefs((previous) => {
+      const next = { ...previous, previewStyle };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      schedulePut(next);
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle };
 }

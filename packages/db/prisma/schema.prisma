@@ -285,6 +285,7 @@ model EditorPreferences {
   theme             String   @default("default")
   scrollSyncEnabled Boolean  @default(false)
   softWrap          Boolean  @default(true)
+  previewStyle      String   @default("asciidocollab")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
