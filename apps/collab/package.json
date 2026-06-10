@@ -2,11 +2,11 @@
   "name": "@asciidocollab/collab",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "mutate": "stryker run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -17,7 +17,7 @@
     "@asciidocollab/domain": "workspace:*",
     "@asciidocollab/infrastructure": "workspace:*",
     "@asciidocollab/shared": "workspace:*",
-    "@hocuspocus/server": "^2.15.3",
+    "@hocuspocus/server": "^4.1.1",
     "convict": "^6.2.5",
     "pino": "^10.3.1",
     "yjs": "^13.6.31"

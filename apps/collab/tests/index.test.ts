@@ -1,5 +1,5 @@
 describe('apps/collab graceful shutdown', () => {
-  let mockServer: { destroy: jest.Mock; listen: jest.Mock; documents: Map<string, unknown> };
+  let mockServer: { destroy: jest.Mock; listen: jest.Mock; hocuspocus: { documents: Map<string, unknown> } };
   let mockCollaborationSessionRepo: { closeAll: jest.Mock };
   let mockPrisma: { $disconnect: jest.Mock };
   let shutdownFns: Array<() => Promise<void>>;
@@ -10,7 +10,8 @@ describe('apps/collab graceful shutdown', () => {
     mockServer = {
       destroy: jest.fn().mockResolvedValue(undefined),
       listen: jest.fn().mockResolvedValue(undefined),
-      documents: new Map(),
+      // v4: the live-document map lives on the inner Hocuspocus instance (server.hocuspocus).
+      hocuspocus: { documents: new Map() },
     };
     mockCollaborationSessionRepo = { closeAll: jest.fn().mockResolvedValue(undefined) };
     mockPrisma = { $disconnect: jest.fn().mockResolvedValue(undefined) };

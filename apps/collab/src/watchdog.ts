@@ -1,6 +1,6 @@
 import type { DocumentRepository } from '@asciidocollab/domain';
 import pino from 'pino';
-import { parseRoomName } from './server';
+import { parseRoomName } from './server.js';
 
 const logger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
 

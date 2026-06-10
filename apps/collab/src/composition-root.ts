@@ -10,12 +10,12 @@ import {
   PrismaFileNodeRepository,
 } from '@asciidocollab/infrastructure';
 import { OpenCollaborationSessionUseCase, CloseCollaborationSessionUseCase } from '@asciidocollab/domain';
-import { PersistenceExtension } from './extensions/persistence';
-import { AuthHookExtension } from './extensions/auth-hook';
-import { ConnectionLimitExtension } from './extensions/connection-limit';
-import { createMtlsFetch } from './extensions/mtls-fetch';
-import { createCollabServer } from './server';
-import { createCollabConfig } from './config/collab-config';
+import { PersistenceExtension } from './extensions/persistence.js';
+import { AuthHookExtension } from './extensions/auth-hook.js';
+import { ConnectionLimitExtension } from './extensions/connection-limit.js';
+import { createMtlsFetch } from './extensions/mtls-fetch.js';
+import { createCollabServer } from './server.js';
+import { createCollabConfig } from './config/collab-config.js';
 import pino from 'pino';
 
 /** Wires up all dependencies and returns the configured server and its supporting objects. */

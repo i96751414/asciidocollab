@@ -1,6 +1,6 @@
 import type { Extension, onConnectPayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
-import { logCollabConnectionDenial } from '../audit-log-denial';
+import { logCollabConnectionDenial } from '../audit-log-denial.js';
 
 type FetchFunction = typeof globalThis.fetch;
 
@@ -53,15 +53,14 @@ export class AuthHookExtension implements Extension {
     // SEC2: reject cross-site WebSocket hijacking attempts by enforcing an Origin allowlist
     // before doing any work. Skipped when no allowlist is configured (development).
     if (this.allowedOrigins.length > 0) {
-      const originRaw = requestHeaders.origin ?? requestHeaders.Origin;
-      const origin = Array.isArray(originRaw) ? originRaw[0] : originRaw;
+      // Hocuspocus v4 delivers requestHeaders as a web Headers object (case-insensitive .get()).
+      const origin = requestHeaders.get('origin');
       if (!origin || !this.allowedOrigins.includes(origin)) {
         this.deny(documentName, 'origin_not_allowed');
       }
     }
 
-    const cookieRaw = requestHeaders.cookie ?? requestHeaders.Cookie;
-    const cookie = Array.isArray(cookieRaw) ? cookieRaw[0] : cookieRaw;
+    const cookie = requestHeaders.get('cookie');
     const url = `${this.apiInternalUrl}/internal/collab/auth?documentName=${encodeURIComponent(documentName)}`;
 
     let response: Awaited<ReturnType<FetchFunction>>;
@@ -94,7 +93,8 @@ export class AuthHookExtension implements Extension {
       // Enforce the read-only boundary at the WS layer (SEC2/FR-012): Hocuspocus rejects inbound
       // document updates on a read-only connection, so an observer cannot broadcast edits even by
       // bypassing the client. Client-side EditorState.readOnly alone is not an authz boundary.
-      payload.connection.readOnly = body.role === 'observer';
+      // v4: read-only lives on `connectionConfig` (the onConnect payload no longer exposes `connection`).
+      payload.connectionConfig.readOnly = body.role === 'observer';
       return;
     }
     this.deny(documentName, 'auth_malformed_response');

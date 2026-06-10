@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module';
+import * as Y from 'yjs';
 import {
   YjsStateStore,
   ProjectFileStore,
@@ -7,26 +7,19 @@ import {
   FilePath,
   YjsStateId,
 } from '@asciidocollab/domain';
-import { parseRoomName } from '../server';
+import { parseRoomName } from '../server.js';
 
-interface Yjs {
-  applyUpdate(document: object, update: Uint8Array): void;
-  encodeStateAsUpdate(document: object): Uint8Array;
-}
-const Y: Yjs = createRequire(__filename)('yjs');
-
-interface YjsDocument {
-  getText(name: string): { insert(index: number, content: string): void; toString(): string };
-}
-
+// Hocuspocus delivers a `Y.Doc` (its `Document` extends `Y.Doc`) to the load/store hooks. A single
+// resolved yjs version (SC-004) guarantees this is the same Y instance, so a normal ESM import
+// replaces the prior `createRequire('yjs')` CJS workaround.
 interface LoadPayload {
   documentName: string;
-  document: YjsDocument;
+  document: Y.Doc;
 }
 
 interface StorePayload {
   documentName: string;
-  document: YjsDocument;
+  document: Y.Doc;
 }
 
 /** Hocuspocus extension that persists Yjs state and syncs file content. */
@@ -68,7 +61,7 @@ export class PersistenceExtension {
 
   /**
    * Saves Yjs state and syncs codemirror text to file storage. Observer writes are blocked at the
-   * transport layer (the auth hook sets `connection.readOnly`), NOT here: onStoreDocument is a
+   * transport layer (the auth hook sets `connectionConfig.readOnly`), NOT here: onStoreDocument is a
    * document-level hook whose `context` does not reliably identify the writing connection, so
    * gating on `context.role` would risk silently dropping a legitimate editor's edits in a mixed
    * (editor + observer) room.

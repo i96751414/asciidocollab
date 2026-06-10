@@ -8,12 +8,13 @@ function makePayload(overrides: { context?: Record<string, unknown> } = {}): onC
   return {
     context: overrides.context ?? {},
     documentName: DOCUMENT_NAME,
-    requestHeaders: { cookie: COOKIE },
+    // v4: requestHeaders is a web Headers object; read-only lives on connectionConfig.
+    requestHeaders: new Headers({ cookie: COOKIE }),
     requestParameters: new URLSearchParams(),
     instance: {} as onConnectPayload['instance'],
     request: {} as onConnectPayload['request'],
     socketId: 'test-socket',
-    connection: { readOnly: false, isAuthenticated: true, onClose: [], },
+    connectionConfig: { readOnly: false, isAuthenticated: true },
   } as unknown as onConnectPayload;
 }
 
@@ -41,7 +42,7 @@ describe('AuthHookExtension', () => {
     await expect(extension.onConnect(payload)).resolves.toBeUndefined();
     expect(payload.context.role).toBe('editor');
     expect(payload.context.userId).toBe('u-1');
-    expect(payload.connection.readOnly).toBe(false);
+    expect(payload.connectionConfig.readOnly).toBe(false);
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining(`documentName=${encodeURIComponent(DOCUMENT_NAME)}`),
       expect.objectContaining({
@@ -68,7 +69,7 @@ describe('AuthHookExtension', () => {
     expect(payload.context.role).toBe('observer');
     // SEC: observers must be marked read-only at the WS connection level so Hocuspocus rejects
     // their inbound document updates — client-side read-only is not an authorization boundary.
-    expect(payload.connection.readOnly).toBe(true);
+    expect(payload.connectionConfig.readOnly).toBe(true);
   });
 
   it('401: throws with code 1008', async () => {
@@ -181,34 +182,6 @@ describe('AuthHookExtension', () => {
     await expect(extension.onConnect(makePayload())).rejects.toMatchObject({ code: 1008 });
   });
 
-  it('cookie as Array: sends first element as Cookie header', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({
-      status: 200,
-      json: async () => ({ role: 'editor', userId: 'u-1' }),
-    });
-
-    const extension = new AuthHookExtension({
-      apiInternalUrl: 'http://127.0.0.1:4001',
-      authTimeoutMs: 3000,
-      logger: mockLogger as never,
-      fetch: mockFetch as never,
-    });
-
-    const payload = {
-      ...makePayload(),
-      requestHeaders: { cookie: ['session=first; session=second'] },
-    } as unknown as onConnectPayload;
-
-    await extension.onConnect(payload);
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        headers: expect.objectContaining({ Cookie: 'session=first; session=second' }),
-      }),
-    );
-  });
-
   it('non-Error thrown: uses "Error" as the class name and rejects with code 1008', async () => {
     // Validates the fallback branch where something other than an Error instance is thrown
     // (e.g. a plain string or object), so the error.constructor.name path is not available.
@@ -253,7 +226,7 @@ describe('AuthHookExtension', () => {
 
     const payload = {
       ...makePayload(),
-      requestHeaders: {}, // no cookie
+      requestHeaders: new Headers(), // no cookie
     } as unknown as onConnectPayload;
 
     await extension.onConnect(payload);
