@@ -18,7 +18,8 @@
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
   blockTitleToken,
-  continuationLineToken
+  continuationLineToken,
+  paragraphLineToken
 }
 
 block {
@@ -102,7 +103,12 @@ tableRow    { tableCellMark inlineContent nl }
 blankLine   { nl }
 
 // ── Paragraphs with inline markup ─────────────────────────────────────────────
-Paragraph     { inlineContent nl }
+// A paragraph runs until a blank line: every following non-blank line is consumed as a
+// continuation, even if it looks like a heading or list marker (Asciidoctor only recognises
+// block constructs at a block boundary). The external tokenizer emits paragraphLineToken for
+// those lines, so the markers never start a new block mid-paragraph.
+Paragraph             { inlineContent nl ParagraphContinuation* }
+ParagraphContinuation { paragraphLineToken }
 inlineContent { inline+ }
 
 inline {

@@ -118,6 +118,14 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
 
       if (!atLineStart) return;
 
+      // Mid-paragraph continuation (mirrors the production tokenizer): every non-blank line is
+      // paragraph text until a blank line, so marker-looking lines never start a new block.
+      if (input.next !== NEWLINE && stack.canShift(terms['paragraphLineToken'])) {
+        consumeToEOL(input);
+        input.acceptToken(terms['paragraphLineToken']);
+        return;
+      }
+
       // Indented list markers: skip leading whitespace only when a real list marker follows
       // (mirrors the production tokenizer), then re-read the current char for the block branches.
       let leadingWs = 0;

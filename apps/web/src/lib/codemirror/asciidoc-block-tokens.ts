@@ -29,6 +29,7 @@ import {
   footnoteToken,
   blockTitleToken,
   continuationLineToken,
+  paragraphLineToken,
 } from './asciidoc-parser.terms.js';
 
 const NEWLINE = 10, SPACE = 32, TAB = 9, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
@@ -88,6 +89,15 @@ export const blockTokenizer = new ExternalTokenizer(
   (input, stack) => {
     if (!isLineStart(input)) return;
     if (input.next === -1) return;
+
+    // Mid-paragraph: Asciidoctor consumes every non-blank line into the paragraph until a blank
+    // line, so a line that looks like a heading or list marker here is plain text, not a new block.
+    // Checked first so it wins over the block branches; `canShift` is true only inside a paragraph.
+    if (input.next !== NEWLINE && stack.canShift(paragraphLineToken)) {
+      consumeToEOL(input);
+      input.acceptToken(paragraphLineToken);
+      return;
+    }
 
     // Asciidoctor allows list markers to be indented. Skip leading whitespace only when a real
     // list marker follows, so the accepted marker token still spans from the line start.

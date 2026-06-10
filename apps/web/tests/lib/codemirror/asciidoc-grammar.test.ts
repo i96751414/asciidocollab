@@ -514,6 +514,7 @@ describe('AsciiDoc Lezer Grammar', () => {
 == Introduction
 
 This is *bold* and _italic_ and \`monospace\` text.
+
 Version {version} was released.
 
 See <<intro>> for details.
@@ -712,6 +713,32 @@ example block
 
     test('indented plain text is not mistaken for a list', () => {
       expect(hasNode(parseDocument('   just indented text\n'), 'UnorderedListItem')).toBe(false);
+    });
+  });
+
+  // ── Block constructs only at a block boundary ───────────────────────────────────
+  describe('Mid-paragraph markers are plain text', () => {
+    test('heading/list markers after a paragraph line are paragraph continuation, not blocks', () => {
+      const tree = parseDocument('a line\n== This is not a title yet\nanother line\n. this is not a list yet\n');
+      expect(hasNode(tree, 'Heading1')).toBe(false);
+      expect(hasNode(tree, 'Heading2')).toBe(false);
+      expect(hasNode(tree, 'OrderedListItem')).toBe(false);
+      expect(collectNodes(tree, 'Paragraph').length).toBe(1);
+      expect(collectNodes(tree, 'ParagraphContinuation').length).toBe(3);
+    });
+
+    test('a heading IS recognised at a block boundary (after a blank line)', () => {
+      expect(hasNode(parseDocument('para\n\n== Real Title\n'), 'Heading1')).toBe(true);
+    });
+
+    test('a list item after a paragraph line stays paragraph text', () => {
+      const tree = parseDocument('para\n* item\n');
+      expect(hasNode(tree, 'UnorderedListItem')).toBe(false);
+      expect(nodeAt(tree, 'Paragraph', 8)).toBe(true);
+    });
+
+    test('consecutive list items are still siblings (the list started as a list)', () => {
+      expect(collectNodes(parseDocument('* one\n* two\n'), 'UnorderedListItem').length).toBe(2);
     });
   });
 });
