@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/020-realtime-co-editing/plan.md
+Active feature plan: specs/021-list-continuation/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)
