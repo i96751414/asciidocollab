@@ -8,6 +8,7 @@ import {
   YjsStateId,
 } from '@asciidocollab/domain';
 import { parseRoomName } from '../server.js';
+import { isPresenceRoom } from '@asciidocollab/shared';
 
 // Hocuspocus delivers a `Y.Doc` (its `Document` extends `Y.Doc`) to the load/store hooks. A single
 // resolved yjs version (SC-004) guarantees this is the same Y instance, so a normal ESM import
@@ -41,6 +42,9 @@ export class PersistenceExtension {
 
   /** Loads existing Yjs state or bootstraps from file content on first open. */
   async onLoadDocument({ documentName, document }: LoadPayload): Promise<void> {
+    // Feature 024: a presence room has no backing document — nothing to load (and parseRoomName
+    // would reject its `presence/<projectId>` name). Presence carries only awareness, no content.
+    if (isPresenceRoom(documentName)) return;
     const { projectId, yjsStateId } = parseRoomName(documentName);
     const state = await this.yjsStateStore.load(projectId, yjsStateId);
     if (state) {
@@ -67,6 +71,8 @@ export class PersistenceExtension {
    * (editor + observer) room.
    */
   async onStoreDocument({ documentName, document }: StorePayload): Promise<void> {
+    // Feature 024: a presence room has no backing document — never persist anything for it (FR-011).
+    if (isPresenceRoom(documentName)) return;
     const { projectId, yjsStateId } = parseRoomName(documentName);
 
     // Resolve the backing document FIRST. If it no longer exists (the file was deleted while its

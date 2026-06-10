@@ -18,6 +18,7 @@ import { useFileSelection } from '@/hooks/use-file-selection';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useLastSelection } from '@/hooks/use-last-selection';
 import { useCollabDocument, type ConnectionState } from '@/hooks/use-collab-document';
+import { useProjectPresence } from '@/hooks/use-project-presence';
 import { useCurrentUser } from '@/contexts/current-user-context';
 import { getDocumentContent } from '@/lib/api/file-content';
 import { getCollabDocumentInfo } from '@/lib/api/collab';
@@ -169,6 +170,17 @@ export function ProjectEditorLayout({
     yjsStateId: collabInfo?.yjsStateId ?? '',
     enabled: collabInfo != null,
     user: { userId: currentUser.userId, name: currentUser.displayName },
+  });
+
+  // Feature 024: project-wide open-file presence for the file tree. Joins a lightweight presence
+  // room to publish which file this user has open and observe which files others have open.
+  const presenceByFile = useProjectPresence({
+    projectId,
+    enabled: true,
+    user: { userId: currentUser.userId, name: currentUser.displayName },
+    // "Open" means a collaborative document is open in the editor — gate on collabInfo so a selected
+    // folder (or a legacy/non-collab file) is never advertised as the viewer's open file.
+    openFileNodeId: collabInfo ? (selectedFile?.nodeId ?? null) : null,
   });
 
   // Mid-session role enforcement (FR-012 / edge case "permission change mid-session"): the role
@@ -393,6 +405,7 @@ export function ProjectEditorLayout({
             canEdit={canEdit}
             onSelectFile={handleSelectFile}
             selectedNodeId={selectedFile?.nodeId ?? null}
+            presenceByFile={presenceByFile}
             onCollapse={() => setSidebarOpen(false)}
             openPathRequest={openPathRequest}
           />

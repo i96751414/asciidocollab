@@ -1,4 +1,5 @@
-import { createCollabServer } from '../src/server';
+import { createCollabServer, parsePresenceRoom, parseRoomName } from '../src/server';
+import { isPresenceRoom } from '@asciidocollab/shared';
 import { PersistenceExtension } from '../src/extensions/persistence';
 import type {
   YjsStateStore,
@@ -486,5 +487,67 @@ describe('createCollabServer', () => {
     ).resolves.toBeUndefined();
 
     expect(sessionCallbacks.onRoomClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Feature 024: presence rooms (`presence/<projectId>`) are a distinct room type.
+describe('presence room helpers', () => {
+  const projectId = '550e8400-e29b-41d4-a716-446655440001';
+
+  it('isPresenceRoom distinguishes presence rooms from document rooms', () => {
+    expect(isPresenceRoom(`presence/${projectId}`)).toBe(true);
+    expect(isPresenceRoom(`${projectId}/550e8400-e29b-41d4-a716-446655440002`)).toBe(false);
+  });
+
+  it('parsePresenceRoom extracts the projectId', () => {
+    expect(parsePresenceRoom(`presence/${projectId}`).projectId.value).toBe(projectId);
+  });
+
+  it('parsePresenceRoom rejects a non-presence room name', () => {
+    expect(() => parsePresenceRoom(`${projectId}/x`)).toThrow();
+  });
+
+  it('parseRoomName still rejects a malformed name', () => {
+    expect(() => parseRoomName('no-slash')).toThrow();
+  });
+});
+
+function makePresenceLifecycleDeps() {
+  const settingRepo = { get: jest.fn().mockResolvedValue('30'), set: jest.fn() } as unknown as SystemSettingRepository;
+  const sessionCallbacks = {
+    onRoomOpen: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+    onRoomClose: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+  };
+  const documentRepository = {
+    findByYjsStateId: jest.fn().mockResolvedValue(null),
+    findById: jest.fn(), findByFileNodeId: jest.fn(), findByFileNodeIds: jest.fn(), save: jest.fn(), delete: jest.fn(),
+  } as unknown as DocumentRepository;
+  return { settingRepo, sessionCallbacks, documentRepository };
+}
+
+describe('createCollabServer session lifecycle skips presence rooms', () => {
+  const projectId = '550e8400-e29b-41d4-a716-446655440001';
+
+  it('onConnect does not open a session (or look up a document) for a presence room', async () => {
+    const { settingRepo, sessionCallbacks, documentRepository } = makePresenceLifecycleDeps();
+    const server = await createCollabServer({ port: 0 }, [makeExtension()], settingRepo, sessionCallbacks, documentRepository);
+    const cfg = (server as { configuration?: { onConnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onConnect) return;
+
+    await expect(cfg.onConnect({ documentName: `presence/${projectId}`, context: {} })).resolves.toBeUndefined();
+    expect(sessionCallbacks.onRoomOpen).not.toHaveBeenCalled();
+    expect((documentRepository.findByYjsStateId as jest.Mock)).not.toHaveBeenCalled();
+  });
+
+  it('onDisconnect does not close a session for a presence room', async () => {
+    const { settingRepo, sessionCallbacks, documentRepository } = makePresenceLifecycleDeps();
+    const server = await createCollabServer({ port: 0 }, [makeExtension()], settingRepo, sessionCallbacks, documentRepository);
+    const cfg = (server as { configuration?: { onDisconnect?: (p: unknown) => Promise<void> } }).configuration;
+    if (!cfg?.onDisconnect) return;
+
+    await expect(
+      cfg.onDisconnect({ clientsCount: 0, documentName: `presence/${projectId}`, context: {}, document: { getConnectionsCount: () => 0 } }),
+    ).resolves.toBeUndefined();
+    expect(sessionCallbacks.onRoomClose).not.toHaveBeenCalled();
   });
 });

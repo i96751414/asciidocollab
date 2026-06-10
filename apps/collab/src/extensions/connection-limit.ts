@@ -1,6 +1,7 @@
 import type { Extension, onConnectPayload, onDisconnectPayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
 import { logCollabConnectionDenial } from '../audit-log-denial.js';
+import { isPresenceRoom } from '@asciidocollab/shared';
 
 const POLICY_VIOLATION = { code: 1008, reason: 'Policy Violation' };
 const RATE_WINDOW_MS = 60_000;
@@ -79,6 +80,20 @@ export class ConnectionLimitExtension implements Extension {
     if (recentTimestamps.length + 1 > this.connectRatePerMin) {
       this.deny(userId, documentName, 'connect_rate_exceeded');
     }
+
+    // Feature 024: presence rooms are exempt from the per-document connection/room caps (a user
+    // idling on a project with the tree open must not burn a document slot). The connect-rate limit
+    // above still applies; record the accepted timestamp but do NOT count a connection or room, and
+    // do NOT register a socketId→user mapping (onDisconnect skips presence too, so nothing leaks).
+    if (isPresenceRoom(documentName)) {
+      recentTimestamps.push(now);
+      this.users.set(userId, { connections, rooms, connectTimestamps: recentTimestamps });
+      // Track the socket so onDisconnect can resolve the user and evict an otherwise-empty entry
+      // (presence-only users never reach the connection/room cleanup path otherwise).
+      this.socketUsers.set(payload.socketId, userId);
+      return;
+    }
+
     if (connections + 1 > this.maxConnectionsPerUser) {
       this.deny(userId, documentName, 'max_connections_exceeded');
     }
@@ -107,6 +122,16 @@ export class ConnectionLimitExtension implements Extension {
     this.socketUsers.delete(payload.socketId);
     const state = this.users.get(userId);
     if (!state) return;
+
+    // Feature 024: a presence connection was never counted against connections/rooms (see onConnect),
+    // so do NOT decrement — just evict the entry if it now holds no document connections/rooms,
+    // otherwise a presence-only user's record would linger until restart.
+    if (isPresenceRoom(payload.documentName)) {
+      if (state.connections === 0 && state.rooms.size === 0) {
+        this.users.delete(userId);
+      }
+      return;
+    }
 
     state.connections = Math.max(0, state.connections - 1);
     const roomCount = (state.rooms.get(payload.documentName) ?? 0) - 1;

@@ -13,6 +13,7 @@ import { useKeyBindings } from '@/hooks/use-key-bindings';
 import { useFileTreeKeyHandler } from '@/hooks/use-file-tree-key-handler';
 import { useFileTreeUIState } from '@/hooks/use-file-tree-ui-state';
 import type { FileTreeNode as FileTreeNodeType } from './types';
+import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -32,6 +33,8 @@ interface Properties {
   canEdit: boolean;
   onSelectFile: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
   selectedNodeId: string | null;
+  /** Feature 024: other users currently editing each file, keyed by file node id (for the marker). */
+  presenceByFile?: ReadonlyMap<string, ParticipantPresence[]>;
   /** When provided, renders a collapse button in the header and calls this on click. */
   onCollapse?: () => void;
   // A request to reveal and select a file by its project-relative path, such as from a Ctrl+click
@@ -145,7 +148,7 @@ function findNodeByPath(node: FileTreeNodeType, path: string): FileTreeNodeType 
 }
 
 /** Renders the full file tree for a project, with real-time SSE updates and keyboard shortcut support. */
-export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onCollapse, openPathRequest }: Properties) {
+export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, presenceByFile, onCollapse, openPathRequest }: Properties) {
   const [tree, setTree] = useState<FileTreeNodeType | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
@@ -494,6 +497,7 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
                   onToggle={toggleExpand}
                   expandedState={expandedState}
                   onFolderDrop={handleFolderDrop}
+                  presenceByFile={presenceByFile}
                 />
               ))
             )}

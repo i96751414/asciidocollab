@@ -1,6 +1,8 @@
 import type { Extension, onConnectPayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
 import { logCollabConnectionDenial } from '../audit-log-denial.js';
+import { parsePresenceRoom, parseRoomName } from '../server.js';
+import { isPresenceRoom, COLLAB_AUTH_DOCUMENT_PATH, COLLAB_AUTH_PRESENCE_PATH } from '@asciidocollab/shared';
 
 type FetchFunction = typeof globalThis.fetch;
 
@@ -46,6 +48,25 @@ export class AuthHookExtension implements Extension {
     throw POLICY_VIOLATION;
   }
 
+  /**
+   * Builds the resource-specific internal-auth URL from the WS room name. The collab server owns
+   * room-name parsing; the API authorizes typed params (split endpoints: /document vs /presence,
+   * with paths from the shared constants so they cannot drift). A malformed room name (the typed
+   * parsers throw on a non-UUID id) is rejected here, so this always returns a URL or denies.
+   */
+  private buildAuthUrl(documentName: string, presence: boolean): string {
+    try {
+      if (presence) {
+        const { projectId } = parsePresenceRoom(documentName);
+        return `${this.apiInternalUrl}${COLLAB_AUTH_PRESENCE_PATH}?projectId=${encodeURIComponent(projectId.value)}`;
+      }
+      const { projectId, yjsStateId } = parseRoomName(documentName);
+      return `${this.apiInternalUrl}${COLLAB_AUTH_DOCUMENT_PATH}?projectId=${encodeURIComponent(projectId.value)}&yjsStateId=${encodeURIComponent(yjsStateId.value)}`;
+    } catch {
+      this.deny(documentName, 'invalid_room');
+    }
+  }
+
   /** Called by Hocuspocus for each new WebSocket connection; throws to reject. */
   async onConnect(payload: onConnectPayload): Promise<void> {
     const { documentName, requestHeaders } = payload;
@@ -61,7 +82,8 @@ export class AuthHookExtension implements Extension {
     }
 
     const cookie = requestHeaders.get('cookie');
-    const url = `${this.apiInternalUrl}/internal/collab/auth?documentName=${encodeURIComponent(documentName)}`;
+    const presence = isPresenceRoom(documentName);
+    const url = this.buildAuthUrl(documentName, presence);
 
     let response: Awaited<ReturnType<FetchFunction>>;
     try {
@@ -80,23 +102,35 @@ export class AuthHookExtension implements Extension {
     }
 
     const body: unknown = await response.json().catch(() => null);
-    if (
-      typeof body === 'object' &&
-      body !== null &&
-      'role' in body &&
-      (body.role === 'editor' || body.role === 'observer') &&
-      'userId' in body &&
-      typeof body.userId === 'string'
-    ) {
-      payload.context.role = body.role;
-      payload.context.userId = body.userId;
-      // Enforce the read-only boundary at the WS layer (SEC2/FR-012): Hocuspocus rejects inbound
-      // document updates on a read-only connection, so an observer cannot broadcast edits even by
-      // bypassing the client. Client-side EditorState.readOnly alone is not an authz boundary.
-      // v4: read-only lives on `connectionConfig` (the onConnect payload no longer exposes `connection`).
-      payload.connectionConfig.readOnly = body.role === 'observer';
-      return;
+
+    if (presence) {
+      // Presence: { userId } (no role). Enforce read-only at the WS layer (SEC2/FR-011) so a member
+      // cannot write document updates into the presence room's shared doc; awareness (the presence
+      // channel) is NOT gated by readOnly, so clients still publish which file they have open.
+      if (typeof body === 'object' && body !== null && 'userId' in body && typeof body.userId === 'string') {
+        payload.context.userId = body.userId;
+        payload.connectionConfig.readOnly = true;
+        return;
+      }
+      this.deny(documentName, 'auth_malformed_response');
+    } else {
+      // Document: { role, userId }. Enforce the read-only boundary for observers (SEC2/FR-012):
+      // Hocuspocus rejects inbound document updates on a read-only connection, so client-side
+      // read-only is not relied upon as the authorization boundary.
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        'role' in body &&
+        (body.role === 'editor' || body.role === 'observer') &&
+        'userId' in body &&
+        typeof body.userId === 'string'
+      ) {
+        payload.context.role = body.role;
+        payload.context.userId = body.userId;
+        payload.connectionConfig.readOnly = body.role === 'observer';
+        return;
+      }
+      this.deny(documentName, 'auth_malformed_response');
     }
-    this.deny(documentName, 'auth_malformed_response');
   }
 }

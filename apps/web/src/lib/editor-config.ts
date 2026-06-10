@@ -60,6 +60,7 @@ export function collabRoomName(projectId: string, yjsStateId: string): string {
   return `${projectId}/${yjsStateId}`;
 }
 
+
 /**
  * A presence colour assigned to a collaborator, derived deterministically from
  * their user id (see {@link file://./collab/color-for-user.ts}).

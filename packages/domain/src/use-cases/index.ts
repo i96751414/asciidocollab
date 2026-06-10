@@ -42,6 +42,7 @@ export type { DocumentCollabInfo, CollabRole } from './content/get-document-coll
 export { toCollabRole } from './content/collab-role';
 export { AuthorizeCollabConnectionUseCase } from './content/authorize-collab-connection';
 export type { CollabConnectionAuthorization } from './content/authorize-collab-connection';
+export { AuthorizeProjectPresenceUseCase } from './content/authorize-project-presence';
 export { GetFileNodeContentUseCase } from './content/get-file-node-content';
 export type { FileNodeContent } from './content/get-file-node-content';
 export { SaveDocumentContentUseCase } from './content/save-document-content';

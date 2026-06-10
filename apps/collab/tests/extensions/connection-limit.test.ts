@@ -150,4 +150,53 @@ describe('ConnectionLimitExtension', () => {
     await extension.onDisconnect(disconnectPayload('s2', ROOM_A));
     await expect(extension.onConnect(connectPayload('u1', 's4', ROOM_B))).resolves.toBeUndefined();
   });
+
+  // Feature 024: presence rooms are exempt from the per-document caps but still rate-limited.
+  describe('presence rooms', () => {
+    const PRESENCE = 'presence/550e8400-e29b-41d4-a716-446655440001';
+
+    it('does not count a presence connection against the per-connection cap', async () => {
+      const extension = makeExtension({ maxConnectionsPerUser: 1 });
+      await extension.onConnect(connectPayload('u1', 's1', ROOM_A)); // consumes the only doc slot
+      await expect(extension.onConnect(connectPayload('u1', 's2', PRESENCE))).resolves.toBeUndefined();
+      await expect(extension.onConnect(connectPayload('u1', 's3', ROOM_B))).rejects.toMatchObject({ code: 1008 });
+    });
+
+    it('does not count a presence connection against the per-room cap', async () => {
+      const extension = makeExtension({ maxRoomsPerUser: 1 });
+      await extension.onConnect(connectPayload('u1', 's1', ROOM_A));
+      await expect(extension.onConnect(connectPayload('u1', 's2', PRESENCE))).resolves.toBeUndefined();
+    });
+
+    it('still applies the connect-rate limit to presence connections', async () => {
+      const extension = makeExtension({ connectRatePerMin: 1 }, () => 1000);
+      await extension.onConnect(connectPayload('u1', 's1', PRESENCE));
+      await expect(extension.onConnect(connectPayload('u1', 's2', PRESENCE))).rejects.toMatchObject({ code: 1008 });
+    });
+
+    it('does not count a presence disconnect against an existing document connection', async () => {
+      const extension = makeExtension({ maxConnectionsPerUser: 2 });
+      await extension.onConnect(connectPayload('u1', 's1', ROOM_A));
+      await expect(extension.onDisconnect(disconnectPayload('s2', PRESENCE))).resolves.toBeUndefined();
+      await extension.onConnect(connectPayload('u1', 's3', ROOM_A));
+      await expect(extension.onConnect(connectPayload('u1', 's4', ROOM_A))).rejects.toMatchObject({ code: 1008 });
+    });
+
+    it('leaves no lingering users entry after a presence connect + disconnect', async () => {
+      const extension = makeExtension({});
+      await extension.onConnect(connectPayload('u1', 's1', PRESENCE));
+      await extension.onDisconnect(disconnectPayload('s1', PRESENCE));
+      const users = (extension as unknown as { users: Map<string, unknown> }).users;
+      expect(users.has('u1')).toBe(false);
+    });
+
+    it('keeps the user entry when a presence connection closes but a document connection remains', async () => {
+      const extension = makeExtension({});
+      await extension.onConnect(connectPayload('u1', 'doc', ROOM_A));
+      await extension.onConnect(connectPayload('u1', 'pres', PRESENCE));
+      await extension.onDisconnect(disconnectPayload('pres', PRESENCE));
+      const users = (extension as unknown as { users: Map<string, { connections: number }> }).users;
+      expect(users.get('u1')?.connections).toBe(1);
+    });
+  });
 });
