@@ -249,4 +249,32 @@ describe('PersistenceExtension', () => {
       expect(projectFileStore.write).toHaveBeenCalled();
     });
   });
+
+  // Feature 024: a presence room (`presence/<projectId>`) carries no document — persistence is a no-op (FR-011).
+  describe('presence rooms', () => {
+    const presenceName = `presence/${projectId.value}`;
+
+    it('onLoadDocument neither loads nor writes any state for a presence room', async () => {
+      const { yjsStateStore, projectFileStore, documentRepository, fileNodeRepository } = makeStores();
+      const extension = new PersistenceExtension(yjsStateStore, projectFileStore, documentRepository, fileNodeRepository);
+
+      await extension.onLoadDocument({ documentName: presenceName, document: makeDocument(), context: {} } as never);
+
+      expect(yjsStateStore.load).not.toHaveBeenCalled();
+      expect(yjsStateStore.save).not.toHaveBeenCalled();
+      expect(projectFileStore.read).not.toHaveBeenCalled();
+    });
+
+    it('onStoreDocument writes no document state for a presence room', async () => {
+      const { yjsStateStore, projectFileStore, documentRepository, fileNodeRepository } = makeStores();
+      const extension = new PersistenceExtension(yjsStateStore, projectFileStore, documentRepository, fileNodeRepository);
+
+      const document = makeDocument();
+      document.getText('codemirror').insert(0, 'should never be persisted');
+      await extension.onStoreDocument({ documentName: presenceName, document, context: {} } as never);
+
+      expect(yjsStateStore.save).not.toHaveBeenCalled();
+      expect(projectFileStore.write).not.toHaveBeenCalled();
+    });
+  });
 });

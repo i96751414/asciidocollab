@@ -1,15 +1,11 @@
 'use client';
 
 import { useCollabPresence, type AwarenessLike, type ParticipantPresence } from '@/hooks/use-collab-presence';
+import { ParticipantAvatar } from '@/components/collab/participant-avatar';
 
 interface CollabPresenceBarProperties {
   /** The provider awareness, or null on the legacy/offline path. */
   awareness: AwarenessLike | null;
-}
-
-/** First letter of a display name, used as the avatar fallback. */
-function initialOf(name: string): string {
-  return (name.trim()[0] ?? '?').toUpperCase();
 }
 
 /** A single participant chip: avatar (or coloured initial) plus name. */
@@ -20,18 +16,7 @@ function ParticipantChip({ participant }: { participant: ParticipantPresence }) 
       className="flex items-center gap-1.5 rounded-full bg-muted/60 pl-0.5 pr-2 py-0.5 text-xs"
       title={participant.name}
     >
-      {participant.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={participant.avatarUrl} alt="" width={20} height={20} className="rounded-full" />
-      ) : (
-        <span
-          aria-hidden="true"
-          className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-          style={{ backgroundColor: participant.color }}
-        >
-          {initialOf(participant.name)}
-        </span>
-      )}
+      <ParticipantAvatar participant={participant} size={20} />
       <span>{participant.name}</span>
     </span>
   );

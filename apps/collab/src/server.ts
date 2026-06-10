@@ -8,6 +8,7 @@ import type {
 import type { SystemSettingRepository, DocumentRepository } from '@asciidocollab/domain';
 import { YjsStateId, ProjectId, DocumentId } from '@asciidocollab/domain';
 import type { Result } from '@asciidocollab/domain';
+import { PRESENCE_ROOM_PREFIX, isPresenceRoom } from '@asciidocollab/shared';
 import pino from 'pino';
 
 const defaultLogger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
@@ -54,6 +55,14 @@ export function createMaxPayloadGuard(maxPayloadBytes: number) {
   };
 }
 
+/** Parses a presence room name (`presence/<projectId>`) into its typed `ProjectId`. */
+export function parsePresenceRoom(documentName: string) {
+  if (!isPresenceRoom(documentName)) {
+    throw new Error(`Invalid presence room name (expected "presence/<projectId>"): ${documentName}`);
+  }
+  return { projectId: ProjectId.create(documentName.slice(PRESENCE_ROOM_PREFIX.length)) };
+}
+
 /** Parses a Hocuspocus room name of the form `<projectId>/<yjsStateId>` into typed value objects. */
 export function parseRoomName(documentName: string) {
   const slash = documentName.indexOf('/');
@@ -86,6 +95,9 @@ export async function createCollabServer(
 
   const onConnect = sessionCallbacks && documentRepository
     ? async (payload: onConnectPayload) => {
+        // Feature 024: presence rooms carry no document and have no CollaborationSession lifecycle —
+        // skip the document lookup + session open entirely (parseRoomName would also reject them).
+        if (isPresenceRoom(payload.documentName)) return;
         // This hook creates the CollaborationSession row behind the active-session edit lock
         // (spec-018 FR-011): while a room is open, REST PUT /content and delete on the file are
         // blocked. It therefore REJECTS (throws) on ANY failure rather than letting a live room
@@ -127,6 +139,8 @@ export async function createCollabServer(
 
   const onDisconnect = sessionCallbacks && documentRepository
     ? async (payload: onDisconnectPayload) => {
+        // Feature 024: presence rooms have no CollaborationSession to close.
+        if (isPresenceRoom(payload.documentName)) return;
         if (payload.clientsCount !== 0) return;
 
         try {

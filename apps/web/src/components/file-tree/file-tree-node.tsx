@@ -4,6 +4,8 @@ import { ChevronRight, ChevronDown, File, Folder, ArchiveIcon } from 'lucide-rea
 import { cn } from '@/lib/utilities';
 import { DragDropZone } from './drag-drop-zone';
 import { FileTreeActions } from './file-tree-actions';
+import { OpenByOthersMarker } from './open-by-others-marker';
+import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 import type { FileTreeNode as FileTreeNodeType } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -33,10 +35,12 @@ interface Properties {
   onToggle?: (nodeId: string) => void;
   expandedState?: Map<string, boolean>;
   onFolderDrop?: (targetFolderId: string, sourceNodeId: string) => void;
+  /** Feature 024: other users currently editing each file, keyed by file node id. */
+  presenceByFile?: ReadonlyMap<string, ParticipantPresence[]>;
 }
 
 /** Renders a single file or folder node in the file tree, with expand/collapse and drag-drop support. */
-export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, onSelect, onContextMenu, onUpdate, onError, isExpanded = false, onToggle, expandedState, isProjectRoot = false, onFolderDrop }: Properties) {
+export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, onSelect, onContextMenu, onUpdate, onError, isExpanded = false, onToggle, expandedState, isProjectRoot = false, onFolderDrop, presenceByFile }: Properties) {
   const [zipDownloading, setZipDownloading] = useState(false);
   const handleClick = () => {
     if (node.type === 'folder') {
@@ -105,6 +109,7 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
         </>
       )}
       <span className="truncate text-sm flex-1">{node.name}</span>
+      {node.type === 'file' && <OpenByOthersMarker participants={presenceByFile?.get(node.id) ?? []} />}
       {isProjectRoot && (
         <a
           href={`${API_BASE}/projects/${projectId}/download`}
@@ -169,6 +174,7 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
             onToggle={onToggle}
             expandedState={expandedState}
             onFolderDrop={onFolderDrop}
+            presenceByFile={presenceByFile}
           />
         ))}
       </DragDropZone>

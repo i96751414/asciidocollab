@@ -1,7 +1,9 @@
 import { AuthHookExtension } from '../../src/extensions/auth-hook';
 import type { onConnectPayload } from '@hocuspocus/server';
 
-const DOCUMENT_NAME = '550e8400-e29b-41d4-a716-446655440001/550e8400-e29b-41d4-a716-446655440002';
+const PROJECT_ID = '550e8400-e29b-41d4-a716-446655440001';
+const YJS_STATE_ID = '550e8400-e29b-41d4-a716-446655440002';
+const DOCUMENT_NAME = `${PROJECT_ID}/${YJS_STATE_ID}`;
 const COOKIE = 'sessionId=abc123';
 
 function makePayload(overrides: { context?: Record<string, unknown> } = {}): onConnectPayload {
@@ -44,7 +46,7 @@ describe('AuthHookExtension', () => {
     expect(payload.context.userId).toBe('u-1');
     expect(payload.connectionConfig.readOnly).toBe(false);
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining(`documentName=${encodeURIComponent(DOCUMENT_NAME)}`),
+      expect.stringContaining(`/internal/collab/auth/document?projectId=${PROJECT_ID}&yjsStateId=${YJS_STATE_ID}`),
       expect.objectContaining({
         headers: expect.objectContaining({ Cookie: COOKIE }),
       }),
@@ -233,5 +235,50 @@ describe('AuthHookExtension', () => {
 
     const [, callInit] = mockFetch.mock.calls[0] as [string, { headers: Record<string, string> }];
     expect(Object.keys(callInit.headers)).toHaveLength(0);
+  });
+
+  // Feature 024: a presence room is authorized by project membership; the API returns `{ userId }`
+  // (no role — presence is read-only awareness).
+  describe('presence room', () => {
+    const PRESENCE_NAME = 'presence/550e8400-e29b-41d4-a716-446655440001';
+
+    function presencePayload() {
+      return { ...makePayload(), documentName: PRESENCE_NAME } as unknown as onConnectPayload;
+    }
+
+    it('accepts a presence connection on 200 {userId} (sets context.userId, no role)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ status: 200, json: async () => ({ userId: 'u-1' }) });
+      const extension = new AuthHookExtension({ apiInternalUrl: 'http://127.0.0.1:4001', authTimeoutMs: 3000, logger: mockLogger as never, fetch: mockFetch as never });
+      const payload = presencePayload();
+      await expect(extension.onConnect(payload)).resolves.toBeUndefined();
+      expect(payload.context.userId).toBe('u-1');
+      expect(payload.context.role).toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/internal/collab/auth/presence?projectId=550e8400-e29b-41d4-a716-446655440001'),
+        expect.anything(),
+      );
+    });
+
+    // SEC/FR-011: a presence connection must be READ-ONLY at the WS layer so a member cannot write
+    // document updates into the presence room's shared doc (awareness is unaffected by readOnly).
+    it('marks the presence connection read-only (cannot write document updates into the presence room)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ status: 200, json: async () => ({ userId: 'u-1' }) });
+      const extension = new AuthHookExtension({ apiInternalUrl: 'http://127.0.0.1:4001', authTimeoutMs: 3000, logger: mockLogger as never, fetch: mockFetch as never });
+      const payload = presencePayload();
+      await extension.onConnect(payload);
+      expect(payload.connectionConfig.readOnly).toBe(true);
+    });
+
+    it('rejects a presence connection (1008) when the API denies it', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ status: 403, json: async () => ({ error: 'Not a member of this project' }) });
+      const extension = new AuthHookExtension({ apiInternalUrl: 'http://127.0.0.1:4001', authTimeoutMs: 3000, logger: mockLogger as never, fetch: mockFetch as never });
+      await expect(extension.onConnect(presencePayload())).rejects.toMatchObject({ code: 1008 });
+    });
+
+    it('rejects a presence connection (1008) on a malformed 200 (no userId)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ status: 200, json: async () => ({}) });
+      const extension = new AuthHookExtension({ apiInternalUrl: 'http://127.0.0.1:4001', authTimeoutMs: 3000, logger: mockLogger as never, fetch: mockFetch as never });
+      await expect(extension.onConnect(presencePayload())).rejects.toMatchObject({ code: 1008 });
+    });
   });
 });
