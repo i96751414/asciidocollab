@@ -8,4 +8,6 @@ export interface EditorPreferencesDto {
   scrollSyncEnabled: boolean;
   /** When true, the editor wraps long lines. Defaults to true. */
   softWrap?: boolean;
+  /** Preview rendering style token. Defaults to 'asciidocollab'. */
+  previewStyle?: 'asciidocollab' | 'asciidoctor';
 }

@@ -34,6 +34,10 @@ interface Properties {
   selectedNodeId: string | null;
   /** When provided, renders a collapse button in the header and calls this on click. */
   onCollapse?: () => void;
+  // A request to reveal and select a file by its project-relative path, such as from a Ctrl+click
+  // on an include or image macro in the editor. The nonce makes repeat requests for the same path
+  // distinct so they re-fire.
+  openPathRequest?: { path: string; nonce: number } | null;
 }
 
 function applyEvent(tree: FileTreeNodeType | null, event: FileTreeEventDto): FileTreeNodeType | null {
@@ -131,8 +135,17 @@ function findNodeInTree(node: FileTreeNodeType, id: string): FileTreeNodeType | 
   return null;
 }
 
+function findNodeByPath(node: FileTreeNodeType, path: string): FileTreeNodeType | null {
+  if (node.path === path) return node;
+  for (const child of node.children) {
+    const found = findNodeByPath(child, path);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Renders the full file tree for a project, with real-time SSE updates and keyboard shortcut support. */
-export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onCollapse }: Properties) {
+export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onCollapse, openPathRequest }: Properties) {
   const [tree, setTree] = useState<FileTreeNodeType | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
@@ -145,6 +158,9 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
   // reliable source of truth for an in-tree move — see handleFolderDrop for why we don't depend on
   // the dataTransfer payload.
   const draggedNodeIdReference = useRef<string | null>(null);
+  // Last handled openPathRequest nonce, so the resolve effect fires once per request (and not
+  // again merely because the tree re-rendered).
+  const openPathNonceReference = useRef<number>(-1);
 
   const userBindings = useKeyBindings('file-tree');
   const bindings = useMemo(() => new Map(userBindings), [userBindings]);
@@ -241,6 +257,27 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
 
   useFileTreeEvents(projectId, onEvent, onReconnect);
 
+  // Resolve a Ctrl+click navigation request (project-relative path) to a node and select it.
+  // Selecting a file updates `selectedNodeId`, which drives the auto-reveal/scroll effect above.
+  useEffect(() => {
+    if (!openPathRequest || !tree) return;
+    if (openPathNonceReference.current === openPathRequest.nonce) return;
+    openPathNonceReference.current = openPathRequest.nonce;
+    const target = '/' + openPathRequest.path.replace(/^\/+/, '');
+    const node = findNodeByPath(tree, target);
+    if (!node) return;
+    if (node.type === 'file') {
+      onSelectFile(node.id, node.name, node.path, node.type);
+    } else {
+      revealSelected(node.id);
+      setTimeout(() => {
+        containerReference.current
+          ?.querySelector(`[data-node-id="${node.id}"]`)
+          ?.scrollIntoView({ block: 'nearest' });
+      }, 0);
+    }
+  }, [openPathRequest, tree, onSelectFile, revealSelected]);
+
   const keyCallbacks = useMemo(() => ({
     'file-tree:rename': selectedNodeId ? () => {} : undefined,
     'file-tree:delete': selectedNodeId ? () => {} : undefined,
@@ -269,6 +306,16 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, onC
     // dropEffect; without it some engines (Firefox, Safari) resolve dropEffect
     // to "none" and silently discard the drop.
     event.dataTransfer.effectAllowed = 'move';
+    // A file dragged onto the editor inserts an include::/image:: macro. Carry its project-relative
+    // path in a custom type the editor reads on drop (folders are not draggable into the editor).
+    const nodePath = container.dataset.nodePath;
+    if (nodePath && container.dataset.nodeType === 'file') {
+      event.dataTransfer.setData(
+        'application/x-asciidoc-node',
+        JSON.stringify({ path: nodePath.replace(/^\//, '') }),
+      );
+      event.dataTransfer.effectAllowed = 'copyMove';
+    }
     draggedNodeIdReference.current = nodeId;
     setDraggedNodeId(nodeId);
   }, []);

@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEditorPreferences, isEditorThemeValue } from '@/hooks/use-editor-preferences';
+import { useEditorPreferences, isEditorThemeValue, isPreviewStyleValue } from '@/hooks/use-editor-preferences';
 
 const mockFetch = jest.fn();
 globalThis.fetch = mockFetch;
@@ -360,4 +360,102 @@ test('ignores server response fields with the wrong types and keeps previous val
   expect(result.current.theme).toBe('default');
   expect(typeof result.current.scrollSyncEnabled).toBe('boolean');
   expect(typeof result.current.softWrap).toBe('boolean');
+});
+
+// ── previewStyle (US1 + US2) ────────────────────────────────────────────────────
+
+test('previewStyle defaults to asciidocollab', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.previewStyle).toBe('asciidocollab');
+});
+
+test('previewStyle is seeded from localStorage before the API responds (no flash)', () => {
+  // Never-resolving fetch so the API cannot overwrite the localStorage-seeded value.
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.previewStyle).toBe('asciidoctor');
+});
+
+test('an invalid stored previewStyle falls back to the default', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', previewStyle: 'Asciidocollab' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.previewStyle).toBe('asciidocollab');
+});
+
+test('previewStyle included in initial GET response', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(result.current.previewStyle).toBe('asciidoctor'));
+});
+
+test('setPreviewStyle updates state and includes previewStyle in the PUT payload', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setPreviewStyle('asciidoctor');
+    jest.advanceTimersByTime(600);
+  });
+  await waitFor(() => expect(result.current.previewStyle).toBe('asciidoctor'));
+  const putCall = mockFetch.mock.calls.find((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  expect(putCall).toBeDefined();
+  if (putCall) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).toHaveProperty('previewStyle', 'asciidoctor');
+  }
+});
+
+test('localStorage cache updated when previewStyle changes', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setPreviewStyle('asciidoctor');
+  });
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.previewStyle).toBe('asciidoctor');
+});
+
+// T040 — offline reconciliation: a transient save failure must not lose the choice; it
+// applies for the session and rides the next successful save to the account.
+test('previewStyle applies for the session and reconciles on the next successful save when a save fails', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+
+  // First save fails transiently (offline).
+  mockFetch.mockRejectedValueOnce(new Error('network down'));
+  await act(async () => {
+    result.current.setPreviewStyle('asciidoctor');
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  // Still applied locally for the current session.
+  expect(result.current.previewStyle).toBe('asciidoctor');
+  expect(JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}').previewStyle).toBe('asciidoctor');
+
+  // A later change triggers a successful save that still carries the chosen style.
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setFontSize(16);
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCalls = mockFetch.mock.calls.filter((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  const lastPut = putCalls.at(-1);
+  expect(lastPut).toBeDefined();
+  if (lastPut) {
+    expect(JSON.parse((lastPut[1] as { body: string }).body)).toHaveProperty('previewStyle', 'asciidoctor');
+  }
+});
+
+test('isPreviewStyleValue validates the supported tokens', () => {
+  expect(isPreviewStyleValue('asciidocollab')).toBe(true);
+  expect(isPreviewStyleValue('asciidoctor')).toBe(true);
+  expect(isPreviewStyleValue('Asciidocollab')).toBe(false);
+  expect(isPreviewStyleValue('')).toBe(false);
 });

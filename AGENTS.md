@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/021-list-continuation/plan.md
+Active feature plan: specs/022-preview-style-preference/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

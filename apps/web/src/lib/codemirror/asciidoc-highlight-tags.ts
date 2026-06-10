@@ -45,5 +45,7 @@ export const asciidocHighlightTags = styleTags({
   OrderedListItem:    t.list,
   UnorderedListItem:  t.list,
   ChecklistItem:      t.list,
+  Continuation:       t.list,
   DescriptionList:    t.labelName,
+  DescriptionContinuation: t.labelName,
 });

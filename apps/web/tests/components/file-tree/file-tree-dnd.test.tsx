@@ -69,6 +69,8 @@ describe('FileTree — Drag and Drop', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     buildServer();
+    // jsdom does not implement scrollIntoView; the folder-reveal path calls it.
+    Element.prototype.scrollIntoView = jest.fn();
   });
 
   test('dragging a file node updates drag state (data-dragging attribute or visual state)', async () => {
@@ -166,5 +168,59 @@ describe('FileTree — Drag and Drop', () => {
     // Dialog dismissed, document still in original location
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('document.adoc')).toBeInTheDocument();
+  });
+
+  test('openPathRequest resolves a relative path and selects the matching file', async () => {
+    const onSelectFile = jest.fn();
+    const { rerender } = render(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null} openPathRequest={null} />,
+    );
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+
+    rerender(
+      <FileTree
+        projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null}
+        openPathRequest={{ path: 'folder-a/document.adoc', nonce: 1 }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onSelectFile).toHaveBeenCalledWith(FILE_1, 'document.adoc', '/folder-a/document.adoc', 'file'),
+    );
+  });
+
+  test('openPathRequest for a folder path reveals it without selecting a file', async () => {
+    const onSelectFile = jest.fn();
+    const { rerender } = render(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null} openPathRequest={null} />,
+    );
+    await waitFor(() => expect(screen.queryByText('folder-a')).toBeInTheDocument());
+
+    rerender(
+      <FileTree
+        projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null}
+        openPathRequest={{ path: 'folder-a', nonce: 7 }}
+      />,
+    );
+    // Folders are revealed, never selected as a file.
+    await waitFor(() => expect(screen.getByText('folder-a')).toBeInTheDocument());
+    expect(onSelectFile).not.toHaveBeenCalled();
+  });
+
+  test('openPathRequest for an unknown path selects nothing', async () => {
+    const onSelectFile = jest.fn();
+    const { rerender } = render(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null} openPathRequest={null} />,
+    );
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+
+    rerender(
+      <FileTree
+        projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null}
+        openPathRequest={{ path: 'does/not/exist.adoc', nonce: 1 }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('document.adoc')).toBeInTheDocument());
+    expect(onSelectFile).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import {
   UploadAssetUseCase,
   GetAssetContentUseCase,
+  GetAssetContentByPathUseCase,
   PermissionDeniedError,
   FileNodeNotFoundError,
   FileConflictError,
@@ -293,6 +294,73 @@ describe('GET /projects/:projectId/assets/:assetId', () => {
     });
 
     expect(response.statusCode).toBe(500);
+    await app.close();
+  });
+});
+
+describe('GET /projects/:projectId/images/*', () => {
+  const successValue = {
+    bytes: Buffer.from('PNG_DATA'),
+    mimeType: { value: 'image/png' },
+    filename: 'diagram.png',
+  };
+
+  it('serves an image by path with inline disposition', async () => {
+    const spy = jest.spyOn(GetAssetContentByPathUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: successValue as never,
+    });
+
+    const app = await buildTestServer();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/projects/${PROJECT_ID}/images/img/diagram.png`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('image/png');
+    expect(response.headers['content-disposition']).toBe('inline');
+    // The wildcard path is forwarded to the use case.
+    expect(spy).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'img/diagram.png');
+    await app.close();
+  });
+
+  it('decodes percent-encoded path segments', async () => {
+    const spy = jest.spyOn(GetAssetContentByPathUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: successValue as never,
+    });
+
+    const app = await buildTestServer();
+    await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/images/my%20pics/a%2Bb.png` });
+
+    expect(spy).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'my pics/a+b.png');
+    await app.close();
+  });
+
+  it('returns 404 when the image is not found', async () => {
+    jest.spyOn(GetAssetContentByPathUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new FileNodeNotFoundError('/img/missing.png'),
+    });
+
+    const app = await buildTestServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/images/img/missing.png` });
+
+    expect(response.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it('returns 403 when the actor is not a member', async () => {
+    jest.spyOn(GetAssetContentByPathUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new PermissionDeniedError(),
+    });
+
+    const app = await buildTestServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/images/diagram.png` });
+
+    expect(response.statusCode).toBe(403);
     await app.close();
   });
 });

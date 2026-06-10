@@ -1,0 +1,53 @@
+import type { Result } from '../types/result';
+import { ValidationError } from '../errors/validation-error';
+import { DEFAULT_PREVIEW_STYLE } from '../constants/editor-preferences';
+
+/** The set of supported preview style token values (lowercase, as stored/transported). */
+export type PreviewStyleValue = 'asciidocollab' | 'asciidoctor';
+
+const VALID_STYLES: readonly string[] = ['asciidocollab', 'asciidoctor'] satisfies PreviewStyleValue[];
+
+/** Returns true when `value` is a recognised PreviewStyleValue token. */
+export function isPreviewStyleValue(value: string): value is PreviewStyleValue {
+  return VALID_STYLES.includes(value);
+}
+
+/** Validated value object representing a per-user preview rendering style. */
+export class PreviewStyle {
+  private constructor(public readonly value: PreviewStyleValue) {}
+
+  /**
+   * Parses a raw string into a PreviewStyle, returning a failure result if unrecognised.
+   *
+   * @param raw - The raw style token to validate.
+   * @returns A Result containing the PreviewStyle on success, or a ValidationError on failure.
+   */
+  static parse(raw: string): Result<PreviewStyle, ValidationError> {
+    if (isPreviewStyleValue(raw)) {
+      return { success: true, value: new PreviewStyle(raw) };
+    }
+    return {
+      success: false,
+      error: new ValidationError(`Invalid preview style: "${raw}". Must be one of: ${VALID_STYLES.join(', ')}`),
+    };
+  }
+
+  /** Returns the default preview style (the brand "Asciidocollab" look). */
+  static default(): PreviewStyle {
+    return new PreviewStyle(DEFAULT_PREVIEW_STYLE);
+  }
+
+  /**
+   * Parses a raw value, falling back to the default when it is absent or unrecognised.
+   * Used at persistence boundaries where a corrupt stored value must not break rendering (FR-015).
+   *
+   * @param raw - The raw style token, possibly undefined/invalid.
+   * @returns A valid PreviewStyle — the parsed value or the default.
+   */
+  static parseOrDefault(raw: string | null | undefined): PreviewStyle {
+    if (raw != null && isPreviewStyleValue(raw)) {
+      return new PreviewStyle(raw);
+    }
+    return PreviewStyle.default();
+  }
+}

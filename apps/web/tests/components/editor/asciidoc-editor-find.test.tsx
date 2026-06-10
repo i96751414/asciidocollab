@@ -34,6 +34,7 @@ jest.mock('@codemirror/view', () => ({
     destroy() { this.dom.remove(); }
   },
   keymap: { of: () => ({}) },
+  hoverTooltip: () => ({}),
   lineNumbers: () => ({}),
   highlightActiveLine: () => ({}),
   highlightSpecialChars: () => ({}),

@@ -253,6 +253,37 @@ describe('useDropUpload', () => {
     expect(mockUploadAsset).toHaveBeenCalledWith(projectId, targetFolderId, expect.any(File));
   });
 
+  it('onFiles uploads each picked file into the target folder (flat file picker)', async () => {
+    const file1 = makeFile('a.txt');
+    const file2 = makeFile('b.txt');
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'a.txt', storagePath: '/a.txt', sizeBytes: 10, mimeType: 'text/plain' });
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onFiles([file1, file2]); });
+
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, targetFolderId, file1);
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, targetFolderId, file2);
+  });
+
+  it('onFiles preserves folder structure from webkitRelativePath (directory picker)', async () => {
+    const mockCreateFolder = jest.requireMock('@/lib/api/file-tree').createFolder as jest.Mock;
+    mockCreateFolder.mockImplementation((_: string, __: string, name: string) =>
+      Promise.resolve({ fileNodeId: `folder-${name}` }),
+    );
+    mockUploadAsset.mockResolvedValue({ assetId: 'a', filename: 'file.txt', storagePath: '/docs/sub/file.txt', sizeBytes: 10, mimeType: 'text/plain' });
+
+    const file = makeFile('file.txt');
+    Object.defineProperty(file, 'webkitRelativePath', { value: 'docs/sub/file.txt' });
+
+    const { result } = renderHook(() => useDropUpload(targetFolderId, projectId));
+    await act(async () => { await result.current.onFiles([file]); });
+
+    const folderNames = mockCreateFolder.mock.calls.map(([_a, _b, name]: [unknown, unknown, string]) => name);
+    expect(folderNames).toContain('docs');
+    expect(folderNames).toContain('sub');
+    expect(mockUploadAsset).toHaveBeenCalledWith(projectId, 'folder-sub', expect.any(File));
+  });
+
   it('clearProgress resets progress to empty', async () => {
     mockWalkEntries.mockReturnValue(makeAsyncIterable([
       { file: makeFile('a.txt'), relativePath: 'a.txt' },

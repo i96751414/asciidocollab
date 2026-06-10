@@ -1,6 +1,7 @@
 import { EditorPreferences } from '../../src/entities/editor-preferences';
 import { EditorPreferencesId } from '../../src/value-objects/editor-preferences-id';
 import { EditorTheme } from '../../src/value-objects/editor-theme';
+import { PreviewStyle } from '../../src/value-objects/preview-style';
 import { UserId } from '../../src/value-objects/user-id';
 import { ValidationError } from '../../src/errors/validation-error';
 
@@ -33,6 +34,17 @@ describe('EditorPreferences entity', () => {
 
   test('fontSize at maximum (32) is valid', () => {
     expect(() => new EditorPreferences(validId, validUserId, 32, defaultTheme)).not.toThrow();
+  });
+
+  test('previewStyle defaults to the brand style when omitted', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme);
+    expect(prefs.previewStyle.value).toBe('asciidocollab');
+  });
+
+  test('previewStyle reflects the provided value', () => {
+    const asciidoctor = (PreviewStyle.parse('asciidoctor') as { success: true; value: PreviewStyle }).value;
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, asciidoctor);
+    expect(prefs.previewStyle.value).toBe('asciidoctor');
   });
 
   test('updatedAt reflects construction timestamp', () => {

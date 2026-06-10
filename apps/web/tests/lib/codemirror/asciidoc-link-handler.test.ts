@@ -237,4 +237,48 @@ describe('createLinkHandler', () => {
     );
     expect(onOpenUrl).not.toHaveBeenCalled();
   });
+
+  test('Ctrl+click on a block image:: path navigates to the file', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::New Folder/pic.png[alt]', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('New Folder/pic.png');
+  });
+
+  test('Ctrl+click on an inline image: path navigates to the file', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('see image:icon.png[icon] here', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('icon.png');
+  });
+
+  test('Ctrl+click on an absolute-URL image opens the URL instead of navigating', () => {
+    const onNavigateToFile = jest.fn();
+    const onOpenUrl = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile, onOpenUrl });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::https://cdn.example.com/a.png[]', 12),
+    );
+    expect(onOpenUrl).toHaveBeenCalledWith('https://cdn.example.com/a.png');
+    expect(onNavigateToFile).not.toHaveBeenCalled();
+  });
+
+  test('an unresolved image path reports onUnresolvedPath when a paths list is supplied', () => {
+    const onNavigateToFile = jest.fn();
+    const onUnresolvedPath = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile, onUnresolvedPath }, ['New Folder/pic.png']);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::missing.png[]', 10),
+    );
+    expect(onNavigateToFile).not.toHaveBeenCalled();
+    expect(onUnresolvedPath).toHaveBeenCalledWith('missing.png');
+  });
 });

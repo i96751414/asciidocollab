@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 import {
@@ -7,6 +7,9 @@ import {
   Search,
   FilePlus,
   FolderPlus,
+  Upload,
+  FolderUp,
+  Copy,
   Pencil,
   Trash2,
   FoldVertical,
@@ -26,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
+import { UploadProgressPanel } from './upload-progress-panel';
+import { useDropUpload } from '@/hooks/use-drop-upload';
 import { createFolder, createFileNode, renameFileNode, deleteFileNode, FileTreeApiError } from '@/lib/api/file-tree';
 
 type DialogKind =
@@ -41,6 +46,8 @@ interface Properties {
   parentId: string;
   nodeType: 'file' | 'folder';
   nodeName: string;
+  /** Project-relative path of this node, used by the "Copy path" action. */
+  nodePath?: string;
   hasChildren: boolean;
   onUpdate?: () => void;
   onError?: (message: string | null) => void;
@@ -62,12 +69,42 @@ interface Properties {
 
 /** Renders the context-menu action buttons (create, rename, delete, tree navigation) for a file tree node. */
 export function FileTreeActions({
-  projectId, fileNodeId, nodeType, nodeName, hasChildren,
+  projectId, fileNodeId, nodeType, nodeName, nodePath, hasChildren,
   onUpdate, onError, isRoot = false, canCreate = false,
   onFind, onCollapseAll, onExpandAll, onRevealInTree, hasSelection = false,
 }: Properties) {
+  // Path copied/used in macros is project-root-relative (no leading slash), matching include::/image:: targets.
+  const relativePath = (nodePath ?? '').replace(/^\//, '');
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [inputValue, setInputValue] = useState('');
+
+  // Upload support. Uploads target this node's folder (or the root). Files dropped via the OS
+  // picker reuse the same upload pipeline as drag-and-drop (useDropUpload), so nested folders
+  // and progress reporting behave identically.
+  const canUpload = canCreate && nodeType === 'folder';
+  const fileInputReference = useRef<HTMLInputElement>(null);
+  const folderInputReference = useRef<HTMLInputElement>(null);
+  const { onFiles, progress, clearProgress } = useDropUpload(fileNodeId, projectId, onUpdate);
+
+  useEffect(() => {
+    // `webkitdirectory`/`directory` enable folder selection but are not in the React DOM types,
+    // so they are set imperatively on the hidden folder input.
+    const element = folderInputReference.current;
+    if (element) {
+      element.setAttribute('webkitdirectory', '');
+      element.setAttribute('directory', '');
+    }
+  }, []);
+
+  const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { files } = event.target;
+    if (files && files.length > 0) {
+      onError?.(null);
+      void onFiles(files);
+    }
+    // Reset so picking the same file/folder again re-triggers the change event.
+    event.target.value = '';
+  };
 
   const handleAction = async (action: () => Promise<void>): Promise<boolean> => {
     try {
@@ -176,6 +213,21 @@ export function FileTreeActions({
             </DropdownMenuItem>
           )}
 
+          {/* Upload from the OS file picker — synchronous .click() keeps the user gesture so the
+              browser allows the file dialog to open. */}
+          {canUpload && (
+            <DropdownMenuItem onSelect={() => fileInputReference.current?.click()}>
+              <Upload className="h-4 w-4 mr-2 shrink-0" />
+              Upload Files…
+            </DropdownMenuItem>
+          )}
+          {canUpload && (
+            <DropdownMenuItem onSelect={() => folderInputReference.current?.click()}>
+              <FolderUp className="h-4 w-4 mr-2 shrink-0" />
+              Upload Folder…
+            </DropdownMenuItem>
+          )}
+
           {/* Download ZIP for the project root */}
           {isRoot && (
             <DropdownMenuItem asChild>
@@ -191,6 +243,12 @@ export function FileTreeActions({
           )}
 
           {/* Node-level actions (hidden for root) */}
+          {!isRoot && relativePath && (
+            <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(relativePath); }}>
+              <Copy className="h-4 w-4 mr-2 shrink-0" />
+              Copy path
+            </DropdownMenuItem>
+          )}
           {!isRoot && (
             <DropdownMenuItem onSelect={() => openDialog({ type: 'rename', currentName: nodeName })}>
               <Pencil className="h-4 w-4 mr-2 shrink-0" />
@@ -220,6 +278,28 @@ export function FileTreeActions({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Hidden inputs that back the Upload menu items, plus their progress overlay. */}
+      {canUpload && (
+        <>
+          <input
+            ref={fileInputReference}
+            type="file"
+            multiple
+            className="hidden"
+            data-testid="upload-files-input"
+            onChange={handleFilesSelected}
+          />
+          <input
+            ref={folderInputReference}
+            type="file"
+            className="hidden"
+            data-testid="upload-folder-input"
+            onChange={handleFilesSelected}
+          />
+          {progress.length > 0 && <UploadProgressPanel progress={progress} onDismiss={clearProgress} />}
+        </>
+      )}
 
       {/* Rename / Create dialog */}
       <Dialog.Root open={isInputDialog} onOpenChange={(open) => { if (!open) closeDialog(); }}>

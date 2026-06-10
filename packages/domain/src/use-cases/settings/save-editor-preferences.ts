@@ -4,6 +4,7 @@ import type { Result } from '../../types/result';
 import { EditorPreferences } from '../../entities/editor-preferences';
 import { EditorPreferencesId } from '../../value-objects/editor-preferences-id';
 import { EditorTheme } from '../../value-objects/editor-theme';
+import { PreviewStyle } from '../../value-objects/preview-style';
 import { ValidationError } from '../../errors/validation-error';
 import { randomUUID } from 'node:crypto';
 
@@ -12,6 +13,7 @@ interface SaveEditorPreferencesInput {
   theme: string;
   scrollSyncEnabled?: boolean;
   softWrap?: boolean;
+  previewStyle?: string;
 }
 
 /** Validates and persists updated editor preferences for a user. */
@@ -41,7 +43,17 @@ export class SaveEditorPreferencesUseCase {
       const id = existing?.id ?? EditorPreferencesId.create(randomUUID());
       const scrollSyncEnabled = input.scrollSyncEnabled ?? existing?.scrollSyncEnabled ?? false;
       const softWrap = input.softWrap ?? existing?.softWrap ?? true;
-      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, scrollSyncEnabled, existing?.timestamps, softWrap);
+
+      let previewStyle = existing?.previewStyle ?? PreviewStyle.default();
+      if (input.previewStyle !== undefined) {
+        const previewStyleResult = PreviewStyle.parse(input.previewStyle);
+        if (!previewStyleResult.success) {
+          return { success: false, error: previewStyleResult.error };
+        }
+        previewStyle = previewStyleResult.value;
+      }
+
+      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, scrollSyncEnabled, existing?.timestamps, softWrap, previewStyle);
     } catch (error) {
       if (error instanceof ValidationError) {
         return { success: false, error: error };

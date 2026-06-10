@@ -4,6 +4,8 @@ import hljs from 'highlight.js/lib/common';
 interface RenderRequest {
   requestId: number;
   content: string;
+  /** Base path Asciidoctor prepends to relative image targets (the project's image endpoint). */
+  imagesDir?: string;
 }
 
 /** Reverses the minimal HTML escaping Asciidoctor applies inside code blocks. */
@@ -22,6 +24,23 @@ function unescapeHtml(value: string): string {
 // which makes the lazy capture safe.
 const SOURCE_BLOCK_RE =
   /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g;
+
+// Asciidoctor renders checklist items as a leading unicode glyph in the paragraph text
+// (&#10003; "✓" when checked, &#10063; "❏" otherwise) — emitted only as these numeric
+// entities, so matching them is precise and never touches ordinary prose. We swap each for
+// a stateful <span>, letting the preview stylesheets render a real checkbox (brand style) or
+// reproduce the original glyph (faithful Asciidoctor style) instead of the bare character.
+function styleChecklistMarkers(html: string): string {
+  return html
+    .replaceAll(
+      '<p>&#10003; ',
+      '<p class="checklist-item"><span class="checklist-box checklist-box--checked" aria-hidden="true"></span>',
+    )
+    .replaceAll(
+      '<p>&#10063; ',
+      '<p class="checklist-item"><span class="checklist-box" aria-hidden="true"></span>',
+    );
+}
 
 /**
  * Applies highlight.js syntax highlighting to every source block in the rendered
@@ -59,14 +78,18 @@ function getProcessor(): ReturnType<typeof Asciidoctor> {
 }
 
 onmessage = function (event: MessageEvent<RenderRequest>) {
-  const { requestId, content } = event.data;
+  const { requestId, content, imagesDir } = event.data;
   try {
     const proc = getProcessor();
+    // `showtitle` renders the document title in embedded output. `imagesdir` is the base path
+    // prepended to relative image targets so `image::diagram.png[]` resolves to the project's
+    // asset endpoint; absolute-URL targets are left untouched by Asciidoctor.
+    const attributes: Record<string, string> = { showtitle: '' };
+    if (imagesDir) attributes.imagesdir = imagesDir;
     const asciidocDocument = proc.load(content, {
       safe: 'safe',
       sourcemap: true,
-      // Render the document title (= Title) in embedded output.
-      attributes: { showtitle: '' },
+      attributes,
     });
 
     // Collect source locations BEFORE conversion. Blocks that have no ID get a
@@ -107,6 +130,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // Syntax-highlight source blocks before the source-line pass below; this
     // only rewrites the <code> bodies and never touches id="..." attributes.
     html = highlightCodeBlocks(html);
+    html = styleChecklistMarkers(html);
 
     // Inject data-source-line next to each id="..." attribute in a single pass
     // so the preview hook can use querySelector('[data-source-line="N"]').

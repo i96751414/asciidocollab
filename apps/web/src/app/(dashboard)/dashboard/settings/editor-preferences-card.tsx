@@ -3,6 +3,7 @@
 import { useEditorPreferences, EditorThemeValue } from '@/hooks/use-editor-preferences';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { PreviewStyleControl } from '@/components/preview-style-control';
 
 const FONT_SIZES = [12, 13, 14, 16, 18, 20] as const;
 
@@ -16,8 +17,10 @@ const EDITOR_THEMES: { value: EditorThemeValue; label: string }[] = [
 
 /** Card exposing editor font size, theme, scroll sync, and soft wrap preferences. */
 export function EditorPreferencesCard() {
-  const { fontSize, theme, scrollSyncEnabled, softWrap, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap } =
-    useEditorPreferences();
+  const {
+    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle,
+    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle,
+  } = useEditorPreferences();
 
   return (
     <Card>
@@ -57,6 +60,12 @@ export function EditorPreferencesCard() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Preview Style</Label>
+          <CardDescription>How the AsciiDoc preview renders. Applies only to your view.</CardDescription>
+          <PreviewStyleControl value={previewStyle} onChange={setPreviewStyle} ariaLabel="Preview style" />
         </div>
 
         <div className="space-y-3">

@@ -4,7 +4,8 @@ import { UserId } from '../../../src/value-objects/user-id';
 import { EditorPreferencesId } from '../../../src/value-objects/editor-preferences-id';
 import { EditorPreferences } from '../../../src/entities/editor-preferences';
 import { EditorTheme } from '../../../src/value-objects/editor-theme';
-import { DEFAULT_FONT_SIZE, DEFAULT_THEME } from '../../../src/constants/editor-preferences';
+import { PreviewStyle } from '../../../src/value-objects/preview-style';
+import { DEFAULT_FONT_SIZE, DEFAULT_THEME, DEFAULT_PREVIEW_STYLE } from '../../../src/constants/editor-preferences';
 
 const userId = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 
@@ -40,6 +41,22 @@ describe('GetEditorPreferencesUseCase', () => {
     if (result.success) {
       expect(result.value.fontSize).toBe(DEFAULT_FONT_SIZE);
       expect(result.value.theme.value).toBe(DEFAULT_THEME);
+      expect(result.value.previewStyle.value).toBe(DEFAULT_PREVIEW_STYLE);
+    }
+  });
+
+  test('returns existing record previewStyle when set', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const id = EditorPreferencesId.create('660e8400-e29b-41d4-a716-446655440001');
+    const asciidoctor = PreviewStyle.parse('asciidoctor');
+    if (!asciidoctor.success) throw asciidoctor.error;
+    const existing = new EditorPreferences(id, userId, 16, makeTheme('default'), false, undefined, true, asciidoctor.value);
+    await repo.save(existing);
+
+    const result = await new GetEditorPreferencesUseCase(repo).execute(userId);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.previewStyle.value).toBe('asciidoctor');
     }
   });
 

@@ -192,6 +192,34 @@ describe('FileTree', () => {
     await waitFor(() => expect(screen.getByTestId('node-renamed.adoc')).toBeInTheDocument());
   });
 
+  it('moved event relocates a node into the target folder', async () => {
+    const tree = {
+      ...rootNode,
+      children: [
+        { id: 'folder-a', name: 'folder-a', type: 'folder' as const, path: '/folder-a', parentId: 'root-1', children: [] },
+        { id: 'file-1', name: 'doc.adoc', type: 'file' as const, path: '/doc.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(tree);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => screen.getByTestId('node-doc.adoc'));
+
+    const event: FileTreeEventDto = {
+      type: 'moved',
+      fileNodeId: 'file-1',
+      nodeType: 'file',
+      name: 'doc.adoc',
+      path: '/folder-a/doc.adoc',
+      parentId: 'folder-a',
+    };
+    act(() => {
+      (globalThis as unknown as Record<string, (event_: FileTreeEventDto) => void>).__lastOnEvent(event);
+    });
+
+    // The node still exists (relocated under folder-a, which auto-expands), not removed.
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+  });
+
   // C5: network error during initial fetch must not leave the tree stuck on "Loading..."
   it('shows an error state when the initial fetch fails with a network error', async () => {
     globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network down'));

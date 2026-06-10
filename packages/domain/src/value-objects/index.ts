@@ -29,3 +29,5 @@ export { EmailVerificationTokenId } from './email-verification-token-id';
 export { EditorPreferencesId } from './editor-preferences-id';
 export { EditorTheme } from './editor-theme';
 export type { EditorThemeValue } from './editor-theme';
+export { PreviewStyle, isPreviewStyleValue } from './preview-style';
+export type { PreviewStyleValue } from './preview-style';

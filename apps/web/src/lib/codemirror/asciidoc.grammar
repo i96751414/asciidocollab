@@ -17,7 +17,9 @@
   stemAttrToken, admonAttrToken,
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
-  blockTitleToken
+  blockTitleToken,
+  continuationLineToken,
+  paragraphLineToken
 }
 
 block {
@@ -58,13 +60,21 @@ AttributeEntry    { attrEntryToken }
 CommentLine       { commentLineToken }
 AdmonitionParagraph { admonitionLineToken }
 BlockMacro        { blockMacroToken }
-DescriptionList   { descListToken }
+DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
 
 // ── List items ────────────────────────────────────────────────────────────────
-ChecklistItem     { checklistMarker inlineContent nl }
-UnorderedListItem { unorderedMarker inlineContent nl }
-OrderedListItem   { orderedMarker   inlineContent nl }
+// A list item's / description entry's principal text may wrap onto following non-blank
+// lines (no blank line between). Those lines carry no block marker, so the external
+// tokenizer emits a continuationLineToken for them only when the parser is positioned to
+// attach one (Stack.canShift) — keeping plain paragraphs unaffected. Continuation nodes
+// are tagged separately per parent (list vs description) so each inherits the matching
+// highlight colour: highlightTree does not propagate a parent node's tag to child nodes.
+ChecklistItem     { checklistMarker inlineContent nl Continuation* }
+UnorderedListItem { unorderedMarker inlineContent nl Continuation* }
+OrderedListItem   { orderedMarker   inlineContent nl Continuation* }
+Continuation            { continuationLineToken }
+DescriptionContinuation { continuationLineToken }
 
 // ── Delimited blocks ──────────────────────────────────────────────────────────
 ListingBlock     { listingDelim     blockBody listingDelim }
@@ -93,7 +103,12 @@ tableRow    { tableCellMark inlineContent nl }
 blankLine   { nl }
 
 // ── Paragraphs with inline markup ─────────────────────────────────────────────
-Paragraph     { inlineContent nl }
+// A paragraph runs until a blank line: every following non-blank line is consumed as a
+// continuation, even if it looks like a heading or list marker (Asciidoctor only recognises
+// block constructs at a block boundary). The external tokenizer emits paragraphLineToken for
+// those lines, so the markers never start a new block mid-paragraph.
+Paragraph             { inlineContent nl ParagraphContinuation* }
+ParagraphContinuation { paragraphLineToken }
 inlineContent { inline+ }
 
 inline {

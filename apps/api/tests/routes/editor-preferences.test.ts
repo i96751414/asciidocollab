@@ -10,7 +10,7 @@ jest.mock('../../src/plugins/require-auth', () => ({
 const USER_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 function buildTestServer(
-  storedPrefs: { fontSize: number; theme: string; scrollSyncEnabled?: boolean } | null = null
+  storedPrefs: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; previewStyle?: string } | null = null
 ) {
   const app = Fastify();
 
@@ -25,11 +25,13 @@ function buildTestServer(
               fontSize: currentPrefs.fontSize,
               theme: { value: currentPrefs.theme },
               scrollSyncEnabled: currentPrefs.scrollSyncEnabled ?? false,
+              softWrap: true,
+              previewStyle: { value: currentPrefs.previewStyle ?? 'asciidocollab' },
             }
           : null
       ),
-      save: jest.fn().mockImplementation((prefs: { fontSize: number; theme: { value: string } }) => {
-        currentPrefs = { fontSize: prefs.fontSize, theme: prefs.theme.value };
+      save: jest.fn().mockImplementation((prefs: { fontSize: number; theme: { value: string }; previewStyle: { value: string } }) => {
+        currentPrefs = { fontSize: prefs.fontSize, theme: prefs.theme.value, previewStyle: prefs.previewStyle.value };
       }),
     },
   });
@@ -106,6 +108,45 @@ describe('Editor Preferences Routes', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body).toHaveProperty('scrollSyncEnabled', false);
+  });
+
+  test('GET returns previewStyle defaulting to asciidocollab when no record exists', async () => {
+    const app = buildTestServer(null);
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toHaveProperty('previewStyle', 'asciidocollab');
+  });
+
+  test('GET returns the stored previewStyle', async () => {
+    const app = buildTestServer({ fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' });
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toHaveProperty('previewStyle', 'asciidoctor');
+  });
+
+  test('PUT with previewStyle: "asciidoctor" returns 204 and persists', async () => {
+    const app = buildTestServer(null);
+    const putResponse = await app.inject({
+      method: 'PUT',
+      url: '/auth/me/editor-preferences',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fontSize: 14, theme: 'default', previewStyle: 'asciidoctor' }),
+    });
+    expect(putResponse.statusCode).toBe(204);
+
+    const getResponse = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    expect(JSON.parse(getResponse.body)).toHaveProperty('previewStyle', 'asciidoctor');
+  });
+
+  test('PUT with an out-of-enum previewStyle returns 400', async () => {
+    const app = buildTestServer(null);
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/auth/me/editor-preferences',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fontSize: 14, theme: 'default', previewStyle: 'Asciidocollab' }),
+    });
+    expect(response.statusCode).toBe(400);
   });
 
   test('GET returns 401 when unauthenticated', async () => {

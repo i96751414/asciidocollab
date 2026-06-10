@@ -29,11 +29,8 @@ export function useDropUpload(targetFolderId: string, projectId: string, onCompl
     setProgress((previous) => previous.map((item) => (item.id === id ? { ...item, ...update } : item)));
   }, []);
 
-  const onDrop = useCallback(async (items: DataTransferItemList) => {
-    const entries: Array<{ file: File; relativePath: string }> = [];
-    for await (const entry of walkEntries(items)) {
-      entries.push(entry);
-    }
+  const uploadEntries = useCallback(async (entries: Array<{ file: File; relativePath: string }>) => {
+    if (entries.length === 0) return;
 
     const initialProgress: UploadProgress[] = entries.map((entry) => ({
       id: crypto.randomUUID(),
@@ -101,9 +98,31 @@ export function useDropUpload(targetFolderId: string, projectId: string, onCompl
     onComplete?.();
   }, [targetFolderId, projectId, updateItem, onComplete]);
 
+  /** Handles a drag-and-drop of OS files/folders (preserves nested directory structure). */
+  const onDrop = useCallback(async (items: DataTransferItemList) => {
+    const entries: Array<{ file: File; relativePath: string }> = [];
+    for await (const entry of walkEntries(items)) {
+      entries.push(entry);
+    }
+    await uploadEntries(entries);
+  }, [uploadEntries]);
+
+  /**
+   * Handles files chosen from a `<input type="file">`. A directory picker
+   * (`webkitdirectory`) sets `webkitRelativePath` on each file, which preserves the folder
+   * structure; a plain multi-file picker leaves it empty, so files land directly in the target.
+   */
+  const onFiles = useCallback((files: FileList | File[]) => {
+    const entries = [...files].map((file) => ({
+      file,
+      relativePath: file.webkitRelativePath || file.name,
+    }));
+    return uploadEntries(entries);
+  }, [uploadEntries]);
+
   const clearProgress = useCallback(() => {
     setProgress([]);
   }, []);
 
-  return { onDrop, progress, clearProgress };
+  return { onDrop, onFiles, progress, clearProgress };
 }

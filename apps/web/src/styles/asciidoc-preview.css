@@ -6,7 +6,7 @@
    .asciidoc-preview-content.
    ─────────────────────────────────────────────────────────────────────────── */
 
-.asciidoc-preview-content {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) {
   font-family: inherit; /* match the app UI sans (Inter) */
   font-size: 15px;
   line-height: 1.65;
@@ -15,17 +15,17 @@
   margin: 0;
 }
 
-.asciidoc-preview-content > :first-child {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) > :first-child {
   margin-top: 0;
 }
 
 /* ── Headings ─────────────────────────────────────────────────────────────── */
-.asciidoc-preview-content h1,
-.asciidoc-preview-content h2,
-.asciidoc-preview-content h3,
-.asciidoc-preview-content h4,
-.asciidoc-preview-content h5,
-.asciidoc-preview-content h6 {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h1,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h2,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h3,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h4,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h5,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h6 {
   color: hsl(var(--foreground));
   font-weight: 700;
   line-height: 1.25;
@@ -34,61 +34,117 @@
   margin-bottom: 0.5em;
 }
 
-.asciidoc-preview-content h1 { font-size: 2em; letter-spacing: -0.02em; }
-.asciidoc-preview-content h2 { font-size: 1.5em; }
-.asciidoc-preview-content h3 { font-size: 1.25em; }
-.asciidoc-preview-content h4 { font-size: 1.1em; }
-.asciidoc-preview-content h5,
-.asciidoc-preview-content h6 { font-size: 1em; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h1 { font-size: 2em; letter-spacing: -0.02em; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h2 { font-size: 1.5em; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h3 { font-size: 1.25em; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h4 { font-size: 1.1em; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h5,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) h6 { font-size: 1em; }
 
 /* Document header meta (author · revision) rendered under the title. */
-.asciidoc-preview-content .details,
-.asciidoc-preview-content #revnumber,
-.asciidoc-preview-content #author,
-.asciidoc-preview-content #email,
-.asciidoc-preview-content #revdate {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .details,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) #revnumber,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) #author,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) #email,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) #revdate {
   color: hsl(var(--muted-foreground));
   font-size: 0.9em;
 }
-.asciidoc-preview-content .details {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .details {
   margin: -0.25em 0 1.5em;
 }
-.asciidoc-preview-content .details span + span::before {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .details span + span::before {
   content: " · ";
   color: hsl(var(--muted-foreground));
 }
-.asciidoc-preview-content .details br { display: none; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .details br { display: none; }
 
 /* ── Body text ────────────────────────────────────────────────────────────── */
-.asciidoc-preview-content p { margin: 0.85em 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) p { margin: 0.85em 0; }
 
-.asciidoc-preview-content strong { font-weight: 700; }
-.asciidoc-preview-content em { font-style: italic; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) strong { font-weight: 700; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) em { font-style: italic; }
 
-.asciidoc-preview-content a {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) a {
   color: hsl(var(--primary));
   text-decoration: none;
   font-weight: 500;
 }
-.asciidoc-preview-content a:hover { text-decoration: underline; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) a:hover { text-decoration: underline; }
 
 /* ── Lists ────────────────────────────────────────────────────────────────── */
-.asciidoc-preview-content ul,
-.asciidoc-preview-content ol {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ul,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ol {
   padding-left: 1.4em;
   margin: 0.85em 0;
 }
-.asciidoc-preview-content li { margin: 0.3em 0; }
-.asciidoc-preview-content ul li::marker { color: hsl(var(--primary)); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) li { margin: 0.3em 0; }
+/* Tailwind Preflight resets `list-style: none` on all ul/ol; re-establish markers for the
+   brand preview. (The Asciidoctor style restores its own in asciidoctor-style.generated.css.) */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ul { list-style-type: disc; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ol { list-style-type: decimal; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ul li::marker { color: hsl(var(--primary)); }
+
+/* Description lists: the term reads as a bold title in the brand teal, the
+   description sits indented beneath it so the two parts are clearly distinct. */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dl { margin: 0.85em 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dt {
+  font-weight: 600;
+  color: hsl(var(--primary));
+  margin-top: 0.7em;
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dt:first-child { margin-top: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dd {
+  margin: 0.15em 0 0 1.4em;
+  color: hsl(var(--foreground));
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dd > :first-child { margin-top: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) dd > :last-child { margin-bottom: 0; }
+
+/* Checklists: drop the list marker and render a real checkbox in place of Asciidoctor's
+   unicode glyph (the worker swaps the glyph for <span class="checklist-box">). */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ul.checklist {
+  list-style: none;
+  padding-left: 0.1em;
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) ul.checklist li { margin: 0.45em 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .checklist-box {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.55em;
+  vertical-align: -0.18em;
+  border: 1.5px solid hsl(var(--border));
+  border-radius: 4px;
+  background: hsl(var(--card));
+  position: relative;
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .checklist-box--checked {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+/* The tick: a rotated, two-sided border drawn over the filled box. */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .checklist-box--checked::after {
+  content: "";
+  position: absolute;
+  left: 0.33em;
+  top: 0.12em;
+  width: 0.26em;
+  height: 0.52em;
+  border: solid hsl(var(--primary-foreground));
+  border-width: 0 0.15em 0.15em 0;
+  transform: rotate(45deg);
+}
 
 /* ── Inline + block code ──────────────────────────────────────────────────── */
-.asciidoc-preview-content code {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) code {
   font-family: var(--font-mono, ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace);
   font-size: 0.875em;
 }
 
 /* Inline code (not inside a code block). */
-.asciidoc-preview-content :not(pre) > code {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) :not(pre) > code {
   background: hsl(var(--muted));
   color: hsl(var(--foreground));
   padding: 0.12em 0.38em;
@@ -97,11 +153,11 @@
 }
 
 /* Code block cards. */
-.asciidoc-preview-content .listingblock,
-.asciidoc-preview-content .literalblock {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .listingblock,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .literalblock {
   margin: 1.1em 0;
 }
-.asciidoc-preview-content pre {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) pre {
   font-family: var(--font-mono, ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace);
   font-size: 0.85em;
   line-height: 1.55;
@@ -113,7 +169,7 @@
   white-space: pre;
   color: hsl(var(--foreground));
 }
-.asciidoc-preview-content pre code {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) pre code {
   background: none;
   border: none;
   padding: 0;
@@ -122,7 +178,7 @@
 }
 
 /* Block titles (e.g. .Listing caption). */
-.asciidoc-preview-content .title {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .title {
   font-size: 0.85em;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
@@ -130,147 +186,184 @@
 }
 
 /* ── highlight.js syntax tokens (themed via the editor syntax palette) ──────── */
-.asciidoc-preview-content .hljs-comment,
-.asciidoc-preview-content .hljs-quote {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-comment,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-quote {
   color: hsl(var(--syntax-comment));
   font-style: italic;
 }
-.asciidoc-preview-content .hljs-keyword,
-.asciidoc-preview-content .hljs-selector-tag,
-.asciidoc-preview-content .hljs-literal,
-.asciidoc-preview-content .hljs-doctag {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-keyword,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-selector-tag,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-literal,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-doctag {
   color: hsl(var(--syntax-keyword));
 }
-.asciidoc-preview-content .hljs-string,
-.asciidoc-preview-content .hljs-regexp,
-.asciidoc-preview-content .hljs-addition {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-string,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-regexp,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-addition {
   color: hsl(var(--syntax-string));
 }
-.asciidoc-preview-content .hljs-title,
-.asciidoc-preview-content .hljs-title.function_,
-.asciidoc-preview-content .hljs-section,
-.asciidoc-preview-content .hljs-built_in,
-.asciidoc-preview-content .hljs-type,
-.asciidoc-preview-content .hljs-selector-id,
-.asciidoc-preview-content .hljs-selector-class {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-title,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-title.function_,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-section,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-built_in,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-type,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-selector-id,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-selector-class {
   color: hsl(var(--syntax-link));
 }
-.asciidoc-preview-content .hljs-attr,
-.asciidoc-preview-content .hljs-attribute,
-.asciidoc-preview-content .hljs-variable,
-.asciidoc-preview-content .hljs-template-variable,
-.asciidoc-preview-content .hljs-number,
-.asciidoc-preview-content .hljs-symbol,
-.asciidoc-preview-content .hljs-bullet {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-attr,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-attribute,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-variable,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-template-variable,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-number,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-symbol,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-bullet {
   color: hsl(var(--syntax-attr));
 }
-.asciidoc-preview-content .hljs-meta,
-.asciidoc-preview-content .hljs-punctuation,
-.asciidoc-preview-content .hljs-params {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-meta,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-punctuation,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-params {
   color: hsl(var(--syntax-punct));
 }
-.asciidoc-preview-content .hljs-subst { color: hsl(var(--foreground)); }
-.asciidoc-preview-content .hljs-emphasis { font-style: italic; }
-.asciidoc-preview-content .hljs-strong { font-weight: 700; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-subst { color: hsl(var(--foreground)); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-emphasis { font-style: italic; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .hljs-strong { font-weight: 700; }
 
 /* ── Admonition blocks (NOTE / TIP / WARNING / CAUTION / IMPORTANT) ─────────── */
-.asciidoc-preview-content .admonitionblock {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock {
   margin: 1.1em 0;
   border: 1px solid hsl(var(--border));
   border-left-width: 4px;
   border-radius: 8px;
   background: hsl(var(--muted) / 0.5);
 }
-.asciidoc-preview-content .admonitionblock > table {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock > table {
   border: none;
   border-collapse: collapse;
   width: 100%;
   margin: 0;
 }
-.asciidoc-preview-content .admonitionblock td {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td {
   border: none;
   background: none;
   padding: 0.7em 1em;
   vertical-align: top;
 }
-.asciidoc-preview-content .admonitionblock td.icon {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td.icon {
   width: 1px;
   white-space: nowrap;
   padding-right: 0;
 }
-.asciidoc-preview-content .admonitionblock td.icon .title {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td.icon .title {
   margin: 0;
   font-size: 0.72em;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.asciidoc-preview-content .admonitionblock td.content {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td.content {
   color: hsl(var(--foreground));
 }
-.asciidoc-preview-content .admonitionblock td.content > :first-child { margin-top: 0; }
-.asciidoc-preview-content .admonitionblock td.content > :last-child { margin-bottom: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td.content > :first-child { margin-top: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock td.content > :last-child { margin-bottom: 0; }
 
 /* Per-type accents */
-.asciidoc-preview-content .admonitionblock.note {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.note {
   border-left-color: hsl(var(--primary));
   background: hsl(var(--primary) / 0.08);
 }
-.asciidoc-preview-content .admonitionblock.note td.icon .title { color: hsl(var(--primary)); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.note td.icon .title { color: hsl(var(--primary)); }
 
-.asciidoc-preview-content .admonitionblock.tip {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.tip {
   border-left-color: hsl(152 46% 42%);
   background: hsl(152 46% 42% / 0.09);
 }
-.asciidoc-preview-content .admonitionblock.tip td.icon .title { color: hsl(152 46% 38%); }
-.dark .asciidoc-preview-content .admonitionblock.tip td.icon .title { color: hsl(152 44% 62%); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.tip td.icon .title { color: hsl(152 46% 38%); }
+.dark .asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.tip td.icon .title { color: hsl(152 44% 62%); }
 
-.asciidoc-preview-content .admonitionblock.important {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.important {
   border-left-color: hsl(280 40% 56%);
   background: hsl(280 40% 56% / 0.1);
 }
-.asciidoc-preview-content .admonitionblock.important td.icon .title { color: hsl(280 40% 50%); }
-.dark .asciidoc-preview-content .admonitionblock.important td.icon .title { color: hsl(280 46% 74%); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.important td.icon .title { color: hsl(280 40% 50%); }
+.dark .asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.important td.icon .title { color: hsl(280 46% 74%); }
 
-.asciidoc-preview-content .admonitionblock.warning {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.warning {
   border-left-color: hsl(34 88% 48%);
   background: hsl(34 88% 48% / 0.1);
 }
-.asciidoc-preview-content .admonitionblock.warning td.icon .title { color: hsl(34 80% 42%); }
-.dark .asciidoc-preview-content .admonitionblock.warning td.icon .title { color: hsl(38 90% 62%); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.warning td.icon .title { color: hsl(34 80% 42%); }
+.dark .asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.warning td.icon .title { color: hsl(38 90% 62%); }
 
-.asciidoc-preview-content .admonitionblock.caution {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.caution {
   border-left-color: hsl(0 72% 50%);
   background: hsl(0 72% 50% / 0.09);
 }
-.asciidoc-preview-content .admonitionblock.caution td.icon .title { color: hsl(0 70% 46%); }
-.dark .asciidoc-preview-content .admonitionblock.caution td.icon .title { color: hsl(0 75% 68%); }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.caution td.icon .title { color: hsl(0 70% 46%); }
+.dark .asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .admonitionblock.caution td.icon .title { color: hsl(0 75% 68%); }
 
 /* ── Tables ───────────────────────────────────────────────────────────────── */
 /* Asciidoctor data tables carry .tableblock; admonition layout tables do not,
    so this targets data tables only without a fragile :not(... descendant)
    selector (which can drop the whole rule group on stricter parsers). */
-.asciidoc-preview-content table.tableblock {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) table.tableblock {
   border-collapse: collapse;
   width: 100%;
   margin: 1.1em 0;
   font-size: 0.92em;
 }
-.asciidoc-preview-content table.tableblock th,
-.asciidoc-preview-content table.tableblock td {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) table.tableblock th,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) table.tableblock td {
   border: 1px solid hsl(var(--border));
   padding: 0.5em 0.7em;
   text-align: left;
 }
-.asciidoc-preview-content table.tableblock thead th {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) table.tableblock thead th {
   background: hsl(var(--muted));
   color: hsl(var(--foreground));
   font-weight: 600;
 }
 
+/* ── Example & sidebar blocks ─────────────────────────────────────────────── */
+/* Example block: a bordered card with its "Example N." caption on top. */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .exampleblock {
+  margin: 1.1em 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted) / 0.5);
+  padding: 0.9em 1.1em;
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .exampleblock > .title {
+  margin: 0 0 0.5em;
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: hsl(var(--primary));
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .exampleblock > .content > :first-child { margin-top: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .exampleblock > .content > :last-child { margin-bottom: 0; }
+
+/* Sidebar block: a filled card that sets supplementary content apart, title centred. */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .sidebarblock {
+  margin: 1.1em 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--secondary));
+  padding: 1em 1.2em;
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .sidebarblock > .content > .title {
+  margin: 0 0 0.5em;
+  font-size: 1em;
+  font-weight: 700;
+  text-align: center;
+  color: hsl(var(--foreground));
+}
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .sidebarblock > .content > :first-child { margin-top: 0; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .sidebarblock > .content > :last-child { margin-bottom: 0; }
+
 /* ── Blockquote ───────────────────────────────────────────────────────────── */
-.asciidoc-preview-content blockquote,
-.asciidoc-preview-content .quoteblock blockquote {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) blockquote,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .quoteblock blockquote {
   border-left: 3px solid hsl(var(--border));
   margin: 1.1em 0;
   padding: 0.3em 1em;
@@ -278,15 +371,51 @@
 }
 
 /* ── Horizontal rule ──────────────────────────────────────────────────────── */
-.asciidoc-preview-content hr {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) hr {
   border: none;
   border-top: 1px solid hsl(var(--border));
   margin: 1.8em 0;
 }
 
 /* ── Images ───────────────────────────────────────────────────────────────── */
-.asciidoc-preview-content img {
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) img {
   max-width: 100%;
   height: auto;
   border-radius: 6px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Asciidoctor preview style.
+
+   The vendored, scoped stylesheet (asciidoctor-style.generated.css) already provides
+   the full Asciidoctor look — including the fixed light surface (white background, dark
+   text) which wins over the brand's token-driven colours by specificity (the
+   [data-preview-style] attribute), so the surface stays light regardless of app dark mode.
+
+   The only thing we add here is the self-hosted fonts: the vendored stylesheet references
+   "Open Sans" / "Noto Serif" / "Droid Sans Mono" by literal name, but next/font registers
+   those families under generated names exposed via CSS variables. These rules re-point the
+   font-family declarations at those variables. They are imported after the generated file,
+   so they win on equal specificity; the literal names remain as graceful fallbacks.
+   ─────────────────────────────────────────────────────────────────────────── */
+.asciidoc-preview-content[data-preview-style="asciidoctor"] {
+  font-family: var(--font-asciidoctor-serif), "Noto Serif", "DejaVu Serif", serif;
+}
+.asciidoc-preview-content[data-preview-style="asciidoctor"] :is(h1, h2, h3, h4, h5, h6),
+.asciidoc-preview-content[data-preview-style="asciidoctor"] #toctitle,
+.asciidoc-preview-content[data-preview-style="asciidoctor"] .title {
+  font-family: var(--font-asciidoctor-sans), "Open Sans", "DejaVu Sans", sans-serif;
+}
+.asciidoc-preview-content[data-preview-style="asciidoctor"] :is(code, kbd, pre, samp) {
+  font-family: var(--font-asciidoctor-mono), "Ubuntu Mono", "DejaVu Sans Mono", monospace;
+}
+
+/* The worker replaces Asciidoctor's leading checklist glyph with <span class="checklist-box">.
+   Reproduce the original inline glyphs here so the faithful Asciidoctor style is unchanged:
+   ✓ (U+2713) when checked, ❏ (U+274F) otherwise, each followed by a non-breaking space. */
+.asciidoc-preview-content[data-preview-style="asciidoctor"] .checklist-box::before {
+  content: "\274F\00A0";
+}
+.asciidoc-preview-content[data-preview-style="asciidoctor"] .checklist-box--checked::before {
+  content: "\2713\00A0";
 }
