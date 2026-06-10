@@ -13,6 +13,7 @@ export const COLON = 58;
 export const PIPE = 124;
 export const DOT = 46;
 export const LBRACK = 91;
+export const SEMICOLON = 59;
 
 /** Checks whether the current tokenizer position is at the start of a line. */
 export function isLineStart(input: InputStream): boolean {
@@ -113,7 +114,17 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
         const after = input.peek(count);
         if (count >= 4 && (after === NEWLINE || after === -1)) { consumeToEOL(input); input.acceptToken(terms['listingDelim']); return; }
         if (count === 2 && (after === NEWLINE || after === -1)) { consumeToEOL(input); input.acceptToken(terms['openDelim']); return; }
-        if (count === 1 && after === SPACE) { input.advance(); input.advance(); input.acceptToken(terms['unorderedMarker']); return; }
+        if (count === 1 && after === SPACE) {
+          if (input.peek(count + 1) === LBRACK) {
+            const boxChar = input.peek(count + 2);
+            if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) &&
+                input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
+              for (let index = 0; index < count + 5; index++) input.advance();
+              input.acceptToken(terms['checklistMarker']); return;
+            }
+          }
+          input.advance(); input.advance(); input.acceptToken(terms['unorderedMarker']); return;
+        }
         return;
       }
 
@@ -169,7 +180,11 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
 
       if (ch === DOT) {
         let count = 0; while (input.peek(count) === DOT) count++;
-        if (input.peek(count) === SPACE) {
+        const afterDots = input.peek(count);
+        if (count >= 4 && (afterDots === NEWLINE || afterDots === -1)) {
+          consumeToEOL(input); input.acceptToken(terms['literalDelim']); return;
+        }
+        if (afterDots === SPACE) {
           for (let index = 0; index <= count; index++) input.advance();
           input.acceptToken(terms['orderedMarker']); return;
         }
@@ -215,13 +230,26 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
           }
           consumeToEOL(input); input.acceptToken(terms['descListToken']); return;
         }
+
+        if (nameLength > 0 && input.peek(nameLength) === SEMICOLON && input.peek(nameLength + 1) === SEMICOLON) {
+          consumeToEOL(input); input.acceptToken(terms['descListToken']); return;
+        }
       }
 
       if (ch >= 48 && ch <= 57) {
+        let digits = 0;
+        while (digits < 200 && input.peek(digits) >= 48 && input.peek(digits) <= 57) digits++;
+        if (input.peek(digits) === DOT && input.peek(digits + 1) === SPACE) {
+          for (let index = 0; index <= digits + 1; index++) input.advance();
+          input.acceptToken(terms['orderedMarker']); return;
+        }
         let offset = 1;
         while (offset < 200) {
           const code = input.peek(offset);
           if (code === COLON && input.peek(offset + 1) === COLON) {
+            consumeToEOL(input); input.acceptToken(terms['descListToken']); return;
+          }
+          if (code === SEMICOLON && input.peek(offset + 1) === SEMICOLON) {
             consumeToEOL(input); input.acceptToken(terms['descListToken']); return;
           }
           if (code === NEWLINE || code === -1 || code === SPACE) break;

@@ -187,6 +187,28 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
+  describe('Literal block', () => {
+    test('recognises .... delimited literal block', () => {
+      const tree = parseDocument('....\nliteral text\n....\n');
+      expect(hasNode(tree, 'LiteralBlock')).toBe(true);
+    });
+
+    test('a marker-looking line inside the block is enclosed by the LiteralBlock (FR-008)', () => {
+      // '....\n' is offsets 0-4; '* x' starts at offset 5. The bullet line must resolve to an
+      // ancestor LiteralBlock and must NOT produce a sibling UnorderedListItem — this is what
+      // makes the command's ancestor-walk suppression sound.
+      const tree = parseDocument('....\n* x\n....\n');
+      expect(nodeAt(tree, 'LiteralBlock', 6)).toBe(true);
+      expect(hasNode(tree, 'UnorderedListItem')).toBe(false);
+    });
+
+    test('.... followed by a space is still an ordered list item (depth 4), not a literal block', () => {
+      const tree = parseDocument('.... item\n');
+      expect(hasNode(tree, 'OrderedListItem')).toBe(true);
+      expect(hasNode(tree, 'LiteralBlock')).toBe(false);
+    });
+  });
+
   describe('Sidebar block', () => {
     test('recognises **** delimited sidebar block', () => {
       const tree = parseDocument('****\ncontent\n****\n');
@@ -345,6 +367,21 @@ describe('AsciiDoc Lezer Grammar', () => {
       const tree = parseDocument('.. Nested item\n');
       expect(hasNode(tree, 'OrderedListItem')).toBe(true);
     });
+
+    test('recognises explicit-number `1.` ordered list item (US2)', () => {
+      const tree = parseDocument('1. Step\n');
+      expect(hasNode(tree, 'OrderedListItem')).toBe(true);
+    });
+
+    test('recognises multi-digit explicit `12.` ordered list item (US2)', () => {
+      const tree = parseDocument('12. Step\n');
+      expect(hasNode(tree, 'OrderedListItem')).toBe(true);
+    });
+
+    test('`....` line-only remains a LiteralBlock, not ordered (US2)', () => {
+      const tree = parseDocument('....\nx\n....\n');
+      expect(hasNode(tree, 'LiteralBlock')).toBe(true);
+    });
   });
 
   describe('UnorderedListItem', () => {
@@ -374,6 +411,16 @@ describe('AsciiDoc Lezer Grammar', () => {
       const tree = parseDocument('* [X] Done task\n');
       expect(hasNode(tree, 'ChecklistItem')).toBe(true);
     });
+
+    test('recognises dash `- [ ]` unchecked checklist item (US3)', () => {
+      const tree = parseDocument('- [ ] task\n');
+      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    });
+
+    test('recognises dash `- [x]` checked checklist item (US3)', () => {
+      const tree = parseDocument('- [x] task\n');
+      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    });
   });
 
   describe('DescriptionList', () => {
@@ -384,6 +431,11 @@ describe('AsciiDoc Lezer Grammar', () => {
 
     test('recognises term::: triple-colon description list', () => {
       const tree = parseDocument('term::: definition\n');
+      expect(hasNode(tree, 'DescriptionList')).toBe(true);
+    });
+
+    test('recognises `Term;; Detail` semicolon description list (US4)', () => {
+      const tree = parseDocument('Term;; Detail\n');
       expect(hasNode(tree, 'DescriptionList')).toBe(true);
     });
   });

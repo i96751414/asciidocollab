@@ -24,6 +24,7 @@ import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
+import { listContinuationKeymap } from '@/lib/codemirror/asciidoc-list-continuation';
 
 /**
  * Clamps a remembered 1-based line number to the document's valid range — the FR-005 "closest
@@ -169,6 +170,9 @@ export function useEditorMount({
         syntaxHighlighting(defaultHighlightStyle),
         // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
         ...(collabActive ? [] : [history()]),
+        // List auto-continuation Enter command — registered before defaultKeymap (and at
+        // Prec.high) so it handles list lines first and all other lines fall through (FR-011).
+        listContinuationKeymap,
         keymap.of([...defaultKeymap, ...(collabActive ? [] : historyKeymap), ...searchKeymap]),
         search({ top: true }),
         // readOnly blocks user input but not programmatic Yjs-applied updates, so observers

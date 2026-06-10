@@ -13,7 +13,7 @@
   admonitionLineToken,
   blockMacroToken,
   descListToken,
-  listingDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
+  listingDelim, literalDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
   stemAttrToken, admonAttrToken,
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
@@ -28,6 +28,7 @@ block {
   CommentLine |
   StemBlock |
   ListingBlock |
+  LiteralBlock |
   ExampleBlock |
   SidebarBlock |
   QuoteBlock |
@@ -67,6 +68,7 @@ OrderedListItem   { orderedMarker   inlineContent nl }
 
 // ── Delimited blocks ──────────────────────────────────────────────────────────
 ListingBlock     { listingDelim     blockBody listingDelim }
+LiteralBlock     { literalDelim     blockBody literalDelim }
 ExampleBlock     { exampleDelim     blockBody exampleDelim }
 SidebarBlock     { sidebarDelim     blockBody sidebarDelim }
 QuoteBlock       { quoteDelim       blockBody quoteDelim }

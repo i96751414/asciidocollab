@@ -13,6 +13,7 @@ import {
   blockMacroToken,
   descListToken,
   listingDelim,
+  literalDelim,
   exampleDelim,
   sidebarDelim,
   quoteDelim,
@@ -30,7 +31,7 @@ import {
 } from './asciidoc-parser.terms.js';
 
 const NEWLINE = 10, SPACE = 32, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
-const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91;
+const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, SEMICOLON = 59;
 
 function isLineStart(input: { pos: number; peek: (offset: number) => number }): boolean {
   return input.pos === 0 || input.peek(-1) === NEWLINE;
@@ -90,7 +91,19 @@ export const blockTokenizer = new ExternalTokenizer(
       const afterDash = input.peek(count);
       if (count >= 4 && (afterDash === NEWLINE || afterDash === -1)) { consumeToEOL(input); input.acceptToken(listingDelim); return; }
       if (count === 2 && (afterDash === NEWLINE || afterDash === -1)) { consumeToEOL(input); input.acceptToken(openDelim); return; }
-      if (count === 1 && afterDash === SPACE) { input.advance(); input.advance(); input.acceptToken(unorderedMarker); return; }
+      if (count === 1 && afterDash === SPACE) {
+        // Dash checklist `- [ ] ` — checked before the plain dash bullet (Asciidoctor allows
+        // checkboxes on `-` as well as `*`); produces the existing ChecklistItem node.
+        if (input.peek(count + 1) === LBRACK) {
+          const boxChar = input.peek(count + 2);
+          if ((boxChar === SPACE || boxChar === 120 || boxChar === 88) &&
+              input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
+            for (let index = 0; index < count + 5; index++) input.advance();
+            input.acceptToken(checklistMarker); return;
+          }
+        }
+        input.advance(); input.advance(); input.acceptToken(unorderedMarker); return;
+      }
       return;
     }
 
@@ -166,7 +179,13 @@ export const blockTokenizer = new ExternalTokenizer(
     if (ch === DOT) {
       let count = 0;
       while (input.peek(count) === DOT) count++;
-      if (input.peek(count) === SPACE) {
+      const afterDots = input.peek(count);
+      // Literal block delimiter: 4+ dots alone on a line (`....`). Checked before the ordered
+      // marker so `.... ` (4 dots + space) still tokenizes as an ordered depth-4 item (FR-008).
+      if (count >= 4 && (afterDots === NEWLINE || afterDots === -1)) {
+        consumeToEOL(input); input.acceptToken(literalDelim); return;
+      }
+      if (afterDots === SPACE) {
         for (let index = 0; index <= count; index++) input.advance();
         input.acceptToken(orderedMarker); return;
       }
@@ -245,14 +264,30 @@ export const blockTokenizer = new ExternalTokenizer(
         }
         consumeToEOL(input); input.acceptToken(descListToken); return;
       }
+
+      // `;;` description-list term separator (research D3).
+      if (nameLength > 0 && input.peek(nameLength) === SEMICOLON && input.peek(nameLength + 1) === SEMICOLON) {
+        consumeToEOL(input); input.acceptToken(descListToken); return;
+      }
     }
 
-    // ── Digit-starting description lists ───────────────────────────────────────
+    // ── Digit-starting: explicit-number ordered list, then description lists ────
     if (ch >= 48 && ch <= 57) {
+      // Explicit-number ordered marker `\d+. ` (digits + dot + space) — emits the existing
+      // OrderedListItem node so `1.` is highlighted like implicit `.` (research D3).
+      let digits = 0;
+      while (digits < 200 && input.peek(digits) >= 48 && input.peek(digits) <= 57) digits++;
+      if (input.peek(digits) === DOT && input.peek(digits + 1) === SPACE) {
+        for (let index = 0; index <= digits + 1; index++) input.advance();
+        input.acceptToken(orderedMarker); return;
+      }
       let offset = 1;
       while (offset < 200) {
         const code = input.peek(offset);
         if (code === COLON && input.peek(offset + 1) === COLON) {
+          consumeToEOL(input); input.acceptToken(descListToken); return;
+        }
+        if (code === SEMICOLON && input.peek(offset + 1) === SEMICOLON) {
           consumeToEOL(input); input.acceptToken(descListToken); return;
         }
         if (code === NEWLINE || code === -1 || code === SPACE) break;
