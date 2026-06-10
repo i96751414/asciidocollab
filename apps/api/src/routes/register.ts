@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, RegisterUseCase, RegistrationClosedError } from '@asciidocollab/domain';
 import { buildPasswordPolicy } from '../services/password-policy';
+import { requestContextFrom } from '../lib/request-context';
+import { requestLogger } from '../lib/request-logger';
 import '../types/session';
 import type { RegisterDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -37,9 +39,11 @@ export async function registerRoute(app: FastifyInstance): Promise<void> {
       request.server.services.passwordHasher,
       request.server.services.tokenGenerator,
       request.server.services.emailVerificationNotifier,
+      request.server.repos.auditLog,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(Email.create(email), displayName, password);
+    const result = await useCase.execute(Email.create(email), displayName, password, requestContextFrom(request));
 
     if (!result.success) {
       if (result.error instanceof RegistrationClosedError) {

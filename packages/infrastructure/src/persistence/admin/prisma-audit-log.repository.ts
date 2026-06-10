@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { AuditLog, AuditLogId, UserId, ProjectId, AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from '@asciidocollab/domain';
+import { dateRangeFilter, paginationSkip } from './prisma-query-helpers';
 
 /**
  * Prisma-backed implementation of the `AuditLogRepository` interface.
@@ -49,15 +50,12 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
   /** Returns filtered, paginated audit log entries ordered by timestamp descending. */
   async findWithFilters(filters: AuditLogFilters, pagination: PaginationOptions): Promise<PagedResult<AuditLog>> {
     const where: Prisma.AuditLogWhereInput = {};
-    if (filters.fromDate || filters.toDate) {
-      where.timestamp = {};
-      if (filters.fromDate) where.timestamp.gte = filters.fromDate;
-      if (filters.toDate) where.timestamp.lte = filters.toDate;
-    }
+    const timestampRange = dateRangeFilter(filters.fromDate, filters.toDate);
+    if (timestampRange) where.timestamp = timestampRange;
     if (filters.userId) where.userId = filters.userId;
     if (filters.actionType) where.action = filters.actionType;
 
-    const skip = (pagination.page - 1) * pagination.limit;
+    const skip = paginationSkip(pagination.page, pagination.limit);
     const [total, records] = await this.prisma.$transaction([
       this.prisma.auditLog.count({ where }),
       this.prisma.auditLog.findMany({
@@ -90,10 +88,9 @@ type AuditLogRecord = {
 };
 
 function toDomainAuditLog(record: AuditLogRecord): AuditLog | null {
-  if (!record.userId) return null;
   return new AuditLog(
     AuditLogId.create(record.id),
-    UserId.create(record.userId),
+    record.userId ? UserId.create(record.userId) : null,
     record.projectId ? ProjectId.create(record.projectId) : null,
     record.action,
     record.resourceType,

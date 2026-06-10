@@ -1,8 +1,6 @@
-import { AuditLog } from '../../entities/audit-log';
 import { UserId } from '../../value-objects/user-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
 import { ProjectId } from '../../value-objects/project-id';
-import { AuditLogId } from '../../value-objects/audit-log-id';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
@@ -15,7 +13,9 @@ import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../../errors/cannot-delete-root-folder';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
-import { randomUUID } from 'crypto';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 
 /**
  * Deletes a file or folder (and its descendants) from a project.
@@ -31,6 +31,7 @@ export class DeleteFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly yjsStateStore?: YjsStateStore,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -48,9 +49,18 @@ export class DeleteFileUseCase {
     actorId: UserId,
     fileNodeId: FileNodeId,
     projectId: ProjectId,
+    context?: RequestContext,
   ): Promise<Result<void, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'FileNode',
+        resourceId: fileNodeId.value,
+        reason: 'not_a_project_member',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -96,15 +106,14 @@ export class DeleteFileUseCase {
       }
     }
 
-    const auditLog = new AuditLog(
-      AuditLogId.create(randomUUID()),
+    await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
-      'file.deleted',
-      'FileNode',
-      fileNodeId.value,
-    );
-    await this.auditLogRepo.save(auditLog);
+      action: 'file.deleted',
+      resourceType: 'FileNode',
+      resourceId: fileNodeId.value,
+      context,
+    }, this.logger);
 
     return { success: true, value: undefined };
   }

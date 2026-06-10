@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { ConfirmEmailChangeUseCase } from '@asciidocollab/domain';
+import { requestContextFrom } from '../lib/request-context';
+import { requestLogger } from '../lib/request-logger';
 import type { AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /** Registers the email confirm route on the Fastify instance. */
@@ -27,9 +29,11 @@ export async function emailConfirmRoute(app: FastifyInstance): Promise<void> {
       request.server.repos.emailChangeToken,
       request.server.repos.user,
       request.server.services.tokenGenerator,
+      request.server.repos.auditLog,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(token);
+    const result = await useCase.execute(token, requestContextFrom(request));
 
     if (!result.success) {
       return reply.status(400).send({

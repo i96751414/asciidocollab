@@ -22,7 +22,7 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
   /** Returns all audit log entries matching the given user ID. */
   async findByUserId(userId: UserId): Promise<AuditLog[]> {
     return [...this.storage.values()].filter(
-      (log) => log.userId.value === userId.value,
+      (log) => log.userId?.value === userId.value,
     );
   }
 
@@ -42,7 +42,7 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
       items = items.filter((log) => log.timestamp <= filters.toDate!);
     }
     if (filters.userId) {
-      items = items.filter((log) => log.userId.value === filters.userId);
+      items = items.filter((log) => log.userId?.value === filters.userId);
     }
     if (filters.actionType) {
       items = items.filter((log) => log.action === filters.actionType);

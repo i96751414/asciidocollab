@@ -8,6 +8,8 @@ import {
 } from '@asciidocollab/domain';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
+import { requestContextFrom } from '../../lib/request-context';
+import { requestLogger } from '../../lib/request-logger';
 import { sendFileTreeError, toNodeType } from './file-tree-errors';
 
 type PatchBody = { name?: string; parentId?: string };
@@ -39,17 +41,20 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.repos.fileNode,
           request.server.repos.auditLog,
           request.server.stores.fileStore,
+          requestLogger(request),
         );
-        const renameResult = await renameUseCase.execute(actorId, fileNodeId, name, projectId);
+        const renameResult = await renameUseCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!renameResult.success) return sendFileTreeError(reply, renameResult.error);
 
         const moveUseCase = new MoveFileUseCase(
           request.server.repos.projectMember,
           request.server.repos.fileNode,
           request.server.stores.fileStore,
+          request.server.repos.auditLog,
+          requestLogger(request),
         );
         const newParentId = FileNodeId.create(parentId);
-        const moveResult = await moveUseCase.execute(actorId, projectId, fileNodeId, newParentId);
+        const moveResult = await moveUseCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));
         if (!moveResult.success) return sendFileTreeError(reply, moveResult.error);
 
         const updatedNode = await request.server.repos.fileNode.findById(fileNodeId);
@@ -71,8 +76,9 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.repos.fileNode,
           request.server.repos.auditLog,
           request.server.stores.fileStore,
+          requestLogger(request),
         );
-        const result = await useCase.execute(actorId, fileNodeId, name, projectId);
+        const result = await useCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!result.success) return sendFileTreeError(reply, result.error);
         const renamedNode = await request.server.repos.fileNode.findById(fileNodeId);
         if (renamedNode) {
@@ -85,9 +91,11 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.repos.projectMember,
           request.server.repos.fileNode,
           request.server.stores.fileStore,
+          request.server.repos.auditLog,
+          requestLogger(request),
         );
         const newParentId = FileNodeId.create(parentId);
-        const result = await useCase.execute(actorId, projectId, fileNodeId, newParentId);
+        const result = await useCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));
         if (!result.success) return sendFileTreeError(reply, result.error);
         const movedNode = await request.server.repos.fileNode.findById(fileNodeId);
         if (movedNode) {

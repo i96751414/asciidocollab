@@ -187,6 +187,28 @@ model AuditLog {
   @@index([timestamp(sort: Desc), userId, action])
 }
 
+// Coalesced, retention-bounded telemetry for account-security attempts that must stay
+// account-existence neutral — failed sign-ins and password-reset requests (feature 025).
+// Deliberately separate from AuditLog: bounded volume via coalescing, account-existence
+// neutral, no FK to User (attempts may target non-existent accounts), purged on a schedule.
+// `eventType` discriminates the attempt kind so both share one store, purge, and policy.
+model AuthAttemptTelemetry {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventType      String // 'failed_sign_in' | 'password_reset_request'
+  identifier     String
+  ipAddress      String // NOT NULL — sentinel "unknown" when origin is unavailable (keeps the coalescing key total)
+  userAgent      String?
+  windowStart    DateTime
+  attemptCount   Int      @default(1)
+  firstAttemptAt DateTime
+  lastAttemptAt  DateTime
+
+  @@unique([eventType, identifier, ipAddress, windowStart])
+  @@index([windowStart])
+  @@index([eventType, identifier])
+  @@index([eventType, ipAddress, windowStart])
+}
+
 model Session {
   id        String   @id @default(uuid())
   userId    String?  @db.Uuid

@@ -7,6 +7,8 @@ import {
 } from '@asciidocollab/domain';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
+import { requestContextFrom } from '../../lib/request-context';
+import { requestLogger } from '../../lib/request-logger';
 import { sendFileTreeError, toNodeType } from './file-tree-errors';
 
 /** Registers DELETE /projects/:projectId/files/:fileNodeId. */
@@ -25,10 +27,11 @@ export async function fileTreeDeleteRoutes(app: FastifyInstance): Promise<void> 
         request.server.repos.auditLog,
         request.server.stores.fileStore,
         request.server.stores.yjsStateStore,
+        requestLogger(request),
       );
 
       const fileNodeBeforeDelete = await request.server.repos.fileNode.findById(fileNodeId);
-      const result = await useCase.execute(actorId, fileNodeId, projectId);
+      const result = await useCase.execute(actorId, fileNodeId, projectId, requestContextFrom(request));
       if (!result.success) {
         return sendFileTreeError(reply, result.error);
       }

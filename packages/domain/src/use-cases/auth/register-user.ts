@@ -7,6 +7,11 @@ import { EmailVerificationTokenId } from '../../value-objects/email-verification
 import { UserRepository } from '../../ports/user/user.repository';
 import { SystemSettingRepository } from '../../ports/admin/system-setting.repository';
 import { EmailVerificationTokenRepository } from '../../ports/auth-tokens/email-verification-token.repository';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuditSuccess } from '../audit-recording';
+import { AUDIT_AUTH_REGISTERED } from '../../audit-actions';
 import { DomainError } from '../../errors/domain-error';
 import { ValidationError } from '../../errors/validation-error';
 import { RegistrationClosedError } from '../../errors/registration-closed';
@@ -50,6 +55,8 @@ export class RegisterUseCase {
     private readonly passwordHasher: PasswordHasher,
     private readonly tokenGenerator: TokenGenerator,
     private readonly emailVerificationNotifier: EmailVerificationNotifier,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -64,12 +71,13 @@ export class RegisterUseCase {
     email: Email,
     displayName: string,
     password: string,
+    context?: RequestContext,
   ): Promise<Result<RegisterUserResult, DomainError>> {
     const hasAny = await this.userRepo.hasAny();
 
     if (!hasAny) {
       // First-user path: create admin, auto-verified, auto-logged-in
-      return this.registerFirstUser(email, displayName, password);
+      return this.registerFirstUser(email, displayName, password, context);
     }
 
     // Check open registration setting
@@ -84,13 +92,14 @@ export class RegisterUseCase {
       return { success: true, value: { userId: existing.id, isFirstUser: false, emailSent: false } };
     }
 
-    return this.registerSelfUser(email, displayName, password);
+    return this.registerSelfUser(email, displayName, password, context);
   }
 
   private async registerFirstUser(
     email: Email,
     displayName: string,
     password: string,
+    context?: RequestContext,
   ): Promise<Result<RegisterUserResult, DomainError>> {
     const validationError = validatePassword(password, this.passwordPolicy);
     if (validationError) return { success: false, error: new ValidationError(validationError) };
@@ -130,6 +139,8 @@ export class RegisterUseCase {
       throw saveError;
     }
 
+    await this.recordRegistered(userId, context);
+
     return { success: true, value: { userId, isFirstUser: true, emailSent: false } };
   }
 
@@ -137,6 +148,7 @@ export class RegisterUseCase {
     email: Email,
     displayName: string,
     password: string,
+    context?: RequestContext,
   ): Promise<Result<RegisterUserResult, DomainError>> {
     const validationError = validatePassword(password, this.passwordPolicy);
     if (validationError) return { success: false, error: new ValidationError(validationError) };
@@ -189,7 +201,30 @@ export class RegisterUseCase {
       // Non-fatal: user is persisted and can trigger a resend from /verify-email-required.
     }
 
+    await this.recordRegistered(userId, context);
+
     return { success: true, value: { userId, isFirstUser: false, emailSent: true } };
+  }
+
+  /**
+   * Records the account-creation audit event. Only called when a user is actually
+   * persisted, so the write is best-effort (FR-021): the account already exists and
+   * cannot be un-created, so an audit-store failure must never turn a successful
+   * registration into an error the caller cannot retry.
+   */
+  private async recordRegistered(userId: UserId, context?: RequestContext): Promise<void> {
+    await recordAuditSuccess(
+      this.auditLogRepo,
+      {
+        actorId: userId,
+        projectId: null,
+        action: AUDIT_AUTH_REGISTERED,
+        resourceType: 'User',
+        resourceId: userId.value,
+        context,
+      },
+      this.logger,
+    );
   }
 }
 

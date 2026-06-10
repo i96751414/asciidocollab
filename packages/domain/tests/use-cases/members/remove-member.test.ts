@@ -50,6 +50,31 @@ describe('RemoveMemberUseCase', () => {
     expect(logs.some((l) => l.action === 'member.removed')).toBe(true);
   });
 
+  test('member.removed records request origin in audit metadata when context is provided', async () => {
+    await useCase.execute(ownerId, projectId, editorId, {
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    const log = logs.find((l) => l.action === 'member.removed');
+    expect(log!.metadata.origin).toEqual({ ipAddress: '203.0.113.7', userAgent: 'jest-agent' });
+  });
+
+  test('removing last owner records an authz.denied audit log with reason last_owner', async () => {
+    const result = await useCase.execute(ownerId, projectId, ownerId, {
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(CannotRemoveLastOwnerError);
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    const log = logs.find((l) => l.action === 'authz.denied');
+    expect(log).toBeDefined();
+    expect(log!.resourceType).toBe('ProjectMember');
+    expect(log!.resourceId).toBe(ownerId.value);
+    expect(log!.metadata.reason).toBe('last_owner');
+  });
+
   test('owner removes a viewer - succeeds', async () => {
     const result = await useCase.execute(ownerId, projectId, viewerId);
     expect(result.success).toBe(true);
@@ -87,9 +112,32 @@ describe('RemoveMemberUseCase', () => {
     if (!result.success) expect(result.error).toBeInstanceOf(PermissionDeniedError);
   });
 
+  test('non-owner denial records an authz.denied audit log', async () => {
+    const result = await useCase.execute(editorId, projectId, viewerId, {
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+    expect(result.success).toBe(false);
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    const log = logs.find((l) => l.action === 'authz.denied');
+    expect(log).toBeDefined();
+    expect(log!.resourceType).toBe('ProjectMember');
+    expect(log!.resourceId).toBe(viewerId.value);
+    expect(log!.metadata.reason).toBe('not_an_owner');
+  });
+
   test('target not a member returns MemberNotFoundError', async () => {
     const result = await useCase.execute(ownerId, projectId, nonMemberId);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBeInstanceOf(MemberNotFoundError);
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    useCase = new RemoveMemberUseCase(projectRepo, projectMemberRepo, throwingAudit, logger);
+    const result = await useCase.execute(ownerId, projectId, editorId);
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });

@@ -45,8 +45,8 @@ describe('POST /auth/password/reset (unit)', () => {
   it('returns 200 on successful password reset', async () => {
     jest.spyOn(ResetPasswordUseCase.prototype, 'execute').mockResolvedValue({
       success: true,
-      value: undefined,
-    });
+      value: { userId: { value: '550e8400-e29b-41d4-a716-446655440099' } },
+    } as never);
 
     const app = buildTestServer();
     const response = await app.inject({

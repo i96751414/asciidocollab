@@ -12,6 +12,7 @@ import {
   PrismaTemplateRepository,
   PrismaAssetRepository,
   PrismaAuditLogRepository,
+  PrismaAuthAttemptTelemetryRepository,
   PrismaPasswordResetTokenRepository,
   PrismaEmailChangeTokenRepository,
   PrismaUserInvitationRepository,
@@ -46,6 +47,7 @@ import {
   TemplateRepository,
   AssetRepository,
   AuditLogRepository,
+  AuthAttemptTelemetryRepository,
   PasswordResetTokenRepository,
   EmailChangeTokenRepository,
   UserInvitationRepository,
@@ -103,6 +105,7 @@ import { openRegistrationStatusRoute } from './routes/open-registration-status';
 import { adminSettingsRoute } from './routes/admin/settings';
 import { accessDeniedRoute } from './routes/admin/access-denied';
 import { auditLogsRoute } from './routes/admin/audit-logs';
+import { failedSignInsRoute } from './routes/admin/failed-sign-ins';
 import { projectDownloadRoute } from './routes/projects/download';
 import { fileDownloadRoute } from './routes/files/download';
 import { fileContentRoutes } from './routes/projects/file-content';
@@ -110,6 +113,7 @@ import { fileTreeRoutes } from './routes/projects/file-tree';
 import { assetsRoutes } from './routes/projects/assets';
 import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
+import { failedSignInPurge } from './plugins/failed-sign-in-purge';
 import { keybindingsRoutes } from './routes/users/keybindings';
 import { editorPreferencesRoutes } from './routes/editor-preferences';
 import { createInternalServer } from './internal-server';
@@ -139,6 +143,8 @@ export interface AppContainer {
     asset: AssetRepository;
     /** Repository for audit-log persistence. */
     auditLog: AuditLogRepository;
+    /** Repository for failed sign-in telemetry persistence. */
+    authAttemptTelemetry: AuthAttemptTelemetryRepository;
     /** Repository for password-reset-token persistence. */
     passwordResetToken: PasswordResetTokenRepository;
     /** Repository for email-change-token persistence. */
@@ -227,6 +233,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       template: new PrismaTemplateRepository(app.prisma),
       asset: new PrismaAssetRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
+      authAttemptTelemetry: new PrismaAuthAttemptTelemetryRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
       emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
       userInvitation: new PrismaUserInvitationRepository(app.prisma),
@@ -338,6 +345,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   }
 
   await app.register(fileTreeEventBusPlugin);
+  await app.register(failedSignInPurge);
 
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
@@ -404,6 +412,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(adminSettingsRoute);
       await innerApp.register(accessDeniedRoute);
       await innerApp.register(auditLogsRoute);
+      await innerApp.register(failedSignInsRoute);
       await innerApp.register(projectDownloadRoute);
       await innerApp.register(fileDownloadRoute);
     });
@@ -462,6 +471,7 @@ declare module 'fastify' {
       template: TemplateRepository;
       asset: AssetRepository;
       auditLog: AuditLogRepository;
+      authAttemptTelemetry: AuthAttemptTelemetryRepository;
       passwordResetToken: PasswordResetTokenRepository;
       emailChangeToken: EmailChangeTokenRepository;
       userInvitation: UserInvitationRepository;

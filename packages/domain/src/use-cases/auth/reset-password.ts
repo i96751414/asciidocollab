@@ -10,6 +10,11 @@ import { PasswordPolicy, validatePassword } from '../../value-objects/password-p
 import { Result } from '../../types/result';
 import { PasswordHasher } from '../../services/password-hasher';
 import { TokenGenerator } from '../../services/token-generator';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { RequestContext } from '../../types/request-context';
+import { Logger } from '../../ports/observability/logger';
+import { recordAuditSuccess } from '../audit-recording';
+import { AUDIT_AUTH_PASSWORD_RESET } from '../../audit-actions';
 
 /** Result returned on successful password reset. */
 export interface ResetPasswordResult {
@@ -37,6 +42,8 @@ export class ResetPasswordUseCase {
     private readonly passwordHasher: PasswordHasher,
     private readonly tokenGenerator: TokenGenerator,
     private readonly passwordPolicy: PasswordPolicy,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -51,6 +58,7 @@ export class ResetPasswordUseCase {
     rawToken: string,
     newPassword: string,
     historyDepth: number,
+    context?: RequestContext,
   ): Promise<Result<ResetPasswordResult, DomainError>> {
     const validationError = validatePassword(newPassword, this.passwordPolicy);
     if (validationError) {
@@ -106,6 +114,18 @@ export class ResetPasswordUseCase {
     await this.userRepo.save(updatedUser);
 
     await this.tokenRepo.markAsUsed(resetToken.id.value, new Date());
+
+    // Best-effort: the reset already committed and the token is single-use, so an
+    // audit-store failure must NOT surface as the result (the failure reason must
+    // stay business-only). Swallowed but kept observable via the logger (FR-021).
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId: user.id,
+      projectId: null,
+      action: AUDIT_AUTH_PASSWORD_RESET,
+      resourceType: 'User',
+      resourceId: user.id.value,
+      context,
+    }, this.logger);
 
     return {
       success: true,

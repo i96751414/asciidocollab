@@ -11,7 +11,13 @@ export function toNodeType(value: string): 'file' | 'folder' {
   return value === 'folder' ? 'folder' : 'file';
 }
 
-/** Translates a domain error into the appropriate HTTP error response. */
+/**
+ * Translates a domain error into the appropriate HTTP error response.
+ *
+ * The `authz.denied` audit event for a {@link PermissionDeniedError} is now
+ * recorded inside the file-tree use cases (in the domain), so this boundary
+ * helper only maps the error to its HTTP status.
+ */
 export function sendFileTreeError(reply: FastifyReply, error: Error) {
   if (error instanceof PermissionDeniedError) {
     return reply.status(403).send({ error: { code: 'FORBIDDEN', message: error.message } });

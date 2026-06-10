@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { ResetPasswordUseCase } from '@asciidocollab/domain';
 import { buildPasswordPolicy } from '../services/password-policy';
+import { requestContextFrom } from '../lib/request-context';
+import { requestLogger } from '../lib/request-logger';
 import type { ResetPasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
@@ -37,9 +39,11 @@ export async function passwordResetRoute(app: FastifyInstance): Promise<void> {
       request.server.services.passwordHasher,
       request.server.services.tokenGenerator,
       buildPasswordPolicy(),
+      request.server.repos.auditLog,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(token, newPassword, historyDepth);
+    const result = await useCase.execute(token, newPassword, historyDepth, requestContextFrom(request));
 
     if (!result.success) {
       let code: string;

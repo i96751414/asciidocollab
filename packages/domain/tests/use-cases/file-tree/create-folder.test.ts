@@ -4,6 +4,7 @@ import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-p
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
@@ -22,6 +23,7 @@ describe('CreateFolderUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let fileNodeRepo: InMemoryFileNodeRepository;
   let fileStore: InMemoryProjectFileStore;
+  let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: CreateFolderUseCase;
 
   const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
@@ -34,8 +36,9 @@ describe('CreateFolderUseCase', () => {
     projectMemberRepo = new InMemoryProjectMemberRepository();
     fileNodeRepo = new InMemoryFileNodeRepository();
     fileStore = new InMemoryProjectFileStore();
+    auditLogRepo = new InMemoryAuditLogRepository();
 
-    useCase = new CreateFolderUseCase(projectMemberRepo, fileNodeRepo, fileStore);
+    useCase = new CreateFolderUseCase(projectMemberRepo, fileNodeRepo, fileStore, auditLogRepo);
 
     const project = new Project(projectId, ProjectName.create('Test'), null, [], rootFolderId);
     await projectRepo.save(project);
@@ -56,12 +59,32 @@ describe('CreateFolderUseCase', () => {
     }
   });
 
+  it('records a folder.created audit log entry on success', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'myfolder');
+    expect(result.success).toBe(true);
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('folder.created');
+    expect(entries[0].metadata.path).toBe('/myfolder');
+  });
+
   it('returns PermissionDeniedError for non-member', async () => {
     const result = await useCase.execute(nonMemberId, projectId, rootFolderId, 'myfolder');
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeInstanceOf(PermissionDeniedError);
     }
+  });
+
+  it('records an authz.denied audit log entry for a non-member', async () => {
+    const result = await useCase.execute(nonMemberId, projectId, rootFolderId, 'myfolder');
+    expect(result.success).toBe(false);
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('authz.denied');
+    expect(entries[0].resourceType).toBe('Project');
+    expect(entries[0].resourceId).toBe(projectId.value);
+    expect(entries[0].metadata.reason).toBe('not_a_project_member');
   });
 
   it('returns FileNodeNotFoundError for unknown parent', async () => {
@@ -123,5 +146,16 @@ describe('CreateFolderUseCase', () => {
       expect(second.error).toBeInstanceOf(FileConflictError);
       expect((second.error as FileConflictError).existingId).toBe(existingId);
     }
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+
+    const resilientUseCase = new CreateFolderUseCase(projectMemberRepo, fileNodeRepo, fileStore, throwingAudit, logger);
+
+    const result = await resilientUseCase.execute(actorId, projectId, rootFolderId, 'myfolder');
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });

@@ -16,6 +16,11 @@ import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
 import { Asset } from '../../entities/asset';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { RequestContext } from '../../types/request-context';
+import { Logger } from '../../ports/observability/logger';
+import { recordAuditSuccess } from '../audit-recording';
+import { AUDIT_FILE_UPLOADED } from '../../audit-actions';
 import { SETTING_MAX_UPLOAD_SIZE_BYTES } from '../../constants';
 import { randomUUID } from 'crypto';
 
@@ -42,6 +47,8 @@ export class UploadAssetUseCase {
     private readonly fileStore: ProjectFileStore,
     private readonly systemSettingRepo: SystemSettingRepository,
     private readonly defaultMaxUploadSizeBytes: number,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /** Validates membership and file size, stores the bytes on disk, and creates the file node and asset metadata records. */
@@ -52,6 +59,7 @@ export class UploadAssetUseCase {
     filename: string,
     mimeType: MimeType,
     bytes: Buffer,
+    context?: RequestContext,
   ): Promise<Result<{ fileNodeId: FileNodeId; storagePath: string }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
@@ -92,6 +100,20 @@ export class UploadAssetUseCase {
       // Asset.id == FileNode.id (1:1 FK relationship)
       const asset = new Asset(fileNodeId, mimeType, BigInt(bytes.length));
       await this.assetRepo.save(asset);
+
+      await recordAuditSuccess(
+        this.auditLogRepo,
+        {
+          actorId,
+          projectId,
+          action: AUDIT_FILE_UPLOADED,
+          resourceType: 'FileNode',
+          resourceId: fileNodeId.value,
+          metadata: { path: storagePath, sizeBytes: bytes.length },
+          context,
+        },
+        this.logger,
+      );
 
       return { success: true, value: { fileNodeId, storagePath } };
     } catch (error) {

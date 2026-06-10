@@ -14,8 +14,8 @@ export class AuditLog {
   constructor(
     /** Unique identifier for this audit entry. */
     public readonly id: AuditLogId,
-    /** The user who performed the action. */
-    public readonly userId: UserId,
+    /** The user who performed the action, or null once that user is deleted (SetNull). */
+    public readonly userId: UserId | null,
     /** The project the action was performed in, or null for global actions. */
     public readonly projectId: ProjectId | null,
     /**

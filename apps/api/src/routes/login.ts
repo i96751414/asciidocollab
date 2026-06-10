@@ -1,10 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { Email, LoginUseCase } from '@asciidocollab/domain';
+import { requestContextFrom } from '../lib/request-context';
+import { requestLogger } from '../lib/request-logger';
 import '../types/session';
 import type { LoginDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
 /**
  * Registers the login route.
+ *
+ * Audit/telemetry is recorded inside `LoginUseCase` (the domain owns both the
+ * recording and the constant-time window), so the route only authenticates,
+ * sets the session, and responds.
  *
  * @param app - The Fastify instance to register the route on.
  */
@@ -29,8 +35,19 @@ export async function loginRoute(app: FastifyInstance): Promise<void> {
   }, async (request: import('fastify').FastifyRequest<{ Body: LoginDto }>, reply) => {
     const { email, password } = request.body;
 
-    const useCase = new LoginUseCase(request.server.repos.user, request.server.services.passwordHasher);
-    const result = await useCase.execute(Email.create(email), password);
+    const useCase = new LoginUseCase(
+      request.server.repos.user,
+      request.server.services.passwordHasher,
+      request.server.repos.auditLog,
+      request.server.repos.authAttemptTelemetry,
+      requestLogger(request),
+    );
+    const result = await useCase.execute(
+      Email.create(email),
+      password,
+      requestContextFrom(request),
+      request.server.config.failedSignIn.coalesceWindowMinutes * 60_000,
+    );
 
     if (!result.success) {
       return reply.status(401).send({

@@ -7,11 +7,18 @@ import { TokenGenerator } from '../../services/token-generator';
 import { DomainError } from '../../errors/domain-error';
 import { InvalidTokenError } from '../../errors/invalid-token';
 import { Result } from '../../types/result';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { RequestContext } from '../../types/request-context';
+import { Logger } from '../../ports/observability/logger';
+import { recordAuditSuccess } from '../audit-recording';
+import { AUDIT_AUTH_EMAIL_CHANGED } from '../../audit-actions';
 
 /** The value returned on successful email confirmation. */
 export interface ConfirmEmailChangeResult {
   /** The ID of the user whose email was updated. */
   userId: UserId;
+  /** The email address the account had before the change (for audit before/after). */
+  previousEmail: string;
   /** The new email address that was confirmed. */
   newEmail: string;
 }
@@ -23,10 +30,15 @@ export class ConfirmEmailChangeUseCase {
     private readonly tokenRepo: EmailChangeTokenRepository,
     private readonly userRepo: UserRepository,
     private readonly tokenGenerator: TokenGenerator,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /** Validates the token, updates the user's email, and marks the token as used. */
-  async execute(rawToken: string): Promise<Result<ConfirmEmailChangeResult, DomainError>> {
+  async execute(
+    rawToken: string,
+    context?: RequestContext,
+  ): Promise<Result<ConfirmEmailChangeResult, DomainError>> {
     const tokenHash = this.tokenGenerator.hashToken(rawToken);
     const token = await this.tokenRepo.findByTokenHash(tokenHash);
 
@@ -61,9 +73,25 @@ export class ConfirmEmailChangeUseCase {
     await this.userRepo.save(updatedUser);
     await this.tokenRepo.markAsUsed(token.id.value, new Date());
 
+    const previousEmail = user.email.value;
+    const newEmail = token.pendingEmail;
+
+    // Best-effort: the email change already committed and the token is single-use, so an
+    // audit-store failure must NOT surface as the result (the failure reason must stay
+    // business-only). Swallowed but kept observable via the logger (FR-021).
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId: user.id,
+      projectId: null,
+      action: AUDIT_AUTH_EMAIL_CHANGED,
+      resourceType: 'User',
+      resourceId: user.id.value,
+      metadata: { previousEmail, newEmail },
+      context,
+    }, this.logger);
+
     return {
       success: true,
-      value: { userId: user.id, newEmail: token.pendingEmail },
+      value: { userId: user.id, previousEmail, newEmail },
     };
   }
 }

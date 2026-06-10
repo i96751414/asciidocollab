@@ -19,6 +19,11 @@ import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
 import { Document } from '../../entities/document';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { AUDIT_FILE_CREATED } from '../../audit-actions';
 import { randomUUID } from 'crypto';
 
 /** Creates a new AsciiDoc document node in the file tree and its corresponding content file. */
@@ -29,6 +34,8 @@ export class CreateFileUseCase {
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly documentRepo: DocumentRepository,
     private readonly fileStore: ProjectFileStore,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /** Validates membership, creates the file on disk and in the database, and returns the new node's ID and path. */
@@ -39,9 +46,18 @@ export class CreateFileUseCase {
     name: string,
     mimeType: MimeType,
     initialContent: Buffer,
+    context?: RequestContext,
   ): Promise<Result<{ fileNodeId: FileNodeId; path: FilePath }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'Project',
+        resourceId: projectId.value,
+        reason: 'not_a_project_member',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -73,6 +89,16 @@ export class CreateFileUseCase {
         mimeType,
       );
       await this.documentRepo.save(document);
+
+      await recordAuditSuccess(this.auditLogRepo, {
+        actorId,
+        projectId,
+        action: AUDIT_FILE_CREATED,
+        resourceType: 'FileNode',
+        resourceId: fileNodeId.value,
+        metadata: { path: newPath.value },
+        context,
+      }, this.logger);
 
       return { success: true, value: { fileNodeId, path: newPath } };
     } catch (error) {

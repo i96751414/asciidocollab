@@ -30,4 +30,8 @@ export { PasswordResetTokenRepository } from './auth-tokens/password-reset-token
 
 // admin/
 export { AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from './admin/audit-log.repository';
+export { AuthAttemptTelemetryRepository, AuthAttemptTelemetryFilters, RecordAuthAttemptInput } from './admin/auth-attempt-telemetry.repository';
 export { SystemSettingRepository } from './admin/system-setting.repository';
+
+// observability/
+export { Logger } from './observability/logger';

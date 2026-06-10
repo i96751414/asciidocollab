@@ -16,6 +16,8 @@ import {
 } from '@asciidocollab/domain';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
+import { requestContextFrom } from '../../lib/request-context';
+import { requestLogger } from '../../lib/request-logger';
 
 interface AssetContent {
   bytes: Buffer;
@@ -82,9 +84,11 @@ export async function assetsRoutes(app: FastifyInstance): Promise<void> {
         request.server.stores.fileStore,
         request.server.repos.systemSetting,
         request.server.config.storage.maxUploadSizeBytes,
+        request.server.repos.auditLog,
+        requestLogger(request),
       );
 
-      const result = await useCase.execute(actorId, projectId, parentId, data.filename, mimeType, bytes);
+      const result = await useCase.execute(actorId, projectId, parentId, data.filename, mimeType, bytes, requestContextFrom(request));
 
       if (!result.success) {
         if (result.error instanceof PermissionDeniedError) {

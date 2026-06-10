@@ -2,6 +2,7 @@ import { RegisterUseCase } from '../../../src/use-cases/auth/register-user';
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 import { InMemorySystemSettingRepository } from '../../ports/admin/in-memory-system-setting.repository';
 import { InMemoryEmailVerificationTokenRepository } from '../../ports/auth-tokens/in-memory-email-verification-token.repository';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { Email } from '../../../src/value-objects/email';
 import { PasswordPolicy } from '../../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../../src/services/password-hasher';
@@ -36,6 +37,7 @@ describe('RegisterUserUseCase', () => {
   let userRepo: InMemoryUserRepository;
   let systemSettingRepo: InMemorySystemSettingRepository;
   let emailVerificationTokenRepo: InMemoryEmailVerificationTokenRepository;
+  let auditRepo: InMemoryAuditLogRepository;
   let passwordHasher: PasswordHasher;
   let breachChecker: BreachChecker;
   let commonPasswordChecker: CommonPasswordChecker;
@@ -52,6 +54,7 @@ describe('RegisterUserUseCase', () => {
     userRepo = new InMemoryUserRepository();
     systemSettingRepo = new InMemorySystemSettingRepository();
     emailVerificationTokenRepo = new InMemoryEmailVerificationTokenRepository();
+    auditRepo = new InMemoryAuditLogRepository();
 
     passwordHasher = {
       hash: jest.fn().mockResolvedValue('hashed-password'),
@@ -80,6 +83,7 @@ describe('RegisterUserUseCase', () => {
       passwordHasher,
       tokenGenerator,
       emailVerificationNotifier,
+      auditRepo,
     );
   });
 
@@ -132,6 +136,7 @@ describe('RegisterUserUseCase', () => {
         passwordHasher,
         tokenGenerator,
         emailVerificationNotifier,
+        auditRepo,
       );
 
       const result = await uc.execute(
@@ -164,6 +169,7 @@ describe('RegisterUserUseCase', () => {
         passwordHasher,
         tokenGenerator,
         emailVerificationNotifier,
+        auditRepo,
       );
 
       await expect(
@@ -418,6 +424,83 @@ describe('RegisterUserUseCase', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.value.emailSent).toBe(true);
+      }
+    });
+
+    test('records auth.registered when a new self-registered user is created', async () => {
+      const result = await useCase.execute(
+        Email.create('audited@example.com'),
+        'Audited User',
+        'SecureP@ssw0rd123!',
+        { ipAddress: '203.0.113.7', userAgent: 'jest' },
+      );
+
+      expect(result.success).toBe(true);
+      const audits = await auditRepo.findAll();
+      expect(audits).toHaveLength(1);
+      expect(audits[0].action).toBe('auth.registered');
+      expect(audits[0].resourceType).toBe('User');
+      if (result.success) {
+        expect(audits[0].userId?.value).toBe(result.value.userId.value);
+        expect(audits[0].resourceId).toBe(result.value.userId.value);
+      }
+      expect(audits[0].metadata.origin).toEqual({ ipAddress: '203.0.113.7', userAgent: 'jest' });
+    });
+
+    test('a failed audit write does NOT fail the registration and is logged', async () => {
+      // The user is persisted (and a verification email dispatched) before the audit
+      // write, so an audit-store failure must not surface as a failed registration —
+      // otherwise the caller sees a 500 for an account that now exists and cannot retry.
+      const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+      const logger = { warn: jest.fn() };
+      const uc = new RegisterUseCase(
+        userRepo,
+        systemSettingRepo,
+        emailVerificationTokenRepo,
+        defaultPolicy,
+        commonPasswordChecker,
+        breachChecker,
+        passwordHasher,
+        tokenGenerator,
+        emailVerificationNotifier,
+        throwingAudit,
+        logger,
+      );
+
+      const result = await uc.execute(
+        Email.create('resilient@example.com'),
+        'Resilient User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(true);
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    test('does not record any audit event on the anti-enumeration duplicate-email path', async () => {
+      const existingEmail = Email.create('admin@example.com'); // already in repo from beforeEach
+
+      const result = await useCase.execute(existingEmail, 'Dup', 'SecureP@ssw0rd123!');
+
+      expect(result.success).toBe(true);
+      expect(await auditRepo.findAll()).toHaveLength(0);
+    });
+  });
+
+  describe('audit logging (first user)', () => {
+    test('records auth.registered when the first admin user is created', async () => {
+      const result = await useCase.execute(
+        Email.create('first@example.com'),
+        'First User',
+        'SecureP@ssw0rd123!',
+      );
+
+      expect(result.success).toBe(true);
+      const audits = await auditRepo.findAll();
+      expect(audits).toHaveLength(1);
+      expect(audits[0].action).toBe('auth.registered');
+      if (result.success) {
+        expect(audits[0].userId?.value).toBe(result.value.userId.value);
       }
     });
   });

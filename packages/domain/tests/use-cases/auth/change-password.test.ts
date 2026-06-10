@@ -7,6 +7,7 @@ import { Timestamps } from '../../../src/value-objects/timestamps';
 import { PasswordPolicy } from '../../../src/value-objects/password-policy';
 import { PasswordHasher } from '../../../src/services/password-hasher';
 import { BreachChecker } from '../../../src/services/breach-checker';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 
 function createTestUser(passwordHash: string = 'current-hash'): User {
   return new User(
@@ -26,6 +27,7 @@ describe('ChangePasswordUseCase', () => {
   let userRepo: UserRepository;
   let passwordHasher: PasswordHasher;
   let breachChecker: BreachChecker;
+  let auditLogRepo: InMemoryAuditLogRepository;
 
   const defaultPolicy: PasswordPolicy = {
     minLength: 8,
@@ -53,11 +55,14 @@ describe('ChangePasswordUseCase', () => {
       isBreached: jest.fn().mockResolvedValue(false),
     } as unknown as BreachChecker;
 
+    auditLogRepo = new InMemoryAuditLogRepository();
+
     useCase = new ChangePasswordUseCase(
       userRepo,
       passwordHasher,
       defaultPolicy,
       breachChecker,
+      auditLogRepo,
     );
   });
 
@@ -73,6 +78,50 @@ describe('ChangePasswordUseCase', () => {
       expect(result.success).toBe(true);
       expect(passwordHasher.hash).toHaveBeenCalledWith('NewSecureP@ssw0rd1');
       expect(userRepo.save).toHaveBeenCalled();
+    });
+
+    test('records an audit log entry on successful password change', async () => {
+      const result = await useCase.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(true);
+      const logs = await auditLogRepo.findAll();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].action).toBe('auth.password_changed');
+      expect(logs[0].resourceType).toBe('User');
+      expect(logs[0].resourceId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    test('a failed audit write does NOT fail the password change (failure reason is business-only) and is logged', async () => {
+      const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+      const logger = { warn: jest.fn() };
+      const useCaseWithLogger = new ChangePasswordUseCase(
+        userRepo,
+        passwordHasher,
+        defaultPolicy,
+        breachChecker,
+        throwingAudit,
+        logger,
+      );
+
+      // The password change (the business operation) committed before the audit write, so an
+      // audit-store failure must NOT surface as the result. The change succeeds; only the
+      // audit failure is logged.
+      const result = await useCaseWithLogger.execute(
+        UserId.create('550e8400-e29b-41d4-a716-446655440000'),
+        'CurrentP@ssw0rd1',
+        'NewSecureP@ssw0rd1',
+        5,
+      );
+
+      expect(result.success).toBe(true);
+      expect(passwordHasher.hash).toHaveBeenCalledWith('NewSecureP@ssw0rd1');
+      expect(userRepo.save).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     test('rejects password change with weak password', async () => {

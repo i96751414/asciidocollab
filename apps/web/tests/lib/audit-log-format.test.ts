@@ -59,6 +59,30 @@ describe('formatAuditAction', () => {
 
   test('user.removed', () => expect(formatAuditAction('user.removed')).toBe('User Removed'));
 
+  test('auth.signed_in', () => expect(formatAuditAction('auth.signed_in')).toBe('Signed In'));
+  test('auth.signed_out', () => expect(formatAuditAction('auth.signed_out')).toBe('Signed Out'));
+  test('auth.registered', () => expect(formatAuditAction('auth.registered')).toBe('Account Registered'));
+  test('auth.password_changed', () =>
+    expect(formatAuditAction('auth.password_changed')).toBe('Password Changed'));
+  test('auth.password_reset', () =>
+    expect(formatAuditAction('auth.password_reset')).toBe('Password Reset'));
+
+  test('auth.email_changed with both emails shows the transition', () =>
+    expect(formatAuditAction('auth.email_changed', { previousEmail: 'a@x.com', newEmail: 'b@x.com' }))
+      .toBe('Email Changed (a@x.com → b@x.com)'));
+
+  test('auth.email_changed without metadata falls back to the plain label', () =>
+    expect(formatAuditAction('auth.email_changed')).toBe('Email Changed'));
+
+  test('auth.email_changed with a missing side falls back to the plain label', () =>
+    expect(formatAuditAction('auth.email_changed', { previousEmail: 'a@x.com' })).toBe('Email Changed'));
+
+  test('file.created', () => expect(formatAuditAction('file.created')).toBe('File Created'));
+  test('folder.created', () => expect(formatAuditAction('folder.created')).toBe('Folder Created'));
+  test('file.uploaded', () => expect(formatAuditAction('file.uploaded')).toBe('File Uploaded'));
+  test('file.moved', () => expect(formatAuditAction('file.moved')).toBe('File Moved'));
+  test('authz.denied', () => expect(formatAuditAction('authz.denied')).toBe('Authorization Denied'));
+
   test('unknown action type falls back to raw string', () =>
     expect(formatAuditAction('some.unknown_action')).toBe('some.unknown_action'));
 });

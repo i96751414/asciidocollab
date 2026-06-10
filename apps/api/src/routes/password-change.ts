@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { UserId, ChangePasswordUseCase } from '@asciidocollab/domain';
 import { buildPasswordPolicy } from '../services/password-policy';
+import { requestContextFrom } from '../lib/request-context';
+import { requestLogger } from '../lib/request-logger';
 import '../types/session';
 import type { ChangePasswordDto, AuthSuccessResponseDto, AuthErrorResponseDto } from '@asciidocollab/shared';
 
@@ -43,6 +45,8 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       request.server.services.passwordHasher,
       buildPasswordPolicy(),
       request.server.services.breachChecker,
+      request.server.repos.auditLog,
+      requestLogger(request),
     );
 
     const result = await useCase.execute(
@@ -50,6 +54,7 @@ export async function passwordChangeRoute(app: FastifyInstance): Promise<void> {
       currentPassword,
       newPassword,
       historyDepth,
+      requestContextFrom(request),
     );
 
     if (!result.success) {

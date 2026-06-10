@@ -3,14 +3,14 @@ import { UserId } from '../../value-objects/user-id';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
-import { AuditLog } from '../../entities/audit-log';
-import { AuditLogId } from '../../value-objects/audit-log-id';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { ProjectNotFoundError } from '../../errors/project-not-found';
 import { ProjectAlreadyArchivedError } from '../../errors/project-already-archived';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
-import { randomUUID } from 'crypto';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { Logger } from '../../ports/observability/logger';
 
 /**
  * Result returned on successful project archival.
@@ -36,6 +36,7 @@ export class ArchiveProjectUseCase {
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -51,6 +52,7 @@ export class ArchiveProjectUseCase {
   async execute(
     actorId: UserId,
     projectId: ProjectId,
+    context?: RequestContext,
   ): Promise<Result<ArchiveProjectResult, DomainError>> {
     const project = await this.projectRepo.findById(projectId);
     if (!project) {
@@ -59,6 +61,14 @@ export class ArchiveProjectUseCase {
 
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (callerMembership?.role.value !== 'owner') {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'Project',
+        resourceId: projectId.value,
+        reason: 'not_authorized',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -69,16 +79,14 @@ export class ArchiveProjectUseCase {
     const archiveTimestamp = new Date();
     await this.projectRepo.archive(projectId, archiveTimestamp);
 
-    const auditLog = new AuditLog(
-      AuditLogId.create(randomUUID()),
+    await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
-      'project.archived',
-      'Project',
-      projectId.value,
-    );
-
-    await this.auditLogRepo.save(auditLog);
+      action: 'project.archived',
+      resourceType: 'Project',
+      resourceId: projectId.value,
+      context,
+    }, this.logger);
 
     return { success: true, value: { archivedAt: archiveTimestamp } };
   }

@@ -13,6 +13,12 @@ function makeRequiredStringConfig() {
   });
 }
 
+function makePositiveIntConfig() {
+  return convict({
+    value: { format: 'positive-int', default: 1, env: 'FORMATS_TEST_POSINT_' + Math.random() },
+  });
+}
+
 describe('hostname format', () => {
   it('accepts an empty string (bind to all interfaces)', () => {
     const cfg = makeHostnameConfig();
@@ -73,5 +79,44 @@ describe('required-string format', () => {
     const cfg = makeRequiredStringConfig();
     cfg.set('value', 123 as never);
     expect(() => cfg.validate({ allowed: 'strict' })).toThrow('must be a string');
+  });
+});
+
+describe('positive-int format', () => {
+  it('accepts 1 (the minimum)', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', 1);
+    expect(() => cfg.validate({ allowed: 'strict' })).not.toThrow();
+  });
+
+  it('accepts a larger integer', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', 90);
+    expect(() => cfg.validate({ allowed: 'strict' })).not.toThrow();
+  });
+
+  it('rejects 0', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', 0);
+    expect(() => cfg.validate({ allowed: 'strict' })).toThrow('must be an integer >= 1');
+  });
+
+  it('rejects a negative integer', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', -5);
+    expect(() => cfg.validate({ allowed: 'strict' })).toThrow('must be an integer >= 1');
+  });
+
+  it('rejects a non-integer', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', 1.5);
+    expect(() => cfg.validate({ allowed: 'strict' })).toThrow('must be an integer >= 1');
+  });
+
+  it('coerces a numeric string from the environment', () => {
+    const cfg = makePositiveIntConfig();
+    cfg.set('value', '30' as never);
+    expect(() => cfg.validate({ allowed: 'strict' })).not.toThrow();
+    expect(cfg.get('value')).toBe(30);
   });
 });

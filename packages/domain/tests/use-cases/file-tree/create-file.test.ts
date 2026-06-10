@@ -4,6 +4,7 @@ import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file
 import { InMemoryDocumentRepository } from '../../ports/file-tree/in-memory-document.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
@@ -25,6 +26,7 @@ describe('CreateFileUseCase', () => {
   let fileNodeRepo: InMemoryFileNodeRepository;
   let documentRepo: InMemoryDocumentRepository;
   let fileStore: InMemoryProjectFileStore;
+  let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: CreateFileUseCase;
 
   const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
@@ -40,8 +42,9 @@ describe('CreateFileUseCase', () => {
     fileNodeRepo = new InMemoryFileNodeRepository();
     documentRepo = new InMemoryDocumentRepository();
     fileStore = new InMemoryProjectFileStore();
+    auditLogRepo = new InMemoryAuditLogRepository();
 
-    useCase = new CreateFileUseCase(projectMemberRepo, fileNodeRepo, documentRepo, fileStore);
+    useCase = new CreateFileUseCase(projectMemberRepo, fileNodeRepo, documentRepo, fileStore, auditLogRepo);
 
     const project = new Project(projectId, ProjectName.create('Test'), null, [], rootFolderId);
     await projectRepo.save(project);
@@ -64,6 +67,15 @@ describe('CreateFileUseCase', () => {
     }
   });
 
+  it('records a file.created audit log entry on success', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'newfile.adoc', mimeType, initialContent);
+    expect(result.success).toBe(true);
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('file.created');
+    expect(entries[0].metadata.path).toBe('/newfile.adoc');
+  });
+
   it('returns FileConflictError when path is taken', async () => {
     await useCase.execute(actorId, projectId, rootFolderId, 'newfile.adoc', mimeType, initialContent);
     const result = await useCase.execute(actorId, projectId, rootFolderId, 'newfile.adoc', mimeType, initialContent);
@@ -79,6 +91,17 @@ describe('CreateFileUseCase', () => {
     if (!result.success) {
       expect(result.error).toBeInstanceOf(PermissionDeniedError);
     }
+  });
+
+  it('records an authz.denied audit log entry for a non-member', async () => {
+    const result = await useCase.execute(nonMemberId, projectId, rootFolderId, 'test.adoc', mimeType, initialContent);
+    expect(result.success).toBe(false);
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('authz.denied');
+    expect(entries[0].resourceType).toBe('Project');
+    expect(entries[0].resourceId).toBe(projectId.value);
+    expect(entries[0].metadata.reason).toBe('not_a_project_member');
   });
 
   it('returns FileNodeNotFoundError for unknown parent', async () => {
@@ -123,6 +146,20 @@ describe('CreateFileUseCase', () => {
       expect(fileNode?.name).toBe('my document.adoc');
     }
   });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    jest.spyOn(fileStore, 'remove');
+
+    const resilientUseCase = new CreateFileUseCase(projectMemberRepo, fileNodeRepo, documentRepo, fileStore, throwingAudit, logger);
+
+    const result = await resilientUseCase.execute(actorId, projectId, rootFolderId, 'newfile.adoc', mimeType, initialContent);
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
+    // The already-committed content must NOT be torn down by the compensation path.
+    expect(fileStore.remove).not.toHaveBeenCalled();
+  });
 });
 
 describe('CreateFileUseCase — orphan cleanup on DB failure', () => {
@@ -152,7 +189,7 @@ describe('CreateFileUseCase — orphan cleanup on DB failure', () => {
   it('cleans up the disk file when fileNodeRepo.save throws after createExclusive succeeds', async () => {
     fileNodeRepo2.save = jest.fn().mockRejectedValue(new Error('DB down'));
 
-    const useCase2 = new CreateFileUseCase(projectMemberRepo2, fileNodeRepo2, documentRepo2, fileStore2);
+    const useCase2 = new CreateFileUseCase(projectMemberRepo2, fileNodeRepo2, documentRepo2, fileStore2, new InMemoryAuditLogRepository());
 
     await expect(
       useCase2.execute(actorId2, projectId2, rootFolderId2, 'new.adoc', MimeType.create('text/asciidoc'), Buffer.from(''))

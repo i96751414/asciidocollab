@@ -5,6 +5,11 @@ import { FilePath } from '../../value-objects/file-path';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { AUDIT_FILE_MOVED } from '../../audit-actions';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
 import { CannotDeleteRootFolderError } from '../../errors/cannot-delete-root-folder';
@@ -21,6 +26,8 @@ export class MoveFileUseCase {
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly fileStore: ProjectFileStore,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /** Validates membership, moves the file on disk to its new parent path, and updates the database record. */
@@ -29,9 +36,18 @@ export class MoveFileUseCase {
     projectId: ProjectId,
     fileNodeId: FileNodeId,
     newParentId: FileNodeId,
+    context?: RequestContext,
   ): Promise<Result<{ fileNodeId: FileNodeId; newPath: FilePath }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'FileNode',
+        resourceId: fileNodeId.value,
+        reason: 'not_a_project_member',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -71,6 +87,16 @@ export class MoveFileUseCase {
     if (fileNode.type.value === 'folder') {
       await cascadePathUpdate(this.fileNodeRepo, fileNodeId, fileNode.path.value + '/', newPath.value + '/');
     }
+
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId,
+      projectId,
+      action: AUDIT_FILE_MOVED,
+      resourceType: 'FileNode',
+      resourceId: fileNodeId.value,
+      metadata: { from: fileNode.path.value, to: newPath.value },
+      context,
+    }, this.logger);
 
     return { success: true, value: { fileNodeId, newPath } };
   }

@@ -9,6 +9,11 @@ import { PasswordPolicy, validatePassword } from '../../value-objects/password-p
 import { Result } from '../../types/result';
 import { PasswordHasher } from '../../services/password-hasher';
 import { BreachChecker } from '../../services/breach-checker';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { RequestContext } from '../../types/request-context';
+import { Logger } from '../../ports/observability/logger';
+import { recordAuditSuccess } from '../audit-recording';
+import { AUDIT_AUTH_PASSWORD_CHANGED } from '../../audit-actions';
 
 /** Result returned on successful password change. */
 export interface ChangePasswordResult {
@@ -35,6 +40,8 @@ export class ChangePasswordUseCase {
     private readonly passwordHasher: PasswordHasher,
     private readonly passwordPolicy: PasswordPolicy,
     private readonly breachChecker: BreachChecker,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -51,6 +58,7 @@ export class ChangePasswordUseCase {
     currentPassword: string,
     newPassword: string,
     historyDepth: number,
+    context?: RequestContext,
   ): Promise<Result<ChangePasswordResult, DomainError>> {
     const validationError = validatePassword(newPassword, this.passwordPolicy);
     if (validationError) {
@@ -115,6 +123,18 @@ export class ChangePasswordUseCase {
       user.registrationMethod,
     );
     await this.userRepo.save(updatedUser);
+
+    // Best-effort: the password change already committed before the audit write, so an
+    // audit-store failure must NOT surface as the result (the failure reason must stay
+    // business-only). Swallowed but kept observable via the logger (FR-021).
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId: userId,
+      projectId: null,
+      action: AUDIT_AUTH_PASSWORD_CHANGED,
+      resourceType: 'User',
+      resourceId: userId.value,
+      context,
+    }, this.logger);
 
     return {
       success: true,

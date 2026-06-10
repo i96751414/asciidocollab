@@ -142,6 +142,18 @@ describe('UpdateProjectUseCase', () => {
     }
   });
 
+  test('records an authz.denied audit when actor is not authorized', async () => {
+    const input: UpdateProjectInput = { name: 'New Name' };
+    await useCase.execute(viewerId, projectId, input);
+
+    const auditLogs = await auditLogRepo.findAll();
+    const denial = auditLogs.find((log) => log.action === 'authz.denied');
+    expect(denial).toBeDefined();
+    expect(denial!.resourceType).toBe('Project');
+    expect(denial!.resourceId).toBe(projectId.value);
+    expect(denial!.metadata.reason).toBe('not_authorized');
+  });
+
   test('allows another owner to update project', async () => {
     expect.assertions(2);
     const input: UpdateProjectInput = { name: 'Admin Updated Name' };
@@ -161,5 +173,59 @@ describe('UpdateProjectUseCase', () => {
     const auditLogs = await auditLogRepo.findByProjectId(projectId);
     expect(auditLogs).toHaveLength(1);
     expect(auditLogs[0].action).toBe('project.updated');
+  });
+
+  test('records before/after values for changed fields in audit metadata', async () => {
+    const input: UpdateProjectInput = { name: 'Renamed Project' };
+    await useCase.execute(ownerId, projectId, input);
+
+    const auditLogs = await auditLogRepo.findByProjectId(projectId);
+    const changes = auditLogs[0].metadata.changes as Record<
+      string,
+      { from: unknown; to: unknown }
+    >;
+    expect(changes.name).toEqual({ from: 'Test Project', to: 'Renamed Project' });
+    // Unchanged fields are not recorded.
+    expect(changes.description).toBeUndefined();
+    expect(changes.tags).toBeUndefined();
+  });
+
+  test('records before/after for multiple changed fields', async () => {
+    const input: UpdateProjectInput = { description: 'Updated description', tags: ['x'] };
+    await useCase.execute(ownerId, projectId, input);
+
+    const auditLogs = await auditLogRepo.findByProjectId(projectId);
+    const changes = auditLogs[0].metadata.changes as Record<
+      string,
+      { from: unknown; to: unknown }
+    >;
+    expect(changes.description).toEqual({ from: 'Initial description', to: 'Updated description' });
+    expect(changes.tags).toEqual({ from: ['tag1'], to: ['x'] });
+    expect(changes.name).toBeUndefined();
+  });
+
+  test('records request origin in audit metadata when context is provided', async () => {
+    const input: UpdateProjectInput = { name: 'Origin Project' };
+    await useCase.execute(ownerId, projectId, input, {
+      ipAddress: '203.0.113.9',
+      userAgent: 'jest-agent',
+    });
+
+    const auditLogs = await auditLogRepo.findByProjectId(projectId);
+    expect(auditLogs[0].metadata.origin).toEqual({
+      ipAddress: '203.0.113.9',
+      userAgent: 'jest-agent',
+    });
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    useCase = new UpdateProjectUseCase(projectRepo, memberRepo, throwingAudit, logger as never);
+
+    const result = await useCase.execute(ownerId, projectId, { name: 'New Name' });
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });
