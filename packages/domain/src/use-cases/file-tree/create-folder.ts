@@ -14,6 +14,11 @@ import { FileConflictError } from '../../errors/file-conflict';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
+import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { AUDIT_FOLDER_CREATED } from '../../audit-actions';
 import { randomUUID } from 'crypto';
 
 /** Creates a new folder node in the file tree and its directory on disk. */
@@ -23,6 +28,8 @@ export class CreateFolderUseCase {
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly fileStore: ProjectFileStore,
+    private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /** Validates membership, creates the directory on disk and the folder node in the database. */
@@ -31,9 +38,18 @@ export class CreateFolderUseCase {
     projectId: ProjectId,
     parentId: FileNodeId,
     name: string,
+    context?: RequestContext,
   ): Promise<Result<{ fileNodeId: FileNodeId; path: FilePath }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'Project',
+        resourceId: projectId.value,
+        reason: 'not_a_project_member',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -57,6 +73,16 @@ export class CreateFolderUseCase {
     const fileNodeId = FileNodeId.create(randomUUID());
     const fileNode = new FileNode(fileNodeId, projectId, parentId, name, FileNodeType.create('folder'), newPath);
     await this.fileNodeRepo.save(fileNode);
+
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId,
+      projectId,
+      action: AUDIT_FOLDER_CREATED,
+      resourceType: 'FileNode',
+      resourceId: fileNodeId.value,
+      metadata: { path: newPath.value },
+      context,
+    }, this.logger);
 
     return { success: true, value: { fileNodeId, path: newPath } };
   }

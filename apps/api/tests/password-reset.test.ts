@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { buildServer } from '../src/index';
-import { loginRoute } from '../src/routes/login';
-import { registerRoute } from '../src/routes/register';
-import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
-import { passwordResetRoute } from '../src/routes/password-reset';
+import { loginRoute } from '../src/routes/auth/login';
+import { registerRoute } from '../src/routes/auth/register';
+import { passwordResetRequestRoute } from '../src/routes/auth/password/reset-request';
+import { passwordResetRoute } from '../src/routes/auth/password/reset';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

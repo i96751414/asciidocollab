@@ -7,5 +7,6 @@ export * from './use-cases';
 export * from './errors';
 export * from './services';
 export * from './constants';
+export * from './audit-actions';
 export * from './constants/key-bindings';
 export * from './constants/editor-preferences';

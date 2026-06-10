@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/022-preview-style-preference/plan.md
+Active feature plan: specs/025-audit-log-coverage/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)
@@ -25,21 +25,21 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-
 
 ## Tech Stack
 
-| Layer                   | Technology                                                |
-|-------------------------|-----------------------------------------------------------|
-| Frontend                | Next.js 16 (App Router) + TypeScript 6                    |
-| Code editor             | CodeMirror 6 + `y-codemirror.next`                        |
-| HTML preview            | Asciidoctor.js + highlight.js (Web Worker, client-side)   |
-| API server              | Fastify + TypeScript 6                                    |
-| Real-time CRDT          | Yjs                                                       |
-| Collaboration server    | Hocuspocus (standalone process)                           |
-| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                  |
-| Database                | PostgreSQL via Prisma ORM                                 |
-| Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID) |
-| Email                   | Nodemailer (SMTP)                                         |
-| Monorepo                | pnpm workspaces                                           |
-| Tests                   | Jest + Testing Library + Playwright (E2E)                 |
-| Architecture validation | fresh-onion                                               |
+| Layer                   | Technology                                                  |
+|-------------------------|-------------------------------------------------------------|
+| Frontend                | Next.js 16 (App Router) + TypeScript 6                      |
+| Code editor             | CodeMirror 6 + `y-codemirror.next`                          |
+| HTML preview            | Asciidoctor.js + highlight.js (Web Worker, client-side)     |
+| API server              | Fastify + TypeScript 6                                      |
+| Real-time CRDT          | Yjs                                                         |
+| Collaboration server    | Hocuspocus 4 (standalone native-ESM process, `apps/collab`) |
+| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                    |
+| Database                | PostgreSQL via Prisma ORM                                   |
+| Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID)   |
+| Email                   | Nodemailer (SMTP)                                           |
+| Monorepo                | pnpm workspaces                                             |
+| Tests                   | Jest + Testing Library + Playwright (E2E)                   |
+| Architecture validation | fresh-onion                                                 |
 
 ## Monorepo Structure
 
@@ -75,10 +75,11 @@ asciidocollab/
 │       └── src/
 │           ├── config/             # convict schema, formats
 │           ├── plugins/            # auth, cors, csrf, rate-limit, file-tree-event-bus,
-│           │                       # hocuspocus-persistence (draft), require-auth/admin
+│           │                       # require-auth/admin
 │           └── routes/
 │               ├── projects/       # file-tree (GET/POST/PATCH/DELETE), file-content,
 │               │                   # events (SSE), members, assets, users-search
+│               ├── internal/       # collab-auth: GET /internal/collab/auth/{document,presence}
 │               └── ...             # auth, admin, user, health, keybindings routes
 ├── packages/
 │   ├── domain/                     # Entities, use cases, ports — zero external deps
@@ -103,9 +104,11 @@ asciidocollab/
 │   │       └── value-objects/      # 22 VOs including FileName (validates against path traversal,
 │   │                               # control chars, Windows reserved names)
 │   ├── infrastructure/             # Prisma repos, filesystem stores, email sender
-│   ├── collaboration/              # Hocuspocus standalone server (apps/collab) — real-time Yjs co-editing,
-│   │                               # auth-hook, per-user connection/rate caps, Origin allowlist, max-payload
-│   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, etc.)
+│   ├── collaboration/              # Hocuspocus 4 standalone server (apps/collab, native ESM) — real-time Yjs
+│   │                               # co-editing + per-project presence rooms, auth-hook, per-user
+│   │                               # connection/rate caps, Origin allowlist, max-payload
+│   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, CollabAuth*, etc.),
+│   │                               # presenceRoomName()/isPresenceRoom() room-name convention
 │   ├── db/                         # Prisma schema, migrations
 │   └── testing/                    # Testcontainers helper, factories, shared test setup
 ├── specs/
@@ -368,9 +371,14 @@ Rules:
 
 **HTML preview:** Asciidoctor.js runs in a dedicated Web Worker (`apps/web/src/workers/asciidoc-render.worker.ts`) and auto-renders on a debounce (`PREVIEW_DEBOUNCE_MS`, 1500 ms) so typing never blocks the editor thread — there is no manual Refresh button. The worker post-processes Asciidoctor's HTML with highlight.js (`highlightCodeBlocks`) to add `.hljs-*` token spans to fenced source blocks; the result is sanitized by DOMPurify on the main thread before injection. Preview styling (`styles/asciidoc-preview.css`) is driven by the app's `--*` design tokens, so it follows light/dark theme automatically — never hard-code preview colors.
 
-**Collaboration:** Hocuspocus maps each open document to a room keyed by `documentId`. On WebSocket connect, Hocuspocus calls the Fastify API to verify the user has at least `viewer` access. Yjs state is persisted to filesystem as `.yjs` binary files.
+**Collaboration (Hocuspocus 4):** `apps/collab` runs Hocuspocus v4 as a standalone native-ESM process. There are two room types, distinguished by name (the convention lives in `@asciidocollab/shared`: `presenceRoomName`/`isPresenceRoom`):
 
-**yjs in a CJS package:** `apps/api` is `"type": "commonjs"`. `yjs` ships `"type": "module"` but provides a CJS build via its `"require"` export condition. TypeScript TS1479/TS1542 fires for static imports of `yjs` from a CJS file because yjs's `"types"` export condition points to an ESM `.d.ts`. Workaround in `hocuspocus-persistence.ts`: `require('yjs')` at the top level cast against a local minimal interface (`Yjs`/`YjsDoc`) declaring only the two needed functions.
+- **Document rooms** — name `<projectId>/<yjsStateId>`. On WS connect the auth-hook calls `GET /internal/collab/auth/document` on the Fastify API to verify ≥`viewer` access and resolve the connection role (`editor`/`observer`, via `connectionConfig.readOnly`). Yjs state is persisted to the filesystem as `.yjs` binary files (`apps/collab/src/extensions/persistence.ts`, plain `import * as Y from 'yjs'`).
+- **Presence rooms** — name `presence/<projectId>`. Authorized via `GET /internal/collab/auth/presence` (project membership only). These carry awareness only: no document session, no persistence, exempt from the per-document connection caps, and forced read-only at the WS layer so no content can be written (FR-011).
+
+v4 migration notes: `new Server()` replaces `Server.configure()`; the live-document map moved to `server.hocuspocus.documents`; the auth hook reads request headers via web `Headers.get()` and sets `connectionConfig.readOnly` (v4 `onConnect` no longer exposes `connection`). Migrating `apps/collab` to ESM (`type: module`, node16 resolution, explicit `.js` import specifiers) removed the old `createRequire('yjs')` CJS workaround.
+
+**File-tree open-file presence:** Each project has one Yjs awareness presence room. The web hook `use-project-presence.ts` publishes `{ user, openFileNodeId }` and reads peers; `open-by-others-marker.tsx` renders an avatar cluster + accessible label on `file-tree-node` rows for files other users have open. Self and the user's own multi-tab connections are excluded, peers are deduped per file, and markers clear on disconnect. The new domain use case `AuthorizeProjectPresence` (project membership) backs the presence auth endpoint.
 
 **File-tree drag-and-drop (move):** Dragging a node onto a folder moves it (`MoveFileUseCase`); handlers live in `file-tree.tsx` (`handleTreeDragStart`) and `file-tree-node.tsx`. Two non-obvious cross-browser HTML5-DnD requirements — both bugs present as "drop does nothing": (1) guard the dragstart target with `instanceof Element`, **not** `HTMLElement` — browsers fire `dragstart` on the row's `<svg>` icon when grabbed there (WebKit always), and `SVGElement` is not an `HTMLElement`, so an `HTMLElement`-only guard silently skips `setData`; (2) set `effectAllowed`/`dropEffect` to `'move'` and give folders an `onDragEnter` that `preventDefault()`s, or Firefox/Safari resolve `dropEffect` to `none` and discard the drop. Note: Playwright (and synthetic event tests) paper over (2), so an e2e move test can pass while real users see nothing — cover the icon-grab case explicitly.
 
@@ -401,17 +409,17 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 
 ---
 
-## Current Test Counts (as of Phase 018)
+## Current Test Counts (approximate, as of feature 024)
 
 | Package                    | Tests |
 |----------------------------|-------|
-| `apps/web` (unit)          | 1092  |
-| `apps/api` (unit)          | 391   |
-| `packages/domain` (unit)   | 536   |
-| `packages/infrastructure`  | 150   |
-| `apps/collab` (unit)       | 52    |
-| `packages/shared`          | 14    |
-| `apps/web` (e2e)           | 79    |
+| `apps/web` (unit)          | ~1530 |
+| `apps/api` (unit)          | ~420  |
+| `packages/domain` (unit)   | ~532  |
+| `packages/infrastructure`  | ~170  |
+| `apps/collab` (unit)       | ~105  |
+| `packages/shared`          | ~32   |
+| `apps/web` (e2e)           | ~96   |
 
 > Known pre-existing gaps (not a regression of any single feature): `apps/web`
 > jest coverage sits just under the configured 90/93/90 thresholds, and
@@ -422,10 +430,10 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 
 ## Pending Phases
 
+> Phases 8 (collaboration server) and 9 (real-time co-editing, presence) have shipped — see features 018, 020, 023 (Hocuspocus 4 upgrade), and 024 (file-tree open-file presence).
+
 | Phase | Scope                                                                                  |
 |-------|----------------------------------------------------------------------------------------|
-| 8     | Collaboration server (Hocuspocus, per-document rooms, auth hook, Yjs persistence)      |
-| 9     | Real-time co-editing (y-codemirror.next, presence indicators, collaborative undo/redo) |
 | 10    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)            |
 | 11    | Templates + asset management (built-in templates, custom templates, image upload)      |
 | 12    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)   |

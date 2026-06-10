@@ -16,6 +16,8 @@ import {
   ProjectNotArchivedError,
 } from "@asciidocollab/domain";
 import { getAuthenticatedUserId } from "../plugins/require-auth";
+import { requestContextFrom } from "../lib/request-context";
+import { requestLogger } from "../lib/request-logger";
 
 /**
  * Maps domain errors to HTTP status codes and error codes.
@@ -264,6 +266,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      requestLogger(request),
     );
 
     const result = await useCase.execute(
@@ -274,6 +277,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         description: description === undefined ? undefined : description,
         tags,
       },
+      requestContextFrom(request),
     );
 
     if (!result.success) {
@@ -313,9 +317,10 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id), requestContextFrom(request));
 
     if (!result.success) {
       const { status, code } = mapDomainError(result.error);
@@ -344,9 +349,10 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id), requestContextFrom(request));
 
     if (!result.success) {
       const { status, code } = mapDomainError(result.error);
@@ -377,9 +383,10 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.auditLog,
       request.server.stores.fileStore,
       request.server.stores.yjsStateStore,
+      requestLogger(request),
     );
 
-    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id));
+    const result = await useCase.execute(UserId.create(userId), ProjectId.create(id), requestContextFrom(request));
 
     if (!result.success) {
       const { status, code } = mapDomainError(result.error);

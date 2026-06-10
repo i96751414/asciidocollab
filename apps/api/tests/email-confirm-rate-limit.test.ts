@@ -1,7 +1,7 @@
 // Rate limit test for GET /auth/email/confirm
 // Separate file so env vars are set before the config singleton is created.
 import { buildServer } from '../src/index';
-import { emailConfirmRoute } from '../src/routes/email-confirm';
+import { emailConfirmRoute } from '../src/routes/auth/email/confirm';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 
 describe('Email Confirm Rate Limiting', () => {

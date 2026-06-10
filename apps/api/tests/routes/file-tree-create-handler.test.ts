@@ -51,6 +51,9 @@ function buildTestServer(options: BuildOptions = {}) {
     document: {
       save: jest.fn().mockResolvedValue(undefined),
     },
+    auditLog: {
+      save: jest.fn().mockResolvedValue(undefined),
+    },
   });
 
   app.decorate('stores', {

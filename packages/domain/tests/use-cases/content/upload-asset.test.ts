@@ -4,6 +4,7 @@ import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file
 import { InMemoryAssetRepository } from '../../ports/file-tree/in-memory-asset.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemorySystemSettingRepository } from '../../ports/admin/in-memory-system-setting.repository';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
@@ -31,6 +32,7 @@ describe('UploadAssetUseCase', () => {
   let assetRepo: InMemoryAssetRepository;
   let fileStore: InMemoryProjectFileStore;
   let systemSettingRepo: InMemorySystemSettingRepository;
+  let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: UploadAssetUseCase;
 
   const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
@@ -46,8 +48,9 @@ describe('UploadAssetUseCase', () => {
     assetRepo = new InMemoryAssetRepository();
     fileStore = new InMemoryProjectFileStore();
     systemSettingRepo = new InMemorySystemSettingRepository();
+    auditLogRepo = new InMemoryAuditLogRepository();
 
-    useCase = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, DEFAULT_MAX);
+    useCase = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, DEFAULT_MAX, auditLogRepo);
 
     const project = new Project(projectId, ProjectName.create('Test'), null, [], rootFolderId);
     await projectRepo.save(project);
@@ -86,7 +89,7 @@ describe('UploadAssetUseCase', () => {
   });
 
   it('rejects bytes over defaultMaxUploadSizeBytes when no DB setting', async () => {
-    const smallMax = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50);
+    const smallMax = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50, auditLogRepo);
     const tooBig = Buffer.alloc(100, 0x00);
     const result = await smallMax.execute(actorId, projectId, rootFolderId, 'big.png', MimeType.create('image/png'), tooBig);
     expect(result.success).toBe(false);
@@ -97,7 +100,7 @@ describe('UploadAssetUseCase', () => {
 
   it('admin-set limit overrides the default', async () => {
     await systemSettingRepo.set(SETTING_MAX_UPLOAD_SIZE_BYTES, '200');
-    const smallDefault = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50);
+    const smallDefault = new UploadAssetUseCase(projectMemberRepo, fileNodeRepo, assetRepo, fileStore, systemSettingRepo, 50, auditLogRepo);
     const medBytes = Buffer.alloc(150, 0x00);
     const result = await smallDefault.execute(actorId, projectId, rootFolderId, 'med.png', MimeType.create('image/png'), medBytes);
     expect(result.success).toBe(true);
@@ -196,6 +199,7 @@ describe('UploadAssetUseCase', () => {
       fileStore,
       systemSettingRepo,
       50, // tiny default — any file > 50 bytes must be rejected
+      auditLogRepo,
     );
     const tooBig = Buffer.alloc(100, 0x42);
     const result = await smallMax.execute(
@@ -223,6 +227,7 @@ describe('UploadAssetUseCase', () => {
       fileStore,
       systemSettingRepo,
       50,
+      auditLogRepo,
     );
     const tooBig = Buffer.alloc(100, 0x42);
     const result = await smallMax.execute(
@@ -281,5 +286,38 @@ describe('UploadAssetUseCase', () => {
     // The file must have been cleaned up — no orphan on disk
     const orphan = await fileStore.read(projectId, FilePath.create('/fail.png'));
     expect(orphan).toBeNull();
+  });
+
+  it('records a file.uploaded audit log entry on successful upload', async () => {
+    const result = await useCase.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
+    expect(result.success).toBe(true);
+
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    const entry = entries[0];
+    expect(entry.action).toBe('file.uploaded');
+    expect(entry.resourceType).toBe('FileNode');
+    expect(entry.metadata.path).toBe('/photo.png');
+    expect(entry.metadata.sizeBytes).toBe(smallBytes.length);
+  });
+
+  it('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    const useCaseWithLogger = new UploadAssetUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      assetRepo,
+      fileStore,
+      systemSettingRepo,
+      DEFAULT_MAX,
+      throwingAudit,
+      logger,
+    );
+
+    const result = await useCaseWithLogger.execute(actorId, projectId, rootFolderId, 'photo.png', MimeType.create('image/png'), smallBytes);
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });

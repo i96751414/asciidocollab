@@ -7,6 +7,7 @@ export { DocumentId } from './document-id';
 export { GitRepositoryId } from './git-repository-id';
 export { TemplateId } from './template-id';
 export { AuditLogId } from './audit-log-id';
+export { AuthAttemptTelemetryId } from './auth-attempt-telemetry-id';
 export { ContentId } from './content-id';
 export { YjsStateId } from './yjs-state-id';
 export { Email } from './email';

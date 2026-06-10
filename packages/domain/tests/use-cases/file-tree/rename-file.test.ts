@@ -105,6 +105,8 @@ describe('RenameFileUseCase', () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].action).toBe('file.renamed');
     expect(logs[0].userId.value).toBe(actorId.value);
+    expect(logs[0].metadata.previousName).toBe('original-name.txt');
+    expect(logs[0].metadata.newName).toBe('new-name.txt');
   });
 
   test('returns error for non-existent file', async () => {
@@ -124,6 +126,35 @@ describe('RenameFileUseCase', () => {
     if (result.success) return;
 
     expect(result.error.name).toBe('PermissionDeniedError');
+  });
+
+  test('records an authz.denied audit log entry for a non-member', async () => {
+    const result = await useCase.execute(otherUser, fileNodeId, 'new-name.txt', projectId);
+    expect(result.success).toBe(false);
+
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('authz.denied');
+    expect(entries[0].resourceType).toBe('FileNode');
+    expect(entries[0].resourceId).toBe(fileNodeId.value);
+    expect(entries[0].metadata.reason).toBe('not_a_project_member');
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    const useCaseWithLogger = new RenameFileUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      throwingAudit,
+      undefined,
+      logger,
+    );
+
+    const result = await useCaseWithLogger.execute(actorId, fileNodeId, 'new-name.txt', projectId);
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });
 

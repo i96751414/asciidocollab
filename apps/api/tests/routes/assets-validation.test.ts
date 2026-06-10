@@ -15,6 +15,7 @@ async function buildAssetsTestServer() {
     fileNode: { findById: jest.fn().mockResolvedValue(null) },
     asset: { findById: jest.fn().mockResolvedValue(null), save: jest.fn() },
     systemSetting: { get: jest.fn().mockResolvedValue(null) },
+    auditLog: { save: jest.fn() },
   } as never);
   app.decorate('stores', { fileStore: {} } as never);
   app.decorate('config', { storage: { maxUploadSizeBytes: 20_971_520 } } as never);

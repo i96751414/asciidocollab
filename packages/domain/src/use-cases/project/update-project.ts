@@ -5,13 +5,13 @@ import { ProjectName } from '../../value-objects/project-name';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
-import { AuditLog } from '../../entities/audit-log';
-import { AuditLogId } from '../../value-objects/audit-log-id';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { ProjectNotFoundError } from '../../errors/project-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
-import { randomUUID } from 'crypto';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { Logger } from '../../ports/observability/logger';
 
 /**
  * Input data for updating a project.
@@ -41,6 +41,7 @@ export class UpdateProjectUseCase {
     private readonly projectRepo: ProjectRepository,
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly auditLogRepo: AuditLogRepository,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -57,6 +58,7 @@ export class UpdateProjectUseCase {
     actorId: UserId,
     projectId: ProjectId,
     input: UpdateProjectInput,
+    context?: RequestContext,
   ): Promise<Result<Project, DomainError>> {
     const project = await this.projectRepo.findById(projectId);
     if (!project) {
@@ -65,8 +67,23 @@ export class UpdateProjectUseCase {
 
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (callerMembership?.role.value !== 'owner') {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'Project',
+        resourceId: projectId.value,
+        reason: 'not_authorized',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
+
+    // Capture before-values to record what actually changed (FR-016).
+    const before = {
+      name: project.name.value,
+      description: project.description,
+      tags: [...project.tags],
+    };
 
     // Update project fields using the entity's update method
     project.update({
@@ -77,16 +94,30 @@ export class UpdateProjectUseCase {
 
     await this.projectRepo.save(project);
 
-    const auditLog = new AuditLog(
-      AuditLogId.create(randomUUID()),
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    if (project.name.value !== before.name) {
+      changes.name = { from: before.name, to: project.name.value };
+    }
+    if (project.description !== before.description) {
+      changes.description = { from: before.description, to: project.description };
+    }
+    const afterTags = [...project.tags];
+    if (
+      afterTags.length !== before.tags.length ||
+      afterTags.some((tag, index) => tag !== before.tags[index])
+    ) {
+      changes.tags = { from: before.tags, to: afterTags };
+    }
+
+    await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
-      'project.updated',
-      'Project',
-      projectId.value,
-    );
-
-    await this.auditLogRepo.save(auditLog);
+      action: 'project.updated',
+      resourceType: 'Project',
+      resourceId: projectId.value,
+      metadata: { changes },
+      context,
+    }, this.logger);
 
     return { success: true, value: project };
   }

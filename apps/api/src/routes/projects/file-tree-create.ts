@@ -9,6 +9,8 @@ import {
 } from '@asciidocollab/domain';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
+import { requestContextFrom } from '../../lib/request-context';
+import { requestLogger } from '../../lib/request-logger';
 import { sendFileTreeError } from './file-tree-errors';
 
 type CreateBody = { type: 'file' | 'folder'; parentId: string; name: string; mimeType?: string };
@@ -42,8 +44,10 @@ export async function fileTreeCreateRoutes(app: FastifyInstance): Promise<void> 
           request.server.repos.projectMember,
           request.server.repos.fileNode,
           request.server.stores.fileStore,
+          request.server.repos.auditLog,
+          requestLogger(request),
         );
-        const result = await useCase.execute(actorId, projectId, parentFileNodeId, name);
+        const result = await useCase.execute(actorId, projectId, parentFileNodeId, name, requestContextFrom(request));
 
         if (!result.success) return sendFileTreeError(reply, result.error);
         const event: FileTreeEventDto = { type: 'created', fileNodeId: result.value.fileNodeId.value, nodeType: 'folder', name, path: result.value.path.value, parentId: parentId };
@@ -56,8 +60,10 @@ export async function fileTreeCreateRoutes(app: FastifyInstance): Promise<void> 
           request.server.repos.fileNode,
           request.server.repos.document,
           request.server.stores.fileStore,
+          request.server.repos.auditLog,
+          requestLogger(request),
         );
-        const result = await useCase.execute(actorId, projectId, parentFileNodeId, name, mime, Buffer.alloc(0));
+        const result = await useCase.execute(actorId, projectId, parentFileNodeId, name, mime, Buffer.alloc(0), requestContextFrom(request));
 
         if (!result.success) return sendFileTreeError(reply, result.error);
         const event: FileTreeEventDto = { type: 'created', fileNodeId: result.value.fileNodeId.value, nodeType: 'file', name, path: result.value.path.value, parentId: parentId };

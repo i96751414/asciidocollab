@@ -1,10 +1,10 @@
 // T041: Integration tests for email change endpoints
 import { createHash } from 'node:crypto';
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
-import { emailChangeRequestRoute } from '../src/routes/email-change-request';
-import { emailConfirmRoute } from '../src/routes/email-confirm';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
+import { emailChangeRequestRoute } from '../src/routes/auth/email/change-request';
+import { emailConfirmRoute } from '../src/routes/auth/email/confirm';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

@@ -79,6 +79,19 @@ describe('RestoreProjectUseCase', () => {
     }
   });
 
+  test('records an authz.denied audit when actor is not authorized', async () => {
+    await archiveUseCase.execute(ownerId, projectId);
+
+    await restoreUseCase.execute(nonMemberId, projectId);
+
+    const auditLogs = await auditLogRepo.findAll();
+    const denial = auditLogs.find((log) => log.action === 'authz.denied');
+    expect(denial).toBeDefined();
+    expect(denial!.resourceType).toBe('Project');
+    expect(denial!.resourceId).toBe(projectId.value);
+    expect(denial!.metadata.reason).toBe('not_authorized');
+  });
+
   test('returns error when project is not archived', async () => {
     expect.assertions(2);
     const result = await restoreUseCase.execute(ownerId, projectId);
@@ -99,6 +112,35 @@ describe('RestoreProjectUseCase', () => {
     expect(auditLogs[0].action).toBe('project.archived');
     expect(auditLogs[1].action).toBe('project.restored');
     expect(auditLogs[1].userId).toBe(ownerId);
+  });
+
+  test('success event carries request origin when context is provided', async () => {
+    await archiveUseCase.execute(ownerId, projectId);
+    await restoreUseCase.execute(ownerId, projectId, {
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+
+    const auditLogs = await auditLogRepo.findByProjectId(projectId);
+    const restored = auditLogs.find((log) => log.action === 'project.restored');
+    expect(restored).toBeDefined();
+    expect(restored!.metadata.origin).toEqual({
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    await archiveUseCase.execute(ownerId, projectId);
+
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    restoreUseCase = new RestoreProjectUseCase(projectRepo, memberRepo, throwingAudit, logger as never);
+
+    const result = await restoreUseCase.execute(ownerId, projectId);
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 
   test('supports full archive → restore → archive cycle', async () => {

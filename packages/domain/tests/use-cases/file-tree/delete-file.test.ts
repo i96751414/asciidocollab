@@ -199,6 +199,79 @@ describe('DeleteFileUseCase', () => {
 
     expect(result.error.name).toBe('FileNodeNotFoundError');
   });
+
+  test('records an authz.denied audit log entry for a non-member', async () => {
+    const nonMemberId = UserId.create('550e8400-e29b-41d4-a716-446655440009');
+    const result = await useCase.execute(nonMemberId, fileNodeId, projectId);
+
+    expect(result.success).toBe(false);
+
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('authz.denied');
+    expect(entries[0].resourceType).toBe('FileNode');
+    expect(entries[0].resourceId).toBe(fileNodeId.value);
+    expect(entries[0].metadata.reason).toBe('not_a_project_member');
+  });
+
+  test('file.deleted audit log carries request origin metadata (FR-017)', async () => {
+    const result = await useCase.execute(actorId, fileNodeId, projectId, {
+      ipAddress: '203.0.113.7',
+      userAgent: 'jest-agent',
+    });
+
+    expect(result.success).toBe(true);
+
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    expect(logs).toHaveLength(1);
+    expect(logs[0].action).toBe('file.deleted');
+    expect(logs[0].metadata.origin).toEqual({ ipAddress: '203.0.113.7', userAgent: 'jest-agent' });
+  });
+
+  test('deny path swallows a failing audit save but reports it via the logger', async () => {
+    const logger = { warn: jest.fn() };
+    const failingAuditRepo = {
+      ...auditLogRepo,
+      save: jest.fn().mockRejectedValue(new Error('audit store down')),
+    };
+    const useCaseWithLogger = new DeleteFileUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      documentRepo,
+      failingAuditRepo as never,
+      undefined,
+      undefined,
+      logger,
+    );
+
+    const nonMemberId = UserId.create('550e8400-e29b-41d4-a716-446655440009');
+    const result = await useCaseWithLogger.execute(nonMemberId, fileNodeId, projectId);
+
+    // Audit failure must not convert the clean 403 into a thrown error.
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.name).toBe('PermissionDeniedError');
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+    const useCaseWithLogger = new DeleteFileUseCase(
+      projectMemberRepo,
+      fileNodeRepo,
+      documentRepo,
+      throwingAudit,
+      undefined,
+      undefined,
+      logger,
+    );
+
+    const result = await useCaseWithLogger.execute(actorId, fileNodeId, projectId);
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
+  });
 });
 
 describe('DeleteFileUseCase with ProjectFileStore + YjsStateStore', () => {

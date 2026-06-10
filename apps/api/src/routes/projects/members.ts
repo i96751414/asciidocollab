@@ -16,6 +16,8 @@ import {
   CannotRemoveLastOwnerError,
 } from "@asciidocollab/domain";
 import { getAuthenticatedUserId } from "../../plugins/require-auth";
+import { requestContextFrom } from "../../lib/request-context";
+import { requestLogger } from "../../lib/request-logger";
 
 function mapMemberError(error: DomainError): { status: number; code: string } {
   if (error instanceof PermissionDeniedError) return { status: 403, code: "FORBIDDEN" };
@@ -174,6 +176,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      requestLogger(request),
     );
 
     const result = await useCase.execute(
@@ -181,6 +184,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       ProjectId.create(id),
       UserId.create(userId),
       Role.create(role),
+      requestContextFrom(request),
     );
 
     if (!result.success) {
@@ -213,12 +217,14 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       request.server.repos.project,
       request.server.repos.projectMember,
       request.server.repos.auditLog,
+      requestLogger(request),
     );
 
     const result = await useCase.execute(
       UserId.create(sessionUserId),
       ProjectId.create(id),
       UserId.create(userId),
+      requestContextFrom(request),
     );
 
     if (!result.success) {

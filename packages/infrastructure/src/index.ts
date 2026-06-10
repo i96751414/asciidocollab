@@ -31,6 +31,7 @@ export { PrismaPasswordResetTokenRepository } from './persistence/auth-tokens/pr
 
 // admin/
 export { PrismaAuditLogRepository } from './persistence/admin/prisma-audit-log.repository';
+export { PrismaAuthAttemptTelemetryRepository } from './persistence/admin/prisma-auth-attempt-telemetry.repository';
 export { PrismaSystemSettingRepository } from './persistence/admin/prisma-system-setting.repository';
 
 export * from './services';

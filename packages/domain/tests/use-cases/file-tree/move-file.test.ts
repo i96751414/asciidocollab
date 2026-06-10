@@ -2,6 +2,7 @@ import { MoveFileUseCase } from '../../../src/use-cases/file-tree/move-file';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
+import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
@@ -22,6 +23,7 @@ describe('MoveFileUseCase', () => {
   let projectMemberRepo: InMemoryProjectMemberRepository;
   let fileNodeRepo: InMemoryFileNodeRepository;
   let fileStore: InMemoryProjectFileStore;
+  let auditLogRepo: InMemoryAuditLogRepository;
   let useCase: MoveFileUseCase;
 
   const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
@@ -37,8 +39,9 @@ describe('MoveFileUseCase', () => {
     projectMemberRepo = new InMemoryProjectMemberRepository();
     fileNodeRepo = new InMemoryFileNodeRepository();
     fileStore = new InMemoryProjectFileStore();
+    auditLogRepo = new InMemoryAuditLogRepository();
 
-    useCase = new MoveFileUseCase(projectMemberRepo, fileNodeRepo, fileStore);
+    useCase = new MoveFileUseCase(projectMemberRepo, fileNodeRepo, fileStore, auditLogRepo);
 
     const project = new Project(projectId, ProjectName.create('Test'), null, [], rootFolderId);
     await projectRepo.save(project);
@@ -65,6 +68,18 @@ describe('MoveFileUseCase', () => {
       expect(updated?.parentId?.value).toBe(subFolderId.value);
       expect(updated?.path.value).toBe('/sub/test.adoc');
     }
+  });
+
+  it('records a file.moved audit log with from/to metadata', async () => {
+    const result = await useCase.execute(actorId, projectId, fileNodeId, subFolderId);
+    expect(result.success).toBe(true);
+
+    const logs = await auditLogRepo.findByProjectId(projectId);
+    expect(logs).toHaveLength(1);
+    expect(logs[0].action).toBe('file.moved');
+    expect(logs[0].resourceId).toBe(fileNodeId.value);
+    expect(logs[0].metadata.from).toBe('/test.adoc');
+    expect(logs[0].metadata.to).toBe('/sub/test.adoc');
   });
 
   it('returns FileConflictError on destination conflict', async () => {
@@ -119,6 +134,19 @@ describe('MoveFileUseCase', () => {
     expect(updatedHelper?.path.value).toBe('/lib/utils/helper.adoc');
   });
 
+  it('records an authz.denied audit log entry for a non-member', async () => {
+    const nonMemberId = UserId.create('550e8400-e29b-41d4-a716-446655440009');
+    const result = await useCase.execute(nonMemberId, projectId, fileNodeId, subFolderId);
+    expect(result.success).toBe(false);
+
+    const entries = await auditLogRepo.findAll();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe('authz.denied');
+    expect(entries[0].resourceType).toBe('FileNode');
+    expect(entries[0].resourceId).toBe(fileNodeId.value);
+    expect(entries[0].metadata.reason).toBe('not_a_project_member');
+  });
+
   it('returns FileNodeNotFoundError when fileNode belongs to a different project', async () => {
     const otherProjectId = ProjectId.create('ff0e8400-e29b-41d4-a716-446655440099');
     const alienNodeId = FileNodeId.create('ee0e8400-e29b-41d4-a716-446655440011');
@@ -158,5 +186,16 @@ describe('MoveFileUseCase', () => {
     if (!result.success) {
       expect(result.error).toBeInstanceOf(FileNodeNotFoundError);
     }
+  });
+
+  test('a failed audit write does NOT fail the operation and is logged', async () => {
+    const throwingAudit = { save: jest.fn().mockRejectedValue(new Error('audit db down')) } as never;
+    const logger = { warn: jest.fn() };
+
+    const resilientUseCase = new MoveFileUseCase(projectMemberRepo, fileNodeRepo, fileStore, throwingAudit, logger);
+
+    const result = await resilientUseCase.execute(actorId, projectId, fileNodeId, subFolderId);
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
   });
 });

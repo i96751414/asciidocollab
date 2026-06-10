@@ -94,6 +94,52 @@ export function formatAuditAction(action: string, metadata: Record<string, unkno
       return 'User Removed';
     }
 
+    case 'auth.signed_in': {
+      return 'Signed In';
+    }
+
+    case 'auth.signed_out': {
+      return 'Signed Out';
+    }
+
+    case 'auth.registered': {
+      return 'Account Registered';
+    }
+
+    case 'auth.password_changed': {
+      return 'Password Changed';
+    }
+
+    case 'auth.password_reset': {
+      return 'Password Reset';
+    }
+
+    case 'auth.email_changed': {
+      const previous = typeof metadata.previousEmail === 'string' ? metadata.previousEmail : null;
+      const next = typeof metadata.newEmail === 'string' ? metadata.newEmail : null;
+      return previous && next ? `Email Changed (${previous} → ${next})` : 'Email Changed';
+    }
+
+    case 'file.created': {
+      return 'File Created';
+    }
+
+    case 'folder.created': {
+      return 'Folder Created';
+    }
+
+    case 'file.uploaded': {
+      return 'File Uploaded';
+    }
+
+    case 'file.moved': {
+      return 'File Moved';
+    }
+
+    case 'authz.denied': {
+      return 'Authorization Denied';
+    }
+
     default: {
       return action;
     }

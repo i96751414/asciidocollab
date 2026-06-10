@@ -42,6 +42,20 @@ describe('PrismaAuditLogRepository', () => {
     expect(all[0].action).toBe('test.action');
   });
 
+  it('SC-007: an audit record survives deletion of its actor (userId becomes null, still retrievable)', async () => {
+    const user = createTestUser();
+    await userRepo.save(user);
+    const entry = createTestAuditLog(user.id, { action: 'project.deleted' });
+    await repo.save(entry);
+
+    await client.user.delete({ where: { id: user.id.value } });
+
+    const all = await repo.findAll();
+    expect(all).toHaveLength(1);
+    expect(all[0].action).toBe('project.deleted');
+    expect(all[0].userId).toBeNull();
+  });
+
   it('should find audit logs by project id', async () => {
     const user = createTestUser();
     await userRepo.save(user);

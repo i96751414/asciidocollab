@@ -1,11 +1,11 @@
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
-import { logoutRoute } from '../src/routes/logout';
-import { meRoute } from '../src/routes/me';
-import { passwordChangeRoute } from '../src/routes/password-change';
-import { passwordResetRequestRoute } from '../src/routes/password-reset-request';
-import { passwordResetRoute } from '../src/routes/password-reset';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
+import { logoutRoute } from '../src/routes/auth/logout';
+import { meRoute } from '../src/routes/auth/me';
+import { passwordChangeRoute } from '../src/routes/auth/password/change';
+import { passwordResetRequestRoute } from '../src/routes/auth/password/reset-request';
+import { passwordResetRoute } from '../src/routes/auth/password/reset';
 import { healthRoute } from '../src/routes/health';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';

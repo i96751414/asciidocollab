@@ -20,7 +20,7 @@ export function useKeyBindingSettings() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/users/me/keybindings`, { credentials: 'include' });
+      const r = await fetch(`${API_BASE}/auth/me/keybindings`, { credentials: 'include' });
       if (r.ok) setBindings(await r.json());
     } catch {
       // Silently ignore fetch errors; bindings stay empty
@@ -45,7 +45,7 @@ export function useKeyBindingSettings() {
     setBindings((previous) => previous.map((b) => b.action === action ? { ...b, keyCombo, isDefault: false } : b));
 
     try {
-      const r = await fetch(`${API_BASE}/users/me/keybindings/${encodeURIComponent(action)}`, {
+      const r = await fetch(`${API_BASE}/auth/me/keybindings/${encodeURIComponent(action)}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ export function useKeyBindingSettings() {
   const resetBinding = useCallback(async (action: string) => {
     const previousBindings = bindings;
     try {
-      const r = await fetch(`${API_BASE}/users/me/keybindings/${encodeURIComponent(action)}`, {
+      const r = await fetch(`${API_BASE}/auth/me/keybindings/${encodeURIComponent(action)}`, {
         method: 'DELETE',
         credentials: 'include',
       });

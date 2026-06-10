@@ -1,7 +1,5 @@
-import { AuditLog } from '../../entities/audit-log';
 import { UserId } from '../../value-objects/user-id';
 import { ProjectId } from '../../value-objects/project-id';
-import { AuditLogId } from '../../value-objects/audit-log-id';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
@@ -11,7 +9,9 @@ import { PermissionDeniedError } from '../../errors/permission-denied';
 import { ProjectNotFoundError } from '../../errors/project-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
-import { randomUUID } from 'crypto';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { Logger } from '../../ports/observability/logger';
 
 /**
  * Permanently deletes a project and all its associated data.
@@ -25,12 +25,14 @@ export class DeleteProjectUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly yjsStateStore?: YjsStateStore,
+    private readonly logger?: Logger,
   ) {}
 
   /** Permanently deletes a project after verifying the actor holds the owner role. */
   async execute(
     actorId: UserId,
     projectId: ProjectId,
+    context?: RequestContext,
   ): Promise<Result<void, DomainError>> {
     const project = await this.projectRepo.findById(projectId);
     if (!project) {
@@ -39,19 +41,25 @@ export class DeleteProjectUseCase {
 
     const callerMembership = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (callerMembership?.role.value !== 'owner') {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'Project',
+        resourceId: projectId.value,
+        reason: 'not_authorized',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    await this.auditLogRepo.save(
-      new AuditLog(
-        AuditLogId.create(randomUUID()),
-        actorId,
-        projectId,
-        'project.deleted',
-        'Project',
-        projectId.value,
-      ),
-    );
+    await recordAuditSuccess(this.auditLogRepo, {
+      actorId,
+      projectId,
+      action: 'project.deleted',
+      resourceType: 'Project',
+      resourceId: projectId.value,
+      context,
+    }, this.logger);
 
     await this.projectRepo.delete(projectId);
 

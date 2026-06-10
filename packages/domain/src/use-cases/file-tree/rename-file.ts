@@ -1,20 +1,21 @@
 import { FileNode } from '../../entities/file-node';
 import { Timestamps } from '../../value-objects/timestamps';
 import { cascadePathUpdate } from './file-tree-helpers';
-import { AuditLog } from '../../entities/audit-log';
 import { UserId } from '../../value-objects/user-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
 import { ProjectId } from '../../value-objects/project-id';
 import { FilePath } from '../../value-objects/file-path';
 import { FileName } from '../../value-objects/file-name';
-import { AuditLogId } from '../../value-objects/audit-log-id';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
-import { randomUUID } from 'crypto';
+import { Logger } from '../../ports/observability/logger';
+import { RequestContext } from '../../types/request-context';
+import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { AUDIT_FILE_RENAMED } from '../../audit-actions';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 
@@ -29,6 +30,7 @@ export class RenameFileUseCase {
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -47,9 +49,18 @@ export class RenameFileUseCase {
     fileNodeId: FileNodeId,
     newName: string,
     projectId: ProjectId,
+    context?: RequestContext,
   ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
+      await recordAuthorizationDenial(this.auditLogRepo, {
+        actorId,
+        projectId,
+        resourceType: 'FileNode',
+        resourceId: fileNodeId.value,
+        reason: 'not_a_project_member',
+        context,
+      }, this.logger);
       return { success: false, error: new PermissionDeniedError() };
     }
 
@@ -59,6 +70,7 @@ export class RenameFileUseCase {
     }
 
     FileName.create(newName); // throws ValidationError for invalid names
+    const previousName = fileNode.name;
     const pathString = fileNode.path.value;
     const lastSlash = pathString.lastIndexOf('/');
     const parentPath = pathString.slice(0, lastSlash + 1);
@@ -99,16 +111,15 @@ export class RenameFileUseCase {
       throw error;
     }
 
-    const auditLog = new AuditLog(
-      AuditLogId.create(randomUUID()),
+    await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
-      'file.renamed',
-      'FileNode',
-      fileNodeId.value,
-    );
-
-    await this.auditLogRepo.save(auditLog);
+      action: AUDIT_FILE_RENAMED,
+      resourceType: 'FileNode',
+      resourceId: fileNodeId.value,
+      metadata: { previousName, newName },
+      context,
+    }, this.logger);
 
     return {
       success: true,

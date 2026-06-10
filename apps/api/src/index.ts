@@ -12,6 +12,7 @@ import {
   PrismaTemplateRepository,
   PrismaAssetRepository,
   PrismaAuditLogRepository,
+  PrismaAuthAttemptTelemetryRepository,
   PrismaPasswordResetTokenRepository,
   PrismaEmailChangeTokenRepository,
   PrismaUserInvitationRepository,
@@ -46,6 +47,7 @@ import {
   TemplateRepository,
   AssetRepository,
   AuditLogRepository,
+  AuthAttemptTelemetryRepository,
   PasswordResetTokenRepository,
   EmailChangeTokenRepository,
   UserInvitationRepository,
@@ -77,41 +79,43 @@ import { errorHandler, notFoundHandler } from './plugins/error-handler';
 import { requireAuth } from './plugins/require-auth';
 import { requireEmailVerified } from './plugins/require-email-verified';
 import { healthRoute } from './routes/health';
-import { loginRoute } from './routes/login';
-import { registerRoute } from './routes/register';
-import { logoutRoute } from './routes/logout';
-import { meRoute } from './routes/me';
-import { passwordChangeRoute } from './routes/password-change';
-import { profileUpdateRoute } from './routes/profile-update';
-import { emailChangeRequestRoute } from './routes/email-change-request';
-import { emailConfirmRoute } from './routes/email-confirm';
-import { passwordResetRequestRoute } from './routes/password-reset-request';
-import { passwordResetRoute } from './routes/password-reset';
+import { loginRoute } from './routes/auth/login';
+import { registerRoute } from './routes/auth/register';
+import { logoutRoute } from './routes/auth/logout';
+import { meRoute } from './routes/auth/me';
+import { passwordChangeRoute } from './routes/auth/password/change';
+import { profileUpdateRoute } from './routes/auth/me/profile';
+import { emailChangeRequestRoute } from './routes/auth/email/change-request';
+import { emailConfirmRoute } from './routes/auth/email/confirm';
+import { passwordResetRequestRoute } from './routes/auth/password/reset-request';
+import { passwordResetRoute } from './routes/auth/password/reset';
 import { projectRoutes } from './routes/projects';
 import { memberRoutes } from './routes/projects/members';
 import { usersSearchRoute } from './routes/projects/users-search';
-import { setupStatusRoute } from './routes/setup-status';
-import { sessionStatusRoute } from './routes/session-status';
-import { acceptInviteRoute } from './routes/accept-invite';
+import { setupStatusRoute } from './routes/auth/setup-status';
+import { sessionStatusRoute } from './routes/auth/session-status';
+import { acceptInviteRoute } from './routes/auth/accept-invite';
 import { usersInviteRoute } from './routes/admin/users-invite';
 import { usersRoute } from './routes/admin/users';
 import { usersAdminStatusRoute } from './routes/admin/users-admin-status';
 import { usersRemoveRoute } from './routes/admin/users-remove';
-import { verifyEmailRoute } from './routes/verify-email';
-import { resendVerificationRoute } from './routes/resend-verification';
-import { openRegistrationStatusRoute } from './routes/open-registration-status';
+import { verifyEmailRoute } from './routes/auth/verify-email';
+import { resendVerificationRoute } from './routes/auth/resend-verification';
+import { openRegistrationStatusRoute } from './routes/auth/open-registration-status';
 import { adminSettingsRoute } from './routes/admin/settings';
 import { accessDeniedRoute } from './routes/admin/access-denied';
 import { auditLogsRoute } from './routes/admin/audit-logs';
+import { failedSignInsRoute } from './routes/admin/failed-sign-ins';
 import { projectDownloadRoute } from './routes/projects/download';
-import { fileDownloadRoute } from './routes/files/download';
+import { fileDownloadRoute } from './routes/projects/file-download';
 import { fileContentRoutes } from './routes/projects/file-content';
 import { fileTreeRoutes } from './routes/projects/file-tree';
 import { assetsRoutes } from './routes/projects/assets';
 import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
-import { keybindingsRoutes } from './routes/users/keybindings';
-import { editorPreferencesRoutes } from './routes/editor-preferences';
+import { failedSignInPurge } from './plugins/failed-sign-in-purge';
+import { keybindingsRoutes } from './routes/auth/me/keybindings';
+import { editorPreferencesRoutes } from './routes/auth/me/editor-preferences';
 import { createInternalServer } from './internal-server';
 import type { FastifyInstance } from 'fastify';
 
@@ -139,6 +143,8 @@ export interface AppContainer {
     asset: AssetRepository;
     /** Repository for audit-log persistence. */
     auditLog: AuditLogRepository;
+    /** Repository for failed sign-in telemetry persistence. */
+    authAttemptTelemetry: AuthAttemptTelemetryRepository;
     /** Repository for password-reset-token persistence. */
     passwordResetToken: PasswordResetTokenRepository;
     /** Repository for email-change-token persistence. */
@@ -227,6 +233,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
       template: new PrismaTemplateRepository(app.prisma),
       asset: new PrismaAssetRepository(app.prisma),
       auditLog: new PrismaAuditLogRepository(app.prisma),
+      authAttemptTelemetry: new PrismaAuthAttemptTelemetryRepository(app.prisma),
       passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
       emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
       userInvitation: new PrismaUserInvitationRepository(app.prisma),
@@ -338,6 +345,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   }
 
   await app.register(fileTreeEventBusPlugin);
+  await app.register(failedSignInPurge);
 
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
@@ -404,6 +412,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(adminSettingsRoute);
       await innerApp.register(accessDeniedRoute);
       await innerApp.register(auditLogsRoute);
+      await innerApp.register(failedSignInsRoute);
       await innerApp.register(projectDownloadRoute);
       await innerApp.register(fileDownloadRoute);
     });
@@ -462,6 +471,7 @@ declare module 'fastify' {
       template: TemplateRepository;
       asset: AssetRepository;
       auditLog: AuditLogRepository;
+      authAttemptTelemetry: AuthAttemptTelemetryRepository;
       passwordResetToken: PasswordResetTokenRepository;
       emailChangeToken: EmailChangeTokenRepository;
       userInvitation: UserInvitationRepository;

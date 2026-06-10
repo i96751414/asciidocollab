@@ -2,9 +2,9 @@
 // Covers the case where the token is persisted but delivery fails.
 import type { EmailChangeNotifier } from '@asciidocollab/domain';
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
-import { emailChangeRequestRoute } from '../src/routes/email-change-request';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
+import { emailChangeRequestRoute } from '../src/routes/auth/email/change-request';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 

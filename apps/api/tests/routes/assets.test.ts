@@ -27,6 +27,7 @@ async function buildTestServer() {
     fileNode: { findById: jest.fn().mockResolvedValue(null) },
     asset: { findById: jest.fn().mockResolvedValue(null), save: jest.fn() },
     systemSetting: { get: jest.fn().mockResolvedValue(null) },
+    auditLog: { save: jest.fn() },
   } as never);
   app.decorate('stores', {
     fileStore: { write: jest.fn().mockResolvedValue(undefined), read: jest.fn().mockResolvedValue(Buffer.from('img')) },

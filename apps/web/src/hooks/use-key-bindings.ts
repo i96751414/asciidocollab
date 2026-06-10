@@ -8,7 +8,7 @@ export function useKeyBindings(namespace: string): Map<string, string> {
   const [bindings, setBindings] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
-    fetch(`${API_BASE}/users/me/keybindings?namespace=${encodeURIComponent(namespace)}`, { credentials: 'include' })
+    fetch(`${API_BASE}/auth/me/keybindings?namespace=${encodeURIComponent(namespace)}`, { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then((data: Array<{ action: string; keyCombo: string }>) => {
         setBindings(new Map(data.map((b) => [b.action, b.keyCombo])));

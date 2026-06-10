@@ -20,6 +20,24 @@ convict.addFormat({
 });
 
 /**
+ * Custom convict format for a strictly-positive integer (>= 1).
+ *
+ * Unlike the built-in `int`/`integer` formats, this rejects 0 and negatives —
+ * used for retention/window/interval settings where a non-positive value would
+ * silently disable the behaviour (e.g. A zero coalescing window blacks out all
+ * auth-attempt telemetry). `coerce` parses the string env vars convict supplies.
+ */
+convict.addFormat({
+  name: 'positive-int',
+  coerce: (value: unknown) => (typeof value === 'string' ? Number(value) : value),
+  validate: (value: unknown) => {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+      throw new Error(`must be an integer >= 1, got ${String(value)}`);
+    }
+  },
+});
+
+/**
  * Custom convict format for required string validation.
  *
  * Rejects null (unset) and empty strings. When used with `default: null`,

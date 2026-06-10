@@ -1,8 +1,8 @@
 // T024: Integration tests for PATCH /auth/profile
 import { buildServer } from '../src/index';
-import { registerRoute } from '../src/routes/register';
-import { loginRoute } from '../src/routes/login';
-import { profileUpdateRoute } from '../src/routes/profile-update';
+import { registerRoute } from '../src/routes/auth/register';
+import { loginRoute } from '../src/routes/auth/login';
+import { profileUpdateRoute } from '../src/routes/auth/me/profile';
 import { startTestContainer, stopTestContainer } from '@asciidocollab/testing';
 import { setupTestEnvironment } from './helpers/test-environment';
 
