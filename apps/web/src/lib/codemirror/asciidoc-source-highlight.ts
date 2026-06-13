@@ -97,7 +97,10 @@ export function asciidocSourceHighlight(reparse: (view: EditorView) => void): Ex
             .then((support) => {
               loadedParsers.set(language, support.language.parser);
               loadingLanguages.delete(language);
-              reparse(view);
+              // The async import may resolve after the user switched files (remount)
+              // or closed the editor; dispatching to a destroyed view throws. The
+              // parser is cached module-wide, so a live view re-highlights on its own.
+              if (view.dom.isConnected) reparse(view);
             })
             .catch(() => loadingLanguages.delete(language));
         }

@@ -75,6 +75,30 @@ describe('foldRangeForConditional (FR-014/051)', () => {
     const editorState = state('ifdef::env[]\nbody\n');
     expect(foldRangeForConditional(editorState, lineStart(editorState, 1))).toBeNull();
   });
+
+  test('an inline single-line conditional (ifdef::name[text]) is not a block opener', () => {
+    // The inline form carries content in the brackets and has no matching endif.
+    const editorState = state('ifdef::env[shown inline]\n');
+    expect(foldRangeForConditional(editorState, lineStart(editorState, 1))).toBeNull();
+  });
+
+  test('an inline conditional inside a block does not inflate nesting depth', () => {
+    const source = 'ifdef::env[]\nintro\nifdef::flag[inline note]\nbody\nendif::[]\ntail\n';
+    const editorState = state(source);
+    const range = foldRangeForConditional(editorState, lineStart(editorState, 1));
+    expect(range).not.toBeNull();
+    const hidden = source.slice(range!.from, range!.to);
+    expect(hidden).toContain('body'); // folds up to the single endif…
+    expect(hidden).not.toContain('tail'); // …without being thrown off by the inline directive
+  });
+
+  test('folds an ifeval block', () => {
+    const source = 'ifeval::["{ver}" == "1"]\nonly for v1\nendif::[]\n';
+    const editorState = state(source);
+    const range = foldRangeForConditional(editorState, lineStart(editorState, 1));
+    expect(range).not.toBeNull();
+    expect(source.slice(range!.from, range!.to)).toContain('only for v1');
+  });
 });
 
 describe('foldRangeForCommentRun (FR-013)', () => {

@@ -104,6 +104,7 @@ export function foldPersistence(storageKey: string | null): Extension {
     class {
       private saved = '';
       private restored = false;
+      private restoring = false;
 
       constructor(view: EditorView) {
         // On the REST path the doc is present at mount; on the collab path it is
@@ -113,18 +114,30 @@ export function foldPersistence(storageKey: string | null): Extension {
       }
 
       private tryRestore(view: EditorView) {
-        if (this.restored || view.state.doc.length === 0) return;
-        this.restored = true;
+        if (this.restored || this.restoring || view.state.doc.length === 0) return;
         const folds = parseFoldState(globalThis.localStorage?.getItem(key) ?? null, view.state.doc.length);
-        this.saved = JSON.stringify(folds);
-        if (folds.length > 0) {
-          queueMicrotask(() => view.dispatch({ effects: folds.map((fold) => foldEffect.of(fold)) }));
+        if (folds.length === 0) {
+          // Nothing to restore — baseline from the current (empty) fold set and start persisting.
+          this.saved = JSON.stringify(serializeFolds(view));
+          this.restored = true;
+          return;
         }
+        // Apply the saved folds in a microtask, but do NOT mark restored until they have
+        // actually landed — otherwise an update() firing before the microtask (e.g. the
+        // mount's cursor-restore dispatch) would serialize the still-empty fold set and
+        // clobber storage with '[]'. `restoring` keeps update() from persisting meanwhile.
+        this.restoring = true;
+        queueMicrotask(() => {
+          view.dispatch({ effects: folds.map((fold) => foldEffect.of(fold)) });
+          this.saved = JSON.stringify(serializeFolds(view));
+          this.restoring = false;
+          this.restored = true;
+        });
       }
 
       update(update: ViewUpdate) {
         if (!this.restored) {
-          this.tryRestore(update.view);
+          if (!this.restoring) this.tryRestore(update.view);
           return; // don't persist until the saved state has been restored
         }
         const current = JSON.stringify(serializeFolds(update.view));

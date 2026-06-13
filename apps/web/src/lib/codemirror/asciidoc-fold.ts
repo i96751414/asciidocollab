@@ -32,7 +32,10 @@ const FOLDABLE_BLOCK_TYPES = new Set([
 /** Table block variants (PSV + CSV/DSV) whose body folds. */
 const FOLDABLE_TABLE_TYPES = new Set(['TableBlock', 'CsvTableBlock', 'DsvTableBlock']);
 
-const CONDITIONAL_OPEN_RE = /^if(n?def|eval)::/;
+// Only the BLOCK forms open a foldable region: `ifdef::name[]` / `ifndef::name[]`
+// (empty brackets) and `ifeval::[expr]`. The single-line form `ifdef::name[text]`
+// (content in the brackets) has no matching `endif` and must not inflate nesting depth.
+const CONDITIONAL_OPEN_RE = /^if(n?def::[^[\]]*\[\]|eval::\[.*\])$/;
 const CONDITIONAL_CLOSE_RE = /^endif::/;
 const ATTR_ENTRY_RE = /^:[A-Za-z0-9][\w-]*!?:/;
 

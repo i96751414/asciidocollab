@@ -85,7 +85,10 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
     return symbols.find((symbol) => (symbol.kind === 'anchor' || symbol.kind === 'section') && symbol.name === target) ?? 'unresolved';
   }
   if (reference.kind === 'attributeRef') {
-    return symbols.find((symbol) => symbol.kind === 'attribute' && symbol.name === reference.target) ?? 'unresolved';
+    // AsciiDoc attribute names are case-insensitive (Asciidoctor downcases them), so a
+    // `{foo}` reference must resolve against a `:Foo:` definition.
+    const target = reference.target.toLowerCase();
+    return symbols.find((symbol) => symbol.kind === 'attribute' && symbol.name.toLowerCase() === target) ?? 'unresolved';
   }
   return 'unresolved';
 }
@@ -97,6 +100,9 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
  * @param rootFileId - The main/current file id.
  * @param readContent - Returns a file's content, or null if unavailable.
  * @param resolveInclude - Resolves an include target (from a file) to a file id, or null.
+ *   SECURITY (Constitution IX): include `target`s are user-controlled, so this callback
+ *   MUST sandbox them via `resolveSandboxedPath` (the web symbol index does) — this pure
+ *   model deliberately performs no filesystem access and cannot confine paths itself.
  */
 export function buildIncludeGraph(
   rootFileId: string,

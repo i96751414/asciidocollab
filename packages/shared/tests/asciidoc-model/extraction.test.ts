@@ -61,6 +61,12 @@ describe('resolveReference', () => {
     expect(resolveReference({ kind: 'xref', target: 'missing', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).toBe('unresolved');
   });
 
+  test('resolves an attributeRef case-insensitively (AsciiDoc attribute names are case-insensitive)', () => {
+    const caseSymbols = extractSymbols('f1', ':Foo: bar\n');
+    expect(resolveReference({ kind: 'attributeRef', target: 'foo', fileId: 'f1', range: { from: 0, to: 0 } }, caseSymbols)).not.toBe('unresolved');
+    expect(resolveReference({ kind: 'attributeRef', target: 'FOO', fileId: 'f1', range: { from: 0, to: 0 } }, caseSymbols)).not.toBe('unresolved');
+  });
+
   test('resolves a cross-file xref by its fragment (file.adoc#frag) — review fix', () => {
     expect(resolveReference({ kind: 'xref', target: 'chap.adoc#intro', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
     expect(resolveReference({ kind: 'xref', target: '#intro', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
