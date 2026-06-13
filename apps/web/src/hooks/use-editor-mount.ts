@@ -32,7 +32,7 @@ import {
   sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
-import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
+import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
@@ -78,6 +78,8 @@ interface UseEditorMountOptions {
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
+  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  onNavigateToXref?: (target: XrefTarget) => void;
   onLineClick?: (line: number) => void;
   /**
    * Called with the 1-based line at the top of the editor viewport as the user scrolls.
@@ -90,6 +92,11 @@ interface UseEditorMountOptions {
    * to the current document's line count ("closest valid line"); ignored when not provided.
    */
   initialLine?: number;
+  /**
+   * Live request to reveal a 1-based line in the already-mounted editor (same-file go-to-definition,
+   * FR-049). Each distinct `nonce` triggers one cursor move + scroll-into-view; clamped to the doc.
+   */
+  revealRequest?: { line: number; nonce: number } | null;
   /**
    * Collaboration binding extension (yCollab) for the collab path. When provided the editor
    * mounts with an EMPTY document and is populated from Yjs sync (FR-004); native CodeMirror
@@ -119,9 +126,11 @@ export function useEditorMount({
   onOutlineChange,
   onNavigateToFile,
   onOpenUrl,
+  onNavigateToXref,
   onLineClick,
   onScrollLine,
   initialLine,
+  revealRequest,
   collabExtension,
   remountKey,
 }: UseEditorMountOptions) {
@@ -356,11 +365,13 @@ export function useEditorMount({
       {
         onNavigateToFile,
         onOpenUrl,
+        onNavigateToXref,
         onUnresolvedPath: (path) => {
           globalThis.dispatchEvent(new CustomEvent('editor:unresolved-path', { detail: path }));
         },
       },
       () => includePathsReference.current,
+      projectIndexAccessor,
     );
     const mousedownFunction = (event: MouseEvent) => linkHandler.handleMousedown(event, view);
     view.dom.addEventListener('mousedown', mousedownFunction);
@@ -377,6 +388,17 @@ export function useEditorMount({
     // switch). content/canEdit changes are handled by their own effects below. Other closure
     // values are intentionally captured at (re)mount time.
   }, [remountKey]);
+
+  // Live reveal: move the cursor to a requested line and scroll it into view (same-file
+  // go-to-definition, FR-049). Runs on the already-mounted view; each new nonce reveals once.
+  const revealedNonceReference = useRef<number | null>(null);
+  useEffect(() => {
+    const view = viewReference.current;
+    if (!view || !revealRequest || revealRequest.nonce === revealedNonceReference.current) return;
+    revealedNonceReference.current = revealRequest.nonce;
+    const targetLine = clampToValidLine(revealRequest.line, view.state.doc.lines);
+    view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
+  }, [revealRequest]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).

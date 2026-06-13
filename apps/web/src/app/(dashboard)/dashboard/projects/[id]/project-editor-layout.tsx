@@ -29,6 +29,7 @@ import type { CollabAuthRole } from '@asciidocollab/shared';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
+import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -39,6 +40,10 @@ interface ContentAreaProperties {
   onLineClick?: (line: number) => void;
   // Ctrl+click on an include/image path — reveals and selects the target file in the tree.
   onNavigateToFile?: (path: string) => void;
+  // Ctrl+click on a cross-reference — reveals its definition (same file or another, FR-049).
+  onNavigateToXref?: (target: XrefTarget) => void;
+  // Live request to reveal a line in the open editor (same-file go-to-definition, FR-049).
+  revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
   onOpenUrl?: (url: string) => void;
   onChange?: (value: string) => void;
@@ -72,6 +77,8 @@ function ContentArea({
   onScrollLine,
   onLineClick,
   onNavigateToFile,
+  onNavigateToXref,
+  revealRequest,
   onOpenUrl,
   onChange,
   initialLine,
@@ -122,6 +129,8 @@ function ContentArea({
       onScrollLine={onScrollLine}
       onLineClick={onLineClick}
       onNavigateToFile={onNavigateToFile}
+      onNavigateToXref={onNavigateToXref}
+      revealRequest={revealRequest}
       onOpenUrl={onOpenUrl}
       onChange={onChange}
       initialLine={initialLine}
@@ -165,6 +174,9 @@ export function ProjectEditorLayout({
   });
   const [previewOpen, setPreviewOpen] = useState(false);
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
+  // Live editor reveal request (same-file go-to-definition, FR-049); each nonce reveals once.
+  const [revealRequest, setRevealRequest] = useState<{ line: number; nonce: number } | null>(null);
+  const revealNonce = useRef(0);
   // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
   const lastScrolledLine = useRef<number | null>(null);
   // Track live editor content so the preview reflects what the user is typing.
@@ -270,9 +282,14 @@ export function ProjectEditorLayout({
   // Persist the file on every selection, then delegate to useFileSelection. Folders are
   // ignored by rememberFile, so only content files are remembered. A user-initiated selection
   // also ends the restore window, so the remembered line is never re-applied mid-session.
+  // Pending cross-file go-to-definition line: set when an xref targets another file, consumed by
+  // the next selection so the opened file reveals the definition via its mount-time initialLine.
+  const pendingXrefLine = useRef<number | null>(null);
   const handleSelectFile = useCallback(
     (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => {
-      setRestoredLine(null);
+      const xrefLine = pendingXrefLine.current;
+      pendingXrefLine.current = null;
+      setRestoredLine(xrefLine === null ? null : { nodeId, line: xrefLine });
       rememberFile({ nodeId, nodeName, nodeType, path: nodePath });
       selectFile(nodeId, nodeName, nodePath, nodeType);
     },
@@ -377,6 +394,17 @@ export function ProjectEditorLayout({
     openPathNonce.current += 1;
     setOpenPathRequest({ path, nonce: openPathNonce.current });
   }, []);
+  // Cross-reference go-to-definition (FR-049): reveal in place when the target is the open file,
+  // otherwise switch to the defining file (carrying the line to reveal once it mounts).
+  const handleNavigateToXref = useCallback((target: XrefTarget) => {
+    if (target.sameFile || target.path === null) {
+      revealNonce.current += 1;
+      setRevealRequest({ line: target.line, nonce: revealNonce.current });
+      return;
+    }
+    pendingXrefLine.current = target.line;
+    handleNavigateToFile(target.path);
+  }, [handleNavigateToFile]);
   const handleOpenUrl = useCallback((url: string) => {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
   }, []);
@@ -481,6 +509,8 @@ export function ProjectEditorLayout({
               onScrollLine={previewOpen && scrollSyncEnabled ? handleScrollLine : undefined}
               onLineClick={previewOpen ? handleLineClick : undefined}
               onNavigateToFile={handleNavigateToFile}
+              onNavigateToXref={handleNavigateToXref}
+              revealRequest={revealRequest}
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}
               initialLine={initialLine}

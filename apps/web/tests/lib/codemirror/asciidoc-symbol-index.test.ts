@@ -18,6 +18,7 @@ const FILES: Record<string, { path: string; content: string }> = {
 const PATH_TO_ID: Record<string, string> = { 'main.adoc': 'main', 'chapter1.adoc': 'chapter1' };
 
 const getContent = (id: string) => FILES[id]?.content ?? null;
+const pathOf = (id: string) => FILES[id]?.path ?? null;
 const resolveInclude = makeIncludeResolver(
   (id) => FILES[id]?.path ?? null,
   (path) => PATH_TO_ID[path] ?? null,
@@ -49,6 +50,32 @@ describe('buildProjectSymbolIndex', () => {
     const index = buildProjectSymbolIndex('chapter1', getContent, resolveInclude);
     expect(index.tree.rootFileId).toBe('chapter1');
     expect(index.symbols.some((s) => s.name === 'intro')).toBe(true);
+  });
+});
+
+describe('go-to-definition locators (FR-049)', () => {
+  test('pathOf maps a file id to its project-relative path; unknown ⇒ null', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude, 'main', pathOf);
+    expect(index.pathOf('chapter1')).toBe('chapter1.adoc');
+    expect(index.pathOf('ghost')).toBeNull();
+  });
+
+  test('pathOf returns null when no path resolver is supplied', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    expect(index.pathOf('chapter1')).toBeNull();
+  });
+
+  test('lineOf converts a character offset to a 1-based line within the file', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude, 'main', pathOf);
+    // chapter1.adoc: '[[intro]]\n== Chapter One\n...': the '== Chapter One' heading starts on line 2.
+    const heading = index.symbols.find((s) => s.kind === 'section' && s.fileId === 'chapter1');
+    expect(heading).toBeDefined();
+    expect(index.lineOf('chapter1', heading!.range.from)).toBe(2);
+  });
+
+  test('lineOf returns 1 when the file content is unavailable', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude, 'main', pathOf);
+    expect(index.lineOf('ghost', 0)).toBe(1);
   });
 });
 

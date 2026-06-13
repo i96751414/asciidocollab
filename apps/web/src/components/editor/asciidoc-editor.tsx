@@ -16,6 +16,7 @@ import { useTableContext } from '@/hooks/use-table-context';
 import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
+import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
@@ -43,6 +44,10 @@ interface AsciiDocEditorProperties {
   getProjectIndex?: () => ProjectSymbolIndex | null;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
+  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  onNavigateToXref?: (target: XrefTarget) => void;
+  /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
+  revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
   onLineClick?: (line: number) => void;
   /**
@@ -112,6 +117,8 @@ export function AsciiDocEditor({
   getProjectIndex,
   onChange,
   onNavigateToFile,
+  onNavigateToXref,
+  revealRequest,
   onOpenUrl,
   onLineClick,
   onScrollLine,
@@ -193,6 +200,8 @@ export function AsciiDocEditor({
     onCursorChange: handleCursorChange,
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
+    onNavigateToXref,
+    revealRequest,
     onOpenUrl,
     onLineClick,
     onScrollLine,

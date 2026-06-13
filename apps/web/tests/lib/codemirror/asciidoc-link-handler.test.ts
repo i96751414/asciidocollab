@@ -1,4 +1,5 @@
 import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
+import { buildProjectSymbolIndex, makeIncludeResolver } from '@/lib/codemirror/asciidoc-symbol-index';
 import type { EditorView } from '@codemirror/view';
 
 type MockView = Pick<EditorView, 'state' | 'posAtCoords'>;
@@ -280,5 +281,63 @@ describe('createLinkHandler', () => {
     );
     expect(onNavigateToFile).not.toHaveBeenCalled();
     expect(onUnresolvedPath).toHaveBeenCalledWith('missing.png');
+  });
+});
+
+describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
+  const FILES: Record<string, { path: string; content: string }> = {
+    open: {
+      path: 'open.adoc',
+      content: 'include::other.adoc[]\n\n[[local]]\nSee <<local>> here.\nxref:remote[]\n<<missing>>\n',
+    },
+    other: { path: 'other.adoc', content: '[[remote]]\n== Remote\n' },
+  };
+  const PATH_OF: Record<string, string> = { open: 'open.adoc', other: 'other.adoc' };
+  const PATH_TO_ID: Record<string, string> = { 'open.adoc': 'open', 'other.adoc': 'other' };
+
+  function openIndex() {
+    return buildProjectSymbolIndex(
+      'open',
+      (id) => FILES[id]?.content ?? null,
+      makeIncludeResolver((id) => PATH_OF[id] ?? null, (p) => PATH_TO_ID[p] ?? null),
+      'open',
+      (id) => PATH_OF[id] ?? null,
+    );
+  }
+
+  function clickAt(content: string, marker: string, onNavigateToXref: jest.Mock, getIndex = openIndex) {
+    const handler = createLinkHandler({ onNavigateToXref }, undefined, getIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView(content, content.indexOf(marker) + 3),
+    );
+  }
+
+  test('Ctrl+click on a same-file <<xref>> reveals the definition in place', () => {
+    const onNavigateToXref = jest.fn();
+    clickAt(FILES.open.content, '<<local>>', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: 'open', sameFile: true, line: 3 }),
+    );
+  });
+
+  test('Ctrl+click on a cross-file xref: macro switches files at the definition', () => {
+    const onNavigateToXref = jest.fn();
+    clickAt(FILES.open.content, 'xref:remote', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: 'other', path: 'other.adoc', sameFile: false, line: 1 }),
+    );
+  });
+
+  test('Ctrl+click on an unresolved xref is a no-op', () => {
+    const onNavigateToXref = jest.fn();
+    clickAt(FILES.open.content, '<<missing>>', onNavigateToXref);
+    expect(onNavigateToXref).not.toHaveBeenCalled();
+  });
+
+  test('xref click with no index supplied is a no-op (does not throw)', () => {
+    const onNavigateToXref = jest.fn();
+    expect(() => clickAt(FILES.open.content, '<<local>>', onNavigateToXref, () => null)).not.toThrow();
+    expect(onNavigateToXref).not.toHaveBeenCalled();
   });
 });

@@ -151,6 +151,7 @@ export function useProjectSymbolIndex({
       readContent,
       resolveInclude,
       liveOverlay.current.id ?? rootFileId,
+      (id) => pathById.current.get(id) ?? null,
     );
     indexReference.current = built;
     setIndex(built);

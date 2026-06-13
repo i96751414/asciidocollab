@@ -54,6 +54,21 @@ export interface ProjectSymbolIndex {
    * @returns The accumulated inherited offset.
    */
   inheritedOffset(fileId: string): number;
+  /**
+   * The project-relative path of a file in the tree (for cross-file go-to-definition, FR-049).
+   *
+   * @param fileId - The file id to resolve.
+   * @returns The project-relative path, or null when unknown.
+   */
+  pathOf(fileId: string): string | null;
+  /**
+   * The 1-based line number for a character offset within a file (reveal location, FR-049).
+   *
+   * @param fileId - The file the offset belongs to.
+   * @param offset - The character offset into that file's content.
+   * @returns The 1-based line number; 1 when the file's content is unavailable.
+   */
+  lineOf(fileId: string, offset: number): number;
 }
 
 /**
@@ -84,6 +99,7 @@ export function makeIncludeResolver(
  * @param getContent - Returns a file's (live or persisted) content, or null.
  * @param resolveInclude - Resolves an include target to a file id, or null.
  * @param activeFileId - The open file diagnostics should scope to; defaults to the root.
+ * @param pathOf - Maps a file id to its project-relative path (for cross-file nav); defaults to none.
  * @returns The aggregated, resolvable {@link ProjectSymbolIndex}.
  */
 export function buildProjectSymbolIndex(
@@ -91,6 +107,7 @@ export function buildProjectSymbolIndex(
   getContent: (fileId: string) => string | null,
   resolveInclude: (fromFileId: string, target: string) => string | null,
   activeFileId: string = rootFileId,
+  pathOf: (fileId: string) => string | null = () => null,
 ): ProjectSymbolIndex {
   const tree = buildIncludeGraph(rootFileId, getContent, resolveInclude);
 
@@ -113,5 +130,15 @@ export function buildProjectSymbolIndex(
     resolveAttribute: (name) =>
       resolveReference({ kind: 'attributeRef', target: name, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
     inheritedOffset: (fileId) => inheritedLevelOffset(tree, fileId),
+    pathOf,
+    lineOf: (fileId, offset) => {
+      const content = getContent(fileId);
+      if (content === null) return 1;
+      let line = 1;
+      for (let index = 0; index < offset && index < content.length; index += 1) {
+        if (content[index] === '\n') line += 1;
+      }
+      return line;
+    },
   };
 }

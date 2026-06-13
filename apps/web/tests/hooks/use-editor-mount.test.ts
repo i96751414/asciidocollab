@@ -64,6 +64,29 @@ describe('use-editor-mount initialLine restore', () => {
   });
 });
 
+// T064 / US8: live reveal request drives same-file go-to-definition (FR-049). Pinned at the
+// source level (node project, no DOM EditorView) per this file's convention.
+describe('use-editor-mount revealRequest (FR-049)', () => {
+  test('accepts a revealRequest option', () => {
+    expect(source).toContain('revealRequest');
+  });
+
+  test('reveals once per nonce (dedupes via a remembered nonce ref)', () => {
+    expect(source).toContain('revealedNonceReference');
+    expect(source).toMatch(/revealRequest\.nonce === revealedNonceReference\.current/);
+  });
+
+  test('moves the cursor to the requested line and scrolls it into view', () => {
+    expect(source).toMatch(/clampToValidLine\(revealRequest\.line/);
+    expect(source).toContain('scrollIntoView: true');
+  });
+
+  test('wires the project symbol index into the link handler for xref resolution', () => {
+    expect(source).toContain('onNavigateToXref');
+    expect(source).toMatch(/createLinkHandler\([\S\s]*projectIndexAccessor/);
+  });
+});
+
 describe('use-editor-mount scroll sync', () => {
   test('accepts onScrollLine option in UseEditorMountOptions', () => {
     expect(source).toContain('onScrollLine');
