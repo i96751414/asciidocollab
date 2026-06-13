@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, openProject, openFile, editorContent, getEditorText } from './helpers/editor';
+import { createAdocFile, openProject, openFile, getEditorText } from './helpers/editor';
 
 // US9 / FR-036–040/062/063: format shortcuts + auto-pair, paste URL→link,
 // paste HTML→AsciiDoc, spell-check flags prose (not code).
@@ -22,24 +22,24 @@ test.describe('US9 authoring conveniences', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('Ctrl+B wraps the selection in *…* and typing a mark over a selection wraps it', async ({ page }) => {
-    await createAdocFile(page, projectId, 'conv.adoc', '= Conv\n\nword\n');
+  test('Ctrl+B wraps the selected word in *…*', async ({ page }) => {
+    await createAdocFile(page, projectId, 'conv-bold.adoc', '= Conv\n\nword\n');
     await openProject(page, projectId);
-    await openFile(page, 'conv.adoc');
+    await openFile(page, 'conv-bold.adoc');
 
-    await editorContent(page).click();
-    await page.keyboard.press('Control+End');
-    // Select the word "word" on the last content line.
-    await page.keyboard.press('Home');
-    await page.keyboard.press('Shift+End');
+    await page.locator('.cm-line', { hasText: 'word' }).dblclick(); // selects "word"
     await page.keyboard.press('Control+b');
-    expect(await getEditorText(page)).toContain('*word*');
+    await expect.poll(async () => getEditorText(page)).toContain('*word*');
+  });
 
-    // Auto-pair: re-select and type `_` → wraps in italic.
-    await page.keyboard.press('Home');
-    await page.keyboard.press('Shift+End');
+  test('typing an emphasis mark over a selection auto-wraps it (FR-037)', async ({ page }) => {
+    await createAdocFile(page, projectId, 'conv-wrap.adoc', '= Conv\n\nterm\n');
+    await openProject(page, projectId);
+    await openFile(page, 'conv-wrap.adoc');
+
+    await page.locator('.cm-line', { hasText: 'term' }).dblclick(); // selects "term"
     await page.keyboard.type('_');
-    expect(await getEditorText(page)).toContain('_');
+    await expect.poll(async () => getEditorText(page)).toContain('_term_');
   });
 
   test('pasting a URL over a selection produces a link macro', async ({ page }) => {
@@ -47,13 +47,12 @@ test.describe('US9 authoring conveniences', () => {
     await openProject(page, projectId);
     await openFile(page, 'paste.adoc');
 
-    await editorContent(page).click();
-    await page.keyboard.press('Control+End');
+    // Select the whole "click here" line, then simulate pasting a URL over it.
+    await page.locator('.cm-line', { hasText: 'click here' }).click();
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+End');
 
-    // Simulate a clipboard paste of a URL.
-    await page.evaluate(async () => {
+    await page.evaluate(() => {
       const dt = new DataTransfer();
       dt.setData('text/plain', 'https://example.com');
       const target = document.querySelector('.cm-content');

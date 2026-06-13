@@ -103,20 +103,30 @@ export function foldPersistence(storageKey: string | null): Extension {
   return ViewPlugin.fromClass(
     class {
       private saved = '';
+      private restored = false;
+
       constructor(view: EditorView) {
-        const restored = parseFoldState(
-          globalThis.localStorage?.getItem(key) ?? null,
-          view.state.doc.length,
-        );
-        if (restored.length > 0) {
-          // Apply after the initial parse so fold ranges resolve.
-          queueMicrotask(() => {
-            view.dispatch({ effects: restored.map((fold) => foldEffect.of(fold)) });
-          });
+        // On the REST path the doc is present at mount; on the collab path it is
+        // empty until the first sync, so defer the restore until content arrives
+        // (otherwise parseFoldState drops every range as out-of-bounds).
+        this.tryRestore(view);
+      }
+
+      private tryRestore(view: EditorView) {
+        if (this.restored || view.state.doc.length === 0) return;
+        this.restored = true;
+        const folds = parseFoldState(globalThis.localStorage?.getItem(key) ?? null, view.state.doc.length);
+        this.saved = JSON.stringify(folds);
+        if (folds.length > 0) {
+          queueMicrotask(() => view.dispatch({ effects: folds.map((fold) => foldEffect.of(fold)) }));
         }
       }
 
       update(update: ViewUpdate) {
+        if (!this.restored) {
+          this.tryRestore(update.view);
+          return; // don't persist until the saved state has been restored
+        }
         const current = JSON.stringify(serializeFolds(update.view));
         if (current !== this.saved) {
           this.saved = current;

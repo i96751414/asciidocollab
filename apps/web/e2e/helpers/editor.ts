@@ -107,15 +107,19 @@ export function lintMarkers(page: Page): Locator {
   return page.locator('.cm-lintRange');
 }
 
-/** Locator for fold-gutter toggle markers. */
+/**
+ * Locator for *open* foldable fold-gutter cells — the cell carries a
+ * `title="Fold line"` marker and has real layout (CM also emits a hidden
+ * zero-height "Unfold line" measurement cell, which this selector excludes).
+ * CM's gutter delegates the fold click to the line, so clicking the cell folds it.
+ */
 export function foldGutterMarkers(page: Page): Locator {
-  return page.locator('.cm-foldGutter .cm-gutterElement');
+  return page.locator('.cm-foldGutter .cm-gutterElement:has(span[title="Fold line"])');
 }
 
-/** Click the fold marker on a given 1-based editor line. */
-export async function clickFoldOnLine(page: Page, lineNumber: number): Promise<void> {
-  // Fold gutter elements align with line numbers; click the matching gutter cell.
-  await foldGutterMarkers(page).nth(lineNumber).click();
+/** Click the first foldable gutter cell. */
+export async function clickFirstFold(page: Page): Promise<void> {
+  await foldGutterMarkers(page).first().click();
 }
 
 /** Locator for collapsed fold placeholders. */

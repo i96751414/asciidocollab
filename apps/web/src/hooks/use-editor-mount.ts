@@ -122,6 +122,7 @@ export function useEditorMount({
   const viewReference = useRef<EditorView | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
+  const lineWrapCompartment = useRef(new Compartment());
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
@@ -304,7 +305,9 @@ export function useEditorMount({
         // automatically. Prec.highest so its highlight wins over the highlighters above:
         // CodeMirror mounts higher-precedence style modules last, so they win the cascade.
         Prec.highest(asciidocTheme),
-        ...(softWrap ? [EditorView.lineWrapping] : []),
+        // Soft-wrap lives in a compartment so toggling the preference reconfigures
+        // the live editor without a remount (US2/FR-007).
+        lineWrapCompartment.current.of(softWrap ? [EditorView.lineWrapping] : []),
       ],
     });
 
@@ -385,6 +388,14 @@ export function useEditorMount({
       ]),
     });
   }, [canEdit]);
+
+  // Sync the soft-wrap preference live via its Compartment (US2/FR-007).
+  useEffect(() => {
+    if (!viewReference.current) return;
+    viewReference.current.dispatch({
+      effects: lineWrapCompartment.current.reconfigure(softWrap ? [EditorView.lineWrapping] : []),
+    });
+  }, [softWrap]);
 
   return { containerReference, viewReference, handleHeadingClick };
 }
