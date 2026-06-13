@@ -18,6 +18,7 @@ export const AUDIT_FOLDER_CREATED = 'folder.created';
 export const AUDIT_FILE_UPLOADED = 'file.uploaded';
 export const AUDIT_FILE_MOVED = 'file.moved';
 export const AUDIT_FILE_RENAMED = 'file.renamed';
+export const AUDIT_SYMBOL_RENAMED = 'symbol.renamed';
 
 // Authorization events
 export const AUDIT_AUTHZ_DENIED = 'authz.denied';
