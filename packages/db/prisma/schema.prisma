@@ -56,16 +56,18 @@ model User {
 }
 
 model Project {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String
-  description String?
-  tags        Json?
-  archivedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  tags           Json?
+  archivedAt     DateTime?
+  mainFileNodeId String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   members                ProjectMember[]
   fileNodes              FileNode[]
+  mainFile               FileNode?       @relation("ProjectMainFile", fields: [mainFileNodeId], references: [id], onDelete: SetNull)
   gitRepository          GitRepository?
   auditLogs              AuditLog[]
   templates              Template[]      @relation("TemplateSourceProject")
@@ -99,6 +101,7 @@ model FileNode {
   children FileNode[] @relation("FileNodeHierarchy")
   document Document?
   asset    Asset?
+  mainFileForProjects Project[] @relation("ProjectMainFile")
 
   @@unique([projectId, path])
   @@index([projectId])

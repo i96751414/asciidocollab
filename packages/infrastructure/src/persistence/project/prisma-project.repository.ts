@@ -4,6 +4,7 @@ import {
   ProjectId,
   UserId,
   ProjectName,
+  FileNodeId,
   Timestamps,
   ProjectRepository,
   PaginationParameters,
@@ -121,7 +122,7 @@ export class PrismaProjectRepository implements ProjectRepository {
 
 function toDomainProject(record: {
   id: string; name: string; description: string | null;
-  tags: unknown; archivedAt: Date | null; createdAt: Date; updatedAt: Date;
+  tags: unknown; archivedAt: Date | null; mainFileNodeId?: string | null; createdAt: Date; updatedAt: Date;
 }): Project {
   return new Project(
     ProjectId.create(record.id),
@@ -131,18 +132,20 @@ function toDomainProject(record: {
     null,
     new Timestamps(record.createdAt, record.updatedAt),
     record.archivedAt,
+    record.mainFileNodeId ? FileNodeId.create(record.mainFileNodeId) : null,
   );
 }
 
 function toPersistenceProject(project: Project): {
   id: string; name: string; description: string | null;
-  tags: string[]; createdAt: Date; updatedAt: Date;
+  tags: string[]; mainFileNodeId: string | null; createdAt: Date; updatedAt: Date;
 } {
   return {
     id: project.id.value,
     name: project.name.value,
     description: project.description,
     tags: [...project.tags],
+    mainFileNodeId: project.mainFileNodeId?.value ?? null,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   };

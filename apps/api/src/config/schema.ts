@@ -489,6 +489,22 @@ export function createConfig() {
       env: 'ASCIIDOCOLLAB_STORAGE_MAX_UPLOAD_BYTES',
     },
   },
+  project: {
+    mainFile: {
+      rateLimitMax: {
+        doc: 'Maximum set-main-file requests per user/IP per window.',
+        format: 'integer',
+        default: 50,
+        env: 'ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX',
+      },
+      rateLimitWindow: {
+        doc: 'Set-main-file rate limit window in milliseconds.',
+        format: 'integer',
+        default: 3_600_000,
+        env: 'ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_WINDOW',
+      },
+    },
+  },
   admin: {
     invite: {
       rateLimitMax: {
@@ -828,6 +844,16 @@ export interface Config {
     path: string;
     /** Maximum permitted upload size in bytes. */
     maxUploadSizeBytes: number;
+  };
+  /** Project-scoped rate limiting configuration. */
+  project: {
+    /** Set-main-file rate limiting configuration. */
+    mainFile: {
+      /** Maximum set-main-file requests per user/IP per window. */
+      rateLimitMax: number;
+      /** Set-main-file rate limit window in milliseconds. */
+      rateLimitWindow: number;
+    };
   };
   /** Admin configuration. */
   admin: {

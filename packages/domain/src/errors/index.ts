@@ -4,6 +4,8 @@ export { ProjectNotFoundError } from './project-not-found';
 export { UserNotFoundError } from './user-not-found';
 export { FileNodeNotFoundError } from './file-node-not-found';
 export { PermissionDeniedError } from './permission-denied';
+export { MainFileNotFoundError } from './main-file-not-found';
+export { MainFileNotAsciidocError } from './main-file-not-asciidoc';
 export { DuplicateEmailError } from './duplicate-email';
 export { InvalidProjectNameError } from './invalid-project-name';
 export { FileConflictError } from './file-conflict';

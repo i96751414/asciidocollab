@@ -14,6 +14,8 @@ export { LoginUseCase } from './auth/login';
 export { LogoutUseCase } from './auth/logout';
 export { ListUserProjectsUseCase } from './project/list-user-projects';
 export { UpdateProjectUseCase } from './project/update-project';
+export { SetProjectMainFileUseCase } from './project/set-project-main-file';
+export type { SetProjectMainFileInput } from './project/set-project-main-file';
 export { ArchiveProjectUseCase } from './project/archive-project';
 export { RestoreProjectUseCase } from './project/restore-project';
 export { CheckSystemSetupUseCase } from './settings/check-system-setup';

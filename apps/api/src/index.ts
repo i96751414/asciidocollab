@@ -110,6 +110,7 @@ import { projectDownloadRoute } from './routes/projects/download';
 import { fileDownloadRoute } from './routes/projects/file-download';
 import { fileContentRoutes } from './routes/projects/file-content';
 import { fileTreeRoutes } from './routes/projects/file-tree';
+import { projectMainFileRoutes } from './routes/projects/main-file';
 import { assetsRoutes } from './routes/projects/assets';
 import { eventsRoutes } from './routes/projects/events';
 import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
@@ -400,6 +401,7 @@ export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServ
       await innerApp.register(memberRoutes);
       await innerApp.register(fileContentRoutes);
       await innerApp.register(fileTreeRoutes);
+      await innerApp.register(projectMainFileRoutes);
       await innerApp.register(assetsRoutes);
       await innerApp.register(eventsRoutes);
       await innerApp.register(keybindingsRoutes);
