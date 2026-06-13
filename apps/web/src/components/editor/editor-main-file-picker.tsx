@@ -35,8 +35,8 @@ function collectAsciiDocFiles(node: FileTreeNode, into: AsciiDocFile[]): void {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
- * Project main-file picker (US8/FR-045): lists the project's `.adoc` files and
- * persists the selection via `setProjectMainFile`; the main file scopes cross-file
+ * Project main-file picker (US8/FR-045): lists the project's AsciiDoc files (any
+ * AsciiDoc extension) and persists the selection via `setProjectMainFile`; the main file scopes cross-file
  * resolution (include graph, symbols, diagnostics, heading levels). Rendered only
  * for editors/owners — viewers configure nothing and fall back to current-file scope.
  */

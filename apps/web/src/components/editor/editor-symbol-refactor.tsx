@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { SymbolUsage, RenameSymbolKind, RenameSymbolResult } from '@/lib/api/projects';
 
 /** Props for {@link EditorSymbolRefactor}. */
@@ -53,19 +53,26 @@ export function EditorSymbolRefactor({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RenameSymbolResult | null>(null);
+  // Guards against a slow in-flight find overwriting the results of a newer one.
+  const findToken = useRef(0);
 
   const runFind = useCallback(
     async (target: string) => {
       if (target.trim() === '') return;
+      findToken.current += 1;
+      const token = findToken.current;
       setLoading(true);
       setError(null);
       try {
-        setUsages(await findUsages(projectId, target.trim()));
+        const found = await findUsages(projectId, target.trim());
+        if (token !== findToken.current) return;
+        setUsages(found);
       } catch (error_) {
+        if (token !== findToken.current) return;
         setError(error_ instanceof Error ? error_.message : 'Failed to find usages');
         setUsages(null);
       } finally {
-        setLoading(false);
+        if (token === findToken.current) setLoading(false);
       }
     },
     [findUsages, projectId],
