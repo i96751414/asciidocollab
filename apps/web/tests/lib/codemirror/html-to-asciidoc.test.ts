@@ -65,6 +65,19 @@ describe('markdownSubsetToAsciidoc', () => {
     );
   });
 
+  test('a bare --- thematic break after a pipe-containing line is NOT a table (review fix)', () => {
+    const md = 'Costs $5 | each\n---\nmore text';
+    const out = markdownSubsetToAsciidoc(md);
+    expect(out).not.toContain('|===');
+  });
+
+  test('a closing fence longer than the opener still closes the block (review fix)', () => {
+    const md = '```\ncode line\n````\nafter';
+    const out = markdownSubsetToAsciidoc(md);
+    // The block closes at the 4-backtick fence; "after" is outside the listing block.
+    expect(out).toBe('----\ncode line\n----\nafter');
+  });
+
   test('plain paragraphs and blank lines pass through', () => {
     expect(markdownSubsetToAsciidoc('hello world\n\nsecond para')).toBe(
       'hello world\n\nsecond para',

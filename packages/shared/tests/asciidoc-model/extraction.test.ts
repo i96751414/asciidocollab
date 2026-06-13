@@ -60,6 +60,11 @@ describe('resolveReference', () => {
   test('reports unknown targets as unresolved', () => {
     expect(resolveReference({ kind: 'xref', target: 'missing', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).toBe('unresolved');
   });
+
+  test('resolves a cross-file xref by its fragment (file.adoc#frag) — review fix', () => {
+    expect(resolveReference({ kind: 'xref', target: 'chap.adoc#intro', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
+    expect(resolveReference({ kind: 'xref', target: '#intro', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
+  });
 });
 
 describe('buildIncludeGraph (FR-046/050)', () => {

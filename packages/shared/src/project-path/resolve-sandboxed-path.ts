@@ -34,7 +34,16 @@ export type SandboxedPathResult =
  * @returns A {@link SandboxedPathResult}.
  */
 export function resolveSandboxedPath(fromPath: string, target: string): SandboxedPathResult {
-  const trimmed = target.trim();
+  // Decode percent-encoding first so `%2e%2e` (`..`) and `%2f` (`/`) cannot smuggle
+  // traversal/scheme past the literal checks below — this is the single security
+  // boundary, so it must be evaluated on the decoded form.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(target);
+  } catch {
+    decoded = target; // malformed escape — fall back to the raw form (still checked below)
+  }
+  const trimmed = decoded.trim();
   if (trimmed === '') return { ok: false, reason: 'empty' };
   if (REMOTE_RE.test(trimmed) || DATA_URI_RE.test(trimmed)) return { ok: false, reason: 'remote' };
   if (trimmed.startsWith('/') || /^[A-Za-z]:[\\/]/.test(trimmed)) return { ok: false, reason: 'absolute' };
@@ -52,5 +61,8 @@ export function resolveSandboxedPath(fromPath: string, target: string): Sandboxe
     resultSegments.push(segment);
   }
 
+  // An empty result means the target resolved to the project root directory itself,
+  // not a file — reject it rather than hand back a directory path as if it were one.
+  if (resultSegments.length === 0) return { ok: false, reason: 'traversal' };
   return { ok: true, path: resultSegments.join('/') };
 }

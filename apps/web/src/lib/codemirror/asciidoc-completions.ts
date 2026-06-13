@@ -3,6 +3,7 @@ import { isImageFile } from './asciidoc-image-extensions';
 import type { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { listSourceLanguageTokens } from './source-languages';
+import { headingToId } from '@asciidocollab/shared';
 
 // Built-in AsciiDoc attributes
 const BUILTIN_ATTRIBUTES: readonly string[] = [
@@ -26,12 +27,8 @@ function extractDocumentAttributes(state: { doc: { toString: () => string } }): 
   return names;
 }
 
-function headingToId(text: string): string {
-  return text
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, '-')
-    .replaceAll(/^-+|-+$/g, '');
-}
+// Heading auto-ids use the shared Asciidoctor-correct slug (`_my_section`), so xref
+// completion offers the same ids the symbol index / diagnostics recognize (one source).
 
 function extractAnchors(text: string): string[] {
   const anchors: string[] = [];

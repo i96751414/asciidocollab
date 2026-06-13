@@ -78,7 +78,11 @@ export function extractSymbols(fileId: string, content: string): ProjectSymbol[]
 /** Resolve a reference against the known symbols, or `'unresolved'`. */
 export function resolveReference(reference: Reference, symbols: ProjectSymbol[]): ProjectSymbol | 'unresolved' {
   if (reference.kind === 'xref') {
-    return symbols.find((symbol) => (symbol.kind === 'anchor' || symbol.kind === 'section') && symbol.name === reference.target) ?? 'unresolved';
+    // Cross-file xrefs carry a `file.adoc#fragment` (or `#fragment`) target; match
+    // against the fragment id, which is what the include tree's symbols are keyed by.
+    const hashIndex = reference.target.indexOf('#');
+    const target = hashIndex === -1 ? reference.target : reference.target.slice(hashIndex + 1);
+    return symbols.find((symbol) => (symbol.kind === 'anchor' || symbol.kind === 'section') && symbol.name === target) ?? 'unresolved';
   }
   if (reference.kind === 'attributeRef') {
     return symbols.find((symbol) => symbol.kind === 'attribute' && symbol.name === reference.target) ?? 'unresolved';

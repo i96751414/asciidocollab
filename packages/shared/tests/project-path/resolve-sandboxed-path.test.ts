@@ -33,6 +33,19 @@ describe('resolveSandboxedPath (Constitution IX)', () => {
     expect(resolveSandboxedPath('guide.adoc', '   ')).toEqual({ ok: false, reason: 'empty' });
   });
 
+  test('rejects percent-encoded traversal that escapes the root (decoded before checks)', () => {
+    expect(resolveSandboxedPath('docs/guide.adoc', '%2e%2e/%2e%2e/etc/passwd').ok).toBe(false);
+    expect(resolveSandboxedPath('guide.adoc', '%2e%2e%2fsecret.adoc').ok).toBe(false);
+  });
+
+  test('rejects percent-encoded remote/absolute', () => {
+    expect(resolveSandboxedPath('guide.adoc', 'https%3A%2F%2Fevil/x').ok).toBe(false);
+  });
+
+  test('rejects a target that resolves to the project root directory itself', () => {
+    expect(resolveSandboxedPath('docs/guide.adoc', '..')).toEqual({ ok: false, reason: 'traversal' });
+  });
+
   test('normalizes ./ and backslashes', () => {
     expect(resolveSandboxedPath('docs/guide.adoc', './a/./b.adoc')).toEqual({ ok: true, path: 'docs/a/b.adoc' });
     expect(resolveSandboxedPath('docs/guide.adoc', String.raw`a\b.adoc`)).toEqual({ ok: true, path: 'docs/a/b.adoc' });

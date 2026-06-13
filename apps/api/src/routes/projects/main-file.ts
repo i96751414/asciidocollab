@@ -68,7 +68,7 @@ export async function projectMainFileRoutes(app: FastifyInstance): Promise<void>
           return reply.status(400).send({ error: { code: 'MainFileNotAsciiDoc', message: error.message } });
         }
         if (error instanceof MainFileNotFoundError || error instanceof ProjectNotFoundError) {
-          return reply.status(404).send({ error: { code: 'NOT_FOUND', message: error.message } });
+          return reply.status(404).send({ error: { code: 'MainFileNotFound', message: error.message } });
         }
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Failed to set main file' } });
       }

@@ -72,7 +72,12 @@ export function markdownSubsetToAsciidoc(markdown: string): string {
       continue;
     }
     if (inFence) {
-      if (line.trim() === fenceMarker) {
+      // A closing fence is a run of the opener's fence char, length ≥ the opener
+      // (GFM allows a longer closing fence), with only trailing whitespace.
+      const trimmedLine = line.trim();
+      const closes =
+        trimmedLine.length >= fenceMarker.length && [...trimmedLine].every((char) => char === fenceMarker[0]);
+      if (closes) {
         inFence = false;
         out.push('----');
       } else {
@@ -82,8 +87,14 @@ export function markdownSubsetToAsciidoc(markdown: string): string {
       continue;
     }
 
-    // GFM pipe table: a row followed by a separator row.
-    if (isTableRow(line) && index + 1 < lines.length && TABLE_SEPARATOR_RE.test(lines[index + 1])) {
+    // GFM pipe table: a row followed by a separator row. The separator MUST
+    // contain a pipe, so a bare `---` thematic break is not mistaken for one.
+    if (
+      isTableRow(line) &&
+      index + 1 < lines.length &&
+      lines[index + 1].includes('|') &&
+      TABLE_SEPARATOR_RE.test(lines[index + 1])
+    ) {
       const headerCells = splitRow(line);
       out.push('|===', headerCells.map((cell) => `| ${convertInlineMarkdown(cell)}`).join(' '), '');
       index += 2; // skip header + separator
