@@ -27,6 +27,7 @@ jest.mock('@codemirror/view', () => {
         (sink['__cmDomHandlers'] ??= []).push(handlers);
         return {};
       };
+      static inputHandler = { of: (function_: unknown) => ({ function_ }) };
 
       constructor({ state, parent }: {
         state: { doc: { toString: () => string }; readOnly?: boolean; _extensions?: unknown[] };
@@ -121,6 +122,10 @@ jest.mock('@codemirror/view', () => {
     WidgetType:            class {},
   };
 });
+
+jest.mock('@codemirror/language-data', () => ({ languages: [] }));
+
+jest.mock('@codemirror/lint', () => ({ linter: () => ({}), lintGutter: () => ({}) }));
 
 jest.mock('@codemirror/state', () => {
   return {

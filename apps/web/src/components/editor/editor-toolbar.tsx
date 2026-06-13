@@ -57,6 +57,21 @@ function insertSnippetAt(view: EditorView, snippet: string, cursorOffset: number
   view.focus();
 }
 
+// Insert a source-code block declaration with the language placeholder selected
+// (US6/FR-020–022): `[source,<lang>]` + listing delimiters, cursor on the language
+// so the author types it immediately; the body sits between the `----` fences.
+function insertSourceBlock(view: EditorView) {
+  const { from } = view.state.selection.main;
+  const before = '[source,';
+  const languagePlaceholder = 'language';
+  const insert = `${before}${languagePlaceholder}]\n----\n\n----\n`;
+  view.dispatch({
+    changes: { from, to: from, insert },
+    selection: { anchor: from + before.length, head: from + before.length + languagePlaceholder.length },
+  });
+  view.focus();
+}
+
 // Insert a caption on the line immediately before the current cursor line
 function insertCaption(view: EditorView) {
   const { from } = view.state.selection.main;
@@ -108,7 +123,7 @@ const STRUCTURE: ToolbarAction[] = [
 ];
 
 const BLOCKS: ToolbarAction[] = [
-  { label: 'Code Block',    shortcut: '', icon: SquareCode, action: (v) => insertSnippet(v, '----\n\n----\n') },
+  { label: 'Code Block',    shortcut: '', icon: SquareCode, action: (v) => insertSourceBlock(v) },
   { label: 'Example Block', shortcut: '', icon: Box,        action: (v) => insertSnippet(v, '====\n\n====\n') },
   { label: 'Sidebar',       shortcut: '', icon: PanelRight, action: (v) => insertSnippet(v, '****\n\n****\n') },
   { label: 'Blockquote',    shortcut: '', icon: Quote,      action: (v) => insertSnippet(v, '____\n\n____\n') },

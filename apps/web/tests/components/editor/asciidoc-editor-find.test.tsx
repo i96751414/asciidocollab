@@ -16,6 +16,7 @@ jest.mock('@codemirror/view', () => ({
     static lineWrapping = {};
     static editable = { of: (value: unknown) => ({ editable: value }) };
     static domEventHandlers = (_handlers: unknown) => ({});
+    static inputHandler = { of: (function_: unknown) => ({ function_ }) };
 
     constructor({ state, parent }: {
       state: { doc: { toString: () => string }; readOnly?: boolean };
@@ -43,6 +44,10 @@ jest.mock('@codemirror/view', () => ({
   Decoration: { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
   WidgetType: class {},
 }));
+
+jest.mock('@codemirror/language-data', () => ({ languages: [] }));
+
+jest.mock('@codemirror/lint', () => ({ linter: () => ({}), lintGutter: () => ({}) }));
 
 jest.mock('@codemirror/state', () => ({
   EditorState: {

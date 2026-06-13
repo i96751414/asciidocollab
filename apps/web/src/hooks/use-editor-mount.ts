@@ -14,6 +14,12 @@ import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import { asciidocHeadingLevels } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
+import { asciidocSourceHighlight } from '@/lib/codemirror/asciidoc-source-highlight';
+import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-fold-persist';
+import { formatKeymap, autoWrapInputHandler } from '@/lib/codemirror/asciidoc-format-keymap';
+import { asciidocPasteHandlers } from '@/lib/codemirror/asciidoc-paste';
+import { asciidocSpellcheckSource } from '@/lib/codemirror/asciidoc-spellcheck';
+import { linter, lintGutter } from '@codemirror/lint';
 import {
   attributeCompletionSource,
   xrefCompletionSource,
@@ -45,6 +51,12 @@ interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
   softWrap?: boolean;
+  /** Persistence key for per-file fold state (US10); omitted ⇒ folds not persisted. */
+  foldStorageKey?: string;
+  /** Per-user spell-check ignore list (US9/FR-063). */
+  spellIgnore?: string[];
+  /** Uploads a pasted/dropped image, resolving to a project-relative path (US9/FR-040). */
+  uploadImage?: (file: File) => Promise<string | null>;
   includePaths: string[];
   imagePaths?: string[];
   onDocChange: (content: string) => void;
@@ -82,6 +94,9 @@ export function useEditorMount({
   content,
   canEdit,
   softWrap = true,
+  foldStorageKey,
+  spellIgnore,
+  uploadImage,
   includePaths,
   imagePaths = [],
   onDocChange,
@@ -99,6 +114,7 @@ export function useEditorMount({
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
+  const languageCompartment = useRef(new Compartment());
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
@@ -211,7 +227,12 @@ export function useEditorMount({
       // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
       doc: collabActive ? '' : content,
       extensions: [
-        asciidoc(),
+        // The language lives in a compartment so the source-highlight loader can
+        // reconfigure it (forcing a re-parse) once an embedded language loads (US5).
+        languageCompartment.current.of(asciidoc()),
+        asciidocSourceHighlight((view) =>
+          view.dispatch({ effects: languageCompartment.current.reconfigure(asciidoc()) }),
+        ),
         syntaxHighlighting(asciidocHighlightStyle),
         syntaxHighlighting(defaultHighlightStyle),
         // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
@@ -219,6 +240,10 @@ export function useEditorMount({
         // List auto-continuation Enter command — registered before defaultKeymap (and at
         // Prec.high) so it handles list lines first and all other lines fall through (FR-011).
         listContinuationKeymap,
+        // Formatting shortcuts (Mod-b/i/`, Mod-/) + type-over-selection auto-wrap (US9).
+        // Bound before defaultKeymap so they win without overriding save/find/undo.
+        keymap.of([...formatKeymap]),
+        autoWrapInputHandler,
         keymap.of([...defaultKeymap, ...(collabActive ? [] : historyKeymap), ...searchKeymap]),
         search({ top: true }),
         // readOnly blocks user input but not programmatic Yjs-applied updates, so observers
@@ -232,6 +257,15 @@ export function useEditorMount({
         highlightActiveLine(),
         asciidocFold,
         foldGutter(),
+        // Whole-document fold controls (fold-all/unfold-all/to-level) + per-file
+        // fold persistence (US10).
+        foldControlsKeymap,
+        foldPersistence(foldStorageKey ?? null),
+        // Paste/drop conveniences: URL→link, HTML→AsciiDoc, image→upload+image:: (US9).
+        asciidocPasteHandlers({ uploadImage }),
+        // Prose spell-check (US9): tree-aware lint source + gutter.
+        lintGutter(),
+        linter(asciidocSpellcheckSource(() => spellIgnore ?? [])),
         // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
         // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
         asciidocHeadingLevels(),

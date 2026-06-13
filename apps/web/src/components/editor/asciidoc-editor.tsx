@@ -17,6 +17,7 @@ import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
+import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
 import { EditorToolbar } from './editor-toolbar';
 import { EditorTableContextToolbar } from './editor-table-context-toolbar';
 import { EditorSectionOutline } from './editor-section-outline';
@@ -123,6 +124,10 @@ export function AsciiDocEditor({
   // opened read-only, and the legacy clobbering PUT path must never run for it.
   const onCollabPath = collab != null || connectionState != null || collabUnavailable;
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
+  // Live word count / reading time for the status bar (US11). Seeded from the
+  // initial content and refreshed from each editor change.
+  const [docText, setDocText] = useState(content);
+  const metrics = useMemo(() => computeMetrics(docText), [docText]);
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
@@ -131,7 +136,7 @@ export function AsciiDocEditor({
     initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
   });
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
@@ -161,6 +166,7 @@ export function AsciiDocEditor({
   const effectiveCanEdit = collab?.role === 'observer' || collabUnavailable ? false : canEdit;
 
   const handleChange = useCallback((value: string) => {
+    setDocText(value);
     if (projectId && fileNodeId) save(value);
     onChange?.(value);
   }, [projectId, fileNodeId, save, onChange]);
@@ -175,6 +181,8 @@ export function AsciiDocEditor({
     content,
     canEdit: effectiveCanEdit,
     softWrap,
+    foldStorageKey: projectId && fileNodeId ? `asciidocollab:folds:${projectId}:${fileNodeId}` : undefined,
+    spellIgnore,
     includePaths,
     imagePaths,
     onDocChange: handleChange,
@@ -295,6 +303,8 @@ export function AsciiDocEditor({
             totalLines={cursorPos.totalLines}
             saveState={saveState}
             onRetry={handleRetry}
+            wordCount={metrics.words}
+            readingTimeMin={metrics.readingTimeMin}
           />
         </div>
       )}

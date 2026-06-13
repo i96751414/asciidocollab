@@ -31,12 +31,17 @@ interface EditorPrefs {
   scrollSyncEnabled: boolean;
   softWrap: boolean;
   previewStyle: PreviewStyleValue;
+  spellIgnore: string[];
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab' };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [] };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
 function loadFromStorage(): EditorPrefs {
@@ -53,6 +58,7 @@ function loadFromStorage(): EditorPrefs {
           scrollSyncEnabled: typeof parsed.scrollSyncEnabled === 'boolean' ? parsed.scrollSyncEnabled : DEFAULT_PREFS.scrollSyncEnabled,
           softWrap: typeof parsed.softWrap === 'boolean' ? parsed.softWrap : DEFAULT_PREFS.softWrap,
           previewStyle: typeof rawPreviewStyle === 'string' && isPreviewStyleValue(rawPreviewStyle) ? rawPreviewStyle : DEFAULT_PREFS.previewStyle,
+          spellIgnore: toStringArray(parsed.spellIgnore),
         };
       }
     }
@@ -67,11 +73,13 @@ interface UseEditorPreferencesResult {
   scrollSyncEnabled: boolean;
   softWrap: boolean;
   previewStyle: PreviewStyleValue;
+  spellIgnore: string[];
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
   setSoftWrap: (enabled: boolean) => void;
   setPreviewStyle: (style: PreviewStyleValue) => void;
+  addSpellIgnore: (word: string) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -90,6 +98,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         scrollSyncEnabled: typeof data.scrollSyncEnabled === 'boolean' ? data.scrollSyncEnabled : previous.scrollSyncEnabled,
         softWrap: typeof data.softWrap === 'boolean' ? data.softWrap : previous.softWrap,
         previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
+        spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -154,5 +163,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle };
+  const addSpellIgnore = useCallback((word: string) => {
+    setPrefs((previous) => {
+      if (previous.spellIgnore.includes(word)) return previous;
+      const next = { ...previous, spellIgnore: [...previous.spellIgnore, word] };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      schedulePut(next);
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore };
 }

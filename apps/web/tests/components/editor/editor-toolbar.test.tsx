@@ -101,12 +101,17 @@ describe('EditorToolbar', () => {
     expect(tr.changes.insert).toBe('*hello*');
   });
 
-  test(String.raw`clicking Code Block inserts a ----\n\n---- snippet`, () => {
+  test('clicking Code Block inserts a [source,<lang>] declaration with delimiters, cursor at the language (US6/FR-020-022)', () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /code block/i }));
-    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    const tr = (view as unknown as {
+      dispatched: Array<{ changes: { insert: string }; selection: { anchor: number; head: number } }>;
+    }).dispatched[0];
+    expect(tr.changes.insert).toContain('[source,');
     expect(tr.changes.insert).toContain('----');
+    // The language placeholder is selected so the author types it immediately.
+    expect(tr.changes.insert.slice(tr.selection.anchor, tr.selection.head)).toBe('language');
   });
 
   test('clicking Heading 2 inserts == prefix at line start', () => {
