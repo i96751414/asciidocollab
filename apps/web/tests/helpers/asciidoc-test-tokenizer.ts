@@ -13,7 +13,30 @@ export const COLON = 58;
 export const PIPE = 124;
 export const DOT = 46;
 export const LBRACK = 91;
+export const RBRACK = 93;
 export const SEMICOLON = 59;
+export const COMMA = 44;
+
+const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
+
+/** Mirror of the production `isBlockAttributeLine` (keep the two in sync). */
+function isBlockAttributeLine(input: InputStream): boolean {
+  if (input.peek(1) === LBRACK) return false;
+  let offset = 1;
+  let lastClose = -1;
+  while (offset < 2000) {
+    const code = input.peek(offset);
+    if (code === NEWLINE || code === -1) break;
+    if (code === RBRACK) lastClose = offset;
+    offset++;
+  }
+  if (lastClose < 1) return false;
+  for (let position = lastClose + 1; position < offset; position++) {
+    const code = input.peek(position);
+    if (code !== SPACE && code !== 9 /* TAB */) return false;
+  }
+  return true;
+}
 
 /** Checks whether the current tokenizer position is at the start of a line. */
 export function isLineStart(input: InputStream): boolean {
@@ -206,7 +229,17 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
         consumeToEOL(input); input.acceptToken(terms['commentLineToken']); return;
       }
 
+      if (ch === COMMA) {
+        if (input.peek(1) === EQUALS && input.peek(2) === EQUALS && input.peek(3) === EQUALS) {
+          consumeToEOL(input); input.acceptToken(terms['csvTableDelim']); return;
+        }
+        return;
+      }
+
       if (ch === COLON) {
+        if (input.peek(1) === EQUALS && input.peek(2) === EQUALS && input.peek(3) === EQUALS) {
+          consumeToEOL(input); input.acceptToken(terms['dsvTableDelim']); return;
+        }
         let offset = 1;
         if (!isAlphaNumber(input.peek(offset))) return;
         offset++;
@@ -248,10 +281,14 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
         for (const admonType of admonTypes) {
           if (peekString(input, admonType)) { consumeToEOL(input); input.acceptToken(terms['admonAttrToken']); return; }
         }
+        if (isBlockAttributeLine(input)) { consumeToEOL(input); input.acceptToken(terms['blockAttrToken']); return; }
         return;
       }
 
       if ((ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122)) {
+        for (const directive of CONDITIONAL_DIRECTIVES) {
+          if (peekString(input, directive)) { consumeToEOL(input); input.acceptToken(terms['conditionalToken']); return; }
+        }
         const admonKeywords = ['NOTE: ', 'TIP: ', 'WARNING: ', 'IMPORTANT: ', 'CAUTION: '];
         for (const keyword of admonKeywords) {
           if (peekString(input, keyword)) { consumeToEOL(input); input.acceptToken(terms['admonitionLineToken']); return; }

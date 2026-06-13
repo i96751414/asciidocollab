@@ -14,7 +14,9 @@
   blockMacroToken,
   descListToken,
   listingDelim, literalDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
+  csvTableDelim, dsvTableDelim,
   stemAttrToken, admonAttrToken,
+  conditionalToken, blockAttrToken,
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
   blockTitleToken,
@@ -38,6 +40,10 @@ block {
   OpenBlock |
   AdmonitionBlock |
   TableBlock |
+  CsvTableBlock |
+  DsvTableBlock |
+  Conditional |
+  BlockAttributeLine |
   BlockTitle |
   BlockMacro |
   ChecklistItem |
@@ -62,6 +68,8 @@ AdmonitionParagraph { admonitionLineToken }
 BlockMacro        { blockMacroToken }
 DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
+Conditional       { conditionalToken }
+BlockAttributeLine { blockAttrToken }
 
 // ── List items ────────────────────────────────────────────────────────────────
 // A list item's / description entry's principal text may wrap onto following non-blank
@@ -90,6 +98,8 @@ StemBlock        { stemAnnotation   passthroughDelim blockBody passthroughDelim 
 AdmonitionBlock  { admonAnnotation  exampleDelim     blockBody exampleDelim }
 
 TableBlock       { tableDelim tableBody tableDelim }
+CsvTableBlock    { csvTableDelim blockBody csvTableDelim }
+DsvTableBlock    { dsvTableDelim blockBody dsvTableDelim }
 
 stemAnnotation  { stemAttrToken }
 admonAnnotation { admonAttrToken }

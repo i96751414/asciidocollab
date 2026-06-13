@@ -20,8 +20,12 @@ import {
   passthroughDelim,
   openDelim,
   tableDelim,
+  csvTableDelim,
+  dsvTableDelim,
   stemAttrToken as stemAttributeToken,
   admonAttrToken as admonitionAttributeToken,
+  conditionalToken,
+  blockAttrToken as blockAttributeToken,
   checklistMarker,
   unorderedMarker,
   orderedMarker,
@@ -33,7 +37,33 @@ import {
 } from './asciidoc-parser.terms.js';
 
 const NEWLINE = 10, SPACE = 32, TAB = 9, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
-const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, SEMICOLON = 59;
+const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, RBRACK = 93, SEMICOLON = 59, COMMA = 44;
+
+// Conditional preprocessor directives — highlighted distinctly from generic block macros (FR-051).
+const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
+
+/**
+ * True when the current line is a generic block-attribute line `[..]` whose last
+ * non-whitespace character is a closing bracket (e.g. `[source,ruby]`,
+ * `[cols="1,1"]`, `[.lead]`). Excludes block anchors `[[id]]` (start `[[`).
+ */
+function isBlockAttributeLine(input: { peek: (offset: number) => number }): boolean {
+  if (input.peek(1) === LBRACK) return false; // `[[` block anchor, not an attribute line
+  let offset = 1;
+  let lastClose = -1;
+  while (offset < 2000) {
+    const code = input.peek(offset);
+    if (code === NEWLINE || code === -1) break;
+    if (code === RBRACK) lastClose = offset;
+    offset++;
+  }
+  if (lastClose < 1) return false;
+  for (let position = lastClose + 1; position < offset; position++) {
+    const code = input.peek(position);
+    if (code !== SPACE && code !== TAB) return false;
+  }
+  return true;
+}
 
 // True when a list marker begins at `offset` (used to allow leading whitespace before a marker,
 // which Asciidoctor permits). Each pattern requires a trailing space, so it never matches a bare
@@ -204,8 +234,19 @@ export const blockTokenizer = new ExternalTokenizer(
       consumeToEOL(input); input.acceptToken(commentLineToken); return;
     }
 
-    // ── ':' : attrEntryToken ──────────────────────────────────────────────────
+    // ── ',' : csvTableDelim (`,===`) ──────────────────────────────────────────
+    if (ch === COMMA) {
+      if (input.peek(1) === EQUALS && input.peek(2) === EQUALS && input.peek(3) === EQUALS) {
+        consumeToEOL(input); input.acceptToken(csvTableDelim); return;
+      }
+      return;
+    }
+
+    // ── ':' : dsvTableDelim (`:===`), attrEntryToken ──────────────────────────
     if (ch === COLON) {
+      if (input.peek(1) === EQUALS && input.peek(2) === EQUALS && input.peek(3) === EQUALS) {
+        consumeToEOL(input); input.acceptToken(dsvTableDelim); return;
+      }
       let offset = 1;
       const firstChar = input.peek(offset);
       if (!isAlphaNumber(firstChar)) return;
@@ -248,18 +289,25 @@ export const blockTokenizer = new ExternalTokenizer(
       return;
     }
 
-    // ── '[' : stemAttributeToken, admonitionAttributeToken ───────────────────
+    // ── '[' : stemAttributeToken, admonitionAttributeToken, generic block-attr ─
     if (ch === LBRACK) {
       if (peekString(input, '[stem]')) { consumeToEOL(input); input.acceptToken(stemAttributeToken); return; }
       const admonTypes = ['[NOTE]', '[TIP]', '[WARNING]', '[IMPORTANT]', '[CAUTION]'];
       for (const admonType of admonTypes) {
         if (peekString(input, admonType)) { consumeToEOL(input); input.acceptToken(admonitionAttributeToken); return; }
       }
+      // Generic block-attribute line `[source,ruby]`, `[cols="1,1"]`, `[.lead]`, … (FR-025).
+      if (isBlockAttributeLine(input)) { consumeToEOL(input); input.acceptToken(blockAttributeToken); return; }
       return;
     }
 
     // ── Letters ───────────────────────────────────────────────────────────────
     if ((ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122)) {
+      // Conditional preprocessor directives — distinct from generic block macros (FR-051).
+      for (const directive of CONDITIONAL_DIRECTIVES) {
+        if (peekString(input, directive)) { consumeToEOL(input); input.acceptToken(conditionalToken); return; }
+      }
+
       // footnoteToken (works at non-line-start too but checked here as well)
       if (peekString(input, 'footnote:[')) {
         let offset = 'footnote:['.length;

@@ -12,6 +12,8 @@ import { macroFromDropPayload, padBlockMacro, macroPathRange } from '@/lib/codem
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
+import { asciidocHeadingLevels } from '@/lib/codemirror/asciidoc-heading-levels';
+import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import {
   attributeCompletionSource,
   xrefCompletionSource,
@@ -230,6 +232,11 @@ export function useEditorMount({
         highlightActiveLine(),
         asciidocFold,
         foldGutter(),
+        // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
+        // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
+        asciidocHeadingLevels(),
+        // {attr} collapse-to-value display fold — source text unchanged (FR-057).
+        asciidocAttributeFold,
         outlineField,
         tableContextField,
         showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),

@@ -55,6 +55,22 @@ export const asciidocEditorTheme = EditorView.theme({
     backgroundColor: c("--accent"),
     color: c("--accent-foreground"),
   },
+  // Effective heading-level styling (US3) — sizes a heading line by its effective
+  // level (raw + :leveloffset:), so a shifted heading visually matches its level.
+  ".cm-ad-h0": { fontSize: "1.6em", fontWeight: "700" },
+  ".cm-ad-h1": { fontSize: "1.45em", fontWeight: "700" },
+  ".cm-ad-h2": { fontSize: "1.3em", fontWeight: "600" },
+  ".cm-ad-h3": { fontSize: "1.17em", fontWeight: "600" },
+  ".cm-ad-h4": { fontSize: "1.08em", fontWeight: "600" },
+  ".cm-ad-h5": { fontSize: "1em", fontWeight: "600" },
+  // Discrete/float headings are styled as headings but render in a muted accent
+  // to signal they are excluded from the document outline.
+  ".cm-ad-discrete": { fontStyle: "italic", color: c("--syntax-keyword") },
+  // Collapsed {attr} reference rendered as its resolved value (FR-057).
+  ".cm-ad-attr-value": {
+    color: c("--syntax-attr"),
+    borderBottom: `1px dotted ${c("--syntax-attr")}`,
+  },
   "&.cm-focused": { outline: "none" },
 }, { dark: false });
 

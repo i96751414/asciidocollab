@@ -39,6 +39,9 @@ jest.mock('@codemirror/view', () => ({
   highlightActiveLine: () => ({}),
   highlightSpecialChars: () => ({}),
   foldGutter: () => ({}),
+  ViewPlugin: { fromClass: () => ({}), define: () => ({}) },
+  Decoration: { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
+  WidgetType: class {},
 }));
 
 jest.mock('@codemirror/state', () => ({

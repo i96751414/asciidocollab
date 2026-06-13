@@ -35,6 +35,12 @@ function extractHeadings(state: EditorState): SectionOutlineEntry[] {
     const lineObject = state.doc.lineAt(node.from);
     const rawLine = lineObject.text;
 
+    // Discrete/float headings are styled as headings but excluded from the outline (FR-072).
+    if (lineObject.number > 1) {
+      const previous = state.doc.line(lineObject.number - 1).text.trim();
+      if (previous === '[discrete]' || previous === '[float]') return;
+    }
+
     const prefixMatch = rawLine.match(/^={1,6} /);
     const title = prefixMatch ? rawLine.slice(prefixMatch[0].length) : rawLine;
 
