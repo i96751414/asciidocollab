@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, ListTree, Settings, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListTree, Replace, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
@@ -31,6 +31,8 @@ import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection'
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { EditorGoToSymbol } from '@/components/editor/editor-go-to-symbol';
+import { EditorSymbolRefactor } from '@/components/editor/editor-symbol-refactor';
+import { findSymbolUsages, renameSymbol, type SymbolUsage } from '@/lib/api/projects';
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -194,7 +196,7 @@ export function ProjectEditorLayout({
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
   // file changes (FR-045a) and overlays the open file's live content (FR-048).
-  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles } = useProjectSymbolIndex({
+  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, refresh: refreshProjectIndex } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
@@ -437,6 +439,37 @@ export function ProjectEditorLayout({
     globalThis.addEventListener('keydown', onKey);
     return () => globalThis.removeEventListener('keydown', onKey);
   }, []);
+
+  // Cross-file refactoring dialog (US12/FR-064-065): find-usages + rename id/anchor/attribute.
+  const [refactorOpen, setRefactorOpen] = useState(false);
+  const handleNavigateToUsage = useCallback((usage: SymbolUsage) => {
+    setRefactorOpen(false);
+    const index = getProjectIndex();
+    if (!index) return;
+    handleNavigateToXref({
+      fileId: usage.fileNodeId,
+      path: usage.path,
+      line: index.lineOf(usage.fileNodeId, usage.range.from),
+      sameFile: usage.fileNodeId === index.activeFileId,
+    });
+  }, [getProjectIndex, handleNavigateToXref]);
+  // After a rename rewrites persisted files, rebuild the index so usages/diagnostics reflect the new
+  // name. The open file's live buffer is collab-owned and updates on its own (matching the move/rename
+  // reference-rewrite precedent); the index overlays that live content so it stays consistent.
+  const handleSymbolRenamed = useCallback(() => {
+    refreshProjectIndex();
+  }, [refreshProjectIndex]);
+  // Ctrl/Cmd+Shift+R opens the refactoring dialog.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'r' || event.key === 'R')) {
+        event.preventDefault();
+        setRefactorOpen(true);
+      }
+    };
+    globalThis.addEventListener('keydown', onKey);
+    return () => globalThis.removeEventListener('keydown', onKey);
+  }, []);
   const handleOpenUrl = useCallback((url: string) => {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
   }, []);
@@ -475,6 +508,15 @@ export function ProjectEditorLayout({
           >
             <ListTree className="mr-2 h-4 w-4" />
             Go to Symbol
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setRefactorOpen(true)}
+            title="Find usages / rename symbol (Ctrl/Cmd+Shift+R)"
+          >
+            <Replace className="mr-2 h-4 w-4" />
+            Refactor
           </Button>
           <EditorMainFilePicker
             projectId={projectId}
@@ -619,6 +661,16 @@ export function ProjectEditorLayout({
         pathOf={symbolPathOf}
         onSelect={handleSelectSymbol}
         onClose={() => setGoToSymbolOpen(false)}
+      />
+      <EditorSymbolRefactor
+        open={refactorOpen}
+        projectId={projectId}
+        canEdit={canEdit}
+        findUsages={findSymbolUsages}
+        renameSymbol={renameSymbol}
+        onNavigate={handleNavigateToUsage}
+        onRenamed={handleSymbolRenamed}
+        onClose={() => setRefactorOpen(false)}
       />
     </div>
   );

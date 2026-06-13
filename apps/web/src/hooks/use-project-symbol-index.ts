@@ -43,6 +43,12 @@ interface UseProjectSymbolIndexResult {
    * @returns A path→content map covering the files fetched so far.
    */
   getFiles: () => Record<string, string>;
+  /**
+   * Force a full rebuild from the server, discarding the cached file contents and
+   * tree. This is needed after an operation that rewrites persisted content
+   * without a file-tree event, such as a project-wide symbol rename (FR-064).
+   */
+  refresh: () => void;
 }
 
 /** Flatten a file tree into bidirectional id↔path maps (files only; paths normalized to project-relative). */
@@ -194,6 +200,14 @@ export function useProjectSymbolIndex({
   }, [build]);
   useFileTreeEvents(projectId, handleEvent, handleReconnect);
 
+  // Discard all cached content + the tree and rebuild from the server (used after a symbol rename
+  // rewrites persisted files without emitting a file-tree event). Mirrors the reconnect path.
+  const refresh = useCallback(() => {
+    treeLoaded.current = false;
+    contentCache.current.clear();
+    build();
+  }, [build]);
+
   const getIndex = useCallback(() => indexReference.current, []);
   const getFiles = useCallback((): Record<string, string> => {
     const files: Record<string, string> = {};
@@ -203,5 +217,5 @@ export function useProjectSymbolIndex({
     }
     return files;
   }, [readContent]);
-  return { index, getIndex, getFiles };
+  return { index, getIndex, getFiles, refresh };
 }
