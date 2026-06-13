@@ -148,6 +148,6 @@ export const asciidocFold = foldService.of((state, lineStart) =>
   foldRangeForSection(state, lineStart) ??
   foldRangeForConditional(state, lineStart) ??
   foldRangeForCommentRun(state, lineStart) ??
-  foldRangeForAttrRun(state, lineStart) ??
+  foldRangeForAttributeRun(state, lineStart) ??
   foldDelimitedAt(state, lineStart),
 );
