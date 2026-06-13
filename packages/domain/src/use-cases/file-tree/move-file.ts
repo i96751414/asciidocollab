@@ -18,6 +18,12 @@ import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
 import { Timestamps } from '../../value-objects/timestamps';
 import { cascadePathUpdate, buildParentPath } from './file-tree-helpers';
+import { ReferenceExtractor } from '../../ports/asciidoc/reference-extractor';
+import { PathResolver } from '../../ports/asciidoc/path-resolver';
+import {
+  rewriteReferencesForPathChanges,
+  collectFolderFilePathChanges,
+} from './reference-rewrite';
 
 /** Moves a file or folder to a different parent folder within the same project. */
 export class MoveFileUseCase {
@@ -28,6 +34,11 @@ export class MoveFileUseCase {
     private readonly fileStore: ProjectFileStore,
     private readonly auditLogRepo: AuditLogRepository,
     private readonly logger?: Logger,
+    // Optional cross-file refactoring dependencies (US12/FR-066). When both are
+    // injected, references to the moved node are rewritten to keep resolving;
+    // when absent the move behaves exactly as before.
+    private readonly extractor?: ReferenceExtractor,
+    private readonly pathResolver?: PathResolver,
   ) {}
 
   /** Validates membership, moves the file on disk to its new parent path, and updates the database record. */
@@ -37,7 +48,7 @@ export class MoveFileUseCase {
     fileNodeId: FileNodeId,
     newParentId: FileNodeId,
     context?: RequestContext,
-  ): Promise<Result<{ fileNodeId: FileNodeId; newPath: FilePath }, DomainError>> {
+  ): Promise<Result<{ fileNodeId: FileNodeId; newPath: FilePath; mainFileCleared: boolean }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       await recordAuthorizationDenial(this.auditLogRepo, {
@@ -82,10 +93,39 @@ export class MoveFileUseCase {
       newPath,
       new Timestamps(fileNode.createdAt, new Date()),
     );
+    // Capture the old → new path map BEFORE the cascade rewrites descendant paths,
+    // so references to the moved node (and, for a folder, all its descendants) can
+    // be rewritten below (FR-066).
+    const pathChanges = new Map<string, string>();
+    if (this.extractor && this.pathResolver) {
+      if (fileNode.type.value === 'folder') {
+        const folderChanges = await collectFolderFilePathChanges(
+          this.fileNodeRepo,
+          fileNodeId,
+          fileNode.path.value + '/',
+          newPath.value + '/',
+        );
+        for (const [from, to] of folderChanges) pathChanges.set(from, to);
+      } else {
+        pathChanges.set(
+          fileNode.path.value.replace(/^\/+/, ''),
+          newPath.value.replace(/^\/+/, ''),
+        );
+      }
+    }
+
     await this.fileNodeRepo.save(updated);
 
     if (fileNode.type.value === 'folder') {
       await cascadePathUpdate(this.fileNodeRepo, fileNodeId, fileNode.path.value + '/', newPath.value + '/');
+    }
+
+    if (this.extractor && this.pathResolver) {
+      await rewriteReferencesForPathChanges(
+        { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
+        projectId,
+        pathChanges,
+      );
     }
 
     await recordAuditSuccess(this.auditLogRepo, {
@@ -98,6 +138,8 @@ export class MoveFileUseCase {
       context,
     }, this.logger);
 
-    return { success: true, value: { fileNodeId, newPath } };
+    // A move never changes the file's identity, so a configured main file keeps
+    // pointing at it (FR-070) — nothing to clear.
+    return { success: true, value: { fileNodeId, newPath, mainFileCleared: false } };
   }
 }

@@ -28,6 +28,7 @@ export async function fileTreeDeleteRoutes(app: FastifyInstance): Promise<void> 
         request.server.stores.fileStore,
         request.server.stores.yjsStateStore,
         requestLogger(request),
+        request.server.repos.project,
       );
 
       const fileNodeBeforeDelete = await request.server.repos.fileNode.findById(fileNodeId);

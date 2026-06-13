@@ -35,3 +35,7 @@ export { SystemSettingRepository } from './admin/system-setting.repository';
 
 // observability/
 export { Logger } from './observability/logger';
+
+// asciidoc/ (cross-file refactoring seams, implemented by @asciidocollab/shared)
+export type { ReferenceExtractor, Reference, ProjectSymbol, TextRange } from './asciidoc/reference-extractor';
+export type { PathResolver, SandboxedPathResult } from './asciidoc/path-resolver';

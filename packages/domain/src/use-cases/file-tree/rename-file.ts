@@ -18,6 +18,15 @@ import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recordin
 import { AUDIT_FILE_RENAMED } from '../../audit-actions';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
+import { ProjectRepository } from '../../ports/project/project.repository';
+import { ReferenceExtractor } from '../../ports/asciidoc/reference-extractor';
+import { PathResolver } from '../../ports/asciidoc/path-resolver';
+import {
+  rewriteReferencesForPathChanges,
+  collectFolderFilePathChanges,
+  clearMainFileIfMatches,
+  isAsciiDocumentFileName,
+} from './reference-rewrite';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.
@@ -31,6 +40,12 @@ export class RenameFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly logger?: Logger,
+    // Optional cross-file refactoring dependencies (US12). The first two rewrite
+    // references to the renamed node (FR-066); projectRepo maintains the main-file
+    // configuration (FR-070). When absent the rename behaves exactly as before.
+    private readonly extractor?: ReferenceExtractor,
+    private readonly pathResolver?: PathResolver,
+    private readonly projectRepo?: ProjectRepository,
   ) {}
 
   /**
@@ -50,7 +65,7 @@ export class RenameFileUseCase {
     newName: string,
     projectId: ProjectId,
     context?: RequestContext,
-  ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath }, DomainError>> {
+  ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath; mainFileCleared: boolean }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       await recordAuthorizationDenial(this.auditLogRepo, {
@@ -75,6 +90,24 @@ export class RenameFileUseCase {
     const lastSlash = pathString.lastIndexOf('/');
     const parentPath = pathString.slice(0, lastSlash + 1);
     const newPath = FilePath.create(parentPath + newName);
+
+    // Capture the old → new path map BEFORE the cascade rewrites descendant paths
+    // (FR-066). For a file it is a single entry; for a folder, every descendant file.
+    const canRewrite = this.extractor !== undefined && this.pathResolver !== undefined && this.fileStore !== undefined;
+    const pathChanges = new Map<string, string>();
+    if (canRewrite) {
+      if (fileNode.type.value === 'folder') {
+        const folderChanges = await collectFolderFilePathChanges(
+          this.fileNodeRepo,
+          fileNodeId,
+          fileNode.path.value + '/',
+          newPath.value + '/',
+        );
+        for (const [from, to] of folderChanges) pathChanges.set(from, to);
+      } else {
+        pathChanges.set(fileNode.path.value.replace(/^\/+/, ''), newPath.value.replace(/^\/+/, ''));
+      }
+    }
 
     if (this.fileStore) {
       const moveResult = await this.fileStore.move(projectId, fileNode.path, newPath);
@@ -111,6 +144,26 @@ export class RenameFileUseCase {
       throw error;
     }
 
+    if (canRewrite && this.fileStore && this.extractor && this.pathResolver) {
+      await rewriteReferencesForPathChanges(
+        { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
+        projectId,
+        pathChanges,
+      );
+    }
+
+    // FR-070: if the renamed node is the configured main file and its new name is
+    // no longer an AsciiDoc document, the configuration can no longer point at a
+    // valid main file — clear it (resolution falls back to current-file-only).
+    let mainFileCleared = false;
+    if (this.projectRepo && fileNode.type.value === 'file' && !isAsciiDocumentFileName(newName)) {
+      mainFileCleared = await clearMainFileIfMatches(
+        this.projectRepo,
+        projectId,
+        (mainFileNodeId) => mainFileNodeId.value === fileNodeId.value,
+      );
+    }
+
     await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
@@ -123,7 +176,7 @@ export class RenameFileUseCase {
 
     return {
       success: true,
-      value: { fileNodeId, newName, newPath },
+      value: { fileNodeId, newName, newPath, mainFileCleared },
     };
   }
 }

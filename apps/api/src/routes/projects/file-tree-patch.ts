@@ -11,6 +11,7 @@ import { getAuthenticatedUserId } from '../../plugins/require-auth';
 import { requestContextFrom } from '../../lib/request-context';
 import { requestLogger } from '../../lib/request-logger';
 import { sendFileTreeError, toNodeType } from './file-tree-errors';
+import { referenceExtractor, pathResolver } from '../../lib/asciidoc-refactor-adapters';
 
 type PatchBody = { name?: string; parentId?: string };
 
@@ -42,6 +43,9 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.repos.auditLog,
           request.server.stores.fileStore,
           requestLogger(request),
+          referenceExtractor,
+          pathResolver,
+          request.server.repos.project,
         );
         const renameResult = await renameUseCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!renameResult.success) return sendFileTreeError(reply, renameResult.error);
@@ -52,6 +56,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           request.server.repos.auditLog,
           requestLogger(request),
+          referenceExtractor,
+          pathResolver,
         );
         const newParentId = FileNodeId.create(parentId);
         const moveResult = await moveUseCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));
@@ -77,6 +83,9 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.repos.auditLog,
           request.server.stores.fileStore,
           requestLogger(request),
+          referenceExtractor,
+          pathResolver,
+          request.server.repos.project,
         );
         const result = await useCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!result.success) return sendFileTreeError(reply, result.error);
@@ -93,6 +102,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           request.server.repos.auditLog,
           requestLogger(request),
+          referenceExtractor,
+          pathResolver,
         );
         const newParentId = FileNodeId.create(parentId);
         const result = await useCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));

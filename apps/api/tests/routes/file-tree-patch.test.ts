@@ -54,8 +54,10 @@ function buildRenameServer(options: {
         options.findByIdOverride === undefined ? mockFileNode : options.findByIdOverride,
       ),
       findByParentId: jest.fn().mockResolvedValue([]),
+      findByProjectId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
     },
+    project: { findById: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined) },
     auditLog: {
       save: jest.fn().mockResolvedValue(undefined),
     },
@@ -63,6 +65,8 @@ function buildRenameServer(options: {
 
   app.decorate('stores', {
     fileStore: {
+      read: jest.fn().mockResolvedValue(null),
+      write: jest.fn().mockResolvedValue(undefined),
       move: jest.fn().mockResolvedValue({ success: true }),
       createExclusive: jest.fn().mockResolvedValue({ success: true }),
       remove: jest.fn().mockResolvedValue(undefined),
@@ -118,8 +122,10 @@ function buildMoveServer(options: {
     fileNode: {
       findById: moveFindById,
       findByParentId: jest.fn().mockResolvedValue([]),
+      findByProjectId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
     },
+    project: { findById: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined) },
     auditLog: {
       save: jest.fn().mockResolvedValue(undefined),
     },
@@ -127,6 +133,8 @@ function buildMoveServer(options: {
 
   app.decorate('stores', {
     fileStore: {
+      read: jest.fn().mockResolvedValue(null),
+      write: jest.fn().mockResolvedValue(undefined),
       move: jest.fn().mockResolvedValue(
         options.fileStoreMove === undefined ? { success: true } : options.fileStoreMove,
       ),
@@ -179,8 +187,10 @@ function buildRenameMoveServer(options: {
     fileNode: {
       findById: renameMoveFindById,
       findByParentId: jest.fn().mockResolvedValue([]),
+      findByProjectId: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockResolvedValue(undefined),
     },
+    project: { findById: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined) },
     auditLog: {
       save: jest.fn().mockResolvedValue(undefined),
     },
@@ -192,6 +202,8 @@ function buildRenameMoveServer(options: {
 
   app.decorate('stores', {
     fileStore: {
+      read: jest.fn().mockResolvedValue(null),
+      write: jest.fn().mockResolvedValue(undefined),
       move: jest.fn()
         .mockResolvedValueOnce(renameMoveResult)
         .mockResolvedValueOnce(actualMoveResult),

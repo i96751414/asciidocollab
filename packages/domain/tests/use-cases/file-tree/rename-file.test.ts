@@ -15,6 +15,8 @@ import { ProjectName } from '../../../src/value-objects/project-name';
 import { Role } from '../../../src/value-objects/role';
 import { FileNodeType } from '../../../src/value-objects/file-node-type';
 import { FilePath } from '../../../src/value-objects/file-path';
+import { FakeReferenceExtractor } from '../../ports/asciidoc/fake-reference-extractor';
+import { FakePathResolver } from '../../ports/asciidoc/fake-path-resolver';
 
 describe('RenameFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -344,5 +346,82 @@ describe('RenameFileUseCase with fileStore — filesystem rollback on DB failure
     // The file must NOT exist at the new path (rollback removed it)
     const newContent = await fileStore2.read(projectId2, FilePath.create('/renamed.txt'));
     expect(newContent).toBeNull();
+  });
+});
+
+describe('RenameFileUseCase — US12 reference rewrite + main-file consistency', () => {
+  const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
+  const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
+  const bookId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
+  const introId = FileNodeId.create('bb0e8400-e29b-41d4-a716-446655440007');
+
+  const BOOK = '= Book\n\ninclude::intro.adoc[]\n\nimage::intro.adoc[]\n';
+
+  let memberRepo: InMemoryProjectMemberRepository;
+  let fileNodeRepo: InMemoryFileNodeRepository;
+  let fileStore: InMemoryProjectFileStore;
+  let auditLogRepo: InMemoryAuditLogRepository;
+  let projectRepo: InMemoryProjectRepository;
+  let projectEntity: Project;
+
+  function buildUseCase(): RenameFileUseCase {
+    return new RenameFileUseCase(
+      memberRepo, fileNodeRepo, auditLogRepo, fileStore, undefined,
+      new FakeReferenceExtractor(), new FakePathResolver(), projectRepo,
+    );
+  }
+
+  beforeEach(async () => {
+    memberRepo = new InMemoryProjectMemberRepository();
+    fileNodeRepo = new InMemoryFileNodeRepository();
+    fileStore = new InMemoryProjectFileStore();
+    auditLogRepo = new InMemoryAuditLogRepository();
+    projectRepo = new InMemoryProjectRepository();
+
+    projectEntity = new Project(project, ProjectName.create('Book'), null, [], rootId);
+    await projectRepo.save(projectEntity);
+
+    await fileNodeRepo.save(new FileNode(rootId, project, null, 'Root', FileNodeType.create('folder'), FilePath.create('/')));
+    await fileNodeRepo.save(new FileNode(bookId, project, rootId, 'book.adoc', FileNodeType.create('file'), FilePath.create('/book.adoc')));
+    await fileNodeRepo.save(new FileNode(introId, project, rootId, 'intro.adoc', FileNodeType.create('file'), FilePath.create('/intro.adoc')));
+    await fileStore.write(project, FilePath.create('/book.adoc'), Buffer.from(BOOK));
+    await fileStore.write(project, FilePath.create('/intro.adoc'), Buffer.from('= Intro\n'));
+    await memberRepo.addMember(new ProjectMember(project, actor, Role.create('editor')));
+  });
+
+  it('rewrites include:: and image:: references when a referenced file is renamed', async () => {
+    const useCase = await buildUseCase();
+    const result = await useCase.execute(actor, introId, 'introduction.adoc', project);
+    expect(result.success).toBe(true);
+
+    const book = (await fileStore.read(project, FilePath.create('/book.adoc')))!.toString('utf8');
+    expect(book).toContain('include::introduction.adoc[]');
+    expect(book).toContain('image::introduction.adoc[]');
+    expect(book).not.toContain('include::intro.adoc');
+  });
+
+  it('keeps the main-file configuration when the main file is renamed to another .adoc (FR-070)', async () => {
+    projectEntity.setMainFile(introId);
+    await projectRepo.save(projectEntity);
+
+    const useCase = await buildUseCase();
+    const result = await useCase.execute(actor, introId, 'introduction.adoc', project);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileCleared).toBe(false);
+    const reloaded = await projectRepo.findById(project);
+    expect(reloaded!.mainFileNodeId!.value).toBe(introId.value);
+  });
+
+  it('clears the main-file configuration when the main file is renamed to a non-adoc name (FR-070)', async () => {
+    projectEntity.setMainFile(introId);
+    await projectRepo.save(projectEntity);
+
+    const useCase = await buildUseCase();
+    const result = await useCase.execute(actor, introId, 'intro.txt', project);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileCleared).toBe(true);
+    const reloaded = await projectRepo.findById(project);
+    expect(reloaded!.mainFileNodeId).toBeNull();
   });
 });
