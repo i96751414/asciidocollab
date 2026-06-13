@@ -11,6 +11,8 @@ interface RenderRequest {
   requestId: number;
   content: string;
   imagesDir?: string;
+  mainPath?: string;
+  files?: Record<string, string>;
 }
 
 interface RenderResult {
@@ -41,6 +43,14 @@ export interface UseAsciidocPreviewOptions {
   scrollToLine: ScrollRequest | null;
   /** Base path Asciidoctor prepends to relative image targets (the project's image endpoint). */
   imagesDir?: string;
+  /**
+   * Project-relative path of the configured main file. When set with {@link getFiles}, the preview
+   * renders the assembled main document (includes inlined, sandbox-confined) instead of `content`
+   * (FR-068). Leave unset to render the open file as-is (exact source-line scroll-sync).
+   */
+  mainPath?: string;
+  /** Returns the path→content snapshot the include assembler needs; read lazily at render time. */
+  getFiles?: () => Record<string, string>;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -64,6 +74,8 @@ export function useAsciidocPreview({
   isEnabled,
   scrollToLine,
   imagesDir,
+  mainPath,
+  getFiles,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
@@ -73,6 +85,11 @@ export function useAsciidocPreview({
   // re-running the debounce effects when it changes (it is stable per editor session).
   const imagesDirectoryReference = useRef(imagesDir);
   imagesDirectoryReference.current = imagesDir;
+  // Include-assembly inputs, read lazily at render time (the files snapshot changes identity often).
+  const mainPathReference = useRef(mainPath);
+  mainPathReference.current = mainPath;
+  const getFilesReference = useRef(getFiles);
+  getFilesReference.current = getFiles;
 
   const workerReference = useRef<Worker | null>(null);
   const requestIdReference = useRef(0);
@@ -112,7 +129,16 @@ export function useAsciidocPreview({
       debounceReference.current = null;
       requestIdReference.current += 1;
       setState('rendering');
-      workerReference.current?.postMessage({ requestId: requestIdReference.current, content: currentContent, imagesDir: imagesDirectoryReference.current } satisfies RenderRequest);
+      // When a main file is configured, assemble its include tree (FR-068); the worker confines
+      // every target via resolveSandboxedPath and renders the assembled document.
+      const mainFilePath = mainPathReference.current;
+      const files = mainFilePath ? getFilesReference.current?.() : undefined;
+      workerReference.current?.postMessage({
+        requestId: requestIdReference.current,
+        content: currentContent,
+        imagesDir: imagesDirectoryReference.current,
+        ...(mainFilePath && files ? { mainPath: mainFilePath, files } : {}),
+      } satisfies RenderRequest);
     }, PREVIEW_DEBOUNCE_MS);
   };
 
@@ -145,6 +171,13 @@ export function useAsciidocPreview({
       }
     };
   }, [content]);
+
+  // Re-render when the assembled-main view is toggled on/off (the open file became, or stopped
+  // being, the configured main file) so the preview switches between assembled and open-file modes.
+  useEffect(() => {
+    if (!isEnabled || !content) return;
+    scheduleRender(content);
+  }, [mainPath]);
 
   // Scroll to line when scrollToLine changes.
   useEffect(() => {

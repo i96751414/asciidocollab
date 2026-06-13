@@ -44,6 +44,10 @@ interface AsciiDocPreviewProperties {
   isEnabled: boolean;
   /** Project id, used to resolve the base path for image macros in the preview. */
   projectId: string;
+  /** When set with {@link getFiles}, render the assembled main document with includes inlined (FR-068). */
+  mainPath?: string;
+  /** Returns the path→content snapshot for include assembly; read lazily at render time. */
+  getFiles?: () => Record<string, string>;
   scrollToLine?: ScrollRequest | null;
   /** When provided, a collapse button is rendered in the header. */
   onCollapse?: () => void;
@@ -66,6 +70,8 @@ export function AsciiDocPreview({
   content,
   isEnabled,
   projectId,
+  mainPath,
+  getFiles,
   scrollToLine = null,
   onCollapse,
   scrollSyncEnabled = false,
@@ -76,7 +82,7 @@ export function AsciiDocPreview({
   // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
   // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
   const imagesDirectory = `${API_BASE}/projects/${projectId}/images`;
-  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory });
+  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory, mainPath, getFiles });
 
   return (
     <div className="flex flex-col h-full">

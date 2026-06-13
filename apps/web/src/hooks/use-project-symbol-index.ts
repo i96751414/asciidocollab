@@ -35,6 +35,13 @@ interface UseProjectSymbolIndexResult {
   index: ProjectSymbolIndex | null;
   /** Stable accessor returning the latest index (for CM extensions that capture a getter). */
   getIndex: () => ProjectSymbolIndex | null;
+  /**
+   * Snapshot of cached file contents keyed by project-relative path, with the open file's live
+   * (unsaved) content overlaid — the input the preview's include assembler needs (FR-068).
+   *
+   * @returns A path→content map covering the files fetched so far.
+   */
+  getFiles: () => Record<string, string>;
 }
 
 /** Flatten a file tree into bidirectional id↔path maps (files only; paths normalized to project-relative). */
@@ -187,5 +194,13 @@ export function useProjectSymbolIndex({
   useFileTreeEvents(projectId, handleEvent, handleReconnect);
 
   const getIndex = useCallback(() => indexReference.current, []);
-  return { index, getIndex };
+  const getFiles = useCallback((): Record<string, string> => {
+    const files: Record<string, string> = {};
+    for (const [id, path] of pathById.current) {
+      const content = readContent(id);
+      if (content !== null) files[path] = content;
+    }
+    return files;
+  }, [readContent]);
+  return { index, getIndex, getFiles };
 }

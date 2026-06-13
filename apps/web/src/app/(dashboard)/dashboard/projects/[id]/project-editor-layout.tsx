@@ -194,7 +194,7 @@ export function ProjectEditorLayout({
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
   // file changes (FR-045a) and overlays the open file's live content (FR-048).
-  const { index: projectIndex, getIndex: getProjectIndex } = useProjectSymbolIndex({
+  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
@@ -443,6 +443,11 @@ export function ProjectEditorLayout({
   // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
   // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
   const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;
+  // Render the assembled main document (includes inlined, FR-068) only while the open file IS the
+  // configured main file — so the assembled view never breaks the open file's scroll-sync mapping.
+  const previewMainPath = mainFile && selectedFile?.nodeId === mainFile && projectIndex
+    ? (projectIndex.pathOf(mainFile) ?? undefined)
+    : undefined;
 
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
@@ -579,6 +584,8 @@ export function ProjectEditorLayout({
                   content={liveContent}
                   isEnabled={previewOpen}
                   projectId={projectId}
+                  mainPath={previewMainPath}
+                  getFiles={getProjectFiles}
                   scrollToLine={scrollRequest}
                   onCollapse={togglePreview}
                   scrollSyncEnabled={scrollSyncEnabled}

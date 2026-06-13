@@ -1,11 +1,20 @@
 import Asciidoctor from 'asciidoctor';
 import hljs from 'highlight.js/lib/common';
+import { assembleIncludes } from './assemble-includes';
 
 interface RenderRequest {
   requestId: number;
   content: string;
   /** Base path Asciidoctor prepends to relative image targets (the project's image endpoint). */
   imagesDir?: string;
+  /**
+   * When set together with {@link RenderRequest.files}, the worker assembles the include tree rooted
+   * at this project-relative main-file path (sandbox-confined via `resolveSandboxedPath`, FR-068) and
+   * renders the assembled document instead of `content`. Absent ⇒ render `content` as-is.
+   */
+  mainPath?: string;
+  /** Project-relative path → content map supplying the include assembly (FR-068). */
+  files?: Record<string, string>;
 }
 
 /** Reverses the minimal HTML escaping Asciidoctor applies inside code blocks. */
@@ -78,15 +87,19 @@ function getProcessor(): ReturnType<typeof Asciidoctor> {
 }
 
 onmessage = function (event: MessageEvent<RenderRequest>) {
-  const { requestId, content, imagesDir } = event.data;
+  const { requestId, content, imagesDir, mainPath, files } = event.data;
   try {
     const proc = getProcessor();
+    // When a main file + its tree's contents are supplied, assemble the include tree (sandbox-
+    // confined, FR-068) and render that; otherwise render the open file's content unchanged so the
+    // default preview keeps exact source-line mapping for scroll-sync (Constitution VIII).
+    const source = mainPath && files ? assembleIncludes(mainPath, (path) => files[path] ?? null).content : content;
     // `showtitle` renders the document title in embedded output. `imagesdir` is the base path
     // prepended to relative image targets so `image::diagram.png[]` resolves to the project's
     // asset endpoint; absolute-URL targets are left untouched by Asciidoctor.
     const attributes: Record<string, string> = { showtitle: '' };
     if (imagesDir) attributes.imagesdir = imagesDir;
-    const asciidocDocument = proc.load(content, {
+    const asciidocDocument = proc.load(source, {
       safe: 'safe',
       sourcemap: true,
       attributes,
