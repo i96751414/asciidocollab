@@ -11,6 +11,8 @@ import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { EditorMainFilePicker } from '@/components/editor/editor-main-file-picker';
+import { useProjectSymbolIndex } from '@/hooks/use-project-symbol-index';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
@@ -58,6 +60,8 @@ interface ContentAreaProperties {
   contentOverride?: string | null;
   /** True when the file is editable text with no collaborative document — read-only, no autosave. */
   collabUnavailable?: boolean;
+  /** Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion. */
+  getProjectIndex?: () => ProjectSymbolIndex | null;
 }
 
 function ContentArea({
@@ -77,6 +81,7 @@ function ContentArea({
   connectionState,
   contentOverride,
   collabUnavailable,
+  getProjectIndex,
 }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
@@ -124,6 +129,7 @@ function ContentArea({
       collab={collab}
       connectionState={connectionState}
       collabUnavailable={collabUnavailable}
+      getProjectIndex={getProjectIndex}
     />
   );
 }
@@ -167,6 +173,16 @@ export function ProjectEditorLayout({
   // overwriting in-progress edits.
   const userHasEditedReference = useRef(false);
   const { selectedFile, contentState, selectFile, clearSelection } = useFileSelection(projectId);
+
+  // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
+  // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
+  // file changes (FR-045a) and overlays the open file's live content (FR-048).
+  const { getIndex: getProjectIndex } = useProjectSymbolIndex({
+    projectId,
+    rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
+    openFileId: selectedFile?.nodeId ?? null,
+    liveContent,
+  });
 
   // Collaboration binding for the selected file. `contentState.collab` is set by useFileSelection
   // on the collab path (a backing collaborative document); otherwise this hook stays inert.
@@ -474,6 +490,7 @@ export function ProjectEditorLayout({
               connectionState={editorConnectionState}
               contentOverride={editorContentOverride}
               collabUnavailable={collabUnavailable}
+              getProjectIndex={getProjectIndex}
             />
           </Panel>
           {showPreview && previewOpen && (

@@ -7,12 +7,15 @@ import { LRLanguage, LanguageSupport } from '@codemirror/language';
 import {
   attributeCompletionSource,
   xrefCompletionSource,
+  createXrefCompletionSource,
+  createAttributeCompletionSource,
   createIncludeCompletionSource,
   tableSnippetCompletionSource,
   tableCellCompletionSource,
   captionCompletionSource,
   createImageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
 const grammarPath = path.resolve(__dirname, '../../../src/lib/codemirror/asciidoc.grammar');
@@ -560,5 +563,37 @@ describe('completion apply callbacks dispatch editor changes', () => {
   test('caption completion inserts the caption label', async () => {
     const result = await getCompletions(captionCompletionSource, '.', 1);
     expect(applyFirstFunction(result?.options).changes.insert.length).toBeGreaterThan(0);
+  });
+
+  describe('cross-file completion via the symbol index (US8/FR-029/030)', () => {
+    const fakeIndex = {
+      symbols: [
+        { kind: 'anchor', name: 'shared-anchor', fileId: 'other', range: { from: 0, to: 0 } },
+        { kind: 'section', name: '_other_section', fileId: 'other', range: { from: 0, to: 0 } },
+        { kind: 'attribute', name: 'product-name', fileId: 'other', range: { from: 0, to: 0 } },
+      ],
+    } as unknown as ProjectSymbolIndex;
+
+    test('xref completion offers anchors/sections defined in other files', async () => {
+      const source = createXrefCompletionSource(() => fakeIndex);
+      const result = await getCompletions(source, '<<', 2);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).toContain('shared-anchor');
+      expect(labels).toContain('_other_section');
+    });
+
+    test('attribute completion offers attributes defined in other files', async () => {
+      const source = createAttributeCompletionSource(() => fakeIndex);
+      const result = await getCompletions(source, '{', 1);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).toContain('product-name');
+    });
+
+    test('with no index, the factory behaves like the current-file source', async () => {
+      const source = createXrefCompletionSource(() => null);
+      const result = await getCompletions(source, '<<', 2);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).not.toContain('shared-anchor');
+    });
   });
 });

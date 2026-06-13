@@ -87,7 +87,21 @@ jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: t
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));
-jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => jest.fn(), createImageCompletionSource: () => jest.fn() }));
+jest.mock('@/lib/codemirror/asciidoc-completions', () => {
+  const noopSource = jest.fn();
+  return {
+    createAttributeCompletionSource: () => noopSource,
+    createXrefCompletionSource: () => noopSource,
+    attributeCompletionSource: noopSource,
+    xrefCompletionSource: noopSource,
+    sourceLanguageCompletionSource: noopSource,
+    tableSnippetCompletionSource: noopSource,
+    tableCellCompletionSource: noopSource,
+    captionCompletionSource: noopSource,
+    createIncludeCompletionSource: () => jest.fn(),
+    createImageCompletionSource: () => jest.fn(),
+  };
+});
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));

@@ -15,6 +15,7 @@ import { useEditorMount } from '@/hooks/use-editor-mount';
 import { useTableContext } from '@/hooks/use-table-context';
 import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
@@ -38,6 +39,8 @@ interface AsciiDocEditorProperties {
   isAsciiDoc?: boolean;
   /** When true (default), enables line wrapping in the editor. */
   softWrap?: boolean;
+  // Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion.
+  getProjectIndex?: () => ProjectSymbolIndex | null;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
@@ -106,6 +109,7 @@ export function AsciiDocEditor({
   initialEtag,
   isAsciiDoc = true,
   softWrap: softWrapProperty,
+  getProjectIndex,
   onChange,
   onNavigateToFile,
   onOpenUrl,
@@ -193,6 +197,7 @@ export function AsciiDocEditor({
     onLineClick,
     onScrollLine,
     initialLine,
+    getProjectIndex,
     collabExtension,
     remountKey: collab?.yjsStateId,
   });

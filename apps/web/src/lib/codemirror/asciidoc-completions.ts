@@ -3,7 +3,18 @@ import { isImageFile } from './asciidoc-image-extensions';
 import type { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { listSourceLanguageTokens } from './source-languages';
-import { headingToId } from '@asciidocollab/shared';
+import { headingToId, type ProjectSymbol } from '@asciidocollab/shared';
+import type { ProjectSymbolIndex } from './asciidoc-symbol-index';
+
+/** Accessor for the live cross-file symbol index (null ⇒ current-file-only completion). */
+type ProjectIndexGetter = () => ProjectSymbolIndex | null;
+
+/** Names of the index's symbols matching the given kinds — the cross-file completion targets (US8/FR-029/030). */
+function crossFileSymbolNames(getIndex: ProjectIndexGetter | undefined, kinds: ProjectSymbol['kind'][]): string[] {
+  const index = getIndex?.();
+  if (!index) return [];
+  return index.symbols.filter((symbol) => kinds.includes(symbol.kind)).map((symbol) => symbol.name);
+}
 
 // Built-in AsciiDoc attributes
 const BUILTIN_ATTRIBUTES: readonly string[] = [
@@ -51,22 +62,32 @@ function extractHeadingIds(state: { doc: { toString: () => string } }): string[]
 
 // ── Attribute completion ──────────────────────────────────────────────────────
 
-/** Attribute completion source — triggers after "{". */
-export const attributeCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
-  const match = context.matchBefore(/\{[a-zA-Z0-9_-]*/);
-  if (!match) return null;
+/**
+ * Attribute completion source factory — triggers after "{". When a symbol index is
+ * supplied, cross-file attribute definitions are merged in alongside the current
+ * document's and the built-ins (US8/FR-030).
+ */
+export function createAttributeCompletionSource(getIndex?: ProjectIndexGetter): CompletionSource {
+  return (context: CompletionContext): CompletionResult | null => {
+    const match = context.matchBefore(/\{[a-zA-Z0-9_-]*/);
+    if (!match) return null;
 
-  const prefix = match.text.slice(1);
-  const documentAttributes = extractDocumentAttributes(context.state);
-  const allAttributes = [...new Set([...documentAttributes, ...BUILTIN_ATTRIBUTES])];
-  const filtered = allAttributes.filter((attribute) => attribute.startsWith(prefix));
+    const prefix = match.text.slice(1);
+    const documentAttributes = extractDocumentAttributes(context.state);
+    const crossFile = crossFileSymbolNames(getIndex, ['attribute']);
+    const allAttributes = [...new Set([...documentAttributes, ...crossFile, ...BUILTIN_ATTRIBUTES])];
+    const filtered = allAttributes.filter((attribute) => attribute.startsWith(prefix));
 
-  return {
-    from: match.from + 1,
-    options: filtered.map((label) => ({ label, type: 'variable' })),
-    filter: false,
+    return {
+      from: match.from + 1,
+      options: filtered.map((label) => ({ label, type: 'variable' })),
+      filter: false,
+    };
   };
-};
+}
+
+/** Attribute completion source — current-document + built-ins only. */
+export const attributeCompletionSource: CompletionSource = createAttributeCompletionSource();
 
 // ── Source-language completion ─────────────────────────────────────────────────
 
@@ -85,24 +106,34 @@ export const sourceLanguageCompletionSource: CompletionSource = (context: Comple
 
 // ── Cross-reference completion ────────────────────────────────────────────────
 
-/** Cross-reference completion source — triggers after "<<". */
-export const xrefCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
-  const match = context.matchBefore(/<<[^>]*/);
-  if (!match) return null;
+/**
+ * Cross-reference completion source factory — triggers after "<<". When a symbol
+ * index is supplied, section/anchor ids defined across the whole include tree are
+ * merged in alongside the current document's (US8/FR-029).
+ */
+export function createXrefCompletionSource(getIndex?: ProjectIndexGetter): CompletionSource {
+  return (context: CompletionContext): CompletionResult | null => {
+    const match = context.matchBefore(/<<[^>]*/);
+    if (!match) return null;
 
-  const text = context.state.doc.toString();
-  const prefix = match.text.slice(2);
-  const headingIds = extractHeadingIds({ doc: { toString: () => text } });
-  const anchors = extractAnchors(text);
-  const allIds = [...new Set([...headingIds, ...anchors])];
-  const filtered = allIds.filter((id) => id.startsWith(prefix));
+    const text = context.state.doc.toString();
+    const prefix = match.text.slice(2);
+    const headingIds = extractHeadingIds({ doc: { toString: () => text } });
+    const anchors = extractAnchors(text);
+    const crossFile = crossFileSymbolNames(getIndex, ['section', 'anchor']);
+    const allIds = [...new Set([...headingIds, ...anchors, ...crossFile])];
+    const filtered = allIds.filter((id) => id.startsWith(prefix));
 
-  return {
-    from: match.from + 2,
-    options: filtered.map((label) => ({ label, type: 'keyword' })),
-    filter: false,
+    return {
+      from: match.from + 2,
+      options: filtered.map((label) => ({ label, type: 'keyword' })),
+      filter: false,
+    };
   };
-};
+}
+
+/** Cross-reference completion source — current-document ids only. */
+export const xrefCompletionSource: CompletionSource = createXrefCompletionSource();
 
 // ── Include path completion ───────────────────────────────────────────────────
 

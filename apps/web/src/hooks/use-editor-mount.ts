@@ -22,8 +22,8 @@ import { asciidocSpellcheckSource } from '@/lib/codemirror/asciidoc-spellcheck';
 import { asciidocDiagnosticsSource } from '@/lib/codemirror/asciidoc-diagnostics';
 import { linter, lintGutter } from '@codemirror/lint';
 import {
-  attributeCompletionSource,
-  xrefCompletionSource,
+  createAttributeCompletionSource,
+  createXrefCompletionSource,
   createIncludeCompletionSource,
   createImageCompletionSource,
   tableSnippetCompletionSource,
@@ -31,6 +31,7 @@ import {
   captionCompletionSource,
   sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
@@ -66,6 +67,12 @@ interface UseEditorMountOptions {
   uploadImage?: (file: File) => Promise<string | null>;
   includePaths: string[];
   imagePaths?: string[];
+  /**
+   * Live accessor for the cross-file project symbol index (US8). Diagnostics and
+   * xref/attribute completion consult it for cross-file targets; null ⇒ current-file
+   * scope (FR-047). The getter is captured once at mount and always returns the latest index.
+   */
+  getProjectIndex?: () => ProjectSymbolIndex | null;
   onDocChange: (content: string) => void;
   onCursorChange: (pos: { line: number; col: number; totalLines: number }) => void;
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
@@ -106,6 +113,7 @@ export function useEditorMount({
   uploadImage,
   includePaths,
   imagePaths = [],
+  getProjectIndex,
   onDocChange,
   onCursorChange,
   onOutlineChange,
@@ -131,6 +139,9 @@ export function useEditorMount({
   useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
   const onScrollLineReference = useRef(onScrollLine);
   useEffect(() => { onScrollLineReference.current = onScrollLine; }, [onScrollLine]);
+  const getProjectIndexReference = useRef(getProjectIndex);
+  useEffect(() => { getProjectIndexReference.current = getProjectIndex; }, [getProjectIndex]);
+  const projectIndexAccessor = (): ProjectSymbolIndex | null => getProjectIndexReference.current?.() ?? null;
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
   const collabLineRestoredReference = useRef(false);
 
@@ -275,7 +286,7 @@ export function useEditorMount({
         // each is its own lint source so they merge in the gutter/underlines.
         lintGutter(),
         linter(asciidocSpellcheckSource(() => spellIgnore ?? [])),
-        linter(asciidocDiagnosticsSource()),
+        linter(asciidocDiagnosticsSource(projectIndexAccessor)),
         // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
         // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
         asciidocHeadingLevels(),
@@ -286,9 +297,9 @@ export function useEditorMount({
         showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),
         autocompletion({
           override: [
-            attributeCompletionSource,
+            createAttributeCompletionSource(projectIndexAccessor),
             sourceLanguageCompletionSource,
-            xrefCompletionSource,
+            createXrefCompletionSource(projectIndexAccessor),
             createIncludeCompletionSource(() => includePathsReference.current),
             createImageCompletionSource(() => imagePathsReference.current),
             tableSnippetCompletionSource,

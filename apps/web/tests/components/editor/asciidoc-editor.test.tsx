@@ -202,8 +202,14 @@ jest.mock('@codemirror/autocomplete', () => ({
 jest.mock('@/lib/codemirror/asciidoc-completions', () => {
   const noopSource = jest.fn();
   return {
+    createAttributeCompletionSource: jest.fn(() => noopSource),
+    createXrefCompletionSource: jest.fn(() => noopSource),
     attributeCompletionSource: noopSource,
     xrefCompletionSource: noopSource,
+    sourceLanguageCompletionSource: noopSource,
+    tableSnippetCompletionSource: noopSource,
+    tableCellCompletionSource: noopSource,
+    captionCompletionSource: noopSource,
     createIncludeCompletionSource: jest.fn(() => noopSource),
     createImageCompletionSource: jest.fn(() => noopSource),
   };
