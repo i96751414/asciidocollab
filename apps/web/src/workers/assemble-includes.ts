@@ -1,4 +1,5 @@
-import { resolveSandboxedPath, parseIncludeLevelOffset } from '@asciidocollab/shared';
+import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
+import { parseIncludeLevelOffset } from '../lib/asciidoc/extraction';
 
 /**
  * Sandbox-confined AsciiDoc include assembler (US8/FR-068, Constitution IX).

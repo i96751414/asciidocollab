@@ -19,8 +19,6 @@ import { AUDIT_FILE_RENAMED } from '../../audit-actions';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { ProjectRepository } from '../../ports/project/project.repository';
-import { ReferenceExtractor } from '../../ports/asciidoc/reference-extractor';
-import { PathResolver } from '../../ports/asciidoc/path-resolver';
 import {
   rewriteReferencesForPathChanges,
   capturePathChanges,
@@ -40,11 +38,7 @@ export class RenameFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly logger?: Logger,
-    // Optional cross-file refactoring dependencies (US12). The first two rewrite
-    // references to the renamed node (FR-066); projectRepo maintains the main-file
-    // configuration (FR-070). When absent the rename behaves exactly as before.
-    private readonly extractor?: ReferenceExtractor,
-    private readonly pathResolver?: PathResolver,
+    // Optional: maintains the project main-file configuration on rename (FR-070).
     private readonly projectRepo?: ProjectRepository,
   ) {}
 
@@ -93,8 +87,8 @@ export class RenameFileUseCase {
 
     // Capture the old → new path map BEFORE the cascade rewrites descendant paths
     // (FR-066). For a file it is a single entry; for a folder, every descendant file.
-    const canRewrite = this.extractor !== undefined && this.pathResolver !== undefined && this.fileStore !== undefined;
-    const pathChanges = canRewrite
+    // The rewrite needs the file store to read/write content, so it is skipped when absent.
+    const pathChanges = this.fileStore
       ? await capturePathChanges(this.fileNodeRepo, fileNode, newPath)
       : new Map<string, string>();
 
@@ -133,12 +127,12 @@ export class RenameFileUseCase {
       throw error;
     }
 
-    if (canRewrite && this.fileStore && this.extractor && this.pathResolver) {
+    if (this.fileStore) {
       // Best-effort (FR-066): the rename has already persisted, so a reference-rewrite
       // I/O failure must not fail the rename — log and continue (as audit writes do).
       try {
         await rewriteReferencesForPathChanges(
-          { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
+          { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore },
           projectId,
           pathChanges,
         );

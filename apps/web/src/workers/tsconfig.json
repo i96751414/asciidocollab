@@ -10,5 +10,6 @@
     "declaration": false,
     "skipLibCheck": true
   },
-  "include": ["*.ts"]
+  "//": "Emits only the SharedWorker served from /workers/. The AsciiDoc render worker (asciidoc-render.worker.ts + assemble-includes.ts) is bundled by webpack via new URL(import.meta.url) and type-checked by the main tsconfig, so it is excluded here — it may import from src/lib, which this isolated rootDir forbids.",
+  "include": ["file-tree-events.worker.ts"]
 }

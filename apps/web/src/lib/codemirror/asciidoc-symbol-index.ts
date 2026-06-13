@@ -4,11 +4,9 @@ import {
   extractReferences,
   resolveReference,
   inheritedLevelOffset,
-  resolveSandboxedPath,
-  type DocumentTree,
-  type ProjectSymbol,
-  type Reference,
-} from '@asciidocollab/shared';
+} from '../asciidoc/extraction';
+import { resolveSandboxedPath } from '../asciidoc/sandbox-path';
+import type { DocumentTree, ProjectSymbol, Reference } from '@asciidocollab/shared';
 
 /**
  * Client projection over the shared `asciidoc-model` (US8/US12). This is a

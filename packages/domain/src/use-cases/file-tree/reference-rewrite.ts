@@ -5,8 +5,9 @@ import { FileNode } from '../../entities/file-node';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { ReferenceExtractor, Reference } from '../../ports/asciidoc/reference-extractor';
-import { PathResolver } from '../../ports/asciidoc/path-resolver';
+import { Reference } from '../../asciidoc/types';
+import { extractReferences } from '../../asciidoc/extraction';
+import { resolveSandboxedPath } from '../../project-path/resolve-sandboxed-path';
 import { relativeProjectPath } from '../../project-path/relative-project-path';
 
 /** File extensions treated as AsciiDoc documents (a valid main-file target). */
@@ -51,10 +52,6 @@ export interface ReferenceRewriteDeps {
   fileNodeRepo: FileNodeRepository;
   /** Reads/writes the persisted file content being rewritten. */
   fileStore: ProjectFileStore;
-  /** Pure AsciiDoc reference extraction (shared implementation injected). */
-  extractor: ReferenceExtractor;
-  /** Sandbox path resolution + its relative inverse (shared implementation injected). */
-  pathResolver: PathResolver;
 }
 
 /** Split a reference target into its path part and optional `#fragment` (xref only). */
@@ -80,7 +77,7 @@ function splitTarget(reference: Reference): { pathPart: string; fragment?: strin
  * location. A reference that cannot be safely rewritten is reported as a
  * warning rather than silently broken (FR-067).
  *
- * @param deps - Injected repositories, file store, extractor and path resolver.
+ * @param deps - Injected repositories and file store.
  * @param projectId - The project whose files are scanned.
  * @param pathChanges - Map of old → new project-relative (no leading slash) paths.
  * @returns The number of files rewritten and any unresolved-reference warnings.
@@ -103,8 +100,7 @@ export async function rewriteReferencesForPathChanges(
     const content = buffer.toString('utf8');
     const fromPath = stripLeadingSlash(node.path.value);
 
-    const references = deps.extractor
-      .extractReferences(node.id.value, content)
+    const references = extractReferences(node.id.value, content)
       .filter((reference) => reference.kind !== 'attributeRef');
 
     const edits: Array<{ from: number; to: number; replacement: string }> = [];
@@ -112,14 +108,14 @@ export async function rewriteReferencesForPathChanges(
       const { pathPart, fragment } = splitTarget(reference);
       if (pathPart === '') continue;
 
-      const resolved = deps.pathResolver.resolveSandboxedPath(fromPath, pathPart);
+      const resolved = resolveSandboxedPath(fromPath, pathPart);
       if (!resolved.ok) continue; // out-of-sandbox / unresolvable: not ours to touch
       const newRelative = pathChanges.get(resolved.path);
       if (newRelative === undefined) continue; // does not point at a changed file
 
       const newTarget = relativeProjectPath(fromPath, newRelative);
       // FR-067: refuse to write a target that would not resolve back to the new location.
-      const verification = deps.pathResolver.resolveSandboxedPath(fromPath, newTarget);
+      const verification = resolveSandboxedPath(fromPath, newTarget);
       if (!verification.ok || verification.path !== newRelative) {
         warnings.push(`Could not rewrite reference to "${pathPart}" in ${fromPath}`);
         continue;

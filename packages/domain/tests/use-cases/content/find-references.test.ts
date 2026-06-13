@@ -2,7 +2,6 @@ import { FindReferencesUseCase } from '../../../src/use-cases/content/find-refer
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
-import { FakeReferenceExtractor } from '../../ports/asciidoc/fake-reference-extractor';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
 import { UserId } from '../../../src/value-objects/user-id';
@@ -34,7 +33,7 @@ describe('FindReferencesUseCase', () => {
     memberRepo = new InMemoryProjectMemberRepository();
     fileNodeRepo = new InMemoryFileNodeRepository();
     fileStore = new InMemoryProjectFileStore();
-    useCase = new FindReferencesUseCase(memberRepo, fileNodeRepo, fileStore, new FakeReferenceExtractor());
+    useCase = new FindReferencesUseCase(memberRepo, fileNodeRepo, fileStore);
 
     await fileNodeRepo.save(new FileNode(rootId, projectId, null, 'Root', FileNodeType.create('folder'), FilePath.create('/')));
     await fileNodeRepo.save(new FileNode(bookId, projectId, rootId, 'book.adoc', FileNodeType.create('file'), FilePath.create('/book.adoc')));

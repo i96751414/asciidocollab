@@ -3,7 +3,8 @@ import { isImageFile } from './asciidoc-image-extensions';
 import type { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { listSourceLanguageTokens } from './source-languages';
-import { headingToId, type ProjectSymbol } from '@asciidocollab/shared';
+import type { ProjectSymbol } from '@asciidocollab/shared';
+import { headingToId } from '../asciidoc/extraction';
 import type { ProjectSymbolIndex } from './asciidoc-symbol-index';
 
 /** Accessor for the live cross-file symbol index (null ⇒ current-file-only completion). */

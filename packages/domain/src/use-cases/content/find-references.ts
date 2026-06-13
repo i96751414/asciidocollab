@@ -4,7 +4,8 @@ import { FileNodeId } from '../../value-objects/file-node-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { ReferenceExtractor, Reference, TextRange } from '../../ports/asciidoc/reference-extractor';
+import { Reference, TextRange } from '../../asciidoc/types';
+import { extractReferences } from '../../asciidoc/extraction';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
@@ -36,12 +37,11 @@ function xrefAnchorId(target: string): string {
  * denied before any content is read.
  */
 export class FindReferencesUseCase {
-  /** Initializes the use case with the repositories, file store, and extractor it needs. */
+  /** Initializes the use case with the repositories and file store it needs. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly fileStore: ProjectFileStore,
-    private readonly extractor: ReferenceExtractor,
   ) {}
 
   /**
@@ -76,7 +76,7 @@ export class FindReferencesUseCase {
       if (!buffer) continue;
       const path = stripLeadingSlash(node.path.value);
 
-      const references = this.extractor.extractReferences(node.id.value, buffer.toString('utf8'));
+      const references = extractReferences(node.id.value, buffer.toString('utf8'));
       for (const reference of references) {
         const matches =
           (reference.kind === 'xref' && xrefAnchorId(reference.target) === symbolName) ||

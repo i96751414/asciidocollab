@@ -17,8 +17,6 @@ import { FilePath } from '../../../src/value-objects/file-path';
 import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
 import { FileConflictError } from '../../../src/errors/file-conflict';
 import { CannotDeleteRootFolderError } from '../../../src/errors/cannot-delete-root-folder';
-import { FakeReferenceExtractor } from '../../ports/asciidoc/fake-reference-extractor';
-import { FakePathResolver } from '../../ports/asciidoc/fake-path-resolver';
 
 describe('MoveFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -221,10 +219,7 @@ describe('MoveFileUseCase — US12 reference rewrite + main-file consistency', (
   let projectEntity: Project;
 
   function buildUseCase(): MoveFileUseCase {
-    return new MoveFileUseCase(
-      memberRepo, fileNodeRepo, fileStore, auditLogRepo, undefined,
-      new FakeReferenceExtractor(), new FakePathResolver(),
-    );
+    return new MoveFileUseCase(memberRepo, fileNodeRepo, fileStore, auditLogRepo);
   }
 
   beforeEach(async () => {
@@ -272,11 +267,14 @@ describe('MoveFileUseCase — US12 reference rewrite + main-file consistency', (
     expect(reloaded!.mainFileNodeId!.value).toBe(introId.value);
   });
 
-  it('still moves the file when no refactoring dependencies are injected (back-compat)', async () => {
+  it('rewrites references with the default constructor (no separate opt-in)', async () => {
+    // The structural rules are domain-owned and always available, so a plain
+    // MoveFileUseCase (no extra dependencies) rewrites references too.
     const plain = new MoveFileUseCase(memberRepo, fileNodeRepo, fileStore, auditLogRepo);
     const result = await plain.execute(actor, project, introId, sharedDirectoryId);
     expect(result.success).toBe(true);
     const book = (await fileStore.read(project, FilePath.create('/book.adoc')))!.toString('utf8');
-    expect(book).toContain('chapters/intro.adoc'); // not rewritten without the deps
+    expect(book).toContain('include::shared/intro.adoc[]');
+    expect(book).not.toContain('chapters/intro.adoc');
   });
 });

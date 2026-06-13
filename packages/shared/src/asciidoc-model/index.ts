@@ -1,4 +1,9 @@
-/** @file Shared AsciiDoc structural model — DTOs + pure extraction/graph rules. */
+/**
+ * @file AsciiDoc structural DTO contracts. The shapes are defined in the domain
+ * (`@asciidocollab/domain/asciidoc`, where the authoritative structural rules
+ * live) and re-exported here, type-only, as the cross-boundary contract — mirroring
+ * how `Result` is re-exported. No logic lives in this package.
+ */
 export type {
   TextRange,
   Reference,
@@ -8,13 +13,4 @@ export type {
   UnresolvedInclude,
   DocumentTree,
   MainFileClearedOutcome,
-} from './types';
-export {
-  headingToId,
-  parseIncludeLevelOffset,
-  extractReferences,
-  extractSymbols,
-  resolveReference,
-  buildIncludeGraph,
-  inheritedLevelOffset,
-} from './extraction';
+} from '@asciidocollab/domain';

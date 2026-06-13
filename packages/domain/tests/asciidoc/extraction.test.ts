@@ -6,7 +6,7 @@ import {
   inheritedLevelOffset,
   headingToId,
   parseIncludeLevelOffset,
-} from '../../src/asciidoc-model/extraction';
+} from '../../src/asciidoc/extraction';
 
 describe('extractReferences (FR-046/065)', () => {
   test('extracts xref, include, image, and attributeRef', () => {

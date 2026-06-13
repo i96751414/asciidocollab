@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { buildIncludeGraph, type FileTreeEventDto } from '@asciidocollab/shared';
+import type { FileTreeEventDto } from '@asciidocollab/shared';
+import { buildIncludeGraph } from '../lib/asciidoc/extraction';
 import {
   buildProjectSymbolIndex,
   makeIncludeResolver,

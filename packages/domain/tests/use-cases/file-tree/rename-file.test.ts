@@ -15,8 +15,6 @@ import { ProjectName } from '../../../src/value-objects/project-name';
 import { Role } from '../../../src/value-objects/role';
 import { FileNodeType } from '../../../src/value-objects/file-node-type';
 import { FilePath } from '../../../src/value-objects/file-path';
-import { FakeReferenceExtractor } from '../../ports/asciidoc/fake-reference-extractor';
-import { FakePathResolver } from '../../ports/asciidoc/fake-path-resolver';
 
 describe('RenameFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -366,10 +364,7 @@ describe('RenameFileUseCase — US12 reference rewrite + main-file consistency',
   let projectEntity: Project;
 
   function buildUseCase(): RenameFileUseCase {
-    return new RenameFileUseCase(
-      memberRepo, fileNodeRepo, auditLogRepo, fileStore, undefined,
-      new FakeReferenceExtractor(), new FakePathResolver(), projectRepo,
-    );
+    return new RenameFileUseCase(memberRepo, fileNodeRepo, auditLogRepo, fileStore, undefined, projectRepo);
   }
 
   beforeEach(async () => {
@@ -432,8 +427,7 @@ describe('RenameFileUseCase — US12 reference rewrite + main-file consistency',
     });
     const logger = { warn: jest.fn() };
     const useCase = new RenameFileUseCase(
-      memberRepo, fileNodeRepo, auditLogRepo, flakyStore, logger,
-      new FakeReferenceExtractor(), new FakePathResolver(), projectRepo,
+      memberRepo, fileNodeRepo, auditLogRepo, flakyStore, logger, projectRepo,
     );
 
     const result = await useCase.execute(actor, introId, 'introduction.adoc', project);
