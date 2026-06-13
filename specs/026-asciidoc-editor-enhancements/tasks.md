@@ -51,7 +51,7 @@ Tests live in `tests/` mirroring `src/` (drop `src/`). Web: `apps/web/src/…` �
 - [X] T008 [P] [US1] Write failing Playwright spec `apps/web/e2e/editor-preview-toggle.spec.ts`: type known text → toggle preview ×3 → assert text identical + cursor/scroll preserved; run on collab AND offline/REST paths (FR-001–005).
 - [X] T009 [US1] Refactor `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx` so the editor (`ContentArea`/`AsciiDocEditor`) is mounted in ONE stable position regardless of `previewOpen` — always render the `PanelGroup` (stable `id="editor-content"`/`order`), conditionally mount the preview `Panel`+handle instead of swapping `PanelGroup`↔`div`.
 - [X] T010 [US1] Verified the editor seed is no longer re-run on toggle (ContentArea stays mounted in the stable Panel; mount effect deps unchanged) and the collab Y.Doc survives. No preview-coupled remount branches existed in `use-editor-mount.ts`/`asciidoc-editor.tsx` (grep clean) — none to remove.
-- [~] T011 [US1] Spec written; typecheck + lint green. **Running `editor-preview-toggle.spec.ts` green requires the isolated e2e stack (`scripts/ci/e2e-local.sh`, Docker) — deferred (not runnable in this environment).** Scroll-sync path preserved (`onScrollLine` still gated on `previewOpen && scrollSyncEnabled`).
+- [X] T011 [US1] **Ran `editor-preview-toggle.spec.ts` green on the isolated e2e stack in real Chromium (4 passed):** content byte-identical + cursor (Ln/Col) preserved after 3 toggles on BOTH collab and REST paths. Scroll-sync path preserved (`onScrollLine` gated on `previewOpen && scrollSyncEnabled`).
 
 **Checkpoint**: P1 data-loss fixed and proven by e2e.
 
