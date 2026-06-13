@@ -130,14 +130,17 @@ export function useAsciidocPreview({
       requestIdReference.current += 1;
       setState('rendering');
       // When a main file is configured, assemble its include tree (FR-068); the worker confines
-      // every target via resolveSandboxedPath and renders the assembled document.
+      // every target via resolveSandboxedPath and renders the assembled document. Only assemble once
+      // the root file's content is actually available — otherwise fall back to rendering `content`
+      // (the open file = the main file here), so the preview never blanks while the tree loads.
       const mainFilePath = mainPathReference.current;
       const files = mainFilePath ? getFilesReference.current?.() : undefined;
+      const canAssemble = mainFilePath !== undefined && files !== undefined && files[mainFilePath] !== undefined;
       workerReference.current?.postMessage({
         requestId: requestIdReference.current,
         content: currentContent,
         imagesDir: imagesDirectoryReference.current,
-        ...(mainFilePath && files ? { mainPath: mainFilePath, files } : {}),
+        ...(canAssemble ? { mainPath: mainFilePath, files } : {}),
       } satisfies RenderRequest);
     }, PREVIEW_DEBOUNCE_MS);
   };

@@ -444,7 +444,10 @@ export function ProjectEditorLayout({
   // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
   const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;
   // Render the assembled main document (includes inlined, FR-068) only while the open file IS the
-  // configured main file — so the assembled view never breaks the open file's scroll-sync mapping.
+  // configured main file. Editing an included child still previews that child standalone with exact
+  // source-line scroll-sync. (When the main file itself has content after an include, scroll-sync to
+  // those later lines is approximate — an inherent limit of an assembled multi-file preview; lines
+  // before the first include still map exactly.)
   const previewMainPath = mainFile && selectedFile?.nodeId === mainFile && projectIndex
     ? (projectIndex.pathOf(mainFile) ?? undefined)
     : undefined;
