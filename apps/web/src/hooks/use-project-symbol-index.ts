@@ -146,7 +146,12 @@ export function useProjectSymbolIndex({
     }
     if (token !== buildToken.current) return;
 
-    const built = buildProjectSymbolIndex(rootFileId, readContent, resolveInclude);
+    const built = buildProjectSymbolIndex(
+      rootFileId,
+      readContent,
+      resolveInclude,
+      liveOverlay.current.id ?? rootFileId,
+    );
     indexReference.current = built;
     setIndex(built);
   }, [projectId, rootFileId, readContent]);

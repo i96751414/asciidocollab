@@ -23,6 +23,12 @@ import {
 export interface ProjectSymbolIndex {
   /** The include graph rooted at the index root. */
   tree: DocumentTree;
+  /**
+   * The file currently open in the editor (whose live content is overlaid). Diagnostics scope to
+   * this file, which may differ from the include-graph root when a separate main file is configured
+   * (FR-045/047). Defaults to the root when not supplied.
+   */
+  activeFileId: string;
   /** All symbols defined across the tree. */
   symbols: ProjectSymbol[];
   /** All references found across the tree. */
@@ -77,12 +83,14 @@ export function makeIncludeResolver(
  * @param rootFileId - The main file (or open file when none configured).
  * @param getContent - Returns a file's (live or persisted) content, or null.
  * @param resolveInclude - Resolves an include target to a file id, or null.
+ * @param activeFileId - The open file diagnostics should scope to; defaults to the root.
  * @returns The aggregated, resolvable {@link ProjectSymbolIndex}.
  */
 export function buildProjectSymbolIndex(
   rootFileId: string,
   getContent: (fileId: string) => string | null,
   resolveInclude: (fromFileId: string, target: string) => string | null,
+  activeFileId: string = rootFileId,
 ): ProjectSymbolIndex {
   const tree = buildIncludeGraph(rootFileId, getContent, resolveInclude);
 
@@ -97,6 +105,7 @@ export function buildProjectSymbolIndex(
 
   return {
     tree,
+    activeFileId,
     symbols,
     references,
     resolveXref: (target) =>
