@@ -20,10 +20,7 @@ import { Timestamps } from '../../value-objects/timestamps';
 import { cascadePathUpdate, buildParentPath } from './file-tree-helpers';
 import { ReferenceExtractor } from '../../ports/asciidoc/reference-extractor';
 import { PathResolver } from '../../ports/asciidoc/path-resolver';
-import {
-  rewriteReferencesForPathChanges,
-  collectFolderFilePathChanges,
-} from './reference-rewrite';
+import { rewriteReferencesForPathChanges, capturePathChanges } from './reference-rewrite';
 
 /** Moves a file or folder to a different parent folder within the same project. */
 export class MoveFileUseCase {
@@ -96,23 +93,10 @@ export class MoveFileUseCase {
     // Capture the old → new path map BEFORE the cascade rewrites descendant paths,
     // so references to the moved node (and, for a folder, all its descendants) can
     // be rewritten below (FR-066).
-    const pathChanges = new Map<string, string>();
-    if (this.extractor && this.pathResolver) {
-      if (fileNode.type.value === 'folder') {
-        const folderChanges = await collectFolderFilePathChanges(
-          this.fileNodeRepo,
-          fileNodeId,
-          fileNode.path.value + '/',
-          newPath.value + '/',
-        );
-        for (const [from, to] of folderChanges) pathChanges.set(from, to);
-      } else {
-        pathChanges.set(
-          fileNode.path.value.replace(/^\/+/, ''),
-          newPath.value.replace(/^\/+/, ''),
-        );
-      }
-    }
+    const canRewrite = this.extractor !== undefined && this.pathResolver !== undefined;
+    const pathChanges = canRewrite
+      ? await capturePathChanges(this.fileNodeRepo, fileNode, newPath)
+      : new Map<string, string>();
 
     await this.fileNodeRepo.save(updated);
 
@@ -121,11 +105,18 @@ export class MoveFileUseCase {
     }
 
     if (this.extractor && this.pathResolver) {
-      await rewriteReferencesForPathChanges(
-        { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
-        projectId,
-        pathChanges,
-      );
+      // Best-effort (FR-066): the move has already persisted to disk + DB, so a
+      // reference-rewrite I/O failure must not fail the move — log and continue,
+      // mirroring how audit-write failures are handled.
+      try {
+        await rewriteReferencesForPathChanges(
+          { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
+          projectId,
+          pathChanges,
+        );
+      } catch (error) {
+        this.logger?.warn('Cross-file reference rewrite failed after move', { error, fileNodeId: fileNodeId.value });
+      }
     }
 
     await recordAuditSuccess(this.auditLogRepo, {

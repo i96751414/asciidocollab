@@ -1,5 +1,7 @@
 import { ProjectId } from '../../value-objects/project-id';
 import { FileNodeId } from '../../value-objects/file-node-id';
+import { FilePath } from '../../value-objects/file-path';
+import { FileNode } from '../../entities/file-node';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
@@ -16,8 +18,30 @@ export function isAsciiDocumentFileName(name: string): boolean {
 }
 
 /** Strip leading slashes so a `/docs/a.adoc` FilePath becomes the sandbox-relative `docs/a.adoc`. */
-function stripLeadingSlash(path: string): string {
+export function stripLeadingSlash(path: string): string {
   return path.replace(/^\/+/, '');
+}
+
+/**
+ * Build the old → new project-relative path map for a node that moved/renamed
+ * from `fileNode.path` to `newPath` — a single entry for a file, or every
+ * descendant file for a folder. Must be called BEFORE the path cascade so the
+ * descendants still carry their old paths (FR-066). Shared by move and rename.
+ *
+ * @param fileNodeRepo - Repository used to enumerate folder descendants.
+ * @param fileNode - The node being moved/renamed (with its current path).
+ * @param newPath - The node's destination path.
+ * @returns Map of old → new project-relative (no leading slash) file paths.
+ */
+export async function capturePathChanges(
+  fileNodeRepo: FileNodeRepository,
+  fileNode: FileNode,
+  newPath: FilePath,
+): Promise<Map<string, string>> {
+  if (fileNode.type.value === 'folder') {
+    return collectFolderFilePathChanges(fileNodeRepo, fileNode.id, fileNode.path.value + '/', newPath.value + '/');
+  }
+  return new Map([[stripLeadingSlash(fileNode.path.value), stripLeadingSlash(newPath.value)]]);
 }
 
 /** Dependencies the cross-file reference rewrite needs, all injected at the composition root. */

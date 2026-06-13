@@ -23,7 +23,7 @@ import { ReferenceExtractor } from '../../ports/asciidoc/reference-extractor';
 import { PathResolver } from '../../ports/asciidoc/path-resolver';
 import {
   rewriteReferencesForPathChanges,
-  collectFolderFilePathChanges,
+  capturePathChanges,
   clearMainFileIfMatches,
   isAsciiDocumentFileName,
 } from './reference-rewrite';
@@ -94,20 +94,9 @@ export class RenameFileUseCase {
     // Capture the old → new path map BEFORE the cascade rewrites descendant paths
     // (FR-066). For a file it is a single entry; for a folder, every descendant file.
     const canRewrite = this.extractor !== undefined && this.pathResolver !== undefined && this.fileStore !== undefined;
-    const pathChanges = new Map<string, string>();
-    if (canRewrite) {
-      if (fileNode.type.value === 'folder') {
-        const folderChanges = await collectFolderFilePathChanges(
-          this.fileNodeRepo,
-          fileNodeId,
-          fileNode.path.value + '/',
-          newPath.value + '/',
-        );
-        for (const [from, to] of folderChanges) pathChanges.set(from, to);
-      } else {
-        pathChanges.set(fileNode.path.value.replace(/^\/+/, ''), newPath.value.replace(/^\/+/, ''));
-      }
-    }
+    const pathChanges = canRewrite
+      ? await capturePathChanges(this.fileNodeRepo, fileNode, newPath)
+      : new Map<string, string>();
 
     if (this.fileStore) {
       const moveResult = await this.fileStore.move(projectId, fileNode.path, newPath);
@@ -145,11 +134,17 @@ export class RenameFileUseCase {
     }
 
     if (canRewrite && this.fileStore && this.extractor && this.pathResolver) {
-      await rewriteReferencesForPathChanges(
-        { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
-        projectId,
-        pathChanges,
-      );
+      // Best-effort (FR-066): the rename has already persisted, so a reference-rewrite
+      // I/O failure must not fail the rename — log and continue (as audit writes do).
+      try {
+        await rewriteReferencesForPathChanges(
+          { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore, extractor: this.extractor, pathResolver: this.pathResolver },
+          projectId,
+          pathChanges,
+        );
+      } catch (error) {
+        this.logger?.warn('Cross-file reference rewrite failed after rename', { error, fileNodeId: fileNodeId.value });
+      }
     }
 
     // FR-070: if the renamed node is the configured main file and its new name is

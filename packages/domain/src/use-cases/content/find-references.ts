@@ -8,6 +8,7 @@ import { ReferenceExtractor, Reference, TextRange } from '../../ports/asciidoc/r
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
+import { isAsciiDocumentFileName, stripLeadingSlash } from '../file-tree/reference-rewrite';
 
 /** A single usage of a symbol within a project file (FR-065 find-usages). */
 export interface ReferenceUsage {
@@ -19,11 +20,6 @@ export interface ReferenceUsage {
   kind: Reference['kind'];
   /** The reference's location within its file. */
   range: TextRange;
-}
-
-/** Strip leading slashes so a `/docs/a.adoc` FilePath becomes `docs/a.adoc`. */
-function stripLeadingSlash(path: string): string {
-  return path.replace(/^\/+/, '');
 }
 
 /** The id part of an xref target, dropping any `file.adoc#` prefix and `,label` suffix. */
@@ -69,7 +65,7 @@ export class FindReferencesUseCase {
 
     const nodes = await this.fileNodeRepo.findByProjectId(projectId);
     const documents = nodes
-      .filter((node) => node.type.value === 'file' && /\.(adoc|asciidoc|asc|ad)$/i.test(node.name))
+      .filter((node) => node.type.value === 'file' && isAsciiDocumentFileName(node.name))
       .toSorted((a, b) => a.path.value.localeCompare(b.path.value));
 
     const target = symbolName.toLowerCase();

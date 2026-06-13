@@ -424,4 +424,22 @@ describe('RenameFileUseCase — US12 reference rewrite + main-file consistency',
     const reloaded = await projectRepo.findById(project);
     expect(reloaded!.mainFileNodeId).toBeNull();
   });
+
+  it('still completes the rename when reference rewrite fails (best-effort, not fatal)', async () => {
+    // A rewrite I/O error must not 500 a rename that already persisted to FS + DB.
+    const flakyStore = Object.assign(Object.create(Object.getPrototypeOf(fileStore)), fileStore, {
+      read: jest.fn().mockRejectedValue(new Error('disk read failed')),
+    });
+    const logger = { warn: jest.fn() };
+    const useCase = new RenameFileUseCase(
+      memberRepo, fileNodeRepo, auditLogRepo, flakyStore, logger,
+      new FakeReferenceExtractor(), new FakePathResolver(), projectRepo,
+    );
+
+    const result = await useCase.execute(actor, introId, 'introduction.adoc', project);
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalled();
+    const renamed = await fileNodeRepo.findById(introId);
+    expect(renamed!.name).toBe('introduction.adoc');
+  });
 });
