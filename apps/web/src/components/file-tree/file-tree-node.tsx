@@ -85,6 +85,7 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
       data-node-id={node.id}
       data-node-path={node.path}
       data-node-type={node.type}
+      aria-current={isSelected ? 'true' : undefined}
       draggable
       className={cn(
         'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',

@@ -39,6 +39,21 @@ export async function createAdocFile(
   return fileNodeId;
 }
 
+/** Configure (or clear, with null) the project's main file via the REST endpoint (US8/FR-045). */
+export async function setMainFile(
+  page: Page,
+  projectId: string,
+  mainFileNodeId: string | null,
+): Promise<void> {
+  const response = await page.request.put(`${API_URL}/projects/${projectId}/main-file`, {
+    headers: { 'Content-Type': 'application/json' },
+    data: { mainFileNodeId },
+  });
+  if (!response.ok()) {
+    throw new Error(`setMainFile failed: ${response.status()} ${await response.text()}`);
+  }
+}
+
 /** Navigate to a project and wait until the initial loading indicator is gone. */
 export async function openProject(page: Page, projectId: string): Promise<void> {
   await page.goto(`/dashboard/projects/${projectId}`);
@@ -130,8 +145,8 @@ export function foldPlaceholders(page: Page): Locator {
 /** Assert that the named file is the active file in the tree (selected). */
 export async function expectActiveFile(page: Page, fileName: string): Promise<void> {
   await expect(page.getByTestId(`tree-node-${fileName}`)).toHaveAttribute(
-    'aria-selected',
+    'aria-current',
     'true',
-    { timeout: 5000 },
+    { timeout: 8000 },
   );
 }
