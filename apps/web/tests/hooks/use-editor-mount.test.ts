@@ -91,6 +91,18 @@ describe('use-editor-mount revealRequest (FR-049)', () => {
   });
 });
 
+// T066 / US3: the inherited include-path offset feeds heading levels and re-evaluates on change.
+describe('use-editor-mount inherited heading offset (FR-071/045a)', () => {
+  test('passes a lazy inherited-offset accessor to asciidocHeadingLevels', () => {
+    expect(source).toMatch(/asciidocHeadingLevels\(\(\) => inheritedOffsetReference\.current\)/);
+  });
+
+  test('dispatches a heading-levels refresh when the inherited offset changes', () => {
+    expect(source).toContain('refreshHeadingLevelsEffect');
+    expect(source).toMatch(/}, \[inheritedOffset]\)/);
+  });
+});
+
 describe('use-editor-mount scroll sync', () => {
   test('accepts onScrollLine option in UseEditorMountOptions', () => {
     expect(source).toContain('onScrollLine');

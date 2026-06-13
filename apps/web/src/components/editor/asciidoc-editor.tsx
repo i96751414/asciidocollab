@@ -46,6 +46,8 @@ interface AsciiDocEditorProperties {
   onNavigateToFile?: (path: string) => void;
   // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
   onNavigateToXref?: (target: XrefTarget) => void;
+  /** Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a). */
+  inheritedOffset?: number;
   /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
   revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
@@ -118,6 +120,7 @@ export function AsciiDocEditor({
   onChange,
   onNavigateToFile,
   onNavigateToXref,
+  inheritedOffset,
   revealRequest,
   onOpenUrl,
   onLineClick,
@@ -201,6 +204,7 @@ export function AsciiDocEditor({
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
     onNavigateToXref,
+    inheritedOffset,
     revealRequest,
     onOpenUrl,
     onLineClick,

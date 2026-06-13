@@ -86,11 +86,11 @@ describe('buildProjectSymbolIndex activeFileId', () => {
   });
 });
 
-describe('asciidocDiagnosticsSource (open-file scope, FR-047)', () => {
-  function fakeView(content: string): EditorView {
-    return { state: { doc: { toString: () => content } } } as unknown as EditorView;
-  }
+function fakeView(content: string): EditorView {
+  return { state: { doc: { toString: () => content } } } as unknown as EditorView;
+}
 
+describe('asciidocDiagnosticsSource (open-file scope, FR-047)', () => {
   test('lints the open file, not the configured main-file root', () => {
     // main.adoc (root) is valid; the open chapter.adoc has an unknown xref.
     const files = {

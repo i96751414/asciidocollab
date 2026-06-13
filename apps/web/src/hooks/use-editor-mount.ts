@@ -12,7 +12,7 @@ import { macroFromDropPayload, padBlockMacro, macroPathRange } from '@/lib/codem
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import { asciidocHeadingLevels } from '@/lib/codemirror/asciidoc-heading-levels';
+import { asciidocHeadingLevels, refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { asciidocSourceHighlight } from '@/lib/codemirror/asciidoc-source-highlight';
 import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-fold-persist';
@@ -80,6 +80,12 @@ interface UseEditorMountOptions {
   onOpenUrl?: (url: string) => void;
   // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
   onNavigateToXref?: (target: XrefTarget) => void;
+  /**
+   * Include-path level offset inherited by the open file from its ancestors (US3/FR-071). A change
+   * to it after a main-file reconfiguration re-evaluates heading levels without a document edit
+   * (FR-045a).
+   */
+  inheritedOffset?: number;
   onLineClick?: (line: number) => void;
   /**
    * Called with the 1-based line at the top of the editor viewport as the user scrolls.
@@ -127,6 +133,7 @@ export function useEditorMount({
   onNavigateToFile,
   onOpenUrl,
   onNavigateToXref,
+  inheritedOffset = 0,
   onLineClick,
   onScrollLine,
   initialLine,
@@ -151,6 +158,8 @@ export function useEditorMount({
   const getProjectIndexReference = useRef(getProjectIndex);
   useEffect(() => { getProjectIndexReference.current = getProjectIndex; }, [getProjectIndex]);
   const projectIndexAccessor = (): ProjectSymbolIndex | null => getProjectIndexReference.current?.() ?? null;
+  const inheritedOffsetReference = useRef(inheritedOffset);
+  useEffect(() => { inheritedOffsetReference.current = inheritedOffset; }, [inheritedOffset]);
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
   const collabLineRestoredReference = useRef(false);
 
@@ -318,7 +327,7 @@ export function useEditorMount({
         linter(asciidocDiagnosticsSource(projectIndexAccessor)),
         // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
         // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
-        asciidocHeadingLevels(),
+        asciidocHeadingLevels(() => inheritedOffsetReference.current),
         // {attr} collapse-to-value display fold — source text unchanged (FR-057).
         asciidocAttributeFold,
         outlineField,
@@ -419,6 +428,12 @@ export function useEditorMount({
     const targetLine = clampToValidLine(revealRequest.line, view.state.doc.lines);
     view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
   }, [revealRequest]);
+
+  // Re-evaluate heading levels when the inherited include-path offset changes (e.g. the project
+  // main file was reconfigured) — no document edit occurs, so the plugin needs an explicit nudge.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: refreshHeadingLevelsEffect.of() });
+  }, [inheritedOffset]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).

@@ -43,6 +43,8 @@ interface ContentAreaProperties {
   onNavigateToFile?: (path: string) => void;
   // Ctrl+click on a cross-reference — reveals its definition (same file or another, FR-049).
   onNavigateToXref?: (target: XrefTarget) => void;
+  // Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a).
+  inheritedOffset?: number;
   // Live request to reveal a line in the open editor (same-file go-to-definition, FR-049).
   revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
@@ -79,6 +81,7 @@ function ContentArea({
   onLineClick,
   onNavigateToFile,
   onNavigateToXref,
+  inheritedOffset,
   revealRequest,
   onOpenUrl,
   onChange,
@@ -131,6 +134,7 @@ function ContentArea({
       onLineClick={onLineClick}
       onNavigateToFile={onNavigateToFile}
       onNavigateToXref={onNavigateToXref}
+      inheritedOffset={inheritedOffset}
       revealRequest={revealRequest}
       onOpenUrl={onOpenUrl}
       onChange={onChange}
@@ -436,6 +440,9 @@ export function ProjectEditorLayout({
   const handleOpenUrl = useCallback((url: string) => {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
   }, []);
+  // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
+  // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
+  const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;
 
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
@@ -547,6 +554,7 @@ export function ProjectEditorLayout({
               onLineClick={previewOpen ? handleLineClick : undefined}
               onNavigateToFile={handleNavigateToFile}
               onNavigateToXref={handleNavigateToXref}
+              inheritedOffset={editorInheritedOffset}
               revealRequest={revealRequest}
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}

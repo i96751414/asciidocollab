@@ -18,3 +18,9 @@ export {
   buildIncludeGraph,
   inheritedLevelOffset,
 } from './extraction';
+export type { LevelOffsetOp, HeadingLevelInfo } from './effective-levels';
+export {
+  MAX_HEADING_LEVEL,
+  parseLevelOffset,
+  computeHeadingLevels,
+} from './effective-levels';
