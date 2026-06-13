@@ -47,6 +47,10 @@ test.describe('US1 preview toggle preserves editor content', () => {
 
     const before = await getEditorText(page);
     expect(before).toContain('must survive preview toggles');
+    // Cursor position is reflected in the status bar (Ln, Col) — capture it without
+    // relying on DOM focus (toggling the preview buttons moves focus off the editor).
+    const cursorLocator = page.getByText(/Ln \d+, Col \d+/);
+    const cursorBefore = await cursorLocator.textContent();
 
     for (let index = 0; index < 3; index++) {
       await expandPreview(page);
@@ -55,11 +59,8 @@ test.describe('US1 preview toggle preserves editor content', () => {
 
     const after = await getEditorText(page);
     expect(after, 'editor content must be byte-identical after toggling the preview').toBe(before);
-
-    // The cursor must remain at the end — typing continues contiguously, not at column 0.
-    await page.keyboard.type('X');
-    const final = await getEditorText(page);
-    expect(final.trimEnd().endsWith('toggles.X')).toBe(true);
+    // Cursor preserved (FR-005): the editor was never remounted, so CM keeps its selection.
+    expect(await cursorLocator.textContent(), 'cursor (Ln, Col) must be preserved across toggles').toBe(cursorBefore);
   });
 
   test('content survives toggling on the offline/REST path', async ({ page }) => {
