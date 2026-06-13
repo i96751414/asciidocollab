@@ -7,3 +7,5 @@ export * from './types';
 export * from './dtos';
 export * from './schemas';
 export * from './constants';
+export * from './asciidoc-model';
+export * from './project-path';

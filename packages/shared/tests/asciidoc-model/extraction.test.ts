@@ -1,0 +1,117 @@
+import {
+  extractReferences,
+  extractSymbols,
+  resolveReference,
+  buildIncludeGraph,
+  inheritedLevelOffset,
+  headingToId,
+  parseIncludeLevelOffset,
+} from '../../src/asciidoc-model/extraction';
+
+describe('extractReferences (FR-046/065)', () => {
+  test('extracts xref, include, image, and attributeRef', () => {
+    const content = 'See <<intro>> and xref:other[].\ninclude::part.adoc[]\nimage::pic.png[]\nVersion {ver}.\n';
+    const kinds = extractReferences('f1', content).map((r) => `${r.kind}:${r.target}`);
+    expect(kinds).toContain('xref:intro');
+    expect(kinds).toContain('xref:other');
+    expect(kinds).toContain('include:part.adoc');
+    expect(kinds).toContain('image:pic.png');
+    expect(kinds).toContain('attributeRef:ver');
+  });
+
+  test('reference ranges map back to the source text', () => {
+    const content = 'x <<a>> y';
+    const [reference] = extractReferences('f1', content);
+    expect(content.slice(reference.range.from, reference.range.to)).toBe('<<a>>');
+  });
+});
+
+describe('extractSymbols (FR-061)', () => {
+  test('extracts sections (auto-id), anchors, and attributes', () => {
+    const content = '== My Section\n\n[[anchor-one]]\nText.\n\n:author: Jane\n';
+    const symbols = extractSymbols('f1', content);
+    expect(symbols).toContainEqual(expect.objectContaining({ kind: 'section', name: '_my_section' }));
+    expect(symbols).toContainEqual(expect.objectContaining({ kind: 'anchor', name: 'anchor-one' }));
+    expect(symbols).toContainEqual(expect.objectContaining({ kind: 'attribute', name: 'author' }));
+  });
+
+  test('an unset attribute (:name!:) is not a definition', () => {
+    expect(extractSymbols('f1', ':toc!:\n').filter((s) => s.kind === 'attribute')).toHaveLength(0);
+  });
+});
+
+describe('headingToId / parseIncludeLevelOffset', () => {
+  test('auto-id mirrors Asciidoctor', () => {
+    expect(headingToId('Getting Started!')).toBe('_getting_started');
+  });
+  test('parses include leveloffset', () => {
+    expect(parseIncludeLevelOffset('leveloffset=+2')).toBe(2);
+    expect(parseIncludeLevelOffset('leveloffset=-1')).toBe(-1);
+    expect(parseIncludeLevelOffset('')).toBe(0);
+  });
+});
+
+describe('resolveReference', () => {
+  const symbols = extractSymbols('f1', '[[intro]]\n:ver: 1\n');
+  test('resolves a known xref / attributeRef', () => {
+    expect(resolveReference({ kind: 'xref', target: 'intro', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
+    expect(resolveReference({ kind: 'attributeRef', target: 'ver', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).not.toBe('unresolved');
+  });
+  test('reports unknown targets as unresolved', () => {
+    expect(resolveReference({ kind: 'xref', target: 'missing', fileId: 'f1', range: { from: 0, to: 0 } }, symbols)).toBe('unresolved');
+  });
+});
+
+describe('buildIncludeGraph (FR-046/050)', () => {
+  const files: Record<string, string> = {
+    main: 'include::a.adoc[]\ninclude::b.adoc[leveloffset=+1]\n',
+    a: 'include::missing.adoc[]\n',
+    b: 'include::a.adoc[]\n', // a already visited → no infinite loop
+  };
+  const read = (id: string) => files[id] ?? null;
+  const resolve = (_from: string, target: string) => {
+    const id = target.replace('.adoc', '');
+    return id in files ? id : null;
+  };
+
+  test('builds transitive nodes/edges, cycle-guarded', () => {
+    const tree = buildIncludeGraph('main', read, resolve);
+    expect(tree.nodes.toSorted()).toEqual(['a', 'b', 'main']);
+    expect(tree.edges).toHaveLength(3); // main→a, main→b, b→a
+  });
+
+  test('records unresolved includes', () => {
+    const tree = buildIncludeGraph('main', read, resolve);
+    expect(tree.unresolved).toContainEqual(expect.objectContaining({ fromFile: 'a', target: 'missing.adoc' }));
+  });
+
+  test('edges carry the include leveloffset', () => {
+    const tree = buildIncludeGraph('main', read, resolve);
+    const edgeToB = tree.edges.find((edge) => edge.to === 'b');
+    expect(edgeToB?.leveloffset).toBe(1);
+  });
+});
+
+describe('inheritedLevelOffset (FR-071)', () => {
+  const files: Record<string, string> = {
+    main: 'include::a.adoc[leveloffset=+1]\n',
+    a: 'include::b.adoc[leveloffset=+1]\n',
+    b: '',
+  };
+  const tree = buildIncludeGraph(
+    'main',
+    (id) => files[id] ?? null,
+    (_f, t) => t.replace('.adoc', ''),
+  );
+
+  test('root has offset 0', () => {
+    expect(inheritedLevelOffset(tree, 'main')).toBe(0);
+  });
+  test('accumulates offsets along the include path', () => {
+    expect(inheritedLevelOffset(tree, 'a')).toBe(1);
+    expect(inheritedLevelOffset(tree, 'b')).toBe(2);
+  });
+  test('unreachable file → 0', () => {
+    expect(inheritedLevelOffset(tree, 'orphan')).toBe(0);
+  });
+});
