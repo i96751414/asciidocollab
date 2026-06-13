@@ -9,18 +9,11 @@ import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
+// Re-exported for back-compat: the AsciiDoc file-name rule now lives in lib/asciidoc/file-name
+// (single presentation copy of the domain rule), but existing callers import it from here.
+export { isAsciiDocumentFile as isAsciiDocFile } from '@/lib/asciidoc/file-name';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-const ASCIIDOC_EXTENSIONS = new Set(['.adoc', '.asciidoc', '.asc']);
-
-/** Returns true if the file name has an AsciiDoc extension (.adoc, .asciidoc, .asc). */
-export function isAsciiDocFile(nodeName: string): boolean {
-  const dotIndex = nodeName.lastIndexOf('.');
-  if (dotIndex <= 0) return false;
-  const extension = nodeName.slice(dotIndex).toLowerCase();
-  return ASCIIDOC_EXTENSIONS.has(extension);
-}
 
 function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: boolean }) {
   if (!isEnabled || state === 'idle') {

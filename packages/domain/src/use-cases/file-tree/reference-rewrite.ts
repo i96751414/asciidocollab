@@ -7,17 +7,9 @@ import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { Reference } from '../../asciidoc/types';
 import { extractReferences } from '../../asciidoc/extraction';
+import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
 import { resolveSandboxedPath } from '../../project-path/resolve-sandboxed-path';
 import { relativeProjectPath } from '../../project-path/relative-project-path';
-
-/** File extensions treated as AsciiDoc documents (a valid main-file target). */
-const ASCIIDOC_EXTENSIONS = ['.adoc', '.asciidoc', '.asc', '.ad'];
-
-/** Whether `name` is an AsciiDoc document by extension (used for FR-070 main-file validity). */
-export function isAsciiDocumentFileName(name: string): boolean {
-  const lower = name.toLowerCase();
-  return ASCIIDOC_EXTENSIONS.some((extension) => lower.endsWith(extension));
-}
 
 /** Strip leading slashes so a `/docs/a.adoc` FilePath becomes the sandbox-relative `docs/a.adoc`. */
 export function stripLeadingSlash(path: string): string {

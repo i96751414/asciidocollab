@@ -54,7 +54,7 @@ export { CreateFolderUseCase } from './file-tree/create-folder';
 export { MoveFileUseCase } from './file-tree/move-file';
 export { FindReferencesUseCase } from './content/find-references';
 export type { ReferenceUsage } from './content/find-references';
-export { isAsciiDocumentFileName } from './file-tree/reference-rewrite';
+export { isAsciiDocumentFileName } from '../asciidoc/file-name';
 export { UploadAssetUseCase } from './content/upload-asset';
 export { GetAssetContentUseCase } from './content/get-asset-content';
 export { GetAssetContentByPathUseCase } from './content/get-asset-content-by-path';

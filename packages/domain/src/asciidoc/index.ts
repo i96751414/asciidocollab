@@ -23,3 +23,4 @@ export {
   buildIncludeGraph,
   inheritedLevelOffset,
 } from './extraction';
+export { isAsciiDocumentFileName, ASCIIDOC_EXTENSIONS } from './file-name';

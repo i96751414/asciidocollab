@@ -4,6 +4,7 @@ import React, { useEffect, useId, useState } from 'react';
 import type { FileTreeNode } from '@/components/file-tree/types';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
 import { setProjectMainFile } from '@/lib/api/projects';
+import { isAsciiDocumentFile } from '@/lib/asciidoc/file-name';
 
 /** A selectable AsciiDoc file in the project tree. */
 interface AsciiDocFile {
@@ -25,9 +26,9 @@ interface EditorMainFilePickerProperties {
   onChange?: (mainFileNodeId: string | null) => void;
 }
 
-/** Recursively collect `.adoc` file nodes from a file tree. */
+/** Recursively collect AsciiDoc file nodes (any AsciiDoc extension) from a file tree. */
 function collectAsciiDocFiles(node: FileTreeNode, into: AsciiDocFile[]): void {
-  if (node.type === 'file' && node.name.endsWith('.adoc')) into.push({ nodeId: node.id, path: node.path });
+  if (node.type === 'file' && isAsciiDocumentFile(node.name)) into.push({ nodeId: node.id, path: node.path });
   for (const child of node.children) collectAsciiDocFiles(child, into);
 }
 

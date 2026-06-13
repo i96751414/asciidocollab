@@ -15,6 +15,7 @@ import { Result } from '../../types/result';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { Logger } from '../../ports/observability/logger';
+import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
 
 /** Input for {@link SetProjectMainFileUseCase}; null clears the configuration. */
 export interface SetProjectMainFileInput {
@@ -89,7 +90,7 @@ export class SetProjectMainFileUseCase {
       if (!node || node.projectId.value !== projectId.value) {
         return { success: false, error: new MainFileNotFoundError(input.mainFileNodeId) };
       }
-      if (node.type.value !== 'file' || !node.name.toLowerCase().endsWith('.adoc')) {
+      if (node.type.value !== 'file' || !isAsciiDocumentFileName(node.name)) {
         return { success: false, error: new MainFileNotAsciidocError(input.mainFileNodeId) };
       }
       project.setMainFile(node.id);

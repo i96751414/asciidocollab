@@ -6,10 +6,11 @@ import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { Reference, TextRange } from '../../asciidoc/types';
 import { extractReferences } from '../../asciidoc/extraction';
+import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
-import { isAsciiDocumentFileName, stripLeadingSlash } from '../file-tree/reference-rewrite';
+import { stripLeadingSlash } from '../file-tree/reference-rewrite';
 
 /** A single usage of a symbol within a project file (FR-065 find-usages). */
 export interface ReferenceUsage {

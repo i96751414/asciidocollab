@@ -26,6 +26,8 @@ const rootId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440020');
 const adocId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440021');
 const txtId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440022');
 const folderId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440023');
+const asciidocExtensionId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440025');
+const ascId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440026');
 const otherProjectNodeId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440024');
 
 describe('SetProjectMainFileUseCase', () => {
@@ -50,6 +52,8 @@ describe('SetProjectMainFileUseCase', () => {
     await fileRepo.save(new FileNode(adocId, projectId, rootId, 'main.adoc', FileNodeType.create('file'), FilePath.create('/main.adoc')));
     await fileRepo.save(new FileNode(txtId, projectId, rootId, 'notes.txt', FileNodeType.create('file'), FilePath.create('/notes.txt')));
     await fileRepo.save(new FileNode(folderId, projectId, null, 'chapters', FileNodeType.create('folder'), FilePath.create('/chapters')));
+    await fileRepo.save(new FileNode(asciidocExtensionId, projectId, rootId, 'book.asciidoc', FileNodeType.create('file'), FilePath.create('/book.asciidoc')));
+    await fileRepo.save(new FileNode(ascId, projectId, rootId, 'guide.asc', FileNodeType.create('file'), FilePath.create('/guide.asc')));
     await fileRepo.save(new FileNode(otherProjectNodeId, ProjectId.create('550e8400-e29b-41d4-a716-446655440099'), rootId, 'x.adoc', FileNodeType.create('file'), FilePath.create('/x.adoc')));
   });
 
@@ -98,6 +102,18 @@ describe('SetProjectMainFileUseCase', () => {
     const result = await useCase.execute(editorId, projectId, { mainFileNodeId: txtId.value });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBeInstanceOf(MainFileNotAsciidocError);
+  });
+
+  test('a .asciidoc file can be set as the main file (matches isAsciiDocumentFileName)', async () => {
+    const result = await useCase.execute(editorId, projectId, { mainFileNodeId: asciidocExtensionId.value });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileNodeId?.value).toBe(asciidocExtensionId.value);
+  });
+
+  test('a .asc file can be set as the main file (matches isAsciiDocumentFileName)', async () => {
+    const result = await useCase.execute(editorId, projectId, { mainFileNodeId: ascId.value });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileNodeId?.value).toBe(ascId.value);
   });
 
   test('a folder → MainFileNotAsciidocError', async () => {

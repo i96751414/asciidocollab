@@ -23,8 +23,8 @@ import {
   rewriteReferencesForPathChanges,
   capturePathChanges,
   clearMainFileIfMatches,
-  isAsciiDocumentFileName,
 } from './reference-rewrite';
+import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.
