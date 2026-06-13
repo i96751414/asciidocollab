@@ -15,6 +15,7 @@ import { computeHeadingLevels } from './asciidoc-heading-levels';
  * CodeMirror defaults (FR-015/016a).
  */
 
+/** A collapsed (folded) text region. */
 export interface FoldRange {
   /** Document offset where the collapsed region begins (end of the opener line). */
   from: number;
@@ -72,7 +73,7 @@ export function foldRangeForSection(state: EditorState, lineFrom: number): FoldR
   const lineNumber = state.doc.lineAt(lineFrom).number;
   const headings = computeHeadingLevels(state.doc.toString());
   const index = headings.findIndex((heading) => heading.line === lineNumber && !heading.discrete && !heading.beyondMax);
-  if (index < 0) return null;
+  if (index === -1) return null;
   const current = headings[index];
 
   let endLine = state.doc.lines;
@@ -113,7 +114,7 @@ export function foldRangeForCommentRun(state: EditorState, lineFrom: number): Fo
 }
 
 /** Fold a run of ≥2 consecutive attribute-entry header lines (`:name:`). */
-export function foldRangeForAttrRun(state: EditorState, lineFrom: number): FoldRange | null {
+export function foldRangeForAttributeRun(state: EditorState, lineFrom: number): FoldRange | null {
   const startLine = state.doc.lineAt(lineFrom).number;
   if (!ATTR_ENTRY_RE.test(state.doc.line(startLine).text.trim())) return null;
   let endLine = startLine;

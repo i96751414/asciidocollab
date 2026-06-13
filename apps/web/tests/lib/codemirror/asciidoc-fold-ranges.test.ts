@@ -4,7 +4,7 @@ import {
   foldRangeForSection,
   foldRangeForConditional,
   foldRangeForCommentRun,
-  foldRangeForAttrRun,
+  foldRangeForAttributeRun,
   foldRangeForBlock,
   foldRangeForTable,
 } from '@/lib/codemirror/asciidoc-fold';
@@ -92,14 +92,14 @@ describe('foldRangeForCommentRun (FR-013)', () => {
   });
 });
 
-describe('foldRangeForAttrRun (FR-013)', () => {
+describe('foldRangeForAttributeRun (FR-013)', () => {
   test('folds ≥2 consecutive :name: lines', () => {
     const editorState = state(':author: A\n:version: 1\n:toc:\nbody\n');
-    expect(foldRangeForAttrRun(editorState, lineStart(editorState, 1))).not.toBeNull();
+    expect(foldRangeForAttributeRun(editorState, lineStart(editorState, 1))).not.toBeNull();
   });
   test('a single attribute entry is not foldable', () => {
     const editorState = state(':author: A\nbody\n');
-    expect(foldRangeForAttrRun(editorState, lineStart(editorState, 1))).toBeNull();
+    expect(foldRangeForAttributeRun(editorState, lineStart(editorState, 1))).toBeNull();
   });
 });
 

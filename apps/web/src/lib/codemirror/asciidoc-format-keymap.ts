@@ -43,7 +43,7 @@ export const formatKeymap: readonly KeyBinding[] = [
 
 /**
  * Input handler that wraps a non-empty selection when an emphasis mark is typed
- * over it (FR-037) — e.g. select "word", press `*` → `*word*`.
+ * over it (FR-037), so selecting "word" and pressing `*` yields `*word*`.
  */
 export const autoWrapInputHandler = EditorView.inputHandler.of((view, from, to, text) => {
   if (from === to || !AUTO_WRAP_MARKS.has(text)) return false;

@@ -49,7 +49,12 @@ export function imageMacro(path: string): string {
 
 /** Options for the paste/drop handler — image upload is delegated to the host. */
 export interface PasteHandlerOptions {
-  /** Uploads an image file and resolves to the inserted project-relative path, or null on failure. */
+  /**
+   * Uploads a pasted/dropped image.
+   *
+   * @param file - The image file to upload.
+   * @returns The inserted project-relative path, or null on failure.
+   */
   uploadImage?: (file: File) => Promise<string | null>;
 }
 

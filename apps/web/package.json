@@ -5,8 +5,9 @@
   "scripts": {
     "build:worker": "tsc --project src/workers/tsconfig.json",
     "build:asciidoctor-style": "node scripts/build-asciidoctor-style.mjs",
-    "predev": "pnpm run build:worker && pnpm run build:asciidoctor-style && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
-    "prebuild": "pnpm run build:worker && pnpm run build:asciidoctor-style && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "build:spellcheck-dictionary": "node scripts/build-spellcheck-dictionary.mjs",
+    "predev": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "prebuild": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

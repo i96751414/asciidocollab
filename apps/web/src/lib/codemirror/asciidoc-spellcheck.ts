@@ -77,17 +77,22 @@ export interface SpellChecker {
 
 let checkerPromise: Promise<SpellChecker | null> | null = null;
 
-/** Lazily load the English dictionary into an nspell checker (best-effort, cached). */
+/**
+ * Lazily load the English dictionary into an nspell checker (best-effort, cached).
+ * The Hunspell `aff`/`dic` files are self-hosted under `/dictionaries/` (copied
+ * from `dictionary-en` at build time) and fetched same-origin — `dictionary-en`
+ * itself is a Node module and is never bundled for the browser. Returns null on
+ * any failure so spell-check simply does nothing.
+ */
 export function loadSpellChecker(): Promise<SpellChecker | null> {
   checkerPromise ??= (async () => {
     try {
-      const [{ default: nspell }, dictionaryModule] = await Promise.all([
+      const [{ default: nspell }, aff, dic] = await Promise.all([
         import('nspell'),
-        import('dictionary-en'),
+        fetch('/dictionaries/en.aff').then((response) => (response.ok ? response.text() : Promise.reject(new Error('aff')))),
+        fetch('/dictionaries/en.dic').then((response) => (response.ok ? response.text() : Promise.reject(new Error('dic')))),
       ]);
-      const dictionary = await resolveDictionary(dictionaryModule);
-      if (!dictionary) return null;
-      const speller = nspell(dictionary);
+      const speller = nspell(aff, dic);
       return {
         correct: (word: string) => speller.correct(word),
         suggest: (word: string) => speller.suggest(word).slice(0, 5),
@@ -97,29 +102,6 @@ export function loadSpellChecker(): Promise<SpellChecker | null> {
     }
   })();
   return checkerPromise;
-}
-
-interface AffDic {
-  /** Hunspell affix rules. */
-  aff: Buffer;
-  /** Hunspell dictionary words. */
-  dic: Buffer;
-}
-
-function isAffDic(value: unknown): value is AffDic {
-  return typeof value === 'object' && value !== null && 'aff' in value && 'dic' in value;
-}
-
-/** `dictionary-en` ships either an async loader or `{ aff, dic }` buffers across versions. */
-async function resolveDictionary(module: unknown): Promise<AffDic | null> {
-  const candidate =
-    typeof module === 'object' && module !== null && 'default' in module ? module.default : module;
-  if (typeof candidate === 'function') {
-    return new Promise((resolve) => {
-      candidate((error: unknown, dict: unknown) => resolve(error || !isAffDic(dict) ? null : dict));
-    });
-  }
-  return isAffDic(candidate) ? candidate : null;
 }
 
 /**
