@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/025-audit-log-coverage/plan.md
+Active feature plan: specs/026-asciidoc-editor-enhancements/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

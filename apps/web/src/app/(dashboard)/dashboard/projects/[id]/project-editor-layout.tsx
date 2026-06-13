@@ -431,80 +431,71 @@ export function ProjectEditorLayout({
           </Button>
         )}
 
-        {/* Editor + Preview panels — resizable when preview is open */}
-        {showPreview && previewOpen ? (
-          <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
-            <Panel defaultSize={50} minSize={20} className="overflow-hidden flex flex-col p-4" data-testid="content-panel">
-              <ContentArea
-                selectedFile={selectedFile}
-                contentState={contentState}
-                canEdit={editorCanEdit}
-                projectId={projectId}
-                onScrollLine={scrollSyncEnabled ? handleScrollLine : undefined}
-                onLineClick={handleLineClick}
-                onNavigateToFile={handleNavigateToFile}
-                onOpenUrl={handleOpenUrl}
-                onChange={handleChange}
-                initialLine={initialLine}
-                onCursorLineChange={handleCursorLineChange}
-                collab={editorCollab}
-                collabPending={editorPending}
-                connectionState={editorConnectionState}
-                contentOverride={editorContentOverride}
-                collabUnavailable={collabUnavailable}
-              />
-            </Panel>
-            <PanelResizeHandle className="group relative z-10 flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
-              <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
-            </PanelResizeHandle>
-            <Panel defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">
-              <AsciiDocPreview
-                key={selectedFile?.nodeId}
-                content={liveContent}
-                isEnabled={previewOpen}
-                projectId={projectId}
-                scrollToLine={scrollRequest}
-                onCollapse={togglePreview}
-                scrollSyncEnabled={scrollSyncEnabled}
-                onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
-                previewStyle={previewStyle}
-                onPreviewStyleChange={setPreviewStyle}
-              />
-            </Panel>
-          </PanelGroup>
-        ) : (
-          <>
-            <div data-testid="content-panel" className="flex-1 overflow-hidden flex flex-col p-4">
-              <ContentArea
-                selectedFile={selectedFile}
-                contentState={contentState}
-                canEdit={editorCanEdit}
-                projectId={projectId}
-                onNavigateToFile={handleNavigateToFile}
-                onOpenUrl={handleOpenUrl}
-                onChange={handleChange}
-                initialLine={initialLine}
-                onCursorLineChange={handleCursorLineChange}
-                collab={editorCollab}
-                collabPending={editorPending}
-                connectionState={editorConnectionState}
-                contentOverride={editorContentOverride}
-                collabUnavailable={collabUnavailable}
-              />
-            </div>
-            {showPreview && !previewOpen && (
-              <Button
-                data-testid="preview-panel"
-                variant="ghost"
-                size="icon"
-                aria-label="expand preview"
-                className="w-6 h-full shrink-0 border-l rounded-none"
-                onClick={togglePreview}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            )}
-          </>
+        {/* Editor + Preview panels. The editor's ContentArea stays mounted in ONE
+            stable Panel regardless of previewOpen — only the preview Panel + resize
+            handle mount/unmount — so toggling the preview never remounts CodeMirror
+            and never loses editor content/cursor/scroll (US1, FR-001–005). */}
+        <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+          <Panel
+            id="editor-content"
+            order={1}
+            defaultSize={showPreview && previewOpen ? 50 : 100}
+            minSize={20}
+            className="overflow-hidden flex flex-col p-4"
+            data-testid="content-panel"
+          >
+            <ContentArea
+              selectedFile={selectedFile}
+              contentState={contentState}
+              canEdit={editorCanEdit}
+              projectId={projectId}
+              onScrollLine={previewOpen && scrollSyncEnabled ? handleScrollLine : undefined}
+              onLineClick={previewOpen ? handleLineClick : undefined}
+              onNavigateToFile={handleNavigateToFile}
+              onOpenUrl={handleOpenUrl}
+              onChange={handleChange}
+              initialLine={initialLine}
+              onCursorLineChange={handleCursorLineChange}
+              collab={editorCollab}
+              collabPending={editorPending}
+              connectionState={editorConnectionState}
+              contentOverride={editorContentOverride}
+              collabUnavailable={collabUnavailable}
+            />
+          </Panel>
+          {showPreview && previewOpen && (
+            <>
+              <PanelResizeHandle className="group relative z-10 flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
+                <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
+              </PanelResizeHandle>
+              <Panel id="editor-preview" order={2} defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">
+                <AsciiDocPreview
+                  key={selectedFile?.nodeId}
+                  content={liveContent}
+                  isEnabled={previewOpen}
+                  projectId={projectId}
+                  scrollToLine={scrollRequest}
+                  onCollapse={togglePreview}
+                  scrollSyncEnabled={scrollSyncEnabled}
+                  onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
+                  previewStyle={previewStyle}
+                  onPreviewStyleChange={setPreviewStyle}
+                />
+              </Panel>
+            </>
+          )}
+        </PanelGroup>
+        {showPreview && !previewOpen && (
+          <Button
+            data-testid="preview-panel"
+            variant="ghost"
+            size="icon"
+            aria-label="expand preview"
+            className="w-6 h-full shrink-0 border-l rounded-none"
+            onClick={togglePreview}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         )}
       </div>
     </div>

@@ -20,8 +20,10 @@ interface EditorToolbarProperties {
   canEdit?: boolean;
   fontSize?: number;
   theme?: EditorThemeValue;
+  softWrap?: boolean;
   setFontSize?: (size: number) => void;
   setTheme?: (theme: EditorThemeValue) => void;
+  setSoftWrap?: (enabled: boolean) => void;
 }
 
 // Wrap selected text or insert at cursor
@@ -167,8 +169,10 @@ export function EditorToolbar({
   canEdit = true,
   fontSize = 14,
   theme = 'default',
+  softWrap,
   setFontSize = () => {},
   setTheme = () => {},
+  setSoftWrap,
 }: EditorToolbarProperties) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -201,8 +205,10 @@ export function EditorToolbar({
           <EditorSettingsPanel
             fontSize={fontSize}
             theme={theme}
+            softWrap={softWrap}
             setFontSize={setFontSize}
             setTheme={setTheme}
+            setSoftWrap={setSoftWrap}
           />
         </div>
       )}

@@ -1,0 +1,344 @@
+---
+description: "Task list for AsciiDoc Editor Enhancements"
+---
+
+# Tasks: AsciiDoc Editor Enhancements
+
+**Input**: Design documents from `specs/026-asciidoc-editor-enhancements/`
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
+
+**Tests**: REQUIRED. Constitution II (TDD, NON-NEGOTIABLE) mandates a failing test before production code; the feature input additionally mandates a Playwright **e2e** spec for every user-facing story. Within each story: write unit tests (red) → implement (green) → refactor → e2e spec.
+
+**Organization**: By user story, ordered by the plan's four increments — A (P1), B (P2), C (P3 editing), D (P3 intelligence). Some P2/P3 items have cross-story dependencies (noted); these do not break independent testability of the earlier story.
+
+## Path Conventions
+
+Tests live in `tests/` mirroring `src/` (drop `src/`). Web: `apps/web/src/…` → `apps/web/tests/…`; e2e: `apps/web/e2e/*.spec.ts`. Domain/API/db per the architecture constitution. Coverage gate 90/90/90/90 — keep new pure logic unit-covered; live-CM wiring covered by e2e.
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Dependencies needed across stories.
+
+- [X] T001 Add editor dependencies to `apps/web/package.json`: `@codemirror/lint`, `@codemirror/language-data`, `nspell`, `dictionary-en`, `turndown` (HTML→Markdown for paste-HTML); run `pnpm install`; verify `pnpm audit --audit-level=high` passes (research R1/R2/R3/R7). *(New deps clean; the one pre-existing `high` finding is `packages/db > tsx > esbuild`, unrelated.)*
+- [X] T002 Implement the Markdown-subset→AsciiDoc mapper `apps/web/src/lib/codemirror/html-to-asciidoc.ts` (headings, lists, bold/italic, links, tables — FR-062 scope) with unit tests; HTML→Markdown is delegated to `turndown` and no maintained HTML→AsciiDoc asset exists, so this small mapper is permitted (clarified Constitution IV, research R2).
+- [X] T003 [P] Add the curated source-language allow-list (~15 languages) constant in `apps/web/src/lib/codemirror/source-languages.ts` mapping `[source,<lang>]` names to `@codemirror/language-data` entries (research R1).
+- [X] T004 [P] Confirm lint/typecheck config picks up the new modules in `apps/web/jest.config.cjs` (quality-gates memory). *(jest glob testMatch auto-discovers the new test files; no config change needed.)*
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Shared test scaffolding every story's tests depend on.
+
+**⚠️ CRITICAL**: Complete before any user-story phase.
+
+- [X] T005 Create Playwright editor helpers in `apps/web/e2e/helpers/editor.ts`: open a project file, get editor text, assert CM token DOM classes, click fold gutter + assert hidden ranges, trigger + read the autocomplete listbox, read lint markers, assert active-file switch (used by every e2e spec; quickstart R11).
+- [X] T006 [P] Create a Lezer tokenizer test harness in `apps/web/tests/lib/codemirror/helpers/tokenize.ts` that parses a source string and returns `(nodeName, text, level)` tuples, for asserting grammar tokens without a live editor.
+- [X] T007 [P] Add shared multi-file AsciiDoc e2e fixtures (a main file with includes, leveloffset, anchors) under `apps/web/e2e/fixtures/adoc/` for cross-file specs (US3/US8/US12).
+
+**Checkpoint**: Test scaffolding ready — story phases can begin.
+
+---
+
+## Phase 3: User Story 1 - Preview toggle content loss (Priority: P1) 🎯 MVP
+
+**Goal**: Toggling the HTML preview never blanks, resets, or loses editor content (collab + REST paths).
+
+**Independent Test**: Type text, toggle preview ×N, assert content byte-identical and cursor/scroll kept, on both paths.
+
+- [X] T008 [P] [US1] Write failing Playwright spec `apps/web/e2e/editor-preview-toggle.spec.ts`: type known text → toggle preview ×3 → assert text identical + cursor/scroll preserved; run on collab AND offline/REST paths (FR-001–005).
+- [X] T009 [US1] Refactor `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx` so the editor (`ContentArea`/`AsciiDocEditor`) is mounted in ONE stable position regardless of `previewOpen` — always render the `PanelGroup` (stable `id="editor-content"`/`order`), conditionally mount the preview `Panel`+handle instead of swapping `PanelGroup`↔`div`.
+- [X] T010 [US1] Verified the editor seed is no longer re-run on toggle (ContentArea stays mounted in the stable Panel; mount effect deps unchanged) and the collab Y.Doc survives. No preview-coupled remount branches existed in `use-editor-mount.ts`/`asciidoc-editor.tsx` (grep clean) — none to remove.
+- [~] T011 [US1] Spec written; typecheck + lint green. **Running `editor-preview-toggle.spec.ts` green requires the isolated e2e stack (`scripts/ci/e2e-local.sh`, Docker) — deferred (not runnable in this environment).** Scroll-sync path preserved (`onScrollLine` still gated on `previewOpen && scrollSyncEnabled`).
+
+**Checkpoint**: P1 data-loss fixed and proven by e2e.
+
+---
+
+## Phase 4: User Story 2 - Line wrap toggle exposure (Priority: P1)
+
+**Goal**: Soft-wrap toggle visible next to Font Size/Theme; persists.
+
+**Independent Test**: Toggle in settings, wrapping changes, survives reload.
+
+- [X] T012 [P] [US2] Write failing unit test `apps/web/tests/components/editor/editor-toolbar.test.tsx`: `EditorToolbar` passes `softWrap`/`setSoftWrap` to `EditorSettingsPanel` so the Soft Wrap control renders (FR-006). *(Green.)*
+- [X] T013 [P] [US2] Write Playwright spec `apps/web/e2e/editor-line-wrap.spec.ts`: toggle Soft Wrap → long line wraps/unwraps (`cm-lineWrapping` class) → reload restores state (FR-007/008); ≤2 interactions (SC-002). *(Execution deferred to the isolated e2e stack.)*
+- [X] T014 [US2] Add `softWrap`/`setSoftWrap` to `EditorToolbarProperties` and pass them to `<EditorSettingsPanel>` in `apps/web/src/components/editor/editor-toolbar.tsx`.
+- [X] T015 [US2] Pull `setSoftWrap` from `useEditorPreferences()` in `apps/web/src/components/editor/asciidoc-editor.tsx` and thread `softWrap`/`setSoftWrap` to `<EditorToolbar>`.
+- [X] T016 [US2] Verified token-themed rendering of the Soft Wrap toggle in `editor-settings-panel.tsx` (`text-muted-foreground`/`border` tokens, labelled "Soft Wrap"); T012 green (56/56 toolbar+panel tests pass).
+
+**Checkpoint**: Both P1 stories shippable as the MVP increment.
+
+---
+
+## Phase 5: User Story 7 - Complete highlighting coverage (Priority: P2)
+
+**Goal**: Tokenize block-attr lines, links/URLs, passthrough/anchors/callouts, breaks, conditionals, inline UI/math macros, CSV/DSV tables, smart quotes/replacements/entities/hard breaks. *(Sequenced before US3/US4 because they consume new grammar nodes.)*
+
+**Independent Test**: Enter each construct; assert its token class renders; existing tokenization not regressed.
+
+- [ ] T017 [P] [US7] Write failing tokenizer tests `apps/web/tests/lib/codemirror/asciidoc-grammar.test.ts` for: generic block-attribute line, link/bare-URL/mailto, inline passthrough, anchors `[[id]]`/`anchor:`/bibliography `[[[ref]]]`, callout `<n>`, thematic `'''`/page `<<<`, conditional `ifdef/ifndef/ifeval/endif`, `kbd:`/`btn:`/`menu:`/inline `stem:`, CSV `,===`/DSV `:===`, smart quotes, `(C)(R)(TM)`/entities, hard break ` +` — plus regression cases that existing bold/italic/mono/xref/attr-ref still tokenize (contracts/grammar-tokens.md).
+- [ ] T018 [US7] Extend the external tokenizer `apps/web/src/lib/codemirror/asciidoc-block-tokens.ts`: generalize block-attribute detection (keep `[stem]`/admonition routing), add a distinct `Conditional` token (yield from generic block-macro), CSV/DSV table delimiters.
+- [ ] T019 [US7] Extend `apps/web/src/lib/codemirror/asciidoc.grammar` inline rules: narrow `inlineWord` and add tokens for passthrough/anchors/bibliography/callouts/links/bare-URL/UI+math macros/smart-quotes/replacements/entities/hard-break/breaks (contracts/grammar-tokens.md); regenerate the parser.
+- [ ] T020 [US7] Map new nodes to `@lezer/highlight` tags in `apps/web/src/lib/codemirror/asciidoc-highlight.ts` and add `--ad-*` theme variables in `apps/web/src/components/editor/editor-themes.css` for all five themes (Constitution V).
+- [ ] T021 [P] [US7] Write + run failing→green Playwright spec `apps/web/e2e/editor-highlighting.spec.ts` asserting token classes for a sample document (quickstart matrix).
+
+**Checkpoint**: Highlighting coverage complete; grammar nodes available to US3/US4.
+
+---
+
+## Phase 6: User Story 3 - Header levels (in-file) (Priority: P2)
+
+**Goal**: Effective-level heading styling from in-file `:leveloffset:`, discrete headings, effective-level max cutoff. *(Inherited cross-file offset + main-file refresh land in US8, Phase 11.)*
+
+**Independent Test**: Per-level distinct; `:leveloffset:+1` shifts; `[discrete]` styled + excluded from outline; effective-level > max not a heading.
+
+- [ ] T022 [P] [US3] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-heading-levels.test.ts`: effective level = raw + in-file leveloffset (`+N`/`-N`/absolute/unset) computed in document order; cutoff at max; discrete recognition (FR-009/010/071/072).
+- [ ] T023 [US3] Add raw-heading-level + `[discrete]`/`[float]` recognition to `apps/web/src/lib/codemirror/asciidoc-block-tokens.ts` / grammar (contracts/grammar-tokens.md §header).
+- [ ] T024 [US3] Implement `apps/web/src/lib/codemirror/asciidoc-heading-levels.ts`: view-layer pass computing effective level (in-file leveloffset state via `getInheritedOffset` defaulting to 0), applying per-level style, max-level cutoff, and discrete styling; exclude discrete from section fold/outline. *(Interim: the in-file leveloffset computation lives in the web module here because the shared `asciidoc-model` does not exist until Phase 13; it is consolidated into shared by T066a. Use fixtures that can be reused verbatim by the shared rule's tests so behavior cannot diverge before the swap — architecture-migration-plan.md Phase 4.)*
+- [ ] T025 [US3] Wire `asciidocHeadingLevels` into `apps/web/src/hooks/use-editor-mount.ts`; ensure `asciidoc-outline.ts` and section folding skip discrete headings.
+- [ ] T026 [P] [US3] Write + run failing→green Playwright spec `apps/web/e2e/editor-header-levels.spec.ts` (in-file leveloffset shift, discrete styling + outline exclusion, over-max not styled).
+
+**Checkpoint**: Header levels correct for the current file (inherited offset wired later in Phase 11).
+
+---
+
+## Phase 7: User Story 4 - Folding sections/blocks/tables + copy collapsed (Priority: P2)
+
+**Goal**: Fold sections, all delimited blocks (incl. Literal/Admonition), tables (PSV + CSV/DSV), conditionals, comment/attr runs; collapse `{attr}` to value; copy/cut a collapsed section.
+
+**Independent Test**: Fold each region; unfold restores byte-identical; fold a section, copy, paste = full section.
+
+- [ ] T027 [P] [US4] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-fold.test.ts` for fold-range functions: section (heading→next same/higher), block (+ LiteralBlock/AdmonitionBlock), table (PSV/CSV/DSV), conditional `ifdef…endif`, comment-run, attr-run (FR-012–016).
+- [ ] T028 [US4] Extend `apps/web/src/lib/codemirror/asciidoc-fold.ts`: add `LiteralBlock`/`AdmonitionBlock` to the block set; add `foldRangeForSection/Table/Conditional/CommentRun/AttrRun` producers (research R6). *(CSV/DSV table folding depends on US7 grammar nodes — T018.)*
+- [ ] T029 [US4] Implement the `{attr}` collapse-to-value replace decoration in `apps/web/src/lib/codemirror/asciidoc-fold.ts` (or a sibling module) — display fold, document text unchanged (FR-057).
+- [ ] T030 [US4] Ensure copy/cut of a collapsed section includes hidden text (CM default — add a test, no special code) and wire fold services + `foldGutter` in `apps/web/src/hooks/use-editor-mount.ts`.
+- [ ] T031 [P] [US4] Write + run failing→green Playwright spec `apps/web/e2e/editor-folding.spec.ts` (fold/unfold each region; fold section → copy → paste full section).
+
+**Checkpoint**: Folding complete; US10 (fold-all/persist) can build on these ranges.
+
+---
+
+## Phase 8: User Story 5 - In-editor source highlighting by language (Priority: P3)
+
+**Goal**: Highlight `[source,lang]` block bodies by language; unknown/none → plain.
+
+**Independent Test**: `[source,js]` body shows JS tokens; unknown lang plain; AsciiDoc resumes after block.
+
+- [ ] T032 [P] [US5] Write failing unit test `apps/web/tests/lib/codemirror/asciidoc-source-highlight.test.ts`: language resolution from the allow-list; unknown→no injection (FR-017/018).
+- [ ] T033 [US5] Implement `apps/web/src/lib/codemirror/asciidoc-source-highlight.ts` using `parseMixed` + lazy `@codemirror/language-data` for the curated set (research R1); embedded text treated as inert (Constitution IX).
+- [ ] T034 [US5] Wire source-highlight extension in `apps/web/src/hooks/use-editor-mount.ts`; confirm AsciiDoc highlighting resumes after the block (FR-019).
+- [ ] T035 [P] [US5] Write + run failing→green Playwright spec `apps/web/e2e/editor-source-highlight.spec.ts`.
+
+**Checkpoint**: Embedded code highlighted in-editor.
+
+---
+
+## Phase 9: User Story 6 - Insert source block with declaration (Priority: P3)
+
+**Goal**: Code Block toolbar action inserts `[source,<lang>]` + delimiters with tab-stops.
+
+**Independent Test**: Trigger Code Block → declaration line present → cursor at language placeholder.
+
+- [ ] T036 [P] [US6] Write failing unit test `apps/web/tests/components/editor/editor-toolbar.test.tsx` (Code Block case): inserts `[source,<lang>]\n----\n…\n----` with cursor at the language tab-stop (FR-020–022).
+- [ ] T037 [US6] Update the BLOCKS "Code Block" action in `apps/web/src/components/editor/editor-toolbar.tsx` to insert the source declaration via a `@codemirror/autocomplete` `snippet()` with tab-stops (lang → body).
+- [ ] T038 [P] [US6] Write + run failing→green Playwright spec `apps/web/e2e/editor-insert-source.spec.ts`.
+
+**Checkpoint**: New source blocks are language-ready.
+
+---
+
+## Phase 10: User Story 9 - Authoring conveniences (Priority: P3)
+
+**Goal**: Format shortcuts + auto-pair, snippet tab-stops, paste-URL→link, image paste/drop, paste-HTML→AsciiDoc, prose spell-check.
+
+**Independent Test**: Each convenience drives a visible effect in the editor.
+
+- [ ] T039 [P] [US9] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-paste.test.ts` (URL-over-selection→`link:`, HTML→AsciiDoc via `turndown`+the markdown-subset mapper, image→`image::` after upload) and `apps/web/tests/hooks/use-editor-mount.test.ts` (keymap Mod-b/i/`/Mod-/, auto-wrap inputHandler) (FR-036–040/062).
+- [ ] T040 [P] [US9] Write failing unit test `apps/web/tests/lib/codemirror/asciidoc-spellcheck.test.ts`: tree-aware skipping of verbatim/macros/attribute-names/URLs; per-user ignore list (FR-063).
+- [ ] T041 [US9] Bind keymap (`Mod-b/i/\``→wrap, `Mod-/`→`toggleComment`) and add the auto-wrap `inputHandler` in `apps/web/src/hooks/use-editor-mount.ts`; ensure no clash with save/find/undo (FR-041).
+- [ ] T042 [US9] Implement `apps/web/src/lib/codemirror/asciidoc-paste.ts`: paste-URL→link; paste-HTML → sanitize → `turndown` (HTML→Markdown) → `apps/web/src/lib/codemirror/html-to-asciidoc.ts` (Markdown-subset→AsciiDoc mapper) — Constitution IX; image paste/drop → upload via existing asset API (`apps/web/src/lib/api/assets.ts`) → insert `image::`, with type/size validation and graceful fallback (research R2).
+- [ ] T043 [US9] Implement `apps/web/src/lib/codemirror/asciidoc-spellcheck.ts` (nspell + dictionary-en, tree-aware) and add a per-user `spellIgnore` list to `apps/web/src/hooks/use-editor-preferences.ts` (Constitution VII).
+- [ ] T044 [P] [US9] Write + run failing→green Playwright spec `apps/web/e2e/editor-conveniences.spec.ts`.
+
+**Checkpoint**: US9 conveniences functional and independently testable.
+
+---
+
+## Phase 11: User Story 11 - Live document metrics (Priority: P3)
+
+**Goal**: Word count + reading time in the status bar, updating on edit.
+
+**Independent Test**: Metrics appear and update as the document changes.
+
+- [ ] T045 [P] [US11] Write failing unit test `apps/web/tests/lib/codemirror/asciidoc-metrics.test.ts` for `computeMetrics` (words, reading time) (FR-044).
+- [ ] T046 [US11] Implement `apps/web/src/lib/codemirror/asciidoc-metrics.ts` and surface word count + reading time in `apps/web/src/components/editor/editor-status-bar.tsx` (token-themed).
+- [ ] T047 [P] [US11] Write + run failing→green Playwright spec `apps/web/e2e/editor-metrics.spec.ts`.
+
+**Checkpoint**: US11 metrics functional.
+
+---
+
+## Phase 12: User Story 10 - Whole-document folding controls (Priority: P3)
+
+**Goal**: fold-all/unfold-all/to-level + persisted folds. *(Depends on US4 fold ranges, Phase 7.)*
+
+**Independent Test**: fold-all/unfold-all/to-level work; fold state restored on reopen.
+
+- [ ] T048 [P] [US10] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-fold-persist.test.ts`: foldAll/unfoldAll/foldToLevel; serialize/restore fold state (FR-042/043).
+- [ ] T049 [US10] Implement `apps/web/src/lib/codemirror/asciidoc-fold-persist.ts` (commands + keymap) and persist fold state per `userId:projectId:fileId` in `apps/web/src/hooks/use-editor-preferences.ts` (Constitution VII; reconcile on external change).
+- [ ] T050 [P] [US10] Write + run failing→green Playwright spec `apps/web/e2e/editor-fold-all.spec.ts`.
+
+**Checkpoint**: Increment C complete — conveniences, metrics, fold controls.
+
+---
+
+## Phase 13: Shared AsciiDoc Model & Contracts (Increment D foundation)
+
+**Purpose**: Define the cross-boundary AsciiDoc shapes + pure rules **once** in `packages/shared`, reused by US8 (web projection), US12 (domain), and the render worker — eliminating the duplication flagged by architecture-guard (`architecture-migration-plan.md`, research R13). No story label: this is a shared foundation for Increment D.
+
+**⚠️ Blocks** US8, US12, the US3 inherited-offset wiring (T066), and the preview resolver (T068).
+
+- [ ] T050a [P] Write failing unit tests `packages/shared/tests/asciidoc-model/extraction.test.ts`: reference/symbol extraction, include-graph build (transitive, cycle-guarded, per-edge leveloffset), effective-level rules (FR-046/050/065/071).
+- [ ] T050b Implement `packages/shared/src/asciidoc-model/`: DTOs `Reference`/`ProjectSymbol`/`Diagnostic`/`IncludeEdge` + pure extraction + include-graph/leveloffset rules (no CodeMirror/Prisma); add the typed `mainFileCleared` outcome DTO for move/rename (research R13).
+- [ ] T050c [P] Write failing unit tests `packages/shared/tests/project-path/resolve-sandboxed-path.test.ts`: accept project-relative paths; reject `..`/absolute/symlink/remote (Constitution IX).
+- [ ] T050d Implement `resolveSandboxedPath()` in `packages/shared/src/project-path/`.
+
+**Checkpoint**: Shared model + path rule ready — US8/US12/worker import them; no second parser or duplicated path rule.
+
+---
+
+## Phase 14: User Story 8 - Smart assistance + cross-file (Priority: P3) — Increment D
+
+**Goal**: Project main-file setting; client include-graph/symbol index; cross-file completion + source-language; diagnostics; xref nav + go-to-symbol; security-gated preview include assembly; wire US3 inherited offset + refresh.
+
+**Independent Test**: Configure main file with includes → cross-file completion/validation/nav works; diagnostics appear+clear; preview assembles includes; changing main file refreshes everything.
+
+### Main-file setting (domain → API → web)
+- [ ] T051 [P] [US8] Write failing domain test `packages/domain/tests/use-cases/project/set-project-main-file.test.ts` (**permission-denied for a non-editor caller** + records an authorization-denial audit entry, set/clear/not-found/wrong-project/non-adoc) using in-memory project + **project-member** + file-tree + audit-log fakes (Constitution II/III; security_constitution RBAC-in-use-case).
+- [ ] T052 [US8] Add `mainFileNodeId` (nullable, `onDelete: SetNull`) to `packages/db/prisma/schema.prisma` (**no committed migration yet** — applied to dev via T052a); add the field to the `Project` entity `packages/domain/src/entities/project.ts` and the `ProjectDto` in `packages/shared` (contracts/api-main-file.md).
+- [ ] T052a [US8] Upgrade the current **dev** Postgres database to the new schema: run `pnpm --filter @asciidocollab/db exec prisma db push` (syncs `schema.prisma` to the dev DB and regenerates the Prisma client). **Do NOT run `prisma migrate dev` and do NOT save/commit any migration SQL** — the schema change is not release/production-ready, so no upgrade scripts are persisted. A formal, committed migration is created later at release time.
+- [ ] T053 [US8] Implement `SetProjectMainFileUseCase` in `packages/domain/src/use-cases/project/set-project-main-file.ts` + the repository port method (+ in-memory fake in `packages/domain/tests/ports/project/`) returning `Result`. The use case takes `actorId`, loads the caller's project membership via `ProjectMemberRepository`, and **enforces project-edit permission in the domain** — returns `PermissionDeniedError` and records an authorization-denial audit entry when the caller is not an editor (mirror `UpdateProjectUseCase`; security_constitution: permission checks live in use cases, not routes). Then rejects non-existent/non-adoc; allows null (FR-045).
+- [ ] T053a [P] [US8] Write failing **infrastructure integration test** `packages/infrastructure/tests/persistence/project/project.repository.test.ts` (real Prisma via `startTestContainer`): persist + read `mainFileNodeId`, and `onDelete: SetNull` when the referenced node is deleted (Constitution II — infra adapters use integration tests against real deps).
+- [ ] T053b [US8] Implement the Prisma repository method for the main-file port in `packages/infrastructure/src/persistence/project/` to satisfy the domain port and make T053a green.
+- [ ] T054 [P] [US8] Write failing API route test `apps/api/tests/routes/project-main-file.test.ts` (200/400/403/404/401/**429**); the 403 case asserts the route surfaces the use case's `PermissionDeniedError` (no route-level permission check); the 429 case asserts the configured per-route rate limit triggers `RATE_LIMITED` once exceeded (FR-073/SC-025; security_constitution API & Integration Security).
+- [ ] T054a [US8] Add rate-limit config options for the main-file route to `apps/api/src/config/schema.ts`: `project.mainFile.rateLimitMax` + `project.mainFile.rateLimitWindow`, bound to `ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX` / `ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_WINDOW` with documented defaults (mirror `admin.invite`); add them to the API env example/docs. **Blocks T055** (the route reads these). Rationale: security_constitution requires rate limits to be config/env-driven, never hardcoded.
+- [ ] T055 [US8] Implement `PUT /projects/{projectId}/main-file` in `apps/api/src/routes/projects/` with Fastify/Zod request validation and a per-route `rateLimit: { max: app.config.project.mainFile.rateLimitMax, timeWindow: app.config.project.mainFile.rateLimitWindow }` (T054a) — the limiter is `global: false`, so the route MUST opt in explicitly; over-limit returns `429 RATE_LIMITED` via the existing error handler. The route passes the authenticated `actorId` to `SetProjectMainFileUseCase` and maps its typed `Result` to HTTP (200/400/403/404/401). The route MUST NOT perform its own project-edit permission check — authorization lives in the use case; the 403 comes from the use case's `PermissionDeniedError` (contracts/api-main-file.md; security_constitution). The symbol index **reuses the existing file-content read path** that already loads a file into the editor — no new endpoint (U2 decision); per-file fetch cached by the index.
+- [ ] T056 [US8] Add a main-file picker UI (token-themed) in the project/editor settings and an `apps/web/src/lib/api/projects.ts` client call.
+
+### Include graph + symbol index (client)
+- [ ] T057 [P] [US8] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-symbol-index.test.ts` for the projection: maps shared `asciidoc-model` outputs → CM ranges/decorations; content overlay; current-file fallback (does NOT re-test extraction — that lives in T050a).
+- [ ] T058 [US8] Implement `apps/web/src/lib/codemirror/asciidoc-symbol-index.ts` as a **client projection** importing the shared `asciidoc-model` extraction + `resolveSandboxedPath` (T050b/d) — no local parser; content = persisted + open-file live overlay (FR-048); current-file fallback (FR-047). (contracts/editor-extensions.md §5)
+- [ ] T059 [US8] Implement `apps/web/src/hooks/use-project-symbol-index.ts`: fetch file contents, build/cache the index, invalidate on file-change SSE and on `mainFileNodeId` change (FR-045a, research R4/R12). **Bound the fan-out (FR-073/SC-025):** dedupe fetches against the per-file cache (no refetch of unchanged files), cap concurrent fetches, and rely on the cycle-guarded include walk (T050a) so a single open/refresh of an N-file tree issues at most N content reads. Confirm the reused file-content read route is itself rate-limited (as `file-download` is); add a test asserting the per-refresh fetch count is bounded.
+
+### Completion + diagnostics
+- [ ] T060 [P] [US8] Write failing unit tests `apps/web/tests/lib/codemirror/asciidoc-completions.test.ts`: source-language completion (FR-031), built-in attribute completion (FR-059), and cross-file xref/attr targets from the index (FR-029/030); suppressed in verbatim (FR-035).
+- [ ] T061 [US8] Extend `apps/web/src/lib/codemirror/asciidoc-completions.ts`: add `sourceLanguageCompletion`, `builtinAttributeCompletion`, and make xref/attr sources consult the symbol index.
+- [ ] T062 [P] [US8] Write failing unit test `apps/web/tests/lib/codemirror/asciidoc-diagnostics.test.ts`: unterminated-block, unknown-xref, duplicate-id, undefined-attribute, unresolved-include; debounced/edit-tolerant (FR-032/033/050/060).
+- [ ] T063 [US8] Implement `apps/web/src/lib/codemirror/asciidoc-diagnostics.ts` async `@codemirror/lint` source over the index, emitting the shared `Diagnostic` DTO (T050b); wire `linter()` + `lintGutter()` in `apps/web/src/hooks/use-editor-mount.ts`.
+
+### Navigation
+- [ ] T064 [US8] Add xref go-to-definition (switch active file) to `apps/web/src/lib/codemirror/asciidoc-link-handler.ts` + hover preview using the index (FR-034).
+- [ ] T065 [US8] Implement project-wide Go-to-Symbol palette `apps/web/src/components/editor/editor-go-to-symbol.tsx` over the index (FR-061), token-themed.
+
+### Wire US3 inherited offset + refresh
+- [ ] T066 [US8] Feed `inheritedLevelOffset(openFileId)` from the index into `asciidoc-heading-levels.ts` and subscribe heading highlighting to index changes so a main-file change re-evaluates levels (FR-071/045a) — completes US3.
+- [ ] T066a [US8] **Consolidate the effective-level rule into shared** (architecture-migration-plan.md Phase 4): move the in-file effective-level computation (raw + document-ordered `:leveloffset:` ops, max-level cutoff, discrete recognition) introduced in T024 out of `apps/web/src/lib/codemirror/asciidoc-heading-levels.ts` into the shared `packages/shared/src/asciidoc-model/` effective-level rule (the one that owns `inheritedLevelOffset`), and reduce `asciidoc-heading-levels.ts` to a CM projection (call the shared rule + apply per-level decoration only — no leveloffset arithmetic in the web layer). Re-point the `asciidoc-heading-levels` unit tests at the shared rule (Constitution IV; "effective-level rules exist once").
+
+### Security-gated preview assembly (FR-068)
+- [ ] T067 [P] [US8] Write failing tests for the include resolver: `apps/web/tests/workers/asciidoc-render.worker.test.ts` (assembles includes; **rejects** `..`/absolute/symlink/remote targets — Constitution IX) and a scroll-sync regression test (Constitution VIII).
+- [ ] T068 [US8] Implement a sandbox-confined include resolver feeding `apps/web/src/workers/asciidoc-render.worker.ts` using the shared `resolveSandboxedPath` (T050d), passing assembled content through the **existing sanitizer unchanged** (FR-068/069); render the assembled main document when configured.
+- [ ] T069 [P] [US8] Write + run failing→green Playwright spec `apps/web/e2e/editor-intelligence.spec.ts` (completion, diagnostics appear+clear, xref nav switches file, Go-to-Symbol, main-file reject-nonexistent/allow-unset, **change main file refreshes graph+symbols+diagnostics+completion+heading levels**) and `apps/web/e2e/editor-preview-includes.spec.ts` (assembled preview).
+
+**Checkpoint**: Cross-file intelligence live; US12 + US3 inherited offset depend on this index.
+
+---
+
+## Phase 15: User Story 12 - Cross-file refactoring (Priority: P3)
+
+**Goal**: Rename id/anchor/attribute across files; find-usages; move/rename file rewrites references; maintain main-file config; warn on break.
+
+**Independent Test**: Rename an anchor referenced from several files → all update; find-usages lists them; move a referenced file → paths rewrite; rename main file keeps config / clears on non-adoc.
+
+- [ ] T070 [P] [US12] Write failing domain tests `packages/domain/tests/use-cases/content/find-references.test.ts` and `packages/domain/tests/use-cases/file-tree/{move,rename}-file.test.ts`: reference rewrite (FR-066), duplicate/unresolved warning (FR-067), and main-file consistency — move/rename keeps `mainFileNodeId`; rename-to-non-adoc/delete clears it (FR-070) — using in-memory fakes.
+- [ ] T071 [US12] Implement `FindReferencesUseCase` in `packages/domain/src/use-cases/content/find-references.ts` importing the shared `asciidoc-model` extractor (T050b) — no domain-local AsciiDoc parser.
+- [ ] T072 [US12] Extend `MoveFileUseCase`/`RenameFileUseCase` in `packages/domain/src/use-cases/file-tree/` to rewrite referencing paths via the shared extractor + `resolveSandboxedPath` (FR-066), guard duplicates/unresolved (FR-067), and maintain `Project.mainFileNodeId` (FR-070) returning the **typed `mainFileCleared`** outcome DTO (T050b) when cleared.
+- [ ] T073 [US12] Add rename-symbol + find-usages UI in the editor (`apps/web/src/components/editor/`) wired to the symbol index + the domain use cases; inform the user when a main-file clear occurs.
+- [ ] T074 [P] [US12] Write + run failing→green Playwright spec `apps/web/e2e/editor-refactoring.spec.ts` (rename across files, find-usages, move rewrites refs, main-file move/rename/delete behavior).
+
+**Checkpoint**: All 12 stories functional.
+
+---
+
+## Phase 16: Polish & Cross-Cutting Concerns
+
+- [ ] T075 [P] Write the security-boundary Playwright spec `apps/web/e2e/editor-security-boundary.spec.ts` (Constitution IX): include `../`/absolute/remote rejected (not rendered); pasted HTML sanitized (no script survives); dropped non-image/oversized rejected; embedded source language not executed. Also assert the main-file endpoint returns `429` once its configured rate limit is exceeded, and that the symbol-index refresh does not fan out unbounded backend reads (FR-073/SC-025; security_constitution API & Integration Security).
+- [ ] T076 [P] Verify all new chrome (line-wrap toggle, go-to-symbol palette, diagnostics gutter/underline, metrics, main-file picker, rename/find-usages UI) renders correctly in **light and dark** via design tokens (Constitution V) — add visual assertions where feasible.
+- [ ] T077 [P] Update `AGENTS.md`/docs with the new editor capabilities and the main-file setting; note the constitution v2.2.0 dependencies.
+- [ ] T078 Run the full quality gate set from quickstart.md (eslint, typecheck, `pnpm -r build`, `fresh-onion`, `pnpm audit`, per-package `jest --coverage`) and hold 90/90/90/90. **Each new pure module** (`asciidoc-fold`, grammar tokenizers, `asciidoc-heading-levels`, `asciidoc-metrics`, `asciidoc-fold-persist`, `html-to-asciidoc`, shared `asciidoc-model`/`project-path`) MUST carry its own unit coverage so the thin web-branch margin (~90.2%, quality-gates memory) does not regress; add tests where any threshold drops.
+- [ ] T079 Run the full e2e suite on the isolated stack (`rm -rf apps/web/.next` then `scripts/e2e-local.sh`); confirm every per-story spec + the security spec pass.
+- [ ] T080 Execute the quickstart.md per-increment manual validation (A→D) and check off the requirements checklist.
+
+---
+
+## Dependencies & Execution Order
+
+### Phase order
+- **Setup (Phase 1)** → **Foundational (Phase 2)** → user-story phases → **Polish (Phase 16)**.
+- Increment **A** = Phases 3–4 (US1, US2). Increment **B** = Phases 5–7 (US7, US3-in-file, US4). Increment **C** = Phases 8–12 (US5, US6, US9, US11, US10). Increment **D** = **Phase 13 (shared model) → Phase 14 (US8) → Phase 15 (US12)**.
+
+### Cross-story dependencies (do not break independent testability)
+- **Shared model (Phase 13, T050a–d)** blocks US8 (T057–T068), US12 (T071–T072), the US3 inherited-offset wiring (T066), and the preview resolver (T068). Build it first within Increment D.
+- **US4 CSV/DSV table folding** (T028) depends on **US7 grammar** (T018).
+- **US10 fold-all/persist** (Phase 12) depends on **US4 fold ranges** (Phase 7).
+- **US3 inherited leveloffset + refresh** (T066) and the **effective-level rule consolidation** (T066a) depend on **US8 symbol index** (T058–T059) and the shared model (T050b/d). Until then T024's in-file computation is interim (architecture-migration-plan.md Phase 4).
+- **US12** (Phase 15) depends on the **shared model** (T050b/d) + **main-file entity** (T052).
+- **US8 preview assembly** (T068) depends on the **main-file setting** (T052) + shared `resolveSandboxedPath` (T050d), gated by Constitution IX.
+
+### Within each story
+- Tests (red) before implementation (green) — Constitution II.
+- Domain → API → web for US8 main-file; pure modules → wiring → e2e for editor stories.
+- T054a (rate-limit config options) blocks T055 (the route reads `app.config.project.mainFile.*`).
+
+### Parallel opportunities
+- Setup T003/T004; Foundational T006/T007.
+- All `[P]` test-authoring tasks within a story (different files).
+- After Foundational, increments A/B/C can largely proceed in parallel by different developers; D should follow once the symbol index exists (US3-inherited, US12 depend on it).
+
+---
+
+## Parallel Example: Increment D (Phase 13 shared model, then Phase 14 US8)
+
+```bash
+# Phase 13 first — shared model tests in parallel (different files):
+Task: "Shared extraction tests packages/shared/tests/asciidoc-model/"   # T050a
+Task: "Shared path tests packages/shared/tests/project-path/"           # T050c
+
+# Then Phase 14 (US8) — author failing tests in parallel (different files):
+Task: "Domain test set-project-main-file.test.ts"            # T051
+Task: "Unit test asciidoc-symbol-index.test.ts"              # T057
+Task: "Unit test asciidoc-completions.test.ts"               # T060
+Task: "Unit test asciidoc-diagnostics.test.ts"               # T062
+Task: "Worker include-resolver + scroll-sync tests"          # T067
+```
+
+---
+
+## Implementation Strategy
+
+### MVP (Increment A — P1)
+1. Phase 1 Setup → Phase 2 Foundational → Phase 3 (US1) → Phase 4 (US2).
+2. **STOP & VALIDATE**: preview toggle never loses content; line-wrap toggle works. Deploy/demo.
+
+### Incremental delivery
+- **B** (US7 → US3-in-file → US4): highlighting + folding. Demo.
+- **C** (US5, US6, US9/US11/US10): in-editor code, insertion, conveniences, metrics, fold controls. Demo.
+- **D** (Phase 11 shared model → US8 → US12, then complete US3 inherited offset): cross-file intelligence, refactoring, preview assembly. Demo.
+- Each increment is independently shippable; D adds the foundational symbol index that lights up US3's inherited offset.
+
+### Notes
+- `[P]` = different files, no incomplete-task dependency. `[USx]` = traceability to the spec story.
+- Every story ends with a green e2e spec (user requirement) on top of green unit tests (Constitution II).
+- Commit per task/logical group; never commit failing tests; keep coverage at 90/90/90/90.

@@ -1,0 +1,11 @@
+= Book Title
+
+[[overview]]
+== Overview
+
+This book is assembled from multiple files.
+See <<chapter-one-intro>> and <<chapter-two-details>> for the details.
+
+include::chapter1.adoc[]
+
+include::chapter2.adoc[leveloffset=+1]

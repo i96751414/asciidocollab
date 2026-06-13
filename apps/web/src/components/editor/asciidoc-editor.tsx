@@ -131,7 +131,7 @@ export function AsciiDocEditor({
     initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
   });
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
@@ -222,8 +222,10 @@ export function AsciiDocEditor({
           canEdit={effectiveCanEdit}
           fontSize={fontSize}
           theme={theme}
+          softWrap={softWrap}
           setFontSize={setFontSize}
           setTheme={setTheme}
+          setSoftWrap={setSoftWrap}
         />
       )}
       {isAsciiDoc && effectiveCanEdit && tableContext !== null && viewReference.current !== null && (

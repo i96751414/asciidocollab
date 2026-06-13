@@ -1,0 +1,12 @@
+[[chapter-one-intro]]
+== Chapter One
+
+Introductory material that refers back to <<overview>>.
+
+:leveloffset: +1
+
+=== Nested Under Offset
+
+This heading's effective level is shifted by the in-file leveloffset.
+
+:leveloffset!:

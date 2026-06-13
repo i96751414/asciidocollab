@@ -13,8 +13,21 @@ jest.mock('@radix-ui/react-tooltip', () => ({
 }));
 
 jest.mock('@/components/editor/editor-settings-panel', () => ({
-  EditorSettingsPanel: ({ fontSize }: { fontSize: number; theme: string }) => (
-    <div data-testid="settings-panel">font={fontSize}</div>
+  EditorSettingsPanel: ({
+    fontSize,
+    softWrap,
+    setSoftWrap,
+  }: {
+    fontSize: number;
+    theme: string;
+    softWrap?: boolean;
+    setSoftWrap?: (enabled: boolean) => void;
+  }) => (
+    <div data-testid="settings-panel">
+      font={fontSize}
+      <span data-testid="settings-softwrap">{String(softWrap)}</span>
+      <span data-testid="settings-has-setsoftwrap">{String(typeof setSoftWrap === 'function')}</span>
+    </div>
   ),
 }));
 
@@ -183,6 +196,24 @@ describe('EditorToolbar', () => {
       expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
       fireEvent.click(gear);
       expect(screen.queryByTestId('settings-panel')).toBeNull();
+    });
+
+    test('passes softWrap + setSoftWrap to the settings panel so the Soft Wrap control renders (US2/FR-006)', () => {
+      const view = createMockView('');
+      render(
+        <EditorToolbar
+          view={view}
+          fontSize={14}
+          theme="default"
+          softWrap={false}
+          setFontSize={jest.fn()}
+          setTheme={jest.fn()}
+          setSoftWrap={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /editor settings/i }));
+      expect(screen.getByTestId('settings-softwrap')).toHaveTextContent('false');
+      expect(screen.getByTestId('settings-has-setsoftwrap')).toHaveTextContent('true');
     });
 
     test('action groups are hidden when canEdit is false', () => {
