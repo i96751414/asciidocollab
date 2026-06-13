@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListTree, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
@@ -25,11 +25,12 @@ import { useProjectPresence } from '@/hooks/use-project-presence';
 import { useCurrentUser } from '@/contexts/current-user-context';
 import { getDocumentContent } from '@/lib/api/file-content';
 import { getCollabDocumentInfo } from '@/lib/api/collab';
-import type { CollabAuthRole } from '@asciidocollab/shared';
+import type { CollabAuthRole, ProjectSymbol } from '@asciidocollab/shared';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import { EditorGoToSymbol } from '@/components/editor/editor-go-to-symbol';
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -189,7 +190,7 @@ export function ProjectEditorLayout({
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
   // file changes (FR-045a) and overlays the open file's live content (FR-048).
-  const { getIndex: getProjectIndex } = useProjectSymbolIndex({
+  const { index: projectIndex, getIndex: getProjectIndex } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
@@ -405,6 +406,33 @@ export function ProjectEditorLayout({
     pendingXrefLine.current = target.line;
     handleNavigateToFile(target.path);
   }, [handleNavigateToFile]);
+
+  // Go to Symbol palette (FR-061): jump to any section/anchor across the project tree. Selecting a
+  // symbol reuses the xref go-to-definition path (same-file reveal or cross-file switch).
+  const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
+  const symbolPathOf = useCallback((id: string) => projectIndex?.pathOf(id) ?? null, [projectIndex]);
+  const handleSelectSymbol = useCallback((symbol: ProjectSymbol) => {
+    setGoToSymbolOpen(false);
+    const index = getProjectIndex();
+    if (!index) return;
+    handleNavigateToXref({
+      fileId: symbol.fileId,
+      path: index.pathOf(symbol.fileId),
+      line: index.lineOf(symbol.fileId, symbol.range.from),
+      sameFile: symbol.fileId === index.activeFileId,
+    });
+  }, [getProjectIndex, handleNavigateToXref]);
+  // Ctrl/Cmd+Shift+O opens the palette (VS Code-style "go to symbol").
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'o' || event.key === 'O')) {
+        event.preventDefault();
+        setGoToSymbolOpen(true);
+      }
+    };
+    globalThis.addEventListener('keydown', onKey);
+    return () => globalThis.removeEventListener('keydown', onKey);
+  }, []);
   const handleOpenUrl = useCallback((url: string) => {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
   }, []);
@@ -424,6 +452,15 @@ export function ProjectEditorLayout({
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGoToSymbolOpen(true)}
+            title="Go to symbol (Ctrl/Cmd+Shift+O)"
+          >
+            <ListTree className="mr-2 h-4 w-4" />
+            Go to Symbol
+          </Button>
           <EditorMainFilePicker
             projectId={projectId}
             canEdit={canEdit}
@@ -558,6 +595,13 @@ export function ProjectEditorLayout({
           </Button>
         )}
       </div>
+      <EditorGoToSymbol
+        open={goToSymbolOpen}
+        symbols={projectIndex?.symbols ?? []}
+        pathOf={symbolPathOf}
+        onSelect={handleSelectSymbol}
+        onClose={() => setGoToSymbolOpen(false)}
+      />
     </div>
   );
 }
