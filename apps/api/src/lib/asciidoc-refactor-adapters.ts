@@ -2,7 +2,6 @@ import {
   extractReferences,
   extractSymbols,
   resolveSandboxedPath,
-  relativeProjectPath,
 } from '@asciidocollab/shared';
 import type { ReferenceExtractor, PathResolver } from '@asciidocollab/domain';
 
@@ -17,5 +16,5 @@ import type { ReferenceExtractor, PathResolver } from '@asciidocollab/domain';
 /** Shared-backed extractor for `include::`/`image::`/`xref:` references and symbols. */
 export const referenceExtractor: ReferenceExtractor = { extractReferences, extractSymbols };
 
-/** Shared-backed sandbox path resolver (Constitution IX) plus its relative inverse. */
-export const pathResolver: PathResolver = { resolveSandboxedPath, relativeProjectPath };
+/** Shared-backed sandbox path resolver (Constitution IX). */
+export const pathResolver: PathResolver = { resolveSandboxedPath };

@@ -2,10 +2,9 @@ import { PathResolver, SandboxedPathResult } from '../../../src/ports/asciidoc/p
 
 /**
  * Faithful in-memory PathResolver fake for domain unit tests. Implements the
- * same traversal/scheme rejection and relative-path inverse as the shared
- * `resolveSandboxedPath` / `relativeProjectPath`; the production wiring injects
- * the real shared implementation (exercised end-to-end by the e2e/integration
- * suites).
+ * same traversal/scheme rejection as the production `resolveSandboxedPath`; the
+ * production wiring injects the real implementation (exercised end-to-end by the
+ * e2e/integration suites).
  */
 export class FakePathResolver implements PathResolver {
   resolveSandboxedPath(fromPath: string, target: string): SandboxedPathResult {
@@ -27,18 +26,5 @@ export class FakePathResolver implements PathResolver {
     }
     if (segments.length === 0) return { ok: false, reason: 'traversal' };
     return { ok: true, path: segments.join('/') };
-  }
-
-  relativeProjectPath(fromFile: string, toFile: string): string {
-    const from = fromFile.replace(/^\/+/, '').split('/');
-    const to = toFile.replace(/^\/+/, '').split('/');
-    const fromDirectory = from.slice(0, -1);
-    let common = 0;
-    while (common < fromDirectory.length && common < to.length - 1 && fromDirectory[common] === to[common]) {
-      common += 1;
-    }
-    const ups = fromDirectory.length - common;
-    const segments = [...Array.from({ length: ups }, () => '..'), ...to.slice(common)];
-    return segments.length > 0 ? segments.join('/') : (to.at(-1) ?? '');
   }
 }

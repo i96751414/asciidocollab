@@ -7,6 +7,7 @@ import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { ReferenceExtractor, Reference } from '../../ports/asciidoc/reference-extractor';
 import { PathResolver } from '../../ports/asciidoc/path-resolver';
+import { relativeProjectPath } from '../../project-path/relative-project-path';
 
 /** File extensions treated as AsciiDoc documents (a valid main-file target). */
 const ASCIIDOC_EXTENSIONS = ['.adoc', '.asciidoc', '.asc', '.ad'];
@@ -116,7 +117,7 @@ export async function rewriteReferencesForPathChanges(
       const newRelative = pathChanges.get(resolved.path);
       if (newRelative === undefined) continue; // does not point at a changed file
 
-      const newTarget = deps.pathResolver.relativeProjectPath(fromPath, newRelative);
+      const newTarget = relativeProjectPath(fromPath, newRelative);
       // FR-067: refuse to write a target that would not resolve back to the new location.
       const verification = deps.pathResolver.resolveSandboxedPath(fromPath, newTarget);
       if (!verification.ok || verification.path !== newRelative) {

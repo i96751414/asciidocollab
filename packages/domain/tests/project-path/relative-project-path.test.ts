@@ -1,5 +1,4 @@
 import { relativeProjectPath, toProjectRelative } from '../../src/project-path/relative-project-path';
-import { resolveSandboxedPath } from '../../src/project-path/resolve-sandboxed-path';
 
 describe('relativeProjectPath', () => {
   it('returns the bare basename for two files in the same directory', () => {
@@ -26,19 +25,9 @@ describe('relativeProjectPath', () => {
     expect(relativeProjectPath('docs/a.adoc', 'docs/a.adoc')).toBe('a.adoc');
   });
 
-  it('is the inverse of resolveSandboxedPath (round-trips back to the target)', () => {
-    const cases: Array<[string, string]> = [
-      ['docs/book.adoc', 'docs/intro.adoc'],
-      ['book.adoc', 'chapters/one.adoc'],
-      ['chapters/one.adoc', 'shared.adoc'],
-      ['a/b/from.adoc', 'a/c/to.adoc'],
-      ['deep/nested/from.adoc', 'top.adoc'],
-    ];
-    for (const [from, to] of cases) {
-      const relative = relativeProjectPath(from, to);
-      const resolved = resolveSandboxedPath(from, relative);
-      expect(resolved.ok && resolved.path).toBe(to);
-    }
+  it('produces deep ascent + descent targets', () => {
+    expect(relativeProjectPath('deep/nested/from.adoc', 'top.adoc')).toBe('../../top.adoc');
+    expect(relativeProjectPath('a/b/c/from.adoc', 'a/x/to.adoc')).toBe('../../x/to.adoc');
   });
 });
 
