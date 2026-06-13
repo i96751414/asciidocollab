@@ -62,6 +62,8 @@ export interface ProjectDto {
   tags: string[];
   /** Root folder identifier. */
   rootFolderId: string | null;
+  /** Configured main AsciiDoc file node id (FR-045); null ⇒ current-file-only resolution. */
+  mainFileNodeId: string | null;
   /** Archive timestamp, null if not archived. */
   archivedAt: string | null;
   /** Number of project members. */

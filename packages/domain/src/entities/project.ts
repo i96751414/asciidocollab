@@ -15,6 +15,7 @@ import { Timestamps } from '../value-objects/timestamps';
  */
 export class Project {
   private _rootFolderId: FileNodeId | null;
+  private _mainFileNodeId: FileNodeId | null;
   private _archivedAt: Date | null;
   private _timestamps: Timestamps;
   private _tags: string[];
@@ -48,6 +49,8 @@ export class Project {
      *  `createdAt`.
      */
     initialArchivedAt: Date | null = null,
+    /** Configured main/master AsciiDoc file (FR-045), or null when unset. */
+    initialMainFileNodeId: FileNodeId | null = null,
   ) {
     const deduplicatedTags = [...new Set(tags)];
     if (deduplicatedTags.length > 10) {
@@ -62,6 +65,7 @@ export class Project {
     this._description = description;
     this._tags = deduplicatedTags;
     this._rootFolderId = initialRootFolderId;
+    this._mainFileNodeId = initialMainFileNodeId;
     this._archivedAt = initialArchivedAt;
     this._timestamps = timestamps;
   }
@@ -108,6 +112,22 @@ export class Project {
    */
   setRootFolderId(folderId: FileNodeId): void {
     this._rootFolderId = folderId;
+  }
+
+  /** @returns The configured main AsciiDoc file id (FR-045), or null when unset. */
+  get mainFileNodeId(): FileNodeId | null {
+    return this._mainFileNodeId;
+  }
+
+  /**
+   * Sets or clears the project's configured main AsciiDoc file and bumps the
+   * update timestamp. Passing null clears the configuration (FR-045/070).
+   *
+   * @param nodeId - The main file node id, or null to clear.
+   */
+  setMainFile(nodeId: FileNodeId | null): void {
+    this._mainFileNodeId = nodeId;
+    this._timestamps = new Timestamps(this._timestamps.createdAt, new Date());
   }
 
   /**
