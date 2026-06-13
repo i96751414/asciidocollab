@@ -1,4 +1,4 @@
-import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
+import { createLinkHandler, xrefHoverPreview } from '@/lib/codemirror/asciidoc-link-handler';
 import { buildProjectSymbolIndex, makeIncludeResolver } from '@/lib/codemirror/asciidoc-symbol-index';
 import type { EditorView } from '@codemirror/view';
 
@@ -339,5 +339,26 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
     const onNavigateToXref = jest.fn();
     expect(() => clickAt(FILES.open.content, '<<local>>', onNavigateToXref, () => null)).not.toThrow();
     expect(onNavigateToXref).not.toHaveBeenCalled();
+  });
+
+  test('xrefHoverPreview describes a cross-file definition location', () => {
+    const line = 'xref:remote[]';
+    const preview = xrefHoverPreview(line, line.indexOf('remote') + 1, openIndex());
+    expect(preview).toEqual({ text: 'other.adoc · line 1', from: 0, to: line.length });
+  });
+
+  test('xrefHoverPreview marks a same-file definition', () => {
+    const line = 'See <<local>> here.';
+    const preview = xrefHoverPreview(line, line.indexOf('local') + 1, openIndex());
+    expect(preview?.text).toBe('Definition in this file · line 3');
+  });
+
+  test('xrefHoverPreview reports an unknown cross-reference', () => {
+    const line = '<<missing>>';
+    expect(xrefHoverPreview(line, 3, openIndex())?.text).toBe('Unknown cross-reference: missing');
+  });
+
+  test('xrefHoverPreview returns null when the cursor is not over an xref', () => {
+    expect(xrefHoverPreview('plain text', 2, openIndex())).toBeNull();
   });
 });

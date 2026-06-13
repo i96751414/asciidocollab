@@ -54,18 +54,64 @@ export interface XrefTarget {
 }
 
 /**
- * Find the cross-reference token covering `posInLine`, returning its raw target, or null.
- * Position-aware so it never shadows other macros elsewhere on the same line.
+ * Find the cross-reference token covering `posInLine`, returning its raw target and the token's
+ * character range within the line, or null. Position-aware so it never shadows other macros.
  */
-function xrefTargetAt(lineText: string, posInLine: number): string | null {
+function xrefAt(lineText: string, posInLine: number): { target: string; start: number; end: number } | null {
   for (const pattern of [XREF_ANGLE, XREF_MACRO]) {
     for (const match of lineText.matchAll(new RegExp(pattern.source, 'g'))) {
       if (match.index !== undefined && posInLine >= match.index && posInLine < match.index + match[0].length) {
-        return match[1];
+        return { target: match[1], start: match.index, end: match.index + match[0].length };
       }
     }
   }
   return null;
+}
+
+/** Resolve a raw xref target (`id` or `path#id`) to its definition location via the index. */
+function resolveXrefTarget(rawTarget: string, index: ProjectSymbolIndex): XrefTarget | null {
+  const id = rawTarget.includes('#') ? rawTarget.slice(rawTarget.lastIndexOf('#') + 1) : rawTarget;
+  const symbol = index.resolveXref(id);
+  if (symbol === 'unresolved') return null;
+  return {
+    fileId: symbol.fileId,
+    path: index.pathOf(symbol.fileId),
+    line: index.lineOf(symbol.fileId, symbol.range.from),
+    sameFile: symbol.fileId === index.activeFileId,
+  };
+}
+
+/** A hover preview for the cross-reference under the cursor: tooltip text + token range. */
+export interface XrefHoverPreview {
+  /** The preview text (resolved location, or an "unknown reference" notice). */
+  text: string;
+  /** Start offset of the xref token within the line. */
+  from: number;
+  /** End offset of the xref token within the line. */
+  to: number;
+}
+
+/**
+ * Build a hover preview for the cross-reference at `posInLine`, or null when none is there
+ * (FR-034). Resolved targets describe the definition's location; unresolved ones say so.
+ *
+ * @param lineText - The hovered line's text.
+ * @param posInLine - The hover offset within the line.
+ * @param index - The project symbol index.
+ * @returns The preview, or null when the cursor is not over an xref.
+ */
+export function xrefHoverPreview(
+  lineText: string,
+  posInLine: number,
+  index: ProjectSymbolIndex,
+): XrefHoverPreview | null {
+  const at = xrefAt(lineText, posInLine);
+  if (!at) return null;
+  const target = resolveXrefTarget(at.target, index);
+  const text = target
+    ? `${target.sameFile ? 'Definition in this file' : target.path ?? 'Definition'} · line ${target.line}`
+    : `Unknown cross-reference: ${at.target}`;
+  return { text, from: at.start, to: at.end };
 }
 
 /** Normalises and validates a path extracted from an include:: macro. Returns null if unsafe. */
@@ -118,17 +164,11 @@ export function createLinkHandler(
     // when the cursor is within an xref token), so it never shadows macros elsewhere on the line.
     const index = getIndex?.() ?? null;
     if (index) {
-      const rawTarget = xrefTargetAt(lineText, pos - lineObject.from);
-      if (rawTarget !== null) {
-        const id = rawTarget.includes('#') ? rawTarget.slice(rawTarget.lastIndexOf('#') + 1) : rawTarget;
-        const symbol = index.resolveXref(id);
-        if (symbol !== 'unresolved') {
-          callbacks.onNavigateToXref?.({
-            fileId: symbol.fileId,
-            path: index.pathOf(symbol.fileId),
-            line: index.lineOf(symbol.fileId, symbol.range.from),
-            sameFile: symbol.fileId === index.activeFileId,
-          });
+      const at = xrefAt(lineText, pos - lineObject.from);
+      if (at) {
+        const target = resolveXrefTarget(at.target, index);
+        if (target) {
+          callbacks.onNavigateToXref?.(target);
           event.preventDefault?.();
         }
         return;

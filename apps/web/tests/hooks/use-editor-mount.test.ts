@@ -85,6 +85,10 @@ describe('use-editor-mount revealRequest (FR-049)', () => {
     expect(source).toContain('onNavigateToXref');
     expect(source).toMatch(/createLinkHandler\([\S\s]*projectIndexAccessor/);
   });
+
+  test('shows an index-backed xref hover preview (FR-034)', () => {
+    expect(source).toContain('xrefHoverPreview');
+  });
 });
 
 describe('use-editor-mount scroll sync', () => {

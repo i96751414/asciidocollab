@@ -32,7 +32,7 @@ import {
   sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
-import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import { createLinkHandler, xrefHoverPreview, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
@@ -232,6 +232,26 @@ export function useEditorMount({
     // Hover tooltip over include::/image:: paths advertising the Ctrl+click affordance.
     const ctrlClickTooltip = hoverTooltip((view, pos) => {
       const line = view.state.doc.lineAt(pos);
+      // Cross-reference preview (FR-034): resolve the xref under the cursor against the project
+      // index and show its definition location (or an "unknown reference" notice).
+      const index = projectIndexAccessor();
+      if (index) {
+        const preview = xrefHoverPreview(line.text, pos - line.from, index);
+        if (preview) {
+          return {
+            pos: line.from + preview.from,
+            end: line.from + preview.to,
+            above: true,
+            create() {
+              const dom = document.createElement('div');
+              dom.textContent = preview.text;
+              dom.style.padding = '2px 6px';
+              dom.style.fontSize = '12px';
+              return { dom };
+            },
+          };
+        }
+      }
       const range = macroPathRange(line.text);
       if (!range) return null;
       const start = line.from + range.start;
