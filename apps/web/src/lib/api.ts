@@ -99,6 +99,8 @@ export interface Project {
   tags: string[];
   /** Identifier of the project's root folder, or null if none has been created. */
   rootFolderId: string | null;
+  /** Configured main AsciiDoc file node id (US8/FR-045), or null when unset. */
+  mainFileNodeId: string | null;
   /** ISO timestamp when the project was archived, or null if it is active. */
   archivedAt: string | null;
   /** Total number of members in the project, included in list responses. */

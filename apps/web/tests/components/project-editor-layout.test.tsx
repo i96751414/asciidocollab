@@ -134,6 +134,7 @@ const defaultProps = {
   projectId: 'p1',
   projectName: 'My Project',
   projectDescription: null,
+  mainFileNodeId: null,
   isOwner: true,
   canEdit: true,
 };

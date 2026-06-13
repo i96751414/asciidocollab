@@ -1,5 +1,16 @@
 export { API_BASE_URL } from '@/lib/api/file-content';
 import { API_BASE_URL } from '@/lib/api/file-content';
+import type { FileTreeNode } from '@/components/file-tree/types';
+
+/** Fetch a project's file tree (the root node with its nested children). */
+export async function fetchProjectFileTree(projectId: string): Promise<FileTreeNode> {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/files`, { credentials: 'include' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new FileTreeApiError(response.status, body?.error?.code ?? 'ERROR', body?.error?.message ?? 'Failed to load files');
+  }
+  return response.json();
+}
 
 /** Error thrown when a file tree API request fails with a structured error response. */
 export class FileTreeApiError extends Error {

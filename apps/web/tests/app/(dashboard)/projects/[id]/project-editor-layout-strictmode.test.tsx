@@ -56,6 +56,7 @@ const defaultProps = {
   projectId: 'p1',
   projectName: 'My Project',
   projectDescription: null,
+  mainFileNodeId: null,
   canManage: true,
   canEdit: true,
   userId: 'user-1',

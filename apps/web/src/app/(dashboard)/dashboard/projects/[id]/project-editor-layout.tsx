@@ -10,6 +10,7 @@ import { BackButton } from '@/components/back-button';
 import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
+import { EditorMainFilePicker } from '@/components/editor/editor-main-file-picker';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
@@ -131,6 +132,8 @@ interface ProjectEditorLayoutProperties {
   projectId: string;
   projectName: string;
   projectDescription: string | null;
+  /** Configured main-file node id (US8/FR-045), or null when unset. */
+  mainFileNodeId: string | null;
   canManage: boolean;
   canEdit: boolean;
   /** Authenticated user id — scopes the persisted last-selection so accounts stay isolated (FR-011). */
@@ -142,10 +145,14 @@ export function ProjectEditorLayout({
   projectId,
   projectName,
   projectDescription,
+  mainFileNodeId,
   canManage,
   canEdit,
   userId,
 }: ProjectEditorLayoutProperties) {
+  // Live main-file selection (US8); updates when the picker persists a change so the
+  // cross-file symbol index (T059) and heading-level offset (T066) re-evaluate.
+  const [mainFile, setMainFile] = useState<string | null>(mainFileNodeId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const sidebarResize = usePanelResize({
     initialWidth: 256, min: 160, max: 480, side: 'start', storageKey: 'asciidoc-filetree-width',
@@ -372,7 +379,13 @@ export function ProjectEditorLayout({
             <span className="text-xs text-muted-foreground truncate">{projectDescription}</span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          <EditorMainFilePicker
+            projectId={projectId}
+            canEdit={canEdit}
+            currentMainFileNodeId={mainFile}
+            onChange={setMainFile}
+          />
           {canManage && (
             <>
               <Button asChild variant="ghost" size="sm">
