@@ -49,7 +49,7 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
     await createTestFile(tab, projectId, null, 'sse-created.adoc');
 
     // Tab must receive the SSE event and update without reload
-    await expect(tab.getByText('sse-created.adoc')).toBeVisible({ timeout: 8000 });
+    await expect(tab.getByTestId('tree-node-sse-created.adoc')).toBeVisible({ timeout: 8000 });
     expect(tab.url()).toContain(projectId);
   });
 
@@ -57,11 +57,11 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
     const tab = await openProjectPage(context, projectId);
 
     const fileId = await createTestFile(tab, projectId, null, 'to-delete.adoc');
-    await expect(tab.getByText('to-delete.adoc')).toBeVisible({ timeout: 8000 });
+    await expect(tab.getByTestId('tree-node-to-delete.adoc')).toBeVisible({ timeout: 8000 });
 
     // Delete via API — triggers SSE deleted event
     await deleteTestFileNode(tab, projectId, fileId);
-    await expect(tab.getByText('to-delete.adoc')).not.toBeVisible({ timeout: 8000 });
+    await expect(tab.getByTestId('tree-node-to-delete.adoc')).not.toBeVisible({ timeout: 8000 });
   });
 
   test('file created in one tab appears in another tab in the same browser', async ({ context }) => {
@@ -74,8 +74,8 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
     await createTestFile(tab2, projectId, null, 'cross-tab.adoc');
 
     // Both tabs receive the SSE event through the shared SharedWorker
-    await expect(tab1.getByText('cross-tab.adoc')).toBeVisible({ timeout: 8000 });
-    await expect(tab2.getByText('cross-tab.adoc')).toBeVisible({ timeout: 8000 });
+    await expect(tab1.getByTestId('tree-node-cross-tab.adoc')).toBeVisible({ timeout: 8000 });
+    await expect(tab2.getByTestId('tree-node-cross-tab.adoc')).toBeVisible({ timeout: 8000 });
   });
 
   // -------------------------------------------------------------------------
@@ -102,8 +102,8 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
       await createTestFile(pageA, projectId, null, 'cross-browser.adoc');
 
       // Browser A and B both receive it
-      await expect(tabA.getByText('cross-browser.adoc')).toBeVisible({ timeout: 8000 });
-      await expect(tabB.getByText('cross-browser.adoc')).toBeVisible({ timeout: 8000 });
+      await expect(tabA.getByTestId('tree-node-cross-browser.adoc')).toBeVisible({ timeout: 8000 });
+      await expect(tabB.getByTestId('tree-node-cross-browser.adoc')).toBeVisible({ timeout: 8000 });
     } finally {
       await contextA.close();
       await contextB.close();
@@ -127,15 +127,17 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
       const tabA = await openProjectPage(contextA, projectId);
       const tabB = await openProjectPage(contextB, projectId);
 
-      await expect(tabA.getByText('shared-file.adoc')).toBeVisible({ timeout: 8000 });
-      await expect(tabB.getByText('shared-file.adoc')).toBeVisible({ timeout: 8000 });
+      // Target the tree node specifically: a seeded `.adoc` file also appears as an option in the
+      // main-file picker (`/shared-file.adoc`), so a loose getByText would match two elements.
+      await expect(tabA.getByTestId('tree-node-shared-file.adoc')).toBeVisible({ timeout: 8000 });
+      await expect(tabB.getByTestId('tree-node-shared-file.adoc')).toBeVisible({ timeout: 8000 });
 
       // Browser A deletes
       await deleteTestFileNode(pageA, projectId, fileId);
 
       // Both see the deletion
-      await expect(tabA.getByText('shared-file.adoc')).not.toBeVisible({ timeout: 8000 });
-      await expect(tabB.getByText('shared-file.adoc')).not.toBeVisible({ timeout: 8000 });
+      await expect(tabA.getByTestId('tree-node-shared-file.adoc')).not.toBeVisible({ timeout: 8000 });
+      await expect(tabB.getByTestId('tree-node-shared-file.adoc')).not.toBeVisible({ timeout: 8000 });
     } finally {
       await contextA.close();
       await contextB.close();
