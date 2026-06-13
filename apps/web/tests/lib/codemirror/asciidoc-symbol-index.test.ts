@@ -1,0 +1,65 @@
+import {
+  buildProjectSymbolIndex,
+  makeIncludeResolver,
+} from '@/lib/codemirror/asciidoc-symbol-index';
+
+// US8 projection over the shared asciidoc-model (does NOT re-test extraction).
+
+const FILES: Record<string, { path: string; content: string }> = {
+  main: {
+    path: 'main.adoc',
+    content: '= Book\n\n[[overview]]\n== Overview\n\ninclude::chapter1.adoc[]\n',
+  },
+  chapter1: {
+    path: 'chapter1.adoc',
+    content: '[[intro]]\n== Chapter One\n\nSee <<overview>>.\n\ninclude::../escape.adoc[]\n',
+  },
+};
+const PATH_TO_ID: Record<string, string> = { 'main.adoc': 'main', 'chapter1.adoc': 'chapter1' };
+
+const getContent = (id: string) => FILES[id]?.content ?? null;
+const resolveInclude = makeIncludeResolver(
+  (id) => FILES[id]?.path ?? null,
+  (path) => PATH_TO_ID[path] ?? null,
+);
+
+describe('buildProjectSymbolIndex', () => {
+  test('aggregates symbols and references across the include tree', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    expect(index.tree.nodes.toSorted()).toEqual(['chapter1', 'main']);
+    expect(index.symbols.some((s) => s.name === 'overview')).toBe(true);
+    expect(index.symbols.some((s) => s.name === 'intro')).toBe(true);
+    expect(index.references.some((r) => r.kind === 'xref' && r.target === 'overview')).toBe(true);
+  });
+
+  test('resolves a cross-file xref through the index', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    // chapter1 references <<overview>> which is defined in main.
+    expect(index.resolveXref('overview')).not.toBe('unresolved');
+    expect(index.resolveXref('does-not-exist')).toBe('unresolved');
+  });
+
+  test('records an out-of-sandbox include as unresolved (Constitution IX)', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    // chapter1 includes ../escape.adoc which escapes the project root.
+    expect(index.tree.unresolved.some((u) => u.target === '../escape.adoc')).toBe(true);
+  });
+
+  test('falls back to the open file when no main file (current-file scope, FR-047)', () => {
+    const index = buildProjectSymbolIndex('chapter1', getContent, resolveInclude);
+    expect(index.tree.rootFileId).toBe('chapter1');
+    expect(index.symbols.some((s) => s.name === 'intro')).toBe(true);
+  });
+});
+
+describe('makeIncludeResolver (Constitution IX sandbox)', () => {
+  test('resolves a sibling include to its file id', () => {
+    expect(resolveInclude('main', 'chapter1.adoc')).toBe('chapter1');
+  });
+  test('rejects traversal escaping the root', () => {
+    expect(resolveInclude('main', '../secret.adoc')).toBeNull();
+  });
+  test('rejects remote targets', () => {
+    expect(resolveInclude('main', 'https://evil.example/x.adoc')).toBeNull();
+  });
+});

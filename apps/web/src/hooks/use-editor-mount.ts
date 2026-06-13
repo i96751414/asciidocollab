@@ -19,6 +19,7 @@ import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-f
 import { formatKeymap, autoWrapInputHandler } from '@/lib/codemirror/asciidoc-format-keymap';
 import { asciidocPasteHandlers } from '@/lib/codemirror/asciidoc-paste';
 import { asciidocSpellcheckSource } from '@/lib/codemirror/asciidoc-spellcheck';
+import { asciidocDiagnosticsSource } from '@/lib/codemirror/asciidoc-diagnostics';
 import { linter, lintGutter } from '@codemirror/lint';
 import {
   attributeCompletionSource,
@@ -28,6 +29,7 @@ import {
   tableSnippetCompletionSource,
   tableCellCompletionSource,
   captionCompletionSource,
+  sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
@@ -55,7 +57,12 @@ interface UseEditorMountOptions {
   foldStorageKey?: string;
   /** Per-user spell-check ignore list (US9/FR-063). */
   spellIgnore?: string[];
-  /** Uploads a pasted/dropped image, resolving to a project-relative path (US9/FR-040). */
+  /**
+   * Uploads a pasted/dropped image (US9/FR-040).
+   *
+   * @param file - The image file to upload.
+   * @returns The inserted project-relative path, or null on failure.
+   */
   uploadImage?: (file: File) => Promise<string | null>;
   includePaths: string[];
   imagePaths?: string[];
@@ -263,9 +270,11 @@ export function useEditorMount({
         foldPersistence(foldStorageKey ?? null),
         // Paste/drop conveniences: URL→link, HTML→AsciiDoc, image→upload+image:: (US9).
         asciidocPasteHandlers({ uploadImage }),
-        // Prose spell-check (US9): tree-aware lint source + gutter.
+        // Prose spell-check (US9) + cross-file/structural diagnostics (US8):
+        // each is its own lint source so they merge in the gutter/underlines.
         lintGutter(),
         linter(asciidocSpellcheckSource(() => spellIgnore ?? [])),
+        linter(asciidocDiagnosticsSource()),
         // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
         // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
         asciidocHeadingLevels(),
@@ -277,6 +286,7 @@ export function useEditorMount({
         autocompletion({
           override: [
             attributeCompletionSource,
+            sourceLanguageCompletionSource,
             xrefCompletionSource,
             createIncludeCompletionSource(() => includePathsReference.current),
             createImageCompletionSource(() => imagePathsReference.current),

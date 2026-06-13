@@ -2,6 +2,7 @@ import type { CompletionSource, CompletionContext, CompletionResult, Completion 
 import { isImageFile } from './asciidoc-image-extensions';
 import type { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
+import { listSourceLanguageTokens } from './source-languages';
 
 // Built-in AsciiDoc attributes
 const BUILTIN_ATTRIBUTES: readonly string[] = [
@@ -68,6 +69,21 @@ export const attributeCompletionSource: CompletionSource = (context: CompletionC
     options: filtered.map((label) => ({ label, type: 'variable' })),
     filter: false,
   };
+};
+
+// ── Source-language completion ─────────────────────────────────────────────────
+
+/** Source-language completion (US8/FR-031) — triggers inside `[source,<here>]`. */
+export const sourceLanguageCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
+  const match = context.matchBefore(/\[source,\s*[\w+#.-]*/);
+  if (!match) return null;
+  const afterComma = match.text.slice(match.text.indexOf(',') + 1);
+  const prefix = afterComma.trimStart().toLowerCase();
+  const from = match.to - prefix.length;
+  const options: Completion[] = listSourceLanguageTokens()
+    .filter((token) => token.startsWith(prefix))
+    .map((label) => ({ label, type: 'type' }));
+  return { from, options, filter: false };
 };
 
 // ── Cross-reference completion ────────────────────────────────────────────────

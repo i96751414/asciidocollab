@@ -1,0 +1,37 @@
+import type { CompletionContext } from '@codemirror/autocomplete';
+import { sourceLanguageCompletionSource } from '@/lib/codemirror/asciidoc-completions';
+
+// Minimal CompletionContext stub exercising matchBefore against a line prefix.
+function contextFor(textBeforeCursor: string): CompletionContext {
+  return {
+    matchBefore(re: RegExp) {
+      const match = new RegExp(re.source + '$').exec(textBeforeCursor);
+      if (!match) return null;
+      const from = textBeforeCursor.length - match[0].length;
+      return { from, to: textBeforeCursor.length, text: match[0] };
+    },
+  } as unknown as CompletionContext;
+}
+
+describe('sourceLanguageCompletionSource (FR-031)', () => {
+  test('offers languages inside [source,<here>]', () => {
+    const result = sourceLanguageCompletionSource(contextFor('[source,'));
+    expect(result).not.toBeNull();
+    const labels = result!.options.map((o) => o.label);
+    expect(labels).toContain('js');
+    expect(labels).toContain('python');
+  });
+
+  test('filters by the typed prefix', () => {
+    const result = sourceLanguageCompletionSource(contextFor('[source,ru'));
+    const labels = result!.options.map((o) => o.label);
+    expect(labels).toContain('ruby');
+    expect(labels).toContain('rust');
+    expect(labels).not.toContain('python');
+  });
+
+  test('returns null outside a source declaration', () => {
+    expect(sourceLanguageCompletionSource(contextFor('just text'))).toBeNull();
+    expect(sourceLanguageCompletionSource(contextFor('[cols='))).toBeNull();
+  });
+});
