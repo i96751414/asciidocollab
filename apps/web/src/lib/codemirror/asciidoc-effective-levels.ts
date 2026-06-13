@@ -7,9 +7,10 @@
  * is not a heading (FR-010); a `[discrete]`/`[float]` heading is styled as a heading but excluded
  * from the outline / section folding (FR-072).
  *
- * This rule lives in the shared model so it exists exactly once (Constitution IV): the web CodeMirror
- * layer is a thin projection that applies decorations over the result, and the preview/assembly paths
- * can reuse the same computation.
+ * This is editor *presentation* logic (how heading lines are styled): it lives in the web layer
+ * alongside the CodeMirror decorations that consume it, and is intentionally NOT in
+ * `@asciidocollab/shared` (DTOs only) nor in the domain (the frontend must not depend on the domain).
+ * The domain owns the separate, server-side structural rules it needs for refactoring.
  */
 
 /** AsciiDoc section levels run 0 (`=`, doc title) … 5 (`======`). */

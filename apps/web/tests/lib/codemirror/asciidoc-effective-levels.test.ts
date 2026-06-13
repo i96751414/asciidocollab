@@ -2,7 +2,7 @@ import {
   MAX_HEADING_LEVEL,
   parseLevelOffset,
   computeHeadingLevels,
-} from '../../src/asciidoc-model/effective-levels';
+} from '@/lib/codemirror/asciidoc-effective-levels';
 
 describe('parseLevelOffset', () => {
   test('relative +N / -N', () => {

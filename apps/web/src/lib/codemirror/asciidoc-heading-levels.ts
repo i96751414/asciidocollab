@@ -1,19 +1,20 @@
 import { ViewPlugin, Decoration, EditorView, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder, StateEffect, type Extension } from '@codemirror/state';
-import { computeHeadingLevels, type HeadingLevelInfo } from '@asciidocollab/shared';
+import { computeHeadingLevels, type HeadingLevelInfo } from './asciidoc-effective-levels';
 
 /**
- * CodeMirror projection of the shared effective-heading-level rule (US3, FR-009/010/071/072).
+ * CodeMirror projection of the effective-heading-level rule (US3, FR-009/010/071/072).
  *
- * The effective-level computation itself lives in `@asciidocollab/shared`
- * ({@link computeHeadingLevels}) so it exists exactly once (Constitution IV, architecture-migration
- * plan Phase 4). This module only maps that result to CSS line decorations and feeds the include-path
- * inherited offset (from the symbol index) in, recomputing when that offset changes.
+ * The effective-level computation is editor presentation logic and lives next to this module
+ * ({@link computeHeadingLevels} in `./asciidoc-effective-levels`). It is deliberately NOT in
+ * `@asciidocollab/shared` (DTOs only) nor the domain (the frontend does not depend on the domain).
+ * This module only maps that result to CSS line decorations and feeds in the include-path inherited
+ * offset (from the symbol index), recomputing when that offset changes.
  */
 
-// Re-exported from shared for the in-editor fold/outline consumers that still import them here.
-export { MAX_HEADING_LEVEL, computeHeadingLevels, parseLevelOffset } from '@asciidocollab/shared';
-export type { HeadingLevelInfo, LevelOffsetOp } from '@asciidocollab/shared';
+// Re-exported for the in-editor fold/outline consumers that import them here.
+export { MAX_HEADING_LEVEL, computeHeadingLevels, parseLevelOffset } from './asciidoc-effective-levels';
+export type { HeadingLevelInfo, LevelOffsetOp } from './asciidoc-effective-levels';
 
 /** CSS class applied to a heading line for its effective level (e.g. `cm-ad-h2`). */
 export function headingLevelClass(info: HeadingLevelInfo): string {
