@@ -99,4 +99,76 @@ describe('EditorSymbolRefactor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/already exists/);
   });
+
+  test('shows the empty state and prompt when no usages / not yet searched', async () => {
+    const empty = jest.fn(async () => [] as SymbolUsage[]);
+    setup({ findUsages: empty });
+    expect(await screen.findByText('No usages found.')).toBeInTheDocument();
+  });
+
+  test('prompts to find usages when opened without a seeded symbol', () => {
+    setup({ initial: null });
+    expect(screen.getByText('Find usages to list references.')).toBeInTheDocument();
+  });
+
+  test('surfaces a find-usages error', async () => {
+    const failing = jest.fn(async () => {
+      throw new Error('network down');
+    });
+    setup({ findUsages: failing });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/network down/);
+  });
+
+  test('manual Find usages button runs a fresh search for the typed name', async () => {
+    const { findUsages } = setup({ initial: null });
+    fireEvent.change(screen.getByLabelText('Symbol name'), { target: { value: 'glossary' } });
+    fireEvent.click(screen.getByRole('button', { name: /find usages/i }));
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'glossary'));
+  });
+
+  test('Enter in the name field triggers a find; Enter in the new-name field triggers a rename', async () => {
+    const { findUsages, renameSymbol } = setup({ initial: null });
+    const nameInput = screen.getByLabelText('Symbol name');
+    fireEvent.change(nameInput, { target: { value: 'intro' } });
+    fireEvent.keyDown(nameInput, { key: 'Enter' });
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'intro'));
+    await screen.findByText('book.adoc');
+
+    const newNameInput = screen.getByLabelText('New name');
+    fireEvent.change(newNameInput, { target: { value: 'overview' } });
+    fireEvent.keyDown(newNameInput, { key: 'Enter' });
+    await waitFor(() =>
+      expect(renameSymbol).toHaveBeenCalledWith('p1', { symbolKind: 'anchor', oldName: 'intro', newName: 'overview' }),
+    );
+  });
+
+  test('renames an attribute when the kind is switched', async () => {
+    const { renameSymbol } = setup();
+    await screen.findByText('book.adoc');
+    fireEvent.change(screen.getByLabelText('Symbol kind'), { target: { value: 'attribute' } });
+    fireEvent.change(screen.getByLabelText('New name'), { target: { value: 'revision' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    await waitFor(() =>
+      expect(renameSymbol).toHaveBeenCalledWith('p1', { symbolKind: 'attribute', oldName: 'intro', newName: 'revision' }),
+    );
+  });
+
+  test('reports warnings in the rename summary', async () => {
+    const withWarnings = jest.fn(
+      async (): Promise<RenameSymbolResult> => ({ rewrittenFiles: 1, updatedReferences: 1, warnings: ['could not rewrite x'] }),
+    );
+    setup({ renameSymbol: withWarnings });
+    await screen.findByText('book.adoc');
+    fireEvent.change(screen.getByLabelText('New name'), { target: { value: 'overview' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    expect(await screen.findByText(/1 warning/)).toBeInTheDocument();
+  });
+
+  test('Escape closes the dialog from either input', async () => {
+    const { onClose } = setup();
+    await screen.findByText('book.adoc');
+    fireEvent.keyDown(screen.getByLabelText('Symbol name'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByLabelText('New name'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
 });

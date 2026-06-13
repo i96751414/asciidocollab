@@ -85,4 +85,28 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.index).toBeNull();
     expect(mockGetContent).not.toHaveBeenCalled();
   });
+
+  test('refresh() discards the cache and re-reads every reachable file (post-rename, no SSE)', async () => {
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300)); // let the debounced rebuild settle
+    const before = mockGetContent.mock.calls.length;
+    expect(before).toBeGreaterThan(0);
+
+    // A symbol rename rewrote files server-side without a file-tree event; refresh() must re-fetch.
+    result.current.refresh();
+    await waitFor(() => expect(mockGetContent.mock.calls.length).toBeGreaterThan(before));
+    const refetched = mockGetContent.mock.calls.slice(before).map((call) => call[1]);
+    expect(refetched.toSorted()).toEqual(['a', 'b', 'main']); // full reachable set re-read
+  });
+
+  test('exposes the cached file contents (path→content) via getFiles', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: 'include::a.adoc[]\n' }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const files = result.current.getFiles();
+    expect(files['main.adoc']).toBe('include::a.adoc[]\n'); // open file served from the live overlay
+    expect(files['a.adoc']).toBe(CONTENT.a);
+  });
 });
