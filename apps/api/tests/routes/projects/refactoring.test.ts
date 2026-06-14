@@ -69,13 +69,15 @@ async function buildServer(options: ServerOptions = {}): Promise<{ app: FastifyI
 }
 
 describe('GET /projects/:projectId/symbol-usages', () => {
-  test('200 — lists every xref usage of an anchor across files', async () => {
+  test('200 — lists the definition and every xref usage of an anchor across files', async () => {
     const { app } = await buildServer({ role: 'viewer' }); // membership is enough to read usages
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro` });
     expect(response.statusCode).toBe(200);
     const { usages } = response.json().data;
-    expect(usages).toHaveLength(3); // <<intro>> in book + two in chapter
-    expect(usages.every((u: { kind: string }) => u.kind === 'xref')).toBe(true);
+    // The [[intro]] definition in book + <<intro>> in book + two in chapter.
+    expect(usages).toHaveLength(4);
+    expect(usages.filter((u: { kind: string }) => u.kind === 'definition')).toHaveLength(1);
+    expect(usages.filter((u: { kind: string }) => u.kind === 'xref')).toHaveLength(3);
     await app.close();
   });
 

@@ -3,11 +3,19 @@ import https from 'node:https';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Hocuspocus } from '@hocuspocus/server';
 import type { Logger } from 'pino';
-import type { ContentReplacement } from '@asciidocollab/domain';
-import { applyEditsToDocument, type ApplyEditsRequest } from './apply-edits.js';
+import type { ContentReplacement, YjsStateStore } from '@asciidocollab/domain';
+import {
+  applyEditsToDocument,
+  readDocumentContent,
+  type ApplyEditsRequest,
+  type ReadContentRequest,
+} from './apply-edits.js';
 
 /** Path of the internal endpoint the API calls to rewrite references in live documents. */
 export const APPLY_EDITS_PATH = '/internal/collab/apply-edits';
+
+/** Path of the internal endpoint the API calls to read live document content. */
+export const READ_CONTENT_PATH = '/internal/collab/read-content';
 
 /** Header carrying the optional shared secret. */
 const SECRET_HEADER = 'x-collab-internal-secret';
@@ -51,6 +59,26 @@ export function parseApplyEditsBody(raw: string): ApplyEditsRequest | null {
   return { projectId, yjsStateId, replacements: clean };
 }
 
+/**
+ * Validates a read-content request body. Returns null on malformed input — including non-UUID ids.
+ *
+ * @param raw - The raw JSON request body.
+ * @returns The parsed request, or null if invalid.
+ */
+export function parseReadContentBody(raw: string): ReadContentRequest | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(json)) return null;
+  const { projectId, yjsStateId } = json;
+  if (typeof projectId !== 'string' || !UUID_REGEX.test(projectId)) return null;
+  if (typeof yjsStateId !== 'string' || !UUID_REGEX.test(yjsStateId)) return null;
+  return { projectId, yjsStateId };
+}
+
 function readBody(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -69,7 +97,7 @@ function readBody(request: IncomingMessage): Promise<string> {
   });
 }
 
-/** Dependencies for the apply-edits request handler. */
+/** Dependencies for the internal request handler. */
 export interface ApplyEditsHandlerDeps {
   /**
    * Applies the parsed request to the live document.
@@ -78,6 +106,13 @@ export interface ApplyEditsHandlerDeps {
    * @returns The number of occurrences replaced.
    */
   applyEdits: (request: ApplyEditsRequest) => Promise<number>;
+  /**
+   * Reads the live text of the document identified by the request.
+   *
+   * @param request - The validated read-content request.
+   * @returns The current document text, or null when no live source exists (caller uses the file store).
+   */
+  readContent: (request: ReadContentRequest) => Promise<string | null>;
   /** Optional shared secret; when set, requests without a matching header are rejected (401). */
   secret?: string;
   /** Logger for failures. */
@@ -85,10 +120,10 @@ export interface ApplyEditsHandlerDeps {
 }
 
 /**
- * Builds the node HTTP request handler for the apply-edits endpoint. Separated from the server so it
- * can be unit-tested with an injected `applyEdits`.
+ * Builds the node HTTP request handler for the internal apply-edits and read-content endpoints.
+ * Separated from the server so it can be unit-tested with injected functions.
  *
- * @param deps - The apply function, optional secret, and logger.
+ * @param deps - The apply/read functions, optional secret, and logger.
  * @returns A node `http` request handler.
  */
 export function createApplyEditsRequestHandler(
@@ -96,7 +131,7 @@ export function createApplyEditsRequestHandler(
 ): (request: IncomingMessage, response: ServerResponse) => Promise<void> {
   return async (request, response) => {
     const path = (request.url ?? '').split('?')[0];
-    if (request.method !== 'POST' || path !== APPLY_EDITS_PATH) {
+    if (request.method !== 'POST' || (path !== APPLY_EDITS_PATH && path !== READ_CONTENT_PATH)) {
       request.resume(); // drain any body so the keep-alive connection stays healthy
       response.writeHead(404).end();
       return;
@@ -112,6 +147,22 @@ export function createApplyEditsRequestHandler(
       raw = await readBody(request);
     } catch {
       response.writeHead(413).end();
+      return;
+    }
+
+    if (path === READ_CONTENT_PATH) {
+      const parsed = parseReadContentBody(raw);
+      if (!parsed) {
+        response.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Invalid body' }));
+        return;
+      }
+      try {
+        const content = await deps.readContent(parsed);
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ content }));
+      } catch (error) {
+        deps.logger.error({ err: error }, 'read-content failed');
+        response.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'read-content failed' }));
+      }
       return;
     }
 
@@ -133,8 +184,10 @@ export function createApplyEditsRequestHandler(
 
 /** Inputs needed to start the loopback edit endpoint. */
 export interface InternalEditServerOptions {
-  /** The Hocuspocus instance that owns the live documents. */
-  hocuspocus: Pick<Hocuspocus, 'openDirectConnection'>;
+  /** The Hocuspocus instance that owns the live documents (apply uses direct connections; read uses the documents map). */
+  hocuspocus: Pick<Hocuspocus, 'openDirectConnection' | 'documents'>;
+  /** Store used by the read endpoint to decode a dormant room's persisted Yjs state without loading it. */
+  yjsStateStore: YjsStateStore;
   /** Interface to bind to — defaults to loopback for safety. */
   host: string;
   /** Port to listen on. */
@@ -158,6 +211,7 @@ export interface InternalEditServerOptions {
 export function startInternalEditServer(options: InternalEditServerOptions): http.Server {
   const handler = createApplyEditsRequestHandler({
     applyEdits: (request) => applyEditsToDocument(options.hocuspocus, request),
+    readContent: (request) => readDocumentContent(options.hocuspocus, options.yjsStateStore, request),
     ...(options.secret ? { secret: options.secret } : {}),
     logger: options.logger,
   });

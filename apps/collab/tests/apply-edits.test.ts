@@ -1,6 +1,6 @@
 import { Server, type Extension } from '@hocuspocus/server';
 import * as Y from 'yjs';
-import { applyReplacementsToYText, applyEditsToDocument } from '../src/apply-edits';
+import { applyReplacementsToYText, applyEditsToDocument, readDocumentContent } from '../src/apply-edits';
 
 function ytextWith(text: string): Y.Text {
   const document = new Y.Doc();
@@ -72,5 +72,59 @@ describe('applyEditsToDocument', () => {
     } finally {
       await server.destroy();
     }
+  });
+});
+
+// A YjsStateStore stub that records whether load/save were called (a read must NOT write back).
+function fakeStateStore(state: Buffer | null) {
+  return {
+    load: jest.fn(async () => state),
+    save: jest.fn(),
+    delete: jest.fn(),
+    deleteAllForProject: jest.fn(),
+  } as never;
+}
+
+function encodeText(text: string): Buffer {
+  const document = new Y.Doc();
+  document.getText('codemirror').insert(0, text);
+  return Buffer.from(Y.encodeStateAsUpdate(document));
+}
+
+describe('readDocumentContent', () => {
+  const PROJECT_ID = '770e8400-e29b-41d4-a716-446655440003';
+  const YJS_STATE_ID = '11111111-e29b-41d4-a716-446655440111';
+  const ROOM = `${PROJECT_ID}/${YJS_STATE_ID}`;
+
+  it('reads the in-memory document when the room is loaded (does not touch the state store)', async () => {
+    const seed = '= Doc\n\nlive in-memory text\n';
+    const document = new Y.Doc();
+    document.getText('codemirror').insert(0, seed);
+    const hocuspocus = { documents: new Map([[ROOM, document]]) } as never;
+    const store = fakeStateStore(null);
+
+    const content = await readDocumentContent(hocuspocus, store, { projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID });
+
+    expect(content).toBe(seed);
+    expect(store.load).not.toHaveBeenCalled(); // loaded room → no state-store read, no writeback
+  });
+
+  it('decodes the persisted Yjs state for a dormant room without loading it or writing back', async () => {
+    const seed = '= Doc\n\n:folder2: value\n\nUses {folder2}.\n';
+    const hocuspocus = { documents: new Map() } as never; // room not loaded
+    const store = fakeStateStore(encodeText(seed));
+
+    const content = await readDocumentContent(hocuspocus, store, { projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID });
+
+    expect(content).toBe(seed);
+    expect(store.load).toHaveBeenCalledTimes(1);
+    expect(store.save).not.toHaveBeenCalled(); // pure read — never persists (no writeback side effect)
+  });
+
+  it('returns null when a dormant room has no persisted state (caller falls back to the file store)', async () => {
+    const hocuspocus = { documents: new Map() } as never;
+    const store = fakeStateStore(null);
+    const content = await readDocumentContent(hocuspocus, store, { projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID });
+    expect(content).toBeNull();
   });
 });

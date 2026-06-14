@@ -29,6 +29,7 @@ import type {
   ProjectFileStore,
   YjsStateStore,
   CollaborativeContentEditor,
+  CollaborativeContentReader,
   PasswordHasher,
   BreachChecker,
   CommonPasswordChecker,
@@ -98,8 +99,8 @@ export interface AppContainer {
     fileStore: ProjectFileStore;
     /** Filesystem-backed store for Yjs collaborative state. */
     yjsStateStore: YjsStateStore;
-    /** Applies content edits to live collaborative documents via the collab server (Yjs source of truth). */
-    collaborativeContentEditor: CollaborativeContentEditor;
+    /** Applies content edits to / reads live content from collaborative documents (Yjs source of truth). */
+    collaborativeContentEditor: CollaborativeContentEditor & CollaborativeContentReader;
   };
   /** Collection of domain service implementations. */
   services: {
@@ -255,7 +256,7 @@ declare module 'fastify' {
     stores: {
       fileStore: ProjectFileStore;
       yjsStateStore: YjsStateStore;
-      collaborativeContentEditor: CollaborativeContentEditor;
+      collaborativeContentEditor: CollaborativeContentEditor & CollaborativeContentReader;
     };
     services: {
       passwordHasher: PasswordHasher;

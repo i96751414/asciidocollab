@@ -32,15 +32,16 @@ import type { Result } from '../../../src/types/result';
 
 class FakeCollaborativeContentEditor implements CollaborativeContentEditor {
   calls: Array<{ yjsStateId: string; replacements: ContentReplacement[] }> = [];
-  result: Result<void, Error> = { success: true, value: undefined };
+  // Default: report each replacement as applied once. Override to force a failure / zero-applied.
+  result?: Result<number, Error>;
 
   async applyReplacements(
     _projectId: ProjectId,
     yjsStateId: YjsStateId,
     replacements: ReadonlyArray<ContentReplacement>,
-  ): Promise<Result<void, Error>> {
+  ): Promise<Result<number, Error>> {
     this.calls.push({ yjsStateId: yjsStateId.value, replacements: [...replacements] });
-    return this.result;
+    return this.result ?? { success: true, value: replacements.length };
   }
 }
 

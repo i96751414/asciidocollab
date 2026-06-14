@@ -12,6 +12,7 @@ import { extractReferences } from '../../services/asciidoc-extraction';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 import { resolveSandboxedPath } from '../../value-objects/files/sandboxed-path';
 import { relativeProjectPath } from '../../value-objects/files/relative-project-path';
+import { dedupeReplacements } from '../content/content-replacements';
 
 /** Strip leading slashes so a `/docs/a.adoc` FilePath becomes the sandbox-relative `docs/a.adoc`. */
 export function stripLeadingSlash(path: string): string {
@@ -66,11 +67,7 @@ interface ReferenceEdit {
 
 /** Collapse edits to a unique find→replace map (a reference macro may appear more than once). */
 function toReplacements(edits: ReferenceEdit[]): ContentReplacement[] {
-  const byFind = new Map<string, string>();
-  for (const edit of edits) {
-    if (!byFind.has(edit.find)) byFind.set(edit.find, edit.replacement);
-  }
-  return [...byFind].map(([find, replace]) => ({ find, replace }));
+  return dedupeReplacements(edits.map((edit) => ({ find: edit.find, replace: edit.replacement })));
 }
 
 /** Split a reference target into its path part and optional `#fragment` (xref only). */
@@ -174,6 +171,12 @@ export async function rewriteReferencesForPathChanges(
         // Do NOT fall back to a file-store write: if the room is live, the stale Y.Text would
         // overwrite it on the next writeback. Leave the reference untouched and warn instead.
         warnings.push(`Could not apply collaborative reference rewrite in ${fromPath}: ${applied.error.message}`);
+        continue;
+      }
+      if (applied.value === 0) {
+        // Transport succeeded but no occurrence matched the live Y.Text: it diverged from the
+        // content we scanned. Report it rather than counting a rewrite that did not take effect.
+        warnings.push(`No references rewritten in ${fromPath}: the live document diverged from the scan`);
         continue;
       }
       rewrittenFiles += 1;

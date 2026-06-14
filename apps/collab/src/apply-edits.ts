@@ -1,6 +1,6 @@
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import type { Hocuspocus } from '@hocuspocus/server';
-import type { ContentReplacement } from '@asciidocollab/domain';
+import { ProjectId, YjsStateId, type ContentReplacement, type YjsStateStore } from '@asciidocollab/domain';
 
 /** The Y.Text name the CodeMirror binding (and persistence) uses for document content. */
 const CODEMIRROR_TEXT = 'codemirror';
@@ -13,6 +13,14 @@ export interface ApplyEditsRequest {
   yjsStateId: string;
   /** Literal find→replace deltas to apply to the document text. */
   replacements: ContentReplacement[];
+}
+
+/** A request to read the live text of one collaborative document. */
+export interface ReadContentRequest {
+  /** Project that owns the document. */
+  projectId: string;
+  /** Yjs state identifier — identifies the document's collaboration room. */
+  yjsStateId: string;
 }
 
 /**
@@ -74,4 +82,45 @@ export async function applyEditsToDocument(
     await connection.disconnect();
   }
   return applied;
+}
+
+/**
+ * Reads the live text of the collaborative document identified by the request WITHOUT loading a
+ * room or triggering a writeback — a pure read.
+ *
+ * - If the room is currently loaded in memory (someone is editing it), its in-memory `Y.Doc` is the
+ *   freshest source of truth and is read directly.
+ * - Otherwise the persisted Yjs state is decoded in a throwaway `Y.Doc`. This is the same
+ *   authoritative state `openDirectConnection` would have loaded, but without opening the room (and
+ *   so without the store-on-disconnect writeback that a dormant-room open + disconnect would force).
+ *
+ * Unlike the plain-text file store, both paths reflect edits that have not yet been written back.
+ * Returns null when there is NO live source — a dormant room with no persisted Yjs state yet (such
+ * as a document that has a record but was never actually opened/edited). That is not an error: the
+ * caller falls back to the authoritative file store for such files.
+ *
+ * @param hocuspocus - The Hocuspocus instance owning the live documents (its `documents` map).
+ * @param yjsStateStore - Store used to load the persisted Yjs state for a dormant room.
+ * @param request - The document identity to read.
+ * @returns The current document text, or null when no live source exists for it.
+ */
+export async function readDocumentContent(
+  hocuspocus: Pick<Hocuspocus, 'documents'>,
+  yjsStateStore: YjsStateStore,
+  request: ReadContentRequest,
+): Promise<string | null> {
+  const roomName = `${request.projectId}/${request.yjsStateId}`;
+
+  const loaded = hocuspocus.documents.get(roomName);
+  if (loaded) return loaded.getText(CODEMIRROR_TEXT).toString();
+
+  const state = await yjsStateStore.load(ProjectId.create(request.projectId), YjsStateId.create(request.yjsStateId));
+  if (!state) return null;
+  const document = new Y.Doc();
+  try {
+    Y.applyUpdate(document, state);
+    return document.getText(CODEMIRROR_TEXT).toString();
+  } finally {
+    document.destroy();
+  }
 }

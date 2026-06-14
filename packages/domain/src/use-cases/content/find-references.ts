@@ -3,24 +3,31 @@ import { ProjectId } from '../../value-objects/ids/project-id';
 import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
+import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
+import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
+import { Logger } from '../../ports/observability/logger';
 import { Reference, TextRange } from '../../types/asciidoc';
-import { extractReferences } from '../../services/asciidoc-extraction';
+import { extractReferences, extractSymbols } from '../../services/asciidoc-extraction';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { stripLeadingSlash } from '../file-tree/reference-rewrite';
+import { resolveFileContent, liveContentDeps } from './live-content';
+
+/** The kind of a usage: a reference macro, or the symbol's own definition site. */
+export type UsageKind = Reference['kind'] | 'definition';
 
 /** A single usage of a symbol within a project file (FR-065 find-usages). */
 export interface ReferenceUsage {
-  /** The file containing the reference. */
+  /** The file containing the usage. */
   fileNodeId: FileNodeId;
-  /** The referencing file's project-relative path (no leading slash). */
+  /** The file's project-relative path (no leading slash). */
   path: string;
-  /** The kind of reference. */
-  kind: Reference['kind'];
-  /** The reference's location within its file. */
+  /** The kind of usage — a reference macro, or `definition` for the declaring `[[id]]`/`:attr:`. */
+  kind: UsageKind;
+  /** The usage's location within its file. */
   range: TextRange;
 }
 
@@ -43,6 +50,12 @@ export class FindReferencesUseCase {
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
     private readonly fileStore: ProjectFileStore,
+    // Optional: when both are supplied, a file open in a live collab room is scanned using its
+    // live Yjs content (what the editor shows) instead of the possibly-stale file store, so a
+    // symbol the user just typed but has not saved is found.
+    private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
+    private readonly collaborativeContentReader?: CollaborativeContentReader,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -72,22 +85,50 @@ export class FindReferencesUseCase {
     const target = symbolName.toLowerCase();
     const usages: ReferenceUsage[] = [];
 
+    const contentDeps = this.contentDeps(); // build once; reused for every file in the scan
     for (const node of documents) {
-      const buffer = await this.fileStore.read(projectId, node.path);
-      if (!buffer) continue;
+      const resolved = await resolveFileContent(contentDeps, projectId, node);
+      if (!resolved) continue;
+      const { content } = resolved;
       const path = stripLeadingSlash(node.path.value);
 
-      const references = extractReferences(node.id.value, buffer.toString('utf8'));
-      for (const reference of references) {
+      // Per-file matches, kept in document order so navigation lists read top-to-bottom.
+      const inFile: ReferenceUsage[] = [];
+
+      // The defining `[[id]]` / `:attr:` itself is a usage too, so a symbol that is declared but
+      // not (yet) referenced still shows up — otherwise find-usages reports "not found" for it.
+      for (const symbol of extractSymbols(node.id.value, content)) {
+        const defines =
+          (symbol.kind === 'anchor' && symbol.name === symbolName) ||
+          (symbol.kind === 'attribute' && symbol.name.toLowerCase() === target);
+        if (defines) {
+          inFile.push({ fileNodeId: node.id, path, kind: 'definition', range: symbol.range });
+        }
+      }
+
+      for (const reference of extractReferences(node.id.value, content)) {
         const matches =
           (reference.kind === 'xref' && xrefAnchorId(reference.target) === symbolName) ||
           (reference.kind === 'attributeRef' && reference.target.toLowerCase() === target);
         if (matches) {
-          usages.push({ fileNodeId: node.id, path, kind: reference.kind, range: reference.range });
+          inFile.push({ fileNodeId: node.id, path, kind: reference.kind, range: reference.range });
         }
       }
+
+      inFile.sort((a, b) => a.range.from - b.range.from);
+      usages.push(...inFile);
     }
 
     return { success: true, value: usages };
+  }
+
+  /** Assembles the optional live-content dependencies for {@link resolveFileContent}. */
+  private contentDeps() {
+    return liveContentDeps({
+      fileStore: this.fileStore,
+      ...(this.documentRepo && { documentRepo: this.documentRepo }),
+      ...(this.collaborativeContentReader && { collaborativeContentReader: this.collaborativeContentReader }),
+      ...(this.logger && { logger: this.logger }),
+    });
   }
 }

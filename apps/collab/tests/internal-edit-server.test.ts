@@ -1,8 +1,11 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
+import * as Y from 'yjs';
 import {
   APPLY_EDITS_PATH,
+  READ_CONTENT_PATH,
   parseApplyEditsBody,
+  parseReadContentBody,
   startInternalEditServer,
 } from '../src/internal-edit-server';
 
@@ -11,9 +14,16 @@ const YJS_STATE_ID = '11111111-e29b-41d4-a716-446655440111';
 
 const silentLogger = { info: () => {}, error: () => {} } as unknown as import('pino').Logger;
 
+// A YjsStateStore stub — used by the read endpoint for dormant rooms; the apply-edits tests below
+// never read a dormant room, so a load() that returns null is fine.
+function fakeStateStore(): never {
+  return { load: async () => null, save: async () => {}, delete: async () => {}, deleteAllForProject: async () => {} } as never;
+}
+
 // A fake Hocuspocus whose DirectConnection edits an in-memory string, so the real
-// applyEditsToDocument runs end to end without a live collaboration server.
-function fakeHocuspocus(initial = 'a'): never {
+// applyEditsToDocument runs end to end without a live collaboration server. `documents` is the
+// in-memory room map the read endpoint consults; seed it via `loadedRooms` for read tests.
+function fakeHocuspocus(initial = 'a', loadedRooms: Map<string, Y.Doc> = new Map()): never {
   let text = initial;
   const ytext = {
     toString: () => text,
@@ -29,7 +39,7 @@ function fakeHocuspocus(initial = 'a'): never {
       function_({ getText: () => ytext }),
     disconnect: async () => {},
   };
-  return { openDirectConnection: jest.fn().mockResolvedValue(connection) } as never;
+  return { openDirectConnection: jest.fn().mockResolvedValue(connection), documents: loadedRooms } as never;
 }
 
 describe('parseApplyEditsBody', () => {
@@ -62,6 +72,21 @@ describe('parseApplyEditsBody', () => {
   });
 });
 
+describe('parseReadContentBody', () => {
+  it('accepts a well-formed body', () => {
+    expect(parseReadContentBody(JSON.stringify({ projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID }))).toEqual({
+      projectId: PROJECT_ID,
+      yjsStateId: YJS_STATE_ID,
+    });
+  });
+
+  it('rejects malformed JSON and non-UUID ids', () => {
+    expect(parseReadContentBody('{nope')).toBeNull();
+    expect(parseReadContentBody(JSON.stringify({ projectId: '../etc', yjsStateId: YJS_STATE_ID }))).toBeNull();
+    expect(parseReadContentBody(JSON.stringify({ projectId: PROJECT_ID, yjsStateId: 'x' }))).toBeNull();
+  });
+});
+
 describe('internal edit server (HTTP)', () => {
   let server: Server;
   let baseUrl: string;
@@ -74,6 +99,7 @@ describe('internal edit server (HTTP)', () => {
   async function startWith(options: { secret?: string } = {}): Promise<void> {
     server = startInternalEditServer({
       hocuspocus: fakeHocuspocus(),
+      yjsStateStore: fakeStateStore(),
       host: '127.0.0.1',
       port: 0,
       logger: silentLogger,
@@ -127,10 +153,38 @@ describe('internal edit server (HTTP)', () => {
     expect(await withSecret.json()).toEqual({ applied: expect.any(Number) });
   });
 
+  it('reads live document content via the read-content endpoint', async () => {
+    // Seed the in-memory room map with a loaded doc; the read endpoint must return its text verbatim.
+    const document = new Y.Doc();
+    document.getText('codemirror').insert(0, 'live-text');
+    const rooms = new Map<string, Y.Doc>([[`${PROJECT_ID}/${YJS_STATE_ID}`, document]]);
+    server = startInternalEditServer({
+      hocuspocus: fakeHocuspocus('a', rooms),
+      yjsStateStore: fakeStateStore(),
+      host: '127.0.0.1',
+      port: 0,
+      logger: silentLogger,
+    });
+    await waitListening(server);
+    const address = server.address() as AddressInfo;
+    const response = await fetch(`http://127.0.0.1:${address.port}${READ_CONTENT_PATH}`, {
+      method: 'POST',
+      body: JSON.stringify({ projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ content: 'live-text' });
+  });
+
+  it('returns 400 for an invalid read-content body', async () => {
+    await startWith();
+    const response = await fetch(`${baseUrl}${READ_CONTENT_PATH}`, { method: 'POST', body: '{bad' });
+    expect(response.status).toBe(400);
+  });
+
   it('returns 500 when applying the edits throws', async () => {
     // openDirectConnection rejects → applyEditsToDocument throws → 500 (no secret required here).
-    const hocuspocus = { openDirectConnection: jest.fn().mockRejectedValue(new Error('room boom')) } as never;
-    server = startInternalEditServer({ hocuspocus, host: '127.0.0.1', port: 0, logger: silentLogger });
+    const hocuspocus = { openDirectConnection: jest.fn().mockRejectedValue(new Error('room boom')), documents: new Map() } as never;
+    server = startInternalEditServer({ hocuspocus, yjsStateStore: fakeStateStore(), host: '127.0.0.1', port: 0, logger: silentLogger });
     await waitListening(server);
     const address = server.address() as AddressInfo;
     const response = await fetch(`http://127.0.0.1:${address.port}${APPLY_EDITS_PATH}`, { method: 'POST', body });

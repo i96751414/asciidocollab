@@ -33,11 +33,14 @@ export interface CollaborativeContentEditor {
    * @param projectId - The project that owns the document.
    * @param yjsStateId - The Yjs state identifier of the document's collaborative room.
    * @param replacements - The replacements to apply, in no particular order.
-   * @returns Ok on success, or an error if the edit could not be delivered.
+   * @returns On success, the number of individual occurrences actually replaced in the live
+   *   document (0 when every `find` was absent — that is, the live content diverged from what the
+   *   caller scanned, so the caller must NOT treat the edit as having taken effect); or an error
+   *   when the edit could not be delivered.
    */
   applyReplacements(
     projectId: ProjectId,
     yjsStateId: YjsStateId,
     replacements: ReadonlyArray<ContentReplacement>,
-  ): Promise<Result<void, Error>>;
+  ): Promise<Result<number, Error>>;
 }

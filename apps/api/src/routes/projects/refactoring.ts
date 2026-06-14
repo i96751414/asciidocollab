@@ -48,6 +48,11 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         request.server.repos.projectMember,
         request.server.repos.fileNode,
         request.server.stores.fileStore,
+        // Scan live Yjs content for files open in a collab room, so a just-typed (unsaved) symbol
+        // is found instead of being missed because the file store projection still lags it.
+        request.server.repos.document,
+        request.server.stores.collaborativeContentEditor,
+        requestLogger(request),
       );
 
       const result = await useCase.execute(actorId, projectId, request.query.name);
@@ -101,6 +106,12 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         request.server.stores.fileStore,
         request.server.repos.auditLog,
         requestLogger(request),
+        // Route the rewrite through the Yjs source of truth for any file open in a live collab
+        // room, so the rename is visible in the editor and not clobbered by the next writeback,
+        // and SCAN live content so a just-typed (unsaved) symbol is found and renamed.
+        request.server.repos.document,
+        request.server.stores.collaborativeContentEditor,
+        request.server.stores.collaborativeContentEditor,
       );
 
       const result = await useCase.execute(
