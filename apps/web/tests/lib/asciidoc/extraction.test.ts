@@ -67,6 +67,58 @@ describe('extractReferences', () => {
     const [reference] = extractReferences('f', '<<intro>>');
     expect(reference.range).toEqual({ from: 0, to: '<<intro>>'.length });
   });
+
+  test('ignores references inside verbatim/code/comment blocks (no false positives)', () => {
+    const content = [
+      'Real <<intro>> here.',
+      '',
+      '[source,ruby]',
+      '----',
+      'puts "<<notreal>> {undefinedAttr}"',
+      'image::not-a-real-image.png[]',
+      '----',
+      '',
+      '....',
+      'literal <<alsonotreal>>',
+      '....',
+      '',
+      '++++',
+      'passthrough {ptattr}',
+      '++++',
+      '',
+      '////',
+      'comment <<commentxref>> include::ghost.adoc[]',
+      '////',
+      '',
+      '// line comment <<linexref>>',
+    ].join('\n');
+    const targets = extractReferences('f', content).map((reference) => reference.target);
+    expect(targets).toContain('intro');
+    expect(targets).not.toContain('notreal');
+    expect(targets).not.toContain('undefinedAttr');
+    expect(targets).not.toContain('not-a-real-image.png');
+    expect(targets).not.toContain('alsonotreal');
+    expect(targets).not.toContain('ptattr');
+    expect(targets).not.toContain('commentxref');
+    expect(targets).not.toContain('ghost.adoc');
+    expect(targets).not.toContain('linexref');
+  });
+
+  test('references inside non-verbatim delimited blocks (example/sidebar/quote) are still extracted', () => {
+    // Example/sidebar/quote blocks get normal substitutions, so references inside them are real.
+    const content = '====\nSee <<inExample>>\n====\n\n****\n<<inSidebar>>\n****';
+    const targets = extractReferences('f', content).map((reference) => reference.target);
+    expect(targets).toContain('inExample');
+    expect(targets).toContain('inSidebar');
+  });
+
+  test('an INDENTED `----` is block content, not a fence — references after it are still extracted', () => {
+    // Asciidoctor delimited-block fences must start at column 0; an indented run is ordinary content.
+    // Treating it as a fence would mask every reference to end-of-document (unterminated-block).
+    const content = 'A list:\n\n* item\n  ----\n  not a fence\n\nReal <<keep>> reference.\n';
+    const targets = extractReferences('f', content).map((reference) => reference.target);
+    expect(targets).toContain('keep');
+  });
 });
 
 describe('extractSymbols', () => {
@@ -106,6 +158,35 @@ describe('extractSymbols', () => {
     const symbols = extractSymbols('f', '====== Dup\n\n[#install-guide]\n====== Dup\n');
     const sections = symbols.filter((symbol) => symbol.kind === 'section').map((symbol) => symbol.name);
     expect(sections).toEqual(['_dup', 'install-guide']);
+  });
+
+  test('a heading glued under prose is paragraph text, not a section (matches the domain copy)', () => {
+    expect(extractSymbols('f', 'Some prose text\n== Section Foo\n').filter((s) => s.kind === 'section')).toHaveLength(0);
+  });
+
+  test('a heading after a closed delimited block (no blank line) is still a section', () => {
+    const named = extractSymbols('f', '****\nSidebar\n****\n== Section Foo\n').map((s) => `${s.kind}:${s.name}`);
+    expect(named).toContain('section:_section_foo');
+  });
+
+  test('ignores symbols (anchors/attrs/headings) inside verbatim/comment blocks', () => {
+    const content = [
+      '[[real-anchor]]',
+      '----',
+      '[[fake-anchor]]',
+      ':fakeattr: x',
+      '== Fake Heading',
+      '----',
+      '////',
+      'anchor:commentanchor[]',
+      '////',
+    ].join('\n');
+    const named = extractSymbols('f', content).map((symbol) => `${symbol.kind}:${symbol.name}`);
+    expect(named).toContain('anchor:real-anchor');
+    expect(named).not.toContain('anchor:fake-anchor');
+    expect(named).not.toContain('attribute:fakeattr');
+    expect(named).not.toContain('section:_fake_heading');
+    expect(named).not.toContain('anchor:commentanchor');
   });
 });
 

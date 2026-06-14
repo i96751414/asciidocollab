@@ -23,6 +23,7 @@ import { FilePath } from '../../../src/value-objects/files/file-path';
 import { MimeType } from '../../../src/value-objects/files/mime-type';
 import { Role } from '../../../src/value-objects/identity/role';
 import type { CollaborativeContentEditor, ContentReplacement } from '../../../src/ports/storage/collaborative-content-editor';
+import type { CollaborativeContentReader } from '../../../src/ports/storage/collaborative-content-reader';
 import type { Result } from '../../../src/types/result';
 
 // Reference rewrite must treat the Yjs document as the source of truth for any referencing file
@@ -141,6 +142,33 @@ describe('rewriteReferencesForPathChanges — collaborative source of truth', ()
     expect(editor.calls).toHaveLength(0);
     const onDisk = (await fileStore.read(projectId, bookPath))!.toString('utf8');
     expect(onDisk).toContain('include::introduction.adoc[]');
+  });
+
+  it('scans LIVE content, so a reference present only in unsaved edits is still rewritten', async () => {
+    // The persisted file store has NO reference to intro.adoc; the live Yjs content (what the editor
+    // shows, not yet written back) does. The scan must read live content so the reference is found
+    // and rewritten through the collaborative editor — otherwise a move/rename silently misses it.
+    const yjsStateId = await giveBookACollaborativeDocument();
+    await fileStore.write(projectId, bookPath, Buffer.from('= Book\n\nNo references yet.\n'));
+    const LIVE = '= Book\n\ninclude::intro.adoc[]\n';
+    const reader: CollaborativeContentReader = {
+      async readContent(_p, id): Promise<Result<string | null, Error>> {
+        return { success: true, value: id.value === yjsStateId.value ? LIVE : null };
+      },
+    };
+
+    const result = await rewriteReferencesForPathChanges(
+      { fileNodeRepo, fileStore, documentRepo, collaborativeContentEditor: editor, collaborativeContentReader: reader },
+      projectId,
+      pathChanges,
+    );
+
+    expect(result.rewrittenFiles).toBe(1);
+    expect(editor.calls).toHaveLength(1);
+    expect(editor.calls[0].yjsStateId).toBe(yjsStateId.value);
+    let applied = LIVE;
+    for (const { find, replace } of editor.calls[0].replacements) applied = applied.split(find).join(replace);
+    expect(applied).toContain('include::introduction.adoc[]');
   });
 });
 

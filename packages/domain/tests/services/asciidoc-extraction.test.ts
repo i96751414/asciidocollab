@@ -26,6 +26,40 @@ describe('extractReferences (FR-046/065)', () => {
     const [reference] = extractReferences('f1', content);
     expect(content.slice(reference.range.from, reference.range.to)).toBe('<<a>>');
   });
+
+  test('ignores references inside verbatim/comment blocks (so rename/find-references skip code samples)', () => {
+    const content = [
+      'Real <<intro>>.',
+      '----',
+      'puts "<<notreal>> {undefinedAttr}"',
+      'image::not-real.png[]',
+      '----',
+      '////',
+      'comment <<commentxref>> include::ghost.adoc[]',
+      '////',
+      '// line <<linexref>>',
+    ].join('\n');
+    const targets = extractReferences('f1', content).map((r) => r.target);
+    expect(targets).toContain('intro');
+    expect(targets).not.toContain('notreal');
+    expect(targets).not.toContain('undefinedAttr');
+    expect(targets).not.toContain('not-real.png');
+    expect(targets).not.toContain('commentxref');
+    expect(targets).not.toContain('ghost.adoc');
+    expect(targets).not.toContain('linexref');
+  });
+
+  test('references inside non-verbatim delimited blocks (example/sidebar) are still real', () => {
+    const targets = extractReferences('f1', '====\n<<inExample>>\n====').map((r) => r.target);
+    expect(targets).toContain('inExample');
+  });
+
+  test('an INDENTED fence is content, not a delimiter — references after it are not dropped from rename/find', () => {
+    // A column-0 requirement matters here: the domain extractor backs find-references and rename, so
+    // over-masking would silently leave references un-rewritten and dangling after a rename.
+    const targets = extractReferences('f1', '* item\n  ----\n  x\n\nReal <<keep>>.\n').map((r) => r.target);
+    expect(targets).toContain('keep');
+  });
 });
 
 describe('extractSymbols (FR-061)', () => {
@@ -66,6 +100,24 @@ describe('extractSymbols (FR-061)', () => {
   test('headings inside a verbatim block are not sections, but the one after is', () => {
     const symbols = extractSymbols('f1', '== Real\n\n----\n== Not a heading\n----\n\n== Also Real\n');
     expect(symbols.filter((s) => s.kind === 'section').map((s) => s.name)).toEqual(['_real', '_also_real']);
+  });
+
+  test('anchors and attribute definitions inside verbatim/comment blocks are not symbols', () => {
+    const content = [
+      '[[real-anchor]]',
+      '----',
+      '[[fake-anchor]]',
+      ':fakeattr: x',
+      '----',
+      '////',
+      'anchor:commentanchor[]',
+      '////',
+    ].join('\n');
+    const named = extractSymbols('f1', content).map((s) => `${s.kind}:${s.name}`);
+    expect(named).toContain('anchor:real-anchor');
+    expect(named).not.toContain('anchor:fake-anchor');
+    expect(named).not.toContain('attribute:fakeattr');
+    expect(named).not.toContain('anchor:commentanchor');
   });
 });
 

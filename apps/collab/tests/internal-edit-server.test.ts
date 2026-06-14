@@ -97,7 +97,7 @@ describe('internal edit server (HTTP)', () => {
   }
 
   async function startWith(options: { secret?: string } = {}): Promise<void> {
-    server = startInternalEditServer({
+    server = await startInternalEditServer({
       hocuspocus: fakeHocuspocus(),
       yjsStateStore: fakeStateStore(),
       host: '127.0.0.1',
@@ -153,12 +153,48 @@ describe('internal edit server (HTTP)', () => {
     expect(await withSecret.json()).toEqual({ applied: expect.any(Number) });
   });
 
+  it('rejects a same-length but wrong secret (constant-time compare still denies)', async () => {
+    await startWith({ secret: 'top-secret' });
+    const wrong = await fetch(`${baseUrl}${APPLY_EDITS_PATH}`, {
+      method: 'POST',
+      headers: { 'x-collab-internal-secret': 'TOP-SECRET', connection: 'close' },
+      body,
+    });
+    expect(wrong.status).toBe(401);
+    await wrong.text();
+  });
+
+  it('returns 413 for a body larger than the cap without crashing the connection', async () => {
+    await startWith();
+    const huge = 'x'.repeat(5 * 1024 * 1024); // exceeds MAX_BODY_BYTES (4 MiB)
+    const response = await fetch(`${baseUrl}${APPLY_EDITS_PATH}`, {
+      method: 'POST',
+      headers: { connection: 'close' },
+      body: huge,
+    });
+    expect(response.status).toBe(413);
+  });
+
+  it('rejects (does not crash) when the port is already in use', async () => {
+    await startWith();
+    const inUsePort = (server.address() as AddressInfo).port;
+    await expect(
+      startInternalEditServer({
+        hocuspocus: fakeHocuspocus(),
+        yjsStateStore: fakeStateStore(),
+        host: '127.0.0.1',
+        port: inUsePort,
+        logger: silentLogger,
+      }),
+    ).rejects.toMatchObject({ code: 'EADDRINUSE' });
+  });
+
   it('reads live document content via the read-content endpoint', async () => {
     // Seed the in-memory room map with a loaded doc; the read endpoint must return its text verbatim.
     const document = new Y.Doc();
     document.getText('codemirror').insert(0, 'live-text');
     const rooms = new Map<string, Y.Doc>([[`${PROJECT_ID}/${YJS_STATE_ID}`, document]]);
-    server = startInternalEditServer({
+    server = await startInternalEditServer({
       hocuspocus: fakeHocuspocus('a', rooms),
       yjsStateStore: fakeStateStore(),
       host: '127.0.0.1',
@@ -184,7 +220,7 @@ describe('internal edit server (HTTP)', () => {
   it('returns 500 when applying the edits throws', async () => {
     // openDirectConnection rejects → applyEditsToDocument throws → 500 (no secret required here).
     const hocuspocus = { openDirectConnection: jest.fn().mockRejectedValue(new Error('room boom')), documents: new Map() } as never;
-    server = startInternalEditServer({ hocuspocus, yjsStateStore: fakeStateStore(), host: '127.0.0.1', port: 0, logger: silentLogger });
+    server = await startInternalEditServer({ hocuspocus, yjsStateStore: fakeStateStore(), host: '127.0.0.1', port: 0, logger: silentLogger });
     await waitListening(server);
     const address = server.address() as AddressInfo;
     const response = await fetch(`http://127.0.0.1:${address.port}${APPLY_EDITS_PATH}`, { method: 'POST', body });

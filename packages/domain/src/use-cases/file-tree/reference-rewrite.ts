@@ -7,8 +7,11 @@ import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { CollaborativeContentEditor, ContentReplacement } from '../../ports/storage/collaborative-content-editor';
+import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
+import { Logger } from '../../ports/observability/logger';
 import { Reference } from '../../types/asciidoc';
 import { extractReferences } from '../../services/asciidoc-extraction';
+import { resolveFileContent, liveContentDeps } from '../content/live-content';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 import { resolveSandboxedPath } from '../../value-objects/files/sandboxed-path';
 import { relativeProjectPath } from '../../value-objects/files/relative-project-path';
@@ -55,6 +58,15 @@ export interface ReferenceRewriteDeps {
   documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>;
   /** Optional: applies the rewrite to a document's live Yjs content (source of truth). */
   collaborativeContentEditor?: CollaborativeContentEditor;
+  /**
+   * Optional: reads the live Yjs content of an open referencing file. When supplied (with
+   * {@link documentRepo}), the SCAN reads that live content — exactly what the editor shows —
+   * instead of the possibly-stale file store, so a reference the user just typed but has not saved
+   * is still found and rewritten. Mirrors the symbol-rename scan (see {@link resolveFileContent}).
+   */
+  collaborativeContentReader?: CollaborativeContentReader;
+  /** Optional logger for live-read fallbacks. */
+  logger?: Logger;
 }
 
 /** A reference edit located by offset within its file, with the literal text it replaces. */
@@ -110,10 +122,19 @@ export async function rewriteReferencesForPathChanges(
   let rewrittenFiles = 0;
   const warnings: string[] = [];
 
+  // Read each file's CURRENT content for the scan: live Yjs content for a file open in a collab
+  // room (so an unsaved reference is still found), else the file store. Built once, reused per file.
+  const contentDeps = liveContentDeps({
+    fileStore: deps.fileStore,
+    ...(deps.documentRepo && { documentRepo: deps.documentRepo }),
+    ...(deps.collaborativeContentReader && { collaborativeContentReader: deps.collaborativeContentReader }),
+    ...(deps.logger && { logger: deps.logger }),
+  });
+
   for (const node of documents) {
-    const buffer = await deps.fileStore.read(projectId, node.path);
-    if (!buffer) continue;
-    const content = buffer.toString('utf8');
+    const resolved = await resolveFileContent(contentDeps, projectId, node);
+    if (!resolved) continue;
+    const { content, document } = resolved;
     const fromPath = stripLeadingSlash(node.path.value);
 
     const references = extractReferences(node.id.value, content)
@@ -156,11 +177,8 @@ export async function rewriteReferencesForPathChanges(
     // file store directly would be invisible to editors AND overwritten by the next Yjs writeback,
     // silently reverting the rewrite. Apply the edit through the collab editor instead; the file
     // store is then persisted by the collab server's normal writeback. Files without a Document
-    // (never opened collaboratively) keep the direct file-store path.
-    const document = deps.documentRepo && deps.collaborativeContentEditor
-      ? await deps.documentRepo.findByFileNodeId(node.id)
-      : null;
-
+    // (never opened collaboratively) keep the direct file-store path. The Document was already
+    // resolved by the content scan above (resolveFileContent), so no second lookup is needed.
     if (document && deps.collaborativeContentEditor) {
       const applied = await deps.collaborativeContentEditor.applyReplacements(
         projectId,

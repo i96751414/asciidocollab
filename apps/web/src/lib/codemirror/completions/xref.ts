@@ -5,9 +5,14 @@ import { crossFileSymbolNames, type ProjectIndexGetter } from '@/lib/codemirror/
 // Heading auto-ids use the shared Asciidoctor-correct slug (`_my_section`), so xref
 // completion offers the same ids the symbol index / diagnostics recognize (one source).
 
+// Anchor-id charset, mirroring the symbol index's ANCHOR_RE (asciidoc/extraction.ts) so completion
+// offers exactly the ids the index recognizes. A bare `[^\]]+` would swallow `[#id,role]` /
+// `[#id%opt]` role/option shorthand into the suggested id, yielding xrefs the index can't resolve.
+const ANCHOR_ID = String.raw`[A-Za-z][\w:.-]*`;
+
 function extractAnchors(text: string): string[] {
   const anchors: string[] = [];
-  const explicit = text.matchAll(/\[\[([^\]]+)\]\]|\[#([^\]]+)\]/g);
+  const explicit = text.matchAll(new RegExp(String.raw`\[\[(${ANCHOR_ID})\]\]|\[#(${ANCHOR_ID})\]`, 'g'));
   for (const match of explicit) {
     anchors.push(match[1] ?? match[2]);
   }

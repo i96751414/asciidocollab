@@ -1,5 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
+import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Hocuspocus } from '@hocuspocus/server';
 import type { Logger } from 'pino';
@@ -27,6 +28,24 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Constant-time comparison of the request's secret header against the expected secret. Uses
+ * `crypto.timingSafeEqual` so a network attacker cannot recover the secret byte-by-byte from
+ * comparison timing — the only auth on these endpoints when mTLS is off. The length pre-check is
+ * required by `timingSafeEqual` (it throws on differing lengths) and leaks only the secret's length.
+ *
+ * @param provided - The raw header value (string, array, or undefined for a missing header).
+ * @param expected - The configured shared secret.
+ * @returns True when the provided secret matches.
+ */
+function secretMatches(provided: string | string[] | undefined, expected: string): boolean {
+  if (typeof provided !== 'string') return false;
+  const providedBytes = Buffer.from(provided);
+  const expectedBytes = Buffer.from(expected);
+  if (providedBytes.length !== expectedBytes.length) return false;
+  return timingSafeEqual(providedBytes, expectedBytes);
 }
 
 /**
@@ -86,7 +105,11 @@ function readBody(request: IncomingMessage): Promise<string> {
     request.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        request.destroy();
+        // Stop buffering (memory cap) and reject, but do NOT destroy the socket here: the handler
+        // still needs to write a clean 413 on the shared response. Pausing the unread request lets
+        // Node close the connection after that response (the body is never fully consumed).
+        request.removeAllListeners('data');
+        request.pause();
         reject(new Error('payload too large'));
         return;
       }
@@ -136,7 +159,7 @@ export function createApplyEditsRequestHandler(
       response.writeHead(404).end();
       return;
     }
-    if (deps.secret && request.headers[SECRET_HEADER] !== deps.secret) {
+    if (deps.secret && !secretMatches(request.headers[SECRET_HEADER], deps.secret)) {
       request.resume();
       response.writeHead(401).end();
       return;
@@ -146,7 +169,11 @@ export function createApplyEditsRequestHandler(
     try {
       raw = await readBody(request);
     } catch {
-      response.writeHead(413).end();
+      // Body exceeded the cap (or a read error). The socket is still open (readBody no longer
+      // destroys it), so guard against a double-write and respond 413. `connection: close` makes
+      // Node close the socket after the response, discarding the unread oversize body rather than
+      // leaving it lingering on a reusable keep-alive connection.
+      if (!response.headersSent) response.writeHead(413, { connection: 'close' }).end();
       return;
     }
 
@@ -206,9 +233,9 @@ export interface InternalEditServerOptions {
  * and/or network policy in production. Returns the server so the caller can close it on shutdown.
  *
  * @param options - Hocuspocus instance, bind address, optional secret/mTLS, logger.
- * @returns The listening HTTP(S) server.
+ * @returns A promise resolving to the listening HTTP(S) server, or rejecting if the bind fails.
  */
-export function startInternalEditServer(options: InternalEditServerOptions): http.Server {
+export function startInternalEditServer(options: InternalEditServerOptions): Promise<http.Server> {
   const handler = createApplyEditsRequestHandler({
     applyEdits: (request) => applyEditsToDocument(options.hocuspocus, request),
     readContent: (request) => readDocumentContent(options.hocuspocus, options.yjsStateStore, request),
@@ -226,8 +253,24 @@ export function startInternalEditServer(options: InternalEditServerOptions): htt
         listener,
       )
     : http.createServer(listener);
-  server.listen(options.port, options.host, () => {
-    options.logger.info({ port: options.port, host: options.host, tls: Boolean(options.tls) }, 'Collab internal edit server listening');
+
+  // Resolve once listening, reject on an early bind error (e.g. EADDRINUSE). Without an 'error'
+  // listener the event would be thrown as an uncaught exception and crash the whole collab process
+  // — after the WebSocket server already came up — which main()'s catch could not intercept.
+  return new Promise<http.Server>((resolve, reject) => {
+    const onError = (error: Error): void => {
+      server.removeListener('listening', onListening);
+      reject(error);
+    };
+    const onListening = (): void => {
+      server.removeListener('error', onError);
+      // After startup, keep logging late errors instead of crashing the process.
+      server.on('error', (error) => options.logger.error({ err: error }, 'Collab internal edit server error'));
+      options.logger.info({ port: options.port, host: options.host, tls: Boolean(options.tls) }, 'Collab internal edit server listening');
+      resolve(server);
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(options.port, options.host);
   });
-  return server;
 }

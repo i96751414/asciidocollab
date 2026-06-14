@@ -30,6 +30,99 @@ const HEADING_RE = /^(={1,6})\s+(.+)$/gm;
 // immediately above a heading it overrides the auto-generated section id.
 const SECTION_ID_ATTR_RE = /^[ \t]*\[(?:#([A-Za-z][\w:.-]*)|\[([A-Za-z][\w:.-]*)\])\][ \t]*$/;
 
+// A `==`-line is only a section title at a block boundary. Plain prose opens a paragraph that
+// absorbs every following non-blank line until a blank line, so `prose\n== Foo` is paragraph text,
+// not a heading. A blank line, a closing delimited block, or a single-line block construct keeps the
+// next line at a boundary. MIRROR of the domain copy in
+// `packages/domain/src/services/asciidoc-extraction.ts` (`realHeadingOffsets`); keep them in sync.
+const DELIMITER_LINE_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,}|={4,}|\*{4,}|_{4,}|--|\|===|,===|:===)$/;
+const BOUNDARY_CONSTRUCT_RE = /^(?::[A-Za-z0-9][\w-]*!?:|\[.+\]$|\.[^\s.[]|\/\/|[A-Za-z0-9_-]+::\S)/;
+
+/**
+ * Offsets (line starts) of the `={1,6} text` lines that are genuine section titles — those at a
+ * block boundary rather than absorbed into a paragraph. Filters the raw {@link HEADING_RE} matches
+ * in {@link extractSymbols} so prose like `text\n== Foo` is not mistaken for a section.
+ */
+function realHeadingOffsets(content: string): Set<number> {
+  const offsets = new Set<number>();
+  let cursor = 0;
+  let openDelimiter: string | null = null;
+  let inParagraph = false;
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    const start = cursor;
+    cursor += line.length + 1;
+    if (openDelimiter !== null) {
+      if (trimmed === openDelimiter) openDelimiter = null;
+      continue;
+    }
+    if (trimmed === '') {
+      inParagraph = false;
+      continue;
+    }
+    if (inParagraph) continue; // absorbed paragraph continuation — starts no block
+    if (DELIMITER_LINE_RE.test(trimmed)) {
+      openDelimiter = trimmed;
+      continue;
+    }
+    if (/^={1,6}\s+\S/.test(line)) {
+      offsets.add(start);
+      continue;
+    }
+    if (!BOUNDARY_CONSTRUCT_RE.test(trimmed)) inParagraph = true;
+  }
+  return offsets;
+}
+
+// Verbatim/comment delimited-block fences whose bodies are NOT subject to xref/attribute/macro
+// substitution: listing (`----`), literal (`....`), passthrough (`++++`), and comment (`////`).
+// Example/sidebar/quote/open blocks DO substitute, so they are deliberately excluded here. The
+// fence must begin at column 0 (only trailing whitespace allowed) — Asciidoctor does not treat an
+// INDENTED run as a delimiter, so matching a trimmed line would mask real references after stray
+// indented content. Capture group 1 is the delimiter token (length-sensitive close matching).
+const VERBATIM_FENCE_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,})[ \t]*$/;
+
+/**
+ * Character ranges of the document that are verbatim or comment regions — delimited listing/
+ * literal/passthrough/comment blocks (their fences included) plus `//` line comments. Tokens
+ * inside these are literal text, not real references/anchors, so extraction skips matches that
+ * start within them (avoids false `unknown-xref` / `undefined-attribute` diagnostics on code
+ * samples). An unterminated block extends to end of document, mirroring Asciidoctor.
+ */
+function verbatimRanges(content: string): Array<{ from: number; to: number }> {
+  const ranges: Array<{ from: number; to: number }> = [];
+  let cursor = 0;
+  let open: { delimiter: string; from: number } | null = null;
+  for (const line of content.split('\n')) {
+    const start = cursor;
+    const lineEnd = cursor + line.length;
+    cursor += line.length + 1; // account for the consumed newline
+    // Match the RAW line (not trimmed): fences and `//` comments are only recognized at column 0.
+    const fence = VERBATIM_FENCE_RE.exec(line);
+    if (open !== null) {
+      // A verbatim block ends only on a fence whose delimiter token equals the one that opened it.
+      if (fence && fence[1] === open.delimiter) {
+        ranges.push({ from: open.from, to: lineEnd });
+        open = null;
+      }
+      continue;
+    }
+    if (fence) {
+      open = { delimiter: fence[1], from: start };
+      continue;
+    }
+    // `//` line comment at column 0 (a 4+ `////` fence was already handled as a block delimiter).
+    if (line.startsWith('//')) ranges.push({ from: start, to: lineEnd });
+  }
+  if (open !== null) ranges.push({ from: open.from, to: content.length });
+  return ranges;
+}
+
+/** Whether `pos` falls inside any of the (ascending, non-overlapping) verbatim ranges. */
+function isInRanges(pos: number, ranges: Array<{ from: number; to: number }>): boolean {
+  return ranges.some((range) => pos >= range.from && pos < range.to);
+}
+
 /** Auto-generate a section id from heading text (Asciidoctor-style). */
 export function headingToId(title: string): string {
   return (
@@ -51,18 +144,24 @@ export function parseIncludeLevelOffset(attributes: string): number {
 /** Extract all references (xref/include/image/attributeRef) from a file's content. */
 export function extractReferences(fileId: string, content: string): Reference[] {
   const references: Reference[] = [];
+  const verbatim = verbatimRanges(content);
+  const skip = (match: RegExpMatchArray) => isInRanges(match.index ?? 0, verbatim);
 
   for (const match of content.matchAll(XREF_RE)) {
+    if (skip(match)) continue;
     const target = (match[1] ?? match[2] ?? '').trim();
     if (target) references.push({ kind: 'xref', target, fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(INCLUDE_RE)) {
+    if (skip(match)) continue;
     references.push({ kind: 'include', target: match[1].trim(), fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(IMAGE_RE)) {
+    if (skip(match)) continue;
     references.push({ kind: 'image', target: match[1].trim(), fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(ATTR_REF_RE)) {
+    if (skip(match)) continue;
     references.push({ kind: 'attributeRef', target: match[1], fileId, range: rangeOf(match) });
   }
   return references;
@@ -85,16 +184,22 @@ function explicitSectionId(content: string, headingStart: number): string | null
 /** Extract all definable symbols (sections/anchors/attributes) from a file's content. */
 export function extractSymbols(fileId: string, content: string): ProjectSymbol[] {
   const symbols: ProjectSymbol[] = [];
+  const verbatim = verbatimRanges(content);
+  const skip = (match: RegExpMatchArray) => isInRanges(match.index ?? 0, verbatim);
 
+  const headingOffsets = realHeadingOffsets(content);
   for (const match of content.matchAll(HEADING_RE)) {
+    if (!headingOffsets.has(match.index ?? 0)) continue; // absorbed into a paragraph / in a block — not a section
     const explicitId = explicitSectionId(content, match.index ?? 0);
     symbols.push({ kind: 'section', name: explicitId ?? headingToId(match[2]), fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(ANCHOR_RE)) {
+    if (skip(match)) continue;
     const name = match[1] ?? match[2] ?? match[3];
     if (name) symbols.push({ kind: 'anchor', name, fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(ATTR_DEF_RE)) {
+    if (skip(match)) continue;
     if (match[2] !== '!') symbols.push({ kind: 'attribute', name: match[1], fileId, range: rangeOf(match) });
   }
   return symbols;

@@ -12,6 +12,7 @@ import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { CollaborativeContentEditor } from '../../ports/storage/collaborative-content-editor';
+import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { Logger } from '../../ports/observability/logger';
@@ -46,6 +47,9 @@ export class RenameFileUseCase {
     // are rewritten through the Yjs source of truth instead of the file store (avoids live-clobber).
     private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
     private readonly collaborativeContentEditor?: CollaborativeContentEditor,
+    // Optional: lets the reference-rewrite SCAN read a referencing file's live Yjs content so an
+    // unsaved reference is still found and corrected (mirrors the symbol-rename scan).
+    private readonly collaborativeContentReader?: CollaborativeContentReader,
   ) {}
 
   /**
@@ -143,6 +147,8 @@ export class RenameFileUseCase {
             fileStore: this.fileStore,
             ...(this.documentRepo && { documentRepo: this.documentRepo }),
             ...(this.collaborativeContentEditor && { collaborativeContentEditor: this.collaborativeContentEditor }),
+            ...(this.collaborativeContentReader && { collaborativeContentReader: this.collaborativeContentReader }),
+            ...(this.logger && { logger: this.logger }),
           },
           projectId,
           pathChanges,

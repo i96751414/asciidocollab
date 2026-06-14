@@ -564,6 +564,21 @@ describe('completion source guard and tree-path branches', () => {
     expect(result?.options.some((o) => o.label === 'my-id')).toBe(true);
   });
 
+  test('xref anchor capture mirrors the index grammar: no junk ids from role/option shorthand', async () => {
+    // `[#multi,role1,role2]` / `[#withopt%opt]` carry roles/options after the id with separators
+    // (`,`, `%`) that are not valid id chars. The symbol index's anchor grammar (`[A-Za-z][\w:.-]*`
+    // with a closing `]` right after) does not recognize these forms, so completion must not offer
+    // the raw bracket contents as an id — that would suggest an xref the index can never resolve. A
+    // plain `[#clean]` and a dotted `[[dotted.id]]` (legal id chars) are still offered.
+    const documentContent = '[#multi,role1,role2]\n[#withopt%opt]\n[#clean]\n[[dotted.id]]\n\nSee <<';
+    const result = await getCompletions(xrefCompletionSource, documentContent, documentContent.length);
+    const labels = result?.options.map((o) => o.label) ?? [];
+    expect(labels).toContain('clean');
+    expect(labels).toContain('dotted.id');
+    expect(labels).not.toContain('multi,role1,role2');
+    expect(labels).not.toContain('withopt%opt');
+  });
+
   test('include source returns null when the cursor is not after include::', async () => {
     const source = createIncludeCompletionSource(['a.adoc']);
     expect(await getCompletions(source, 'just some prose', 'just some prose'.length)).toBeNull();

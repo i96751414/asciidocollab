@@ -49,7 +49,7 @@ async function main() {
   const editTls = editTlsCert && editTlsKey && editTlsClientCa
     ? { cert: readFileSync(editTlsCert), key: readFileSync(editTlsKey), clientCa: readFileSync(editTlsClientCa) }
     : undefined;
-  const internalEditServer = startInternalEditServer({
+  const internalEditServer = await startInternalEditServer({
     hocuspocus: server.hocuspocus,
     yjsStateStore: root.yjsStateStore,
     host: config.get('internalEditHost'),
@@ -63,7 +63,13 @@ async function main() {
     logger.info('Shutting down collab server…');
     try {
       clearInterval(watchdogInterval);
-      await new Promise<void>((resolve) => internalEditServer.close(() => resolve()));
+      // close() only fires its callback once all sockets end; the API client keeps idle keep-alive
+      // sockets pooled, so without closeAllConnections() the await would hang and skip the teardown
+      // below. Forcibly terminate live connections so shutdown always proceeds.
+      await new Promise<void>((resolve) => {
+        internalEditServer.close(() => resolve());
+        internalEditServer.closeAllConnections?.();
+      });
       await server.destroy();
       await collaborationSessionRepo.closeAll();
       await prisma.$disconnect();
