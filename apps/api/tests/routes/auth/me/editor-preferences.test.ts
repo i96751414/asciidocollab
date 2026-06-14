@@ -10,7 +10,7 @@ jest.mock('../../../../src/plugins/require-auth', () => ({
 const USER_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 function buildTestServer(
-  storedPrefs: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; previewStyle?: string } | null = null
+  storedPrefs: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; previewStyle?: string; spellcheckLanguage?: string; spellcheckEnabled?: boolean } | null = null
 ) {
   const app = Fastify();
 
@@ -27,11 +27,13 @@ function buildTestServer(
               scrollSyncEnabled: currentPrefs.scrollSyncEnabled ?? false,
               softWrap: true,
               previewStyle: { value: currentPrefs.previewStyle ?? 'asciidocollab' },
+              spellcheckLanguage: currentPrefs.spellcheckLanguage ?? 'en',
+              spellcheckEnabled: currentPrefs.spellcheckEnabled ?? true,
             }
           : null
       ),
-      save: jest.fn().mockImplementation((prefs: { fontSize: number; theme: { value: string }; previewStyle: { value: string } }) => {
-        currentPrefs = { fontSize: prefs.fontSize, theme: prefs.theme.value, previewStyle: prefs.previewStyle.value };
+      save: jest.fn().mockImplementation((prefs: { fontSize: number; theme: { value: string }; previewStyle: { value: string }; spellcheckLanguage: string; spellcheckEnabled: boolean }) => {
+        currentPrefs = { fontSize: prefs.fontSize, theme: prefs.theme.value, previewStyle: prefs.previewStyle.value, spellcheckLanguage: prefs.spellcheckLanguage, spellcheckEnabled: prefs.spellcheckEnabled };
       }),
     },
   });
@@ -145,6 +147,41 @@ describe('Editor Preferences Routes', () => {
       url: '/auth/me/editor-preferences',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ fontSize: 14, theme: 'default', previewStyle: 'Asciidocollab' }),
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  test('GET returns spellcheck language + enabled (defaults)', async () => {
+    const app = buildTestServer(null);
+    const response = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    const body = JSON.parse(response.body);
+    expect(body).toHaveProperty('spellcheckLanguage', 'en');
+    expect(body).toHaveProperty('spellcheckEnabled', true);
+  });
+
+  test('PUT persists spellcheck language + enabled and GET returns them', async () => {
+    const app = buildTestServer(null);
+    const putResponse = await app.inject({
+      method: 'PUT',
+      url: '/auth/me/editor-preferences',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fontSize: 14, theme: 'default', spellcheckLanguage: 'fr', spellcheckEnabled: false }),
+    });
+    expect(putResponse.statusCode).toBe(204);
+
+    const getResponse = await app.inject({ method: 'GET', url: '/auth/me/editor-preferences' });
+    const body = JSON.parse(getResponse.body);
+    expect(body).toHaveProperty('spellcheckLanguage', 'fr');
+    expect(body).toHaveProperty('spellcheckEnabled', false);
+  });
+
+  test('PUT with an out-of-enum spellcheckLanguage returns 400', async () => {
+    const app = buildTestServer(null);
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/auth/me/editor-preferences',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fontSize: 14, theme: 'default', spellcheckLanguage: 'klingon' }),
     });
     expect(response.statusCode).toBe(400);
   });

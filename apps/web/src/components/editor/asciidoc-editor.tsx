@@ -150,7 +150,7 @@ export function AsciiDocEditor({
     initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
   });
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckLanguage, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
@@ -197,6 +197,8 @@ export function AsciiDocEditor({
     softWrap,
     foldStorageKey: projectId && fileNodeId ? `asciidocollab:folds:${projectId}:${fileNodeId}` : undefined,
     spellIgnore,
+    spellcheckLanguage,
+    spellcheckEnabled,
     includePaths,
     imagePaths,
     onDocChange: handleChange,

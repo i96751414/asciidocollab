@@ -10,4 +10,13 @@ export interface EditorPreferencesDto {
   softWrap?: boolean;
   /** Preview rendering style token. Defaults to 'asciidocollab'. */
   previewStyle?: 'asciidocollab' | 'asciidoctor';
+  /** Document language for spellcheck (ISO 639-1). Defaults to 'en'. */
+  spellcheckLanguage?: SpellcheckLanguageDto;
+  /** When false, spellcheck is disabled regardless of language. Defaults to true. */
+  spellcheckEnabled?: boolean;
 }
+
+/** Selectable spellcheck/document languages (mirrors the domain's SPELLCHECK_LANGUAGES). */
+export type SpellcheckLanguageDto =
+  | 'en' | 'zh' | 'hi' | 'es' | 'fr' | 'ar' | 'bn' | 'pt'
+  | 'ur' | 'de' | 'it' | 'uk' | 'ja' | 'pl' | 'tr';

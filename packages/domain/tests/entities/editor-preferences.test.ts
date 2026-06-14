@@ -54,4 +54,22 @@ describe('EditorPreferences entity', () => {
     expect(prefs.timestamps.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
     expect(prefs.timestamps.updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
   });
+
+  test('spellcheck defaults to English, enabled', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme);
+    expect(prefs.spellcheckLanguage).toBe('en');
+    expect(prefs.spellcheckEnabled).toBe(true);
+  });
+
+  test('reflects the provided spellcheck language and enabled flag', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), 'fr', false);
+    expect(prefs.spellcheckLanguage).toBe('fr');
+    expect(prefs.spellcheckEnabled).toBe(false);
+  });
+
+  test('throws on an unsupported spellcheck language', () => {
+    expect(
+      () => new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), 'klingon' as 'en', true),
+    ).toThrow(ValidationError);
+  });
 });

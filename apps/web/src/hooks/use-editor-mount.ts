@@ -58,6 +58,10 @@ interface UseEditorMountOptions {
   foldStorageKey?: string;
   /** Per-user spell-check ignore list (US9/FR-063). */
   spellIgnore?: string[];
+  /** Document language for spell-check (ISO 639-1); defaults to 'en'. */
+  spellcheckLanguage?: string;
+  /** When false, spell-check produces no diagnostics regardless of language. Defaults to true. */
+  spellcheckEnabled?: boolean;
   /**
    * Uploads a pasted/dropped image (US9/FR-040).
    *
@@ -123,6 +127,8 @@ export function useEditorMount({
   softWrap = true,
   foldStorageKey,
   spellIgnore,
+  spellcheckLanguage = 'en',
+  spellcheckEnabled = true,
   uploadImage,
   includePaths,
   imagePaths = [],
@@ -147,6 +153,7 @@ export function useEditorMount({
   const readOnlyCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
   const lineWrapCompartment = useRef(new Compartment());
+  const spellcheckCompartment = useRef(new Compartment());
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
@@ -323,7 +330,9 @@ export function useEditorMount({
         // Prose spell-check (US9) + cross-file/structural diagnostics (US8):
         // each is its own lint source so they merge in the gutter/underlines.
         lintGutter(),
-        linter(asciidocSpellcheckSource(() => spellIgnore ?? [])),
+        spellcheckCompartment.current.of(
+          linter(asciidocSpellcheckSource(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled)),
+        ),
         linter(asciidocDiagnosticsSource(projectIndexAccessor)),
         // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
         // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
@@ -464,6 +473,17 @@ export function useEditorMount({
       effects: lineWrapCompartment.current.reconfigure(softWrap ? [EditorView.lineWrapping] : []),
     });
   }, [softWrap]);
+
+  // Sync the spell-check language / enabled preference live via its Compartment (US9/FR-063) —
+  // a fresh lint source bound to the new language+enabled, so changes apply without a remount.
+  useEffect(() => {
+    if (!viewReference.current) return;
+    viewReference.current.dispatch({
+      effects: spellcheckCompartment.current.reconfigure(
+        linter(asciidocSpellcheckSource(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled)),
+      ),
+    });
+  }, [spellcheckLanguage, spellcheckEnabled, spellIgnore]);
 
   return { containerReference, viewReference, handleHeadingClick };
 }

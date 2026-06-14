@@ -120,7 +120,7 @@ describe('SPELLCHECK_SKIP_NODES', () => {
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
     await withFreshModule(async ({ asciidocSpellcheckSource }) => {
       const view = makeView('Visit https://exampledomain.test now\n');
-      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
       expect(words).not.toContain('exampledomain');
       view.destroy();
@@ -136,7 +136,7 @@ describe('loadSpellChecker (FR-063)', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await withFreshModule(async ({ loadSpellChecker }) => {
-      const checker = await loadSpellChecker();
+      const checker = await loadSpellChecker('en');
       expect(checker).not.toBeNull();
       expect(checker?.correct('hello')).toBe(true);
       expect(checker?.correct('wrld')).toBe(false);
@@ -150,7 +150,7 @@ describe('loadSpellChecker (FR-063)', () => {
     globalThis.fetch = (async (input: RequestInfo | URL) =>
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
     await withFreshModule(async ({ loadSpellChecker }) => {
-      const checker = await loadSpellChecker();
+      const checker = await loadSpellChecker('en');
       expect(checker?.suggest('helo').length).toBeLessThanOrEqual(5);
     });
   });
@@ -158,7 +158,7 @@ describe('loadSpellChecker (FR-063)', () => {
   test('returns null when a dictionary file is unavailable (non-ok response)', async () => {
     globalThis.fetch = (async () => ({ ok: false, text: async () => '' })) as unknown as typeof fetch;
     await withFreshModule(async ({ loadSpellChecker }) => {
-      expect(await loadSpellChecker()).toBeNull();
+      expect(await loadSpellChecker('en')).toBeNull();
     });
   });
 
@@ -167,7 +167,7 @@ describe('loadSpellChecker (FR-063)', () => {
       throw new Error('offline');
     }) as unknown as typeof fetch;
     await withFreshModule(async ({ loadSpellChecker }) => {
-      expect(await loadSpellChecker()).toBeNull();
+      expect(await loadSpellChecker('en')).toBeNull();
     });
   });
 
@@ -177,13 +177,22 @@ describe('loadSpellChecker (FR-063)', () => {
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     await withFreshModule(async ({ loadSpellChecker }) => {
-      const first = loadSpellChecker();
-      const second = loadSpellChecker();
+      const first = loadSpellChecker('en');
+      const second = loadSpellChecker('en');
       expect(first).toBe(second);
       await first;
     });
     // Two files fetched on the first call, none on the cached second call.
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test('returns null without fetching for a language with no bundled dictionary', async () => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      expect(await loadSpellChecker('zh')).toBeNull(); // Mandarin: no Hunspell dictionary
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -194,7 +203,7 @@ describe('asciidocSpellcheckSource (FR-063)', () => {
     }) as unknown as typeof fetch;
     await withFreshModule(async ({ asciidocSpellcheckSource }) => {
       const view = makeView('this paragraf has a typ\n');
-      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       expect(diagnostics).toEqual([]);
       view.destroy();
     });
@@ -205,7 +214,7 @@ describe('asciidocSpellcheckSource (FR-063)', () => {
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
     await withFreshModule(async ({ asciidocSpellcheckSource }) => {
       const view = makeView('hello wrld\n');
-      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
       expect(words).toContain('wrld');
       expect(words).not.toContain('hello');
@@ -216,12 +225,35 @@ describe('asciidocSpellcheckSource (FR-063)', () => {
     });
   });
 
+  test('produces no diagnostics when spellcheck is disabled (enabled=false)', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('hello wrld\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', false)(view);
+      expect(diagnostics).toEqual([]);
+      view.destroy();
+    });
+    expect(fetchMock).not.toHaveBeenCalled(); // disabled → no dictionary load
+  });
+
+  test('produces no diagnostics for a language without a dictionary', async () => {
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('hello wrld\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'ja', true)(view);
+      expect(diagnostics).toEqual([]);
+      view.destroy();
+    });
+  });
+
   test('produces no diagnostics for an all-correct document', async () => {
     globalThis.fetch = (async (input: RequestInfo | URL) =>
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
     await withFreshModule(async ({ asciidocSpellcheckSource }) => {
       const view = makeView('hello world good code\n');
-      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       expect(diagnostics).toEqual([]);
       view.destroy();
     });
@@ -232,7 +264,7 @@ describe('asciidocSpellcheckSource (FR-063)', () => {
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
     await withFreshModule(async ({ asciidocSpellcheckSource }) => {
       const view = makeView('hello wrld\n');
-      const diagnostics = await asciidocSpellcheckSource(() => ['wrld'])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => ['wrld'], 'en', true)(view);
       expect(diagnostics).toEqual([]);
       view.destroy();
     });
@@ -245,7 +277,7 @@ describe('asciidocSpellcheckSource (FR-063)', () => {
       // The misspelled token "wrldd" lives inside a listing block, so the
       // skip-node range must suppress its diagnostic (the `continue` branch).
       const view = makeView('----\nwrldd\n----\n');
-      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       const words = diagnostics.map((diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
       expect(words).not.toContain('wrldd');
       view.destroy();

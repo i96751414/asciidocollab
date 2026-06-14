@@ -6,6 +6,8 @@ import {
   PreviewStyle,
   UserId,
   Timestamps,
+  DEFAULT_SPELLCHECK_LANGUAGE,
+  isSpellcheckLanguage,
 } from '@asciidocollab/domain';
 import type { EditorPreferencesRepository } from '@asciidocollab/domain';
 
@@ -27,7 +29,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
   async save(prefs: EditorPreferences): Promise<void> {
     await this.prisma.editorPreferences.upsert({
       where: { userId: prefs.userId.value },
-      update: { fontSize: prefs.fontSize, theme: prefs.theme.value, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle.value },
+      update: { fontSize: prefs.fontSize, theme: prefs.theme.value, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle.value, spellcheckLanguage: prefs.spellcheckLanguage, spellcheckEnabled: prefs.spellcheckEnabled },
       create: {
         id: prefs.id.value,
         userId: prefs.userId.value,
@@ -36,6 +38,8 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
         scrollSyncEnabled: prefs.scrollSyncEnabled,
         softWrap: prefs.softWrap,
         previewStyle: prefs.previewStyle.value,
+        spellcheckLanguage: prefs.spellcheckLanguage,
+        spellcheckEnabled: prefs.spellcheckEnabled,
       },
     });
   }
@@ -48,6 +52,8 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     scrollSyncEnabled: boolean;
     softWrap: boolean;
     previewStyle: string;
+    spellcheckLanguage: string;
+    spellcheckEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): EditorPreferences {
@@ -58,6 +64,10 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
     // A corrupt/unknown stored preview style must not break rendering — fall back to the
     // default rather than throwing (FR-015), unlike the stricter handling of `theme`.
     const previewStyle = PreviewStyle.parseOrDefault(row.previewStyle);
+    // A corrupt/unknown stored language must not break loading — fall back to the default.
+    const spellcheckLanguage = isSpellcheckLanguage(row.spellcheckLanguage)
+      ? row.spellcheckLanguage
+      : DEFAULT_SPELLCHECK_LANGUAGE;
     return new EditorPreferences(
       EditorPreferencesId.create(row.id),
       UserId.create(row.userId),
@@ -67,6 +77,8 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
       new Timestamps(row.createdAt, row.updatedAt),
       row.softWrap,
       previewStyle,
+      spellcheckLanguage,
+      row.spellcheckEnabled,
     );
   }
 }

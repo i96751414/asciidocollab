@@ -1,6 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
 import type { Diagnostic } from '@codemirror/lint';
+import { hasDictionary } from './spellcheck-languages';
 
 /**
  * Prose spell-check (US9, FR-063). Tree-aware: verbatim blocks, macros,
@@ -79,22 +80,26 @@ export interface SpellChecker {
   suggest: (word: string) => string[];
 }
 
-let checkerPromise: Promise<SpellChecker | null> | null = null;
+// One cached load per language so switching languages never re-fetches a dictionary already loaded.
+const checkerPromises = new Map<string, Promise<SpellChecker | null>>();
 
 /**
- * Lazily load the English dictionary into an nspell checker (best-effort, cached).
- * The Hunspell `aff`/`dic` files are self-hosted under `/dictionaries/` (copied
- * from `dictionary-en` at build time) and fetched same-origin — `dictionary-en`
- * itself is a Node module and is never bundled for the browser. Returns null on
- * any failure so spell-check simply does nothing.
+ * Lazily load `language`'s Hunspell dictionary into an nspell checker (best-effort, cached per
+ * language). The `aff`/`dic` files are self-hosted under `/dictionaries/<lang>.{aff,dic}` (copied
+ * from the `dictionary-<lang>` packages at build time) and fetched same-origin — those packages
+ * are Node modules and are never bundled for the browser. Returns null for a language with no
+ * bundled dictionary, or on any failure, so spell-check simply does nothing.
  */
-export function loadSpellChecker(): Promise<SpellChecker | null> {
-  checkerPromise ??= (async () => {
+export function loadSpellChecker(language: string): Promise<SpellChecker | null> {
+  if (!hasDictionary(language)) return Promise.resolve(null);
+  const cached = checkerPromises.get(language);
+  if (cached) return cached;
+  const promise = (async () => {
     try {
       const [{ default: nspell }, aff, dic] = await Promise.all([
         import('nspell'),
-        fetch('/dictionaries/en.aff').then((response) => (response.ok ? response.text() : Promise.reject(new Error('aff')))),
-        fetch('/dictionaries/en.dic').then((response) => (response.ok ? response.text() : Promise.reject(new Error('dic')))),
+        fetch(`/dictionaries/${language}.aff`).then((response) => (response.ok ? response.text() : Promise.reject(new Error('aff')))),
+        fetch(`/dictionaries/${language}.dic`).then((response) => (response.ok ? response.text() : Promise.reject(new Error('dic')))),
       ]);
       const speller = nspell(aff, dic);
       return {
@@ -105,16 +110,24 @@ export function loadSpellChecker(): Promise<SpellChecker | null> {
       return null;
     }
   })();
-  return checkerPromise;
+  checkerPromises.set(language, promise);
+  return promise;
 }
 
 /**
- * Async `@codemirror/lint` source flagging misspelled prose words as info
- * diagnostics, with "Add to dictionary" handled by the host via `getIgnore`.
+ * Async `@codemirror/lint` source flagging misspelled prose words as info diagnostics, with
+ * "Add to dictionary" handled by the host via `getIgnore`. Spell-checks against `language`'s
+ * dictionary; produces no diagnostics when `enabled` is false or `language` has no bundled
+ * dictionary (so a language change / disable is applied by reconfiguring this source).
  */
-export function asciidocSpellcheckSource(getIgnore: () => Iterable<string>) {
+export function asciidocSpellcheckSource(
+  getIgnore: () => Iterable<string>,
+  language: string,
+  enabled: boolean,
+) {
   return async (view: EditorView): Promise<Diagnostic[]> => {
-    const checker = await loadSpellChecker();
+    if (!enabled) return [];
+    const checker = await loadSpellChecker(language);
     if (!checker) return [];
     const tree = syntaxTree(view.state);
     const diagnostics: Diagnostic[] = [];

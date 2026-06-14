@@ -7,6 +7,8 @@ const setTheme = jest.fn();
 const setScrollSyncEnabled = jest.fn();
 const setSoftWrap = jest.fn();
 const setPreviewStyle = jest.fn();
+const setSpellcheckLanguage = jest.fn();
+const setSpellcheckEnabled = jest.fn();
 
 const preferences = {
   fontSize: 14,
@@ -15,16 +17,22 @@ const preferences = {
   softWrap: true,
   previewStyle: 'asciidocollab',
   spellIgnore: [],
+  spellcheckLanguage: 'en',
+  spellcheckEnabled: true,
   setFontSize,
   setTheme,
   setScrollSyncEnabled,
   setSoftWrap,
   setPreviewStyle,
   addSpellIgnore: jest.fn(),
+  setSpellcheckLanguage,
+  setSpellcheckEnabled,
 };
 
 jest.mock('@/hooks/use-editor-preferences', () => ({
   useEditorPreferences: () => preferences,
+  isSpellcheckLanguageValue: (value: string) =>
+    ['en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ur', 'de', 'it', 'uk', 'ja', 'pl', 'tr'].includes(value),
 }));
 
 jest.mock('@/components/preview-style-control', () => ({
@@ -96,5 +104,30 @@ describe('EditorPreferencesCard', () => {
     expect(softWrap).toBeChecked();
     fireEvent.click(softWrap);
     expect(setSoftWrap).toHaveBeenCalledWith(false);
+  });
+
+  test('toggles spell check off', () => {
+    render(<EditorPreferencesCard />);
+    const toggle = screen.getByLabelText('Spell Check');
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(setSpellcheckEnabled).toHaveBeenCalledWith(false);
+  });
+
+  test('offers all 15 languages and wires the selector to setSpellcheckLanguage', () => {
+    render(<EditorPreferencesCard />);
+    const select = screen.getByLabelText('Spell Check Language');
+    expect(select.querySelectorAll('option')).toHaveLength(15);
+    // A language without a bundled dictionary is labelled and still selectable.
+    expect(screen.getByRole('option', { name: /Japanese \(no dictionary\)/ })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: 'fr' } });
+    expect(setSpellcheckLanguage).toHaveBeenCalledWith('fr');
+  });
+
+  test('disables the language selector when spell check is off', () => {
+    preferences.spellcheckEnabled = false;
+    render(<EditorPreferencesCard />);
+    expect(screen.getByLabelText('Spell Check Language')).toBeDisabled();
+    preferences.spellcheckEnabled = true; // restore for other tests
   });
 });
