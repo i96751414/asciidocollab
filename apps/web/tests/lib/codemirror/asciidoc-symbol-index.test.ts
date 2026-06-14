@@ -53,6 +53,25 @@ describe('buildProjectSymbolIndex', () => {
     expect(typeof index.inheritedOffset('chapter1')).toBe('number');
   });
 
+  test('a child inherits the attributes the parent defines above its include; the root none', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    // main defines `:author: Ada` before `include::chapter1.adoc[]`.
+    expect(index.inheritedAttributes('chapter1').get('author')).toBe('Ada');
+    expect(index.inheritedAttributes('main').size).toBe(0);
+    expect(index.inheritedAttributes('unknown').size).toBe(0);
+  });
+
+  test('effectiveAttributes merges inherited parent attributes with the file own definitions (own wins)', () => {
+    const files: Record<string, string> = { m: ':v: parent\ninclude::c.adoc[]\n', c: ':v: child\n' };
+    const resolve = makeIncludeResolver(
+      (id) => ({ m: 'm.adoc', c: 'c.adoc' })[id] ?? null,
+      (path) => ({ 'm.adoc': 'm', 'c.adoc': 'c' })[path] ?? null,
+    );
+    const index = buildProjectSymbolIndex('m', (id) => files[id] ?? null, resolve);
+    expect(index.inheritedAttributes('c').get('v')).toBe('parent');
+    expect(index.effectiveAttributes('c').get('v')).toBe('child');
+  });
+
   test('skips files whose content is unavailable when aggregating', () => {
     // The include graph lists chapter1 as a node, but getContent only returns
     // content for main, exercising the `content === null` continue branch.

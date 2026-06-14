@@ -68,11 +68,14 @@ export function assembleIncludes(
   const expand = (path: string, stack: readonly string[], depth: number): string => {
     const content = readFile(path);
     if (content === null) return '';
-    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
     const out: string[] = [];
     for (const line of content.split('\n')) {
       const match = INCLUDE_LINE_RE.exec(line);
       if (!match) {
+        // Apply attribute definitions in document order so an include sees only the attributes
+        // defined ABOVE it (matching extraction.ts / Asciidoctor); a parent's definitions persist
+        // into its includes, but an attribute defined after an include is not in scope for it.
+        for (const definition of extractAttributeDefinitions(line)) attributes.set(definition.name, definition.value);
         out.push(line);
         continue;
       }

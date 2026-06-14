@@ -102,6 +102,16 @@ describe('buildIncludeGraph attribute substitution', () => {
       expect.objectContaining({ fromFile: 'main.adoc', target: '{missing}/intro.adoc' }),
     ]);
   });
+
+  test('does not substitute an attribute defined after the include (document order)', () => {
+    const files = {
+      'main.adoc': 'include::{partsdir}/intro.adoc[]\n\n:partsdir: parts\n',
+      'parts/intro.adoc': '== Intro\n',
+    };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.nodes).not.toContain('parts/intro.adoc');
+    expect(tree.unresolved.some((u) => u.target === '{partsdir}/intro.adoc')).toBe(true);
+  });
 });
 
 describe('headingToId / parseIncludeLevelOffset', () => {

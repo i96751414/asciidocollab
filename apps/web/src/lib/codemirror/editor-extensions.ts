@@ -76,6 +76,11 @@ export interface BuildEditorExtensionsOptions {
   getCurrentFilePath: () => string | null;
   /** Returns the project attribute map (supplies `imagesdir` for image-target relativization). */
   getCurrentAttributes: () => ReadonlyMap<string, string>;
+  /**
+   * Returns the attributes the open file inherits from the documents that include it, seeding the
+   * `{attr}` collapse-to-value display so cross-document references resolve (US8/FR-045a).
+   */
+  getInheritedAttributes: () => ReadonlyMap<string, string>;
   /** Returns the latest project symbol index (or null for current-file scope). */
   projectIndexAccessor: () => ProjectSymbolIndex | null;
   /** Returns the inherited include-path heading-level offset (US3/FR-071). */
@@ -111,6 +116,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     getImagePaths,
     getCurrentFilePath,
     getCurrentAttributes,
+    getInheritedAttributes,
     projectIndexAccessor,
     getInheritedOffset,
     collabActive,
@@ -174,8 +180,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // Expose the same inherited offset to the outline StateField so it derives effective levels
     // (and the beyond-max / leveloffset rules) identically to the heading highlight.
     inheritedHeadingOffsetFacet.of(getInheritedOffset),
-    // {attr} collapse-to-value display fold — source text unchanged (FR-057).
-    asciidocAttributeFold,
+    // {attr} collapse-to-value display fold — source text unchanged (FR-057). Seeded with the
+    // attributes inherited from including documents so cross-file references collapse too (US8).
+    asciidocAttributeFold(getInheritedAttributes),
     outlineField,
     tableContextField,
     showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),

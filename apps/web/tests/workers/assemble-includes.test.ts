@@ -88,6 +88,39 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(content).toContain(':leveloffset: -1');
   });
 
+  test('substitutes an attribute defined before the include directive in its target', () => {
+    const files = {
+      'main.adoc': ':partsdir: parts\n\ninclude::{partsdir}/x.adoc[]\n',
+      'parts/x.adoc': '= X\n',
+    };
+    const { content, unresolved } = assembleIncludes('main.adoc', reader(files));
+    expect(content).toContain('= X');
+    expect(unresolved).toEqual([]);
+  });
+
+  test('does not substitute an attribute defined after the include that uses it (document order)', () => {
+    const files = {
+      'main.adoc': 'include::{partsdir}/x.adoc[]\n\n:partsdir: parts\n',
+      'parts/x.adoc': '= X\n',
+    };
+    const { content, unresolved } = assembleIncludes('main.adoc', reader(files));
+    // The attribute is not yet in scope at the include, so the target stays literal and is not read,
+    // matching extraction.ts (the editor would flag the same include as Unresolved).
+    expect(content).not.toContain('= X');
+    expect(unresolved.some((u) => u.target === '{partsdir}/x.adoc')).toBe(true);
+  });
+
+  test('a child include can use an attribute its parent defined before the include (inherited scope)', () => {
+    const files = {
+      'main.adoc': ':partsdir: parts\n\ninclude::child.adoc[]\n',
+      'child.adoc': 'include::{partsdir}/y.adoc[]\n',
+      'parts/y.adoc': '= Y\n',
+    };
+    const { content, unresolved } = assembleIncludes('main.adoc', reader(files));
+    expect(content).toContain('= Y');
+    expect(unresolved).toEqual([]);
+  });
+
   test('respects a maxDepth bound', () => {
     const files = {
       'a.adoc': 'A\ninclude::b.adoc[]\n',

@@ -135,9 +135,50 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
   return 'unresolved';
 }
 
+/** An attribute definition or an include directive, tagged with its document offset. */
+type DocumentOrderEvent =
+  | { kind: 'attribute'; pos: number; name: string; value: string }
+  | { kind: 'include'; pos: number; match: RegExpMatchArray };
+
 /**
- * Build the transitive include graph from a root file. Cycle-guarded (a file is
- * visited once); each edge carries the `leveloffset=` declared on its include.
+ * The attribute definitions and include directives of a file in document (offset) order, so the
+ * include walk can apply attributes and resolve includes interleaved exactly as Asciidoctor does:
+ * an include sees only the attributes defined ABOVE it, not those defined later in the same file.
+ */
+function documentOrderEvents(content: string): DocumentOrderEvent[] {
+  const events: DocumentOrderEvent[] = [];
+  for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
+    events.push({ kind: 'attribute', pos: match.index ?? 0, name: match[1].toLowerCase(), value: match[2] });
+  }
+  for (const match of content.matchAll(INCLUDE_RE)) {
+    events.push({ kind: 'include', pos: match.index ?? 0, match });
+  }
+  return events.toSorted((a, b) => a.pos - b.pos);
+}
+
+/** The include graph plus, per file, the attributes it inherits from its ancestors. */
+export interface IncludeGraphResult {
+  /** The transitive include graph rooted at the start file. */
+  tree: DocumentTree;
+  /**
+   * Maps a file id to the attributes (lowercase name → value) it inherits from its ancestor files
+   * at the document-order point the file's `include::` directive is reached. Empty for the root and
+   * for files reached through multiple paths (the first visit wins). A child therefore inherits
+   * only the parent attributes defined ABOVE its include — including `:imagesdir:` and any
+   * `{attr}` used in its own macro targets — and NOT those a parent defines after the include.
+   */
+  inheritedAttributes: Map<string, ReadonlyMap<string, string>>;
+}
+
+/**
+ * Build the transitive include graph from a root file, recording the attributes each file
+ * inherits from its ancestors.
+ *
+ * Cycle-guarded (a file is visited once), so a recursive include (file a includes file b which
+ * includes file a) terminates instead of looping. Each edge carries the `leveloffset=` declared
+ * on its include. Attribute values accumulate in document order across the whole walk: a child
+ * include is resolved against the attributes known when its directive is reached, so a parent's
+ * header attributes are in scope but attributes the parent defines after the include are not.
  *
  * @param rootFileId - The main/current file id.
  * @param readContent - Returns a file's content, or null if unavailable.
@@ -145,31 +186,38 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
  *   SECURITY (Constitution IX): include `target`s are user-controlled, so this callback
  *   MUST sandbox them via `resolveSandboxedPath` (the web symbol index does) — this pure
  *   model deliberately performs no filesystem access and cannot confine paths itself.
+ * @returns The {@link IncludeGraphResult}.
  */
-export function buildIncludeGraph(
+export function buildIncludeGraphWithInheritance(
   rootFileId: string,
   readContent: (fileId: string) => string | null,
   resolveInclude: (fromFileId: string, target: string) => string | null,
-): DocumentTree {
+): IncludeGraphResult {
   const nodes: string[] = [];
   const edges: IncludeEdge[] = [];
   const unresolved: UnresolvedInclude[] = [];
   const visited = new Set<string>();
-  // Attribute values accumulate as the walk descends so a child include can use an
-  // attribute the parent defined (document-order, last definition wins).
+  const inheritedAttributes = new Map<string, ReadonlyMap<string, string>>();
+  // Accumulates attribute definitions in document order across the descent so a child include
+  // can use an attribute a parent defined above it (last definition wins).
   const attributes = new Map<string, string>();
 
   const walk = (fileId: string): void => {
     if (visited.has(fileId)) return;
     visited.add(fileId);
     nodes.push(fileId);
+    // Snapshot what this file inherits from its ancestors, before its own definitions apply.
+    inheritedAttributes.set(fileId, new Map(attributes));
 
     const content = readContent(fileId);
     if (content === null) return;
 
-    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
-
-    for (const match of content.matchAll(INCLUDE_RE)) {
+    for (const event of documentOrderEvents(content)) {
+      if (event.kind === 'attribute') {
+        attributes.set(event.name, event.value);
+        continue;
+      }
+      const match = event.match;
       const rawTarget = match[1].trim();
       const range = rangeOf(match);
       const resolved = resolveInclude(fileId, substitutePathAttributes(rawTarget, attributes));
@@ -183,7 +231,25 @@ export function buildIncludeGraph(
   };
 
   walk(rootFileId);
-  return { rootFileId, nodes, edges, unresolved };
+  return { tree: { rootFileId, nodes, edges, unresolved }, inheritedAttributes };
+}
+
+/**
+ * Build the transitive include graph from a root file (see {@link buildIncludeGraphWithInheritance}
+ * for the cycle-guard and attribute-scoping rules). Convenience wrapper for callers that only need
+ * the graph and not the per-file inherited attributes.
+ *
+ * @param rootFileId - The main/current file id.
+ * @param readContent - Returns a file's content, or null if unavailable.
+ * @param resolveInclude - Resolves an include target (from a file) to a file id, or null.
+ * @returns The transitive {@link DocumentTree}.
+ */
+export function buildIncludeGraph(
+  rootFileId: string,
+  readContent: (fileId: string) => string | null,
+  resolveInclude: (fromFileId: string, target: string) => string | null,
+): DocumentTree {
+  return buildIncludeGraphWithInheritance(rootFileId, readContent, resolveInclude).tree;
 }
 
 /**

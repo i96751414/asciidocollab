@@ -44,6 +44,8 @@ interface ContentAreaProperties {
   onNavigateToXref?: (target: XrefTarget) => void;
   // Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a).
   inheritedOffset?: number;
+  // Attributes the open file inherits from the documents that include it (US8/FR-045a).
+  inheritedAttributes?: ReadonlyMap<string, string>;
   // Live request to reveal a line in the open editor (same-file go-to-definition, FR-049).
   revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
@@ -82,6 +84,7 @@ function ContentArea({
   onNavigateToFile,
   onNavigateToXref,
   inheritedOffset,
+  inheritedAttributes,
   revealRequest,
   onOpenUrl,
   onChange,
@@ -136,6 +139,7 @@ function ContentArea({
       onNavigateToFile={onNavigateToFile}
       onNavigateToXref={onNavigateToXref}
       inheritedOffset={inheritedOffset}
+      inheritedAttributes={inheritedAttributes}
       revealRequest={revealRequest}
       onOpenUrl={onOpenUrl}
       onChange={onChange}
@@ -237,6 +241,11 @@ export function ProjectEditorLayout({
   // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
   // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
   const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;
+  // Attributes the open file inherits from the documents that include it (FR-045a); empty until the
+  // index resolves them or when the file is the tree root. Seeds the `{attr}` collapse-to-value
+  // display so cross-document references render their value.
+  const editorInheritedAttributes =
+    projectIndex && selectedFile ? projectIndex.inheritedAttributes(selectedFile.nodeId) : undefined;
   // Render the assembled main document (includes inlined, FR-068) only while the open file IS the
   // configured main file. Editing an included child still previews that child standalone with exact
   // source-line scroll-sync. (When the main file itself has content after an include, scroll-sync to
@@ -361,6 +370,7 @@ export function ProjectEditorLayout({
               onNavigateToFile={handleNavigateToFile}
               onNavigateToXref={handleNavigateToXref}
               inheritedOffset={editorInheritedOffset}
+              inheritedAttributes={editorInheritedAttributes}
               revealRequest={revealRequest}
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}

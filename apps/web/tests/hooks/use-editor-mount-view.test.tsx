@@ -1024,6 +1024,8 @@ function fakeProjectIndex(resolves: boolean): import('@/lib/codemirror/asciidoc-
     references: [],
     resolveXref: () => (resolves ? symbol : 'unresolved'),
     resolveAttribute: () => 'unresolved',
+    inheritedAttributes: () => new Map(),
+    effectiveAttributes: () => new Map(),
     inheritedOffset: () => 0,
     pathOf: () => 'chapters/intro.adoc',
     lineOf: () => 7,

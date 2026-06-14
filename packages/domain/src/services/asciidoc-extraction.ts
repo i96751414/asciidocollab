@@ -181,13 +181,36 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
   return 'unresolved';
 }
 
+/** An attribute definition or an include directive, tagged with its document offset. */
+type DocumentOrderEvent =
+  | { kind: 'attribute'; pos: number; name: string; value: string }
+  | { kind: 'include'; pos: number; match: RegExpMatchArray };
+
+/**
+ * The attribute definitions and include directives of a file in document (offset) order, so the
+ * include walk can apply attributes and resolve includes interleaved exactly as Asciidoctor does:
+ * an include sees only the attributes defined ABOVE it, not those defined later in the same file.
+ */
+function documentOrderEvents(content: string): DocumentOrderEvent[] {
+  const events: DocumentOrderEvent[] = [];
+  for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
+    events.push({ kind: 'attribute', pos: match.index ?? 0, name: match[1].toLowerCase(), value: match[2] });
+  }
+  for (const match of content.matchAll(INCLUDE_RE)) {
+    events.push({ kind: 'include', pos: match.index ?? 0, match });
+  }
+  return events.toSorted((a, b) => a.pos - b.pos);
+}
+
 /**
  * Build the transitive include graph from a root file. Cycle-guarded (a file is
- * visited once); each edge carries the `leveloffset=` declared on its include.
+ * visited once), so a recursive include (file a includes file b which includes file a)
+ * terminates instead of looping; each edge carries the `leveloffset=` declared on its include.
  *
- * `{attr}` references in an include target are expanded against the attributes
- * defined across the files visited so far (parent definitions are in scope before
- * a child is walked), so `include::{partsdir}/intro.adoc[]` resolves like Asciidoctor.
+ * `{attr}` references in an include target are expanded against the attributes defined in
+ * document order up to that directive (a parent's header attributes are in scope for a child,
+ * but attributes defined after the include are not), so `include::{partsdir}/intro.adoc[]`
+ * resolves like Asciidoctor.
  *
  * @param rootFileId - The main/current file id.
  * @param readContent - Returns a file's content, or null if unavailable.
@@ -218,9 +241,15 @@ export function buildIncludeGraph(
     const content = readContent(fileId);
     if (content === null) return;
 
-    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
-
-    for (const match of content.matchAll(INCLUDE_RE)) {
+    // Apply attribute definitions and resolve includes interleaved in document order, so an
+    // include sees only the attributes defined ABOVE it (a parent's header attributes are in
+    // scope for a child, but attributes defined after the include are not — matching Asciidoctor).
+    for (const event of documentOrderEvents(content)) {
+      if (event.kind === 'attribute') {
+        attributes.set(event.name, event.value);
+        continue;
+      }
+      const match = event.match;
       const rawTarget = match[1].trim();
       const range = rangeOf(match);
       const resolved = resolveInclude(fileId, substitutePathAttributes(rawTarget, attributes));

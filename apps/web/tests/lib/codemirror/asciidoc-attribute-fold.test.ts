@@ -6,24 +6,28 @@ import { EditorView, Decoration } from '@codemirror/view';
 import {
   computeAttributeReplacements,
   asciidocAttributeFold,
+  refreshAttributeFoldEffect,
 } from '@/lib/codemirror/asciidoc-attribute-fold';
 
 // jsdom environment — the ViewPlugin builds replace-decoration widgets that call
 // document.createElement, and EditorView needs a DOM host to mount into.
 
-/** Mount a CM6 view with the attribute-fold plugin over `documentContent`. */
+// A single plugin instance shared by the no-seed helpers, so `view.plugin(staticFold)` can find it.
+const staticFold = asciidocAttributeFold();
+
+/** Mount a CM6 view with the (no-seed) attribute-fold plugin over `documentContent`. */
 function mountView(documentContent: string, selection?: EditorSelection): EditorView {
   const state = EditorState.create({
     doc: documentContent,
     selection,
-    extensions: [asciidocAttributeFold],
+    extensions: [staticFold],
   });
   return new EditorView({ state, parent: document.body });
 }
 
 /** Count the replace decorations the plugin produced for the current view. */
 function decorationCount(view: EditorView): number {
-  const set = view.plugin(asciidocAttributeFold)?.decorations;
+  const set = view.plugin(staticFold)?.decorations;
   return set ? set.size : 0;
 }
 
@@ -89,6 +93,31 @@ describe('computeAttributeReplacements (FR-057)', () => {
 
   test('returns an empty array for an empty document', () => {
     expect(computeAttributeReplacements('')).toEqual([]);
+  });
+
+  test('collapses a reference to an attribute inherited from another (including) document', () => {
+    // The open file does not define `product`; it is inherited from a parent file's header.
+    const inherited = new Map([['product', 'Acme']]);
+    const [replacement] = computeAttributeReplacements('Use {product} now.\n', inherited);
+    expect(replacement.value).toBe('Acme');
+    expect('Use {product} now.\n'.slice(replacement.from, replacement.to)).toBe('{product}');
+  });
+
+  test('resolves an inherited attribute reference case-insensitively', () => {
+    const inherited = new Map([['product', 'Acme']]);
+    const [replacement] = computeAttributeReplacements('{Product}\n', inherited);
+    expect(replacement?.value).toBe('Acme');
+  });
+
+  test('an in-file definition overrides an inherited value from its definition line onward', () => {
+    const inherited = new Map([['v', 'parent']]);
+    const replacements = computeAttributeReplacements('{v}\n:v: child\n{v}\n', inherited);
+    expect(replacements.map((entry) => entry.value)).toEqual(['parent', 'child']);
+  });
+
+  test('an in-file unset hides an inherited value', () => {
+    const inherited = new Map([['v', 'parent']]);
+    expect(computeAttributeReplacements(':v!:\n{v}\n', inherited)).toHaveLength(0);
   });
 });
 
@@ -170,12 +199,35 @@ describe('asciidocAttributeFold ViewPlugin', () => {
   test('the replace decoration spans exactly the {reference} text', () => {
     const source = ':a: X\n{a}\n';
     const view = mountView(source, EditorSelection.cursor(0));
-    const set = view.plugin(asciidocAttributeFold)?.decorations;
+    const set = view.plugin(staticFold)?.decorations;
     const ranges: Array<{ from: number; to: number }> = [];
     set?.between(0, view.state.doc.length, (from, to) => {
       ranges.push({ from, to });
     });
     expect(ranges).toEqual([{ from: source.indexOf('{a}'), to: source.indexOf('{a}') + 3 }]);
+    view.destroy();
+  });
+
+  test('collapses a reference to an attribute inherited from a parent document', () => {
+    const fold = asciidocAttributeFold(() => new Map([['product', 'Acme']]));
+    const state = EditorState.create({ doc: 'Use {product} now.\n', extensions: [fold] });
+    const view = new EditorView({ state, parent: document.body });
+    expect(view.dom.querySelector('.cm-ad-attr-value')?.textContent).toBe('Acme');
+    view.destroy();
+  });
+
+  test('re-collapses inherited references when refreshAttributeFoldEffect fires after the index resolves', () => {
+    // Simulate the symbol index resolving the parent attribute asynchronously: the seed is empty at
+    // mount, then becomes available; a refresh effect (no doc change) must rebuild the decorations.
+    let inherited: ReadonlyMap<string, string> = new Map();
+    const fold = asciidocAttributeFold(() => inherited);
+    const state = EditorState.create({ doc: 'Use {product} now.\n', extensions: [fold] });
+    const view = new EditorView({ state, parent: document.body });
+    expect(view.plugin(fold)?.decorations.size).toBe(0); // not yet inherited
+    inherited = new Map([['product', 'Acme']]);
+    view.dispatch({ effects: refreshAttributeFoldEffect.of() });
+    expect(view.plugin(fold)?.decorations.size).toBe(1);
+    expect(view.dom.querySelector('.cm-ad-attr-value')?.textContent).toBe('Acme');
     view.destroy();
   });
 });

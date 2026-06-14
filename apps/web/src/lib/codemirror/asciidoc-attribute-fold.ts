@@ -6,18 +6,29 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { RangeSetBuilder } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect, type Extension } from '@codemirror/state';
 
 /**
  * `{attr}` collapse-to-value (US4, FR-057). Renders a resolved attribute
  * reference (`{version}`) as its value via a **replace decoration** — the
- * document text is never changed (Constitution VII; FR-015). Only references to
- * attributes defined *earlier* in the document (document-order, like
- * Asciidoctor) are collapsed; unknown/forward references are left as-is.
+ * document text is never changed (Constitution VII; FR-015). References resolve
+ * against attributes defined *earlier* in the document (document-order, like
+ * Asciidoctor) seeded with the attributes the open file inherits from the
+ * documents that include it (US8/FR-045a); unknown/forward references are left
+ * as-is. Attribute names are matched case-insensitively, as Asciidoctor does.
  */
 
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):(?:\s+(.*))?$/;
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
+const NO_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Dispatch this effect to recompute the collapsed `{attr}` values when nothing in the document
+ * changed — such as when the project symbol index resolves new inherited attributes from a parent
+ * file (an async load, or a main-file reconfiguration), so cross-document references collapse once
+ * their values become available.
+ */
+export const refreshAttributeFoldEffect = StateEffect.define<void>();
 
 /** A `{attr}` reference and the value it collapses to for display. */
 export interface AttributeReplacement {
@@ -29,17 +40,28 @@ export interface AttributeReplacement {
   value: string;
 }
 
-/** Resolve `{ref}`s inside an attribute value against the values defined so far. */
+/** Resolve `{ref}`s inside an attribute value against the values defined so far (case-insensitive). */
 function substitute(value: string, defined: Map<string, string>): string {
-  return value.replaceAll(ATTR_REF_RE, (whole, name: string) => defined.get(name) ?? whole);
+  return value.replaceAll(ATTR_REF_RE, (whole, name: string) => defined.get(name.toLowerCase()) ?? whole);
 }
 
 /**
- * Compute the collapse-to-value replacements for a document: every `{name}`
- * reference whose attribute was defined on an earlier line.
+ * Compute the collapse-to-value replacements for a document: every `{name}` reference whose
+ * attribute is in scope — defined on an earlier line, or inherited from a parent (including)
+ * document. An in-file definition (or unset) overrides the inherited value from its line onward.
+ *
+ * @param documentText - The open file's full text.
+ * @param inherited - Attributes (lowercase name → value) inherited from the documents that include
+ *   this file; these seed the in-scope set so cross-document references collapse. Defaults to none.
+ * @returns The replacements, each with the raw reference's offsets and its resolved value.
  */
-export function computeAttributeReplacements(documentText: string): AttributeReplacement[] {
+export function computeAttributeReplacements(
+  documentText: string,
+  inherited: ReadonlyMap<string, string> = NO_INHERITED_ATTRIBUTES,
+): AttributeReplacement[] {
+  // Attribute names are case-insensitive in Asciidoctor; normalise keys to lowercase throughout.
   const defined = new Map<string, string>();
+  for (const [name, value] of inherited) defined.set(name.toLowerCase(), value);
   const replacements: AttributeReplacement[] = [];
   let cursor = 0;
 
@@ -47,15 +69,15 @@ export function computeAttributeReplacements(documentText: string): AttributeRep
     const definition = ATTR_DEF_RE.exec(line);
     if (definition) {
       const [, name, bang, rawValue] = definition;
-      if (bang === '!') defined.delete(name);
-      else defined.set(name, substitute(rawValue ?? '', defined));
+      const key = name.toLowerCase();
+      if (bang === '!') defined.delete(key);
+      else defined.set(key, substitute(rawValue ?? '', defined));
       cursor += line.length + 1;
       continue;
     }
 
     for (const match of line.matchAll(ATTR_REF_RE)) {
-      const name = match[1];
-      const value = defined.get(name);
+      const value = defined.get(match[1].toLowerCase());
       if (value === undefined) continue;
       const from = cursor + (match.index ?? 0);
       replacements.push({ from, to: from + match[0].length, value });
@@ -84,10 +106,10 @@ class AttributeValueWidget extends WidgetType {
   }
 }
 
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(view: EditorView, getInheritedAttributes: () => ReadonlyMap<string, string>): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const { from: selectionFrom, to: selectionTo } = view.state.selection.main;
-  for (const replacement of computeAttributeReplacements(view.state.doc.toString())) {
+  for (const replacement of computeAttributeReplacements(view.state.doc.toString(), getInheritedAttributes())) {
     // Reveal the raw reference when the selection/cursor overlaps it, so editing works.
     if (selectionFrom <= replacement.to && selectionTo >= replacement.from) continue;
     builder.add(
@@ -99,19 +121,34 @@ function buildDecorations(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
-/** CM6 extension rendering resolved `{attr}` references as their value (display only). */
-export const asciidocAttributeFold = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view);
-    }
-
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
-        this.decorations = buildDecorations(update.view);
+/**
+ * CM6 extension rendering resolved `{attr}` references as their value (display only). The accessor
+ * supplies the attributes the open file inherits from the documents that include it, so a reference
+ * to a cross-document attribute collapses too; it is read lazily so a {@link
+ * refreshAttributeFoldEffect} re-evaluates once the symbol index resolves those values.
+ *
+ * @param getInheritedAttributes - Returns the open file's inherited attribute map (default none).
+ * @returns The attribute collapse-to-value view plugin.
+ */
+export function asciidocAttributeFold(
+  getInheritedAttributes: () => ReadonlyMap<string, string> = () => NO_INHERITED_ATTRIBUTES,
+): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view, getInheritedAttributes);
       }
-    }
-  },
-  { decorations: (plugin) => plugin.decorations },
-);
+
+      update(update: ViewUpdate) {
+        const refreshed = update.transactions.some((tr) =>
+          tr.effects.some((effect) => effect.is(refreshAttributeFoldEffect)),
+        );
+        if (update.docChanged || update.selectionSet || update.viewportChanged || refreshed) {
+          this.decorations = buildDecorations(update.view, getInheritedAttributes);
+        }
+      }
+    },
+    { decorations: (plugin) => plugin.decorations },
+  );
+}

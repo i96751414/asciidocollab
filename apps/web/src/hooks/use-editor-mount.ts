@@ -3,6 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
+import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-fold';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
@@ -27,6 +28,9 @@ import {
 function clampToValidLine(line: number, totalLines: number): number {
   return Math.min(Math.max(line, 1), totalLines);
 }
+
+/** Stable empty default for the inherited-attributes prop (avoids a new map identity per render). */
+const EMPTY_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 
 interface UseEditorMountOptions {
   content: string;
@@ -68,6 +72,12 @@ interface UseEditorMountOptions {
    * (FR-045a).
    */
   inheritedOffset?: number;
+  /**
+   * Attributes the open file inherits from the documents that include it (US8/FR-045a). They seed
+   * the `{attr}` collapse-to-value display so cross-document references resolve; a change after the
+   * symbol index rebuilds re-evaluates the display without a document edit.
+   */
+  inheritedAttributes?: ReadonlyMap<string, string>;
   onLineClick?: (line: number) => void;
   /**
    * Called with the 1-based line at the top of the editor viewport as the user scrolls.
@@ -118,6 +128,7 @@ export function useEditorMount({
   onOpenUrl,
   onNavigateToXref,
   inheritedOffset = 0,
+  inheritedAttributes = EMPTY_INHERITED_ATTRIBUTES,
   onLineClick,
   onScrollLine,
   initialLine,
@@ -149,10 +160,17 @@ export function useEditorMount({
     const index = projectIndexAccessor();
     return index ? index.pathOf(index.activeFileId) : null;
   };
-  // Project attribute map (for `{attr}` / `imagesdir` substitution in macro targets).
-  const currentAttributes = (): ReadonlyMap<string, string> => projectIndexAccessor()?.attributes ?? new Map();
+  // Attribute map in scope for the open file (its own definitions plus those inherited from the
+  // files that include it) — for `{attr}` / `imagesdir` substitution in this file's macro targets.
+  const currentAttributes = (): ReadonlyMap<string, string> => {
+    const index = projectIndexAccessor();
+    return index ? index.effectiveAttributes(index.activeFileId) : new Map();
+  };
   const inheritedOffsetReference = useRef(inheritedOffset);
   useEffect(() => { inheritedOffsetReference.current = inheritedOffset; }, [inheritedOffset]);
+  // Attributes inherited from including documents, seeding the `{attr}` collapse-to-value display.
+  const inheritedAttributesReference = useRef(inheritedAttributes);
+  useEffect(() => { inheritedAttributesReference.current = inheritedAttributes; }, [inheritedAttributes]);
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
   const collabLineRestoredReference = useRef(false);
 
@@ -227,6 +245,7 @@ export function useEditorMount({
         getImagePaths: () => imagePathsReference.current,
         getCurrentFilePath: currentFilePath,
         getCurrentAttributes: currentAttributes,
+        getInheritedAttributes: () => inheritedAttributesReference.current,
         projectIndexAccessor,
         getInheritedOffset: () => inheritedOffsetReference.current,
         collabActive,
@@ -295,6 +314,12 @@ export function useEditorMount({
   useEffect(() => {
     viewReference.current?.dispatch({ effects: refreshHeadingLevelsEffect.of() });
   }, [inheritedOffset]);
+
+  // Re-evaluate the `{attr}` collapse-to-value display when the inherited attributes change (e.g. a
+  // parent file's content loaded into the index) — no document edit occurs, so nudge the plugin.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: refreshAttributeFoldEffect.of() });
+  }, [inheritedAttributes]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).

@@ -169,7 +169,7 @@ export function createLinkHandler(
       rawPath: string,
       kind: 'include' | 'image',
     ): { status: 'ok'; path: string } | { status: 'unresolved' } | { status: 'ignore' } => {
-      const attributes = index ? index.attributes : NO_ATTRIBUTES;
+      const attributes = index ? index.effectiveAttributes(index.activeFileId) : NO_ATTRIBUTES;
       const resolved =
         kind === 'image'
           ? resolveImageTarget(rawPath, attributes)

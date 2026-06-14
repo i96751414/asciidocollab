@@ -1,5 +1,5 @@
 import {
-  buildIncludeGraph,
+  buildIncludeGraphWithInheritance,
   extractSymbols,
   extractReferences,
   extractAttributeDefinitions,
@@ -33,10 +33,29 @@ export interface ProjectSymbolIndex {
   /** All references found across the tree. */
   references: Reference[];
   /**
-   * Attribute name (lowercase) → value across the tree (document order, last definition wins).
-   * Used to substitute `{attr}` references in include/image targets when resolving paths.
+   * Attribute name (lowercase) → value across the entire tree (document order, last definition
+   * wins). A project-wide view used for listing/completion; for resolving a SPECIFIC file's macro
+   * targets prefer {@link ProjectSymbolIndex.effectiveAttributes}, which honours include scoping.
    */
   attributes: ReadonlyMap<string, string>;
+  /**
+   * The attributes a file inherits from the files that include it (its ancestors along the
+   * include path from the root), capturing each ancestor's definitions that precede the include
+   * directive leading to this file. Empty for the root and for files unreachable from it.
+   *
+   * @param fileId - Identifier of the file whose inherited attributes are wanted.
+   * @returns The inherited attribute map (lowercase name → value); empty when none.
+   */
+  inheritedAttributes(fileId: string): ReadonlyMap<string, string>;
+  /**
+   * The effective attributes in scope for a file: the attributes it {@link inheritedAttributes
+   * inherits} from its parents merged with its own definitions (the file's own win). This is the
+   * map to use when substituting `{attr}` / `:imagesdir:` in that file's own include/image targets.
+   *
+   * @param fileId - Identifier of the file whose effective attributes are wanted.
+   * @returns The effective attribute map (lowercase name → value).
+   */
+  effectiveAttributes(fileId: string): ReadonlyMap<string, string>;
   /**
    * Resolve an xref target to its defining symbol.
    *
@@ -113,7 +132,7 @@ export function buildProjectSymbolIndex(
   activeFileId: string = rootFileId,
   pathOf: (fileId: string) => string | null = () => null,
 ): ProjectSymbolIndex {
-  const tree = buildIncludeGraph(rootFileId, getContent, resolveInclude);
+  const { tree, inheritedAttributes } = buildIncludeGraphWithInheritance(rootFileId, getContent, resolveInclude);
 
   const symbols: ProjectSymbol[] = [];
   const references: Reference[] = [];
@@ -126,12 +145,25 @@ export function buildProjectSymbolIndex(
     for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
   }
 
+  const noAttributes: ReadonlyMap<string, string> = new Map();
+  const inheritedAttributesOf = (fileId: string): ReadonlyMap<string, string> =>
+    inheritedAttributes.get(fileId) ?? noAttributes;
+
   return {
     tree,
     activeFileId,
     symbols,
     references,
     attributes,
+    inheritedAttributes: inheritedAttributesOf,
+    effectiveAttributes: (fileId) => {
+      const effective = new Map(inheritedAttributesOf(fileId));
+      const content = getContent(fileId);
+      if (content !== null) {
+        for (const definition of extractAttributeDefinitions(content)) effective.set(definition.name, definition.value);
+      }
+      return effective;
+    },
     resolveXref: (target) =>
       resolveReference({ kind: 'xref', target, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
     resolveAttribute: (name) =>

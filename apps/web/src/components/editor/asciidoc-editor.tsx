@@ -50,6 +50,8 @@ interface AsciiDocEditorProperties {
   onNavigateToXref?: (target: XrefTarget) => void;
   /** Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a). */
   inheritedOffset?: number;
+  /** Attributes the open file inherits from the documents that include it (US8/FR-045a). */
+  inheritedAttributes?: ReadonlyMap<string, string>;
   /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
   revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
@@ -124,6 +126,7 @@ export function AsciiDocEditor({
   onNavigateToFile,
   onNavigateToXref,
   inheritedOffset,
+  inheritedAttributes,
   revealRequest,
   onOpenUrl,
   onLineClick,
@@ -208,6 +211,7 @@ export function AsciiDocEditor({
     onNavigateToFile,
     onNavigateToXref,
     inheritedOffset,
+    inheritedAttributes,
     revealRequest,
     onOpenUrl,
     onLineClick,

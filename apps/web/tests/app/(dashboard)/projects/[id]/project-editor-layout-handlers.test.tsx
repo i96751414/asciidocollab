@@ -175,6 +175,7 @@ function makeIndex(activeFileId = 'f1') {
     pathOf: mockPathOf,
     lineOf: mockLineOf,
     inheritedOffset: mockInheritedOffset,
+    inheritedAttributes: () => new Map<string, string>(),
   };
 }
 let mockIndexValue: ReturnType<typeof makeIndex> | null = makeIndex();

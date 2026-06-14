@@ -6,6 +6,7 @@ import {
   extractAttributeDefinitions,
   resolveReference,
   buildIncludeGraph,
+  buildIncludeGraphWithInheritance,
   inheritedLevelOffset,
 } from '@/lib/asciidoc/extraction';
 import { resolveSandboxedPath } from '@/lib/asciidoc/sandbox-path';
@@ -140,6 +141,70 @@ describe('buildIncludeGraph attribute substitution', () => {
     expect(tree.unresolved).toEqual([
       expect.objectContaining({ fromFile: 'main.adoc', target: '{missing}/intro.adoc' }),
     ]);
+  });
+
+  test('an include is not resolved by an attribute defined after it (document order)', () => {
+    const files = {
+      'main.adoc': 'include::{dir}/x.adoc[]\n\n:dir: parts\n',
+      'parts/x.adoc': '= X\n',
+    };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.unresolved.some((u) => u.target === '{dir}/x.adoc')).toBe(true);
+    expect(tree.nodes).not.toContain('parts/x.adoc');
+  });
+});
+
+describe('buildIncludeGraphWithInheritance (parent → child attribute scope)', () => {
+  test('a child inherits parent attributes defined above its include, not below', () => {
+    const files = {
+      'main.adoc': ':before: B\n\ninclude::child.adoc[]\n\n:after: A\n',
+      'child.adoc': '= Child\n',
+    };
+    const { inheritedAttributes } = buildIncludeGraphWithInheritance(
+      'main.adoc',
+      (id) => files[id] ?? null,
+      resolveInclude(files),
+    );
+    const inherited = inheritedAttributes.get('child.adoc');
+    expect(inherited?.get('before')).toBe('B');
+    expect(inherited?.has('after')).toBe(false);
+    // The root inherits nothing from anyone.
+    expect(inheritedAttributes.get('main.adoc')?.size).toBe(0);
+  });
+
+  test('a child inherits the parent :imagesdir: defined above the include', () => {
+    const files = {
+      'main.adoc': ':imagesdir: assets\n\ninclude::child.adoc[]\n',
+      'child.adoc': 'image::logo.png[]\n',
+    };
+    const { inheritedAttributes } = buildIncludeGraphWithInheritance(
+      'main.adoc',
+      (id) => files[id] ?? null,
+      resolveInclude(files),
+    );
+    expect(inheritedAttributes.get('child.adoc')?.get('imagesdir')).toBe('assets');
+  });
+
+  test('a recursive include (a → b → a) terminates and records first-visit inheritance', () => {
+    const files = {
+      'a.adoc': ':froma: 1\n\ninclude::b.adoc[]\n',
+      'b.adoc': ':fromb: 2\n\ninclude::a.adoc[]\n',
+    };
+    const { tree, inheritedAttributes } = buildIncludeGraphWithInheritance(
+      'a.adoc',
+      (id) => files[id] ?? null,
+      resolveInclude(files),
+    );
+    expect(tree.nodes).toEqual(['a.adoc', 'b.adoc']); // cycle guarded, no infinite loop
+    expect(inheritedAttributes.get('a.adoc')?.size).toBe(0); // root, first visit
+    expect(inheritedAttributes.get('b.adoc')?.get('froma')).toBe('1');
+  });
+
+  test('buildIncludeGraph returns just the tree of the inheritance-aware walk', () => {
+    const files = { 'main.adoc': ':x: 1\ninclude::child.adoc[]\n', 'child.adoc': '= Child\n' };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    const result = buildIncludeGraphWithInheritance('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree).toEqual(result.tree);
   });
 });
 
