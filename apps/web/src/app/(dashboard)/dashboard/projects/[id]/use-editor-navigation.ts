@@ -4,6 +4,7 @@ import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import type { SymbolUsage } from '@/lib/api/projects';
+import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import type { ProjectSymbol } from '@asciidocollab/shared';
 
 interface EditorNavigationOptions {
@@ -47,6 +48,10 @@ interface EditorNavigation {
   /** Cross-file refactoring dialog open state (US12/FR-064-065). */
   refactorOpen: boolean;
   setRefactorOpen: (open: boolean) => void;
+  /** Symbol the refactor dialog opens seeded with (the cursor symbol), or null for a cold open. */
+  refactorInitial: CursorSymbol | null;
+  // Opens the refactor dialog, seeded with the given cursor symbol (null clears any prior seed).
+  openRefactor: (initial?: CursorSymbol | null) => void;
   // Navigates to a usage surfaced by the refactor dialog.
   handleNavigateToUsage: (usage: SymbolUsage) => void;
   /** After a rename rewrites persisted files, rebuild the index. */
@@ -138,6 +143,13 @@ export function useEditorNavigation({
 
   // Cross-file refactoring dialog (US12/FR-064-065): find-usages + rename id/anchor/attribute.
   const [refactorOpen, setRefactorOpen] = useState(false);
+  // Symbol seeding the dialog when opened from the toolbar with the cursor on a symbol; null seeds
+  // a blank dialog (keyboard shortcut, or cursor not on a symbol).
+  const [refactorInitial, setRefactorInitial] = useState<CursorSymbol | null>(null);
+  const openRefactor = useCallback((initial: CursorSymbol | null = null) => {
+    setRefactorInitial(initial);
+    setRefactorOpen(true);
+  }, []);
   const handleNavigateToUsage = useCallback((usage: SymbolUsage) => {
     setRefactorOpen(false);
     const index = getProjectIndex();
@@ -155,17 +167,17 @@ export function useEditorNavigation({
   const handleSymbolRenamed = useCallback(() => {
     refreshProjectIndex();
   }, [refreshProjectIndex]);
-  // Ctrl/Cmd+Shift+R opens the refactoring dialog.
+  // Ctrl/Cmd+Shift+R opens the refactoring dialog cold (no cursor-symbol seed).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'r' || event.key === 'R')) {
         event.preventDefault();
-        setRefactorOpen(true);
+        openRefactor(null);
       }
     };
     globalThis.addEventListener('keydown', onKey);
     return () => globalThis.removeEventListener('keydown', onKey);
-  }, []);
+  }, [openRefactor]);
   const handleOpenUrl = useCallback((url: string) => {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
   }, []);
@@ -187,6 +199,8 @@ export function useEditorNavigation({
     handleSelectSymbol,
     refactorOpen,
     setRefactorOpen,
+    refactorInitial,
+    openRefactor,
     handleNavigateToUsage,
     handleSymbolRenamed,
   };

@@ -13,7 +13,9 @@ jest.mock('@/contexts/current-user-context', () => ({
   useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
 }));
 
-// Editor stub that surfaces the navigation callbacks so tests can drive Ctrl+click flows.
+// Editor stub that surfaces the navigation callbacks so tests can drive Ctrl+click flows. The
+// Go to Symbol / Refactor buttons now live in the editor toolbar, so the stub renders them and
+// seeds the refactor callback with a sample cursor symbol (real detection is unit-tested separately).
 jest.mock('@/components/editor/asciidoc-editor', () => ({
   AsciiDocEditor: jest.fn((properties: {
     content: string;
@@ -27,6 +29,8 @@ jest.mock('@/components/editor/asciidoc-editor', () => ({
     onScrollLine?: (line: number) => void;
     onLineClick?: (line: number) => void;
     onChange?: (value: string) => void;
+    onGoToSymbol?: () => void;
+    onRefactor?: (initial: { kind: string; name: string } | null) => void;
   }) => (
     <div
       data-testid="asciidoc-editor"
@@ -34,6 +38,10 @@ jest.mock('@/components/editor/asciidoc-editor', () => ({
       data-file-node-id={properties.fileNodeId ?? ''}
       data-inherited-offset={String(properties.inheritedOffset ?? '')}
     >
+      {properties.onGoToSymbol && <button onClick={() => properties.onGoToSymbol?.()}>Go to Symbol</button>}
+      {properties.onRefactor && (
+        <button onClick={() => properties.onRefactor?.({ kind: 'attribute', name: 'seeded' })}>Refactor</button>
+      )}
       {properties.content}
     </div>
   )),
@@ -116,15 +124,16 @@ jest.mock('@/components/editor/editor-go-to-symbol', () => ({
 
 // Refactor stub: exposes open state plus navigate + renamed callbacks.
 jest.mock('@/components/editor/editor-symbol-refactor', () => ({
-  EditorSymbolRefactor: ({ open, onNavigate, onRenamed, onClose }: {
+  EditorSymbolRefactor: ({ open, initial, onNavigate, onRenamed, onClose }: {
     open: boolean;
+    initial?: { kind: string; name: string } | null;
     onNavigate: (usage: SymbolUsage) => void;
     onRenamed: () => void;
     onClose: () => void;
   }) => {
     if (!open) return null;
     return (
-      <div data-testid="refactor">
+      <div data-testid="refactor" data-initial-name={initial?.name ?? ''}>
         <button onClick={() => onNavigate({ fileNodeId: 'usage-file', path: '/usage.adoc', kind: 'xref', range: { from: 7, to: 12 } })}>
           navigate usage
         </button>
@@ -330,7 +339,7 @@ describe('ProjectEditorLayout — main-file picker wiring', () => {
 });
 
 describe('ProjectEditorLayout — go to symbol', () => {
-  test('header button opens the palette seeded with the index symbols', () => {
+  test('toolbar button opens the palette seeded with the index symbols', () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
     expect(screen.getByTestId('go-to-symbol')).toHaveAttribute('data-symbol-count', '1');
@@ -369,18 +378,22 @@ describe('ProjectEditorLayout — go to symbol', () => {
 });
 
 describe('ProjectEditorLayout — refactor dialog', () => {
-  test('header button opens the refactor dialog', () => {
+  test('toolbar button opens the refactor dialog seeded with the cursor symbol', () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
-    expect(screen.getByTestId('refactor')).toBeInTheDocument();
+    const dialog = screen.getByTestId('refactor');
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute('data-initial-name', 'seeded');
   });
 
-  test('Ctrl+Shift+R keyboard shortcut opens the dialog', () => {
+  test('Ctrl+Shift+R keyboard shortcut opens the dialog cold (no cursor seed)', () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     act(() => {
       fireEvent.keyDown(globalThis, { key: 'r', ctrlKey: true, shiftKey: true });
     });
-    expect(screen.getByTestId('refactor')).toBeInTheDocument();
+    const dialog = screen.getByTestId('refactor');
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute('data-initial-name', '');
   });
 
   test('navigating to a cross-file usage uses lineOf and switches files', () => {

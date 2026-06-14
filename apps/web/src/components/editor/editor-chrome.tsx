@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import type { Awareness } from 'y-protocols/awareness';
 import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
 import type { TableContext } from '@/lib/codemirror/asciidoc-table-context';
+import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { EditorToolbar } from './editor-toolbar';
 import { EditorTableContextToolbar } from './editor-table-context-toolbar';
 import { CollabPresenceBar } from './collab-presence-bar';
@@ -24,6 +25,10 @@ interface EditorChromeProperties {
   tableContext: TableContext | null;
   /** Awareness for the collab presence bar; null/undefined on the non-collab path. */
   awareness?: Awareness | null;
+  /** Opens the Go to Symbol palette (FR-061). */
+  onGoToSymbol?: () => void;
+  // Opens the refactor dialog (US12), seeded with the symbol under the cursor.
+  onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
 /**
@@ -43,6 +48,8 @@ export function EditorChrome({
   setSoftWrap,
   tableContext,
   awareness,
+  onGoToSymbol,
+  onRefactor,
 }: EditorChromeProperties) {
   const showTableToolbar = isAsciiDoc && canEdit && tableContext !== null && view !== null;
   return (
@@ -57,6 +64,8 @@ export function EditorChrome({
           setFontSize={setFontSize}
           setTheme={setTheme}
           setSoftWrap={setSoftWrap}
+          onGoToSymbol={onGoToSymbol}
+          onRefactor={onRefactor}
         />
       )}
       {showTableToolbar && view !== null && tableContext !== null && (

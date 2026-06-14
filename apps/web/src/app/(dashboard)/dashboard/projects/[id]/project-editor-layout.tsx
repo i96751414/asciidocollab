@@ -1,7 +1,7 @@
 'use client';
 import { useLayoutEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, ListTree, Replace, Settings, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
@@ -21,6 +21,7 @@ import { type ConnectionState } from '@/hooks/use-collab-document';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { EditorGoToSymbol } from '@/components/editor/editor-go-to-symbol';
 import { EditorSymbolRefactor } from '@/components/editor/editor-symbol-refactor';
 import { findSymbolUsages, renameSymbol } from '@/lib/api/projects';
@@ -71,6 +72,10 @@ interface ContentAreaProperties {
   collabUnavailable?: boolean;
   /** Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion. */
   getProjectIndex?: () => ProjectSymbolIndex | null;
+  /** Opens the Go to Symbol palette from the editor toolbar (FR-061). */
+  onGoToSymbol?: () => void;
+  // Opens the refactor dialog from the editor toolbar, seeded with the cursor symbol (US12).
+  onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
 function ContentArea({
@@ -96,6 +101,8 @@ function ContentArea({
   contentOverride,
   collabUnavailable,
   getProjectIndex,
+  onGoToSymbol,
+  onRefactor,
 }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
@@ -149,6 +156,8 @@ function ContentArea({
       connectionState={connectionState}
       collabUnavailable={collabUnavailable}
       getProjectIndex={getProjectIndex}
+      onGoToSymbol={onGoToSymbol}
+      onRefactor={onRefactor}
     />
   );
 }
@@ -221,7 +230,8 @@ export function ProjectEditorLayout({
     scrollRequest, resetScroll, revealRequest, openPathRequest, pendingXrefLine,
     handleScrollLine, handleLineClick, handleNavigateToFile, handleNavigateToXref, handleOpenUrl,
     goToSymbolOpen, setGoToSymbolOpen, symbolPathOf, handleSelectSymbol,
-    refactorOpen, setRefactorOpen, handleNavigateToUsage, handleSymbolRenamed,
+    refactorOpen, setRefactorOpen, refactorInitial, openRefactor,
+    handleNavigateToUsage, handleSymbolRenamed,
   } = useEditorNavigation({ projectIndex, getProjectIndex, refreshProjectIndex });
 
   // Last-selection restoration (FR-010), cursor-line persistence (FR-006), and the stale-memory
@@ -270,24 +280,6 @@ export function ProjectEditorLayout({
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setGoToSymbolOpen(true)}
-            title="Go to symbol (Ctrl/Cmd+Shift+O)"
-          >
-            <ListTree className="mr-2 h-4 w-4" />
-            Go to Symbol
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRefactorOpen(true)}
-            title="Find usages / rename symbol (Ctrl/Cmd+Shift+R)"
-          >
-            <Replace className="mr-2 h-4 w-4" />
-            Refactor
-          </Button>
           {canManage && (
             <>
               <Button asChild variant="ghost" size="sm">
@@ -382,6 +374,8 @@ export function ProjectEditorLayout({
               contentOverride={editorContentOverride}
               collabUnavailable={collabUnavailable}
               getProjectIndex={getProjectIndex}
+              onGoToSymbol={() => setGoToSymbolOpen(true)}
+              onRefactor={openRefactor}
             />
           </Panel>
           {showPreview && previewOpen && (
@@ -432,6 +426,7 @@ export function ProjectEditorLayout({
         open={refactorOpen}
         projectId={projectId}
         canEdit={canEdit}
+        initial={refactorInitial}
         findUsages={findSymbolUsages}
         renameSymbol={renameSymbol}
         onNavigate={handleNavigateToUsage}

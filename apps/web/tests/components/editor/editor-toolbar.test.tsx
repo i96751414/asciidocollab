@@ -235,6 +235,48 @@ describe('EditorToolbar', () => {
     });
   });
 
+  describe('Go to Symbol / Refactor buttons', () => {
+    test('the buttons are absent when no callbacks are provided', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} />);
+      expect(screen.queryByRole('button', { name: /go to symbol/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /refactor/i })).toBeNull();
+    });
+
+    test('Go to Symbol button fires its callback', () => {
+      const view = createMockView('');
+      const onGoToSymbol = jest.fn();
+      render(<EditorToolbar view={view} onGoToSymbol={onGoToSymbol} />);
+      fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+      expect(onGoToSymbol).toHaveBeenCalledTimes(1);
+    });
+
+    test('Refactor button seeds the dialog with the symbol under the cursor', () => {
+      const view = createMockView('{product}');
+      view.state.selection.main.head = 3; // inside {product}
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={view} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith({ kind: 'attribute', name: 'product' });
+    });
+
+    test('Refactor button passes null when the cursor is not on a symbol', () => {
+      const view = createMockView('plain text');
+      view.state.selection.main.head = 2;
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={view} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith(null);
+    });
+
+    test('Refactor button passes null when there is no view yet', () => {
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={null} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith(null);
+    });
+  });
+
   // ── action coverage: every toolbar button dispatches to the view ──────────
   const actionLabels: Array<[string, RegExp]> = [
     ['Italic',           /^italic$/i],

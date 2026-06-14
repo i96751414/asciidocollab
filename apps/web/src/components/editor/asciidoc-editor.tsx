@@ -16,6 +16,7 @@ import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
@@ -89,6 +90,10 @@ interface AsciiDocEditorProperties {
    * the legacy path would let two clients overwrite each other (no Yjs merge, no session lock).
    */
   collabUnavailable?: boolean;
+  /** Opens the Go to Symbol palette (FR-061) from the toolbar. */
+  onGoToSymbol?: () => void;
+  // Opens the refactor dialog (US12) from the toolbar, seeded with the symbol under the cursor.
+  onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
 /** Live collaboration binding passed to the editor when a file is a collaborative document. */
@@ -136,6 +141,8 @@ export function AsciiDocEditor({
   collab,
   connectionState,
   collabUnavailable = false,
+  onGoToSymbol,
+  onRefactor,
 }: AsciiDocEditorProperties) {
   // The file is on the collab path whenever a binding is present OR a connection state is set —
   // the latter covers the offline read-only fallback, where the binding is dropped but the file
@@ -261,6 +268,8 @@ export function AsciiDocEditor({
         setSoftWrap={setSoftWrap}
         tableContext={tableContext}
         awareness={collab?.awareness}
+        onGoToSymbol={onGoToSymbol}
+        onRefactor={onRefactor}
       />
       <EditorBanners
         externalChange={externalChangeBanner}
