@@ -102,8 +102,8 @@ export const asciidocHighlightStyle = HighlightStyle.define([
   // Comments & block delimiters (----, ////, //)
   { tag: [t.comment, t.lineComment, t.blockComment], color: c("--syntax-comment"), fontStyle: "italic" },
   { tag: [t.contentSeparator], color: c("--syntax-comment") },
-  // Punctuation
-  { tag: [t.punctuation, t.separator, t.operator, t.bracket], color: c("--syntax-punct") },
+  // Punctuation & typographic replacements/entities ((C), (R), &amp;)
+  { tag: [t.punctuation, t.separator, t.operator, t.bracket, t.character], color: c("--syntax-punct") },
   { tag: t.invalid, color: c("--destructive") },
 ]);
 

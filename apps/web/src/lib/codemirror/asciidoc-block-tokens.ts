@@ -32,12 +32,32 @@ import {
   inlineMacroToken,
   footnoteToken,
   blockTitleToken,
+  thematicBreakToken,
+  pageBreakToken,
   continuationLineToken,
   paragraphLineToken,
 } from './asciidoc-parser.terms.js';
 
 const NEWLINE = 10, SPACE = 32, TAB = 9, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
 const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, RBRACK = 93, SEMICOLON = 59, COMMA = 44;
+const APOSTROPHE = 39, LANGLE = 60;
+
+/**
+ * True when the current line consists solely of `min`+ repetitions of `code`
+ * (optionally trailed by whitespace) — e.g. `'''` thematic break, `<<<` page break.
+ */
+function isBreakLine(input: { peek: (offset: number) => number }, code: number, min: number): boolean {
+  let count = 0;
+  while (input.peek(count) === code) count++;
+  if (count < min) return false;
+  let offset = count;
+  let next = input.peek(offset);
+  while (next === SPACE || next === TAB) {
+    offset++;
+    next = input.peek(offset);
+  }
+  return next === NEWLINE || next === -1;
+}
 
 // Conditional preprocessor directives — highlighted distinctly from generic block macros (FR-051).
 const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
@@ -221,6 +241,18 @@ export const blockTokenizer = new ExternalTokenizer(
       while (input.peek(count) === PLUS) count++;
       const afterPlus = input.peek(count);
       if (count >= 4 && (afterPlus === NEWLINE || afterPlus === -1)) { consumeToEOL(input); input.acceptToken(passthroughDelim); return; }
+      return;
+    }
+
+    // ── "'" : thematicBreak (`'''`) ───────────────────────────────────────────
+    if (ch === APOSTROPHE) {
+      if (isBreakLine(input, APOSTROPHE, 3)) { consumeToEOL(input); input.acceptToken(thematicBreakToken); return; }
+      return;
+    }
+
+    // ── '<' : pageBreak (`<<<`) ────────────────────────────────────────────────
+    if (ch === LANGLE) {
+      if (isBreakLine(input, LANGLE, 3)) { consumeToEOL(input); input.acceptToken(pageBreakToken); return; }
       return;
     }
 

@@ -20,6 +20,7 @@
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
   blockTitleToken,
+  thematicBreakToken, pageBreakToken,
   continuationLineToken,
   paragraphLineToken
 }
@@ -44,6 +45,8 @@ block {
   DsvTableBlock |
   Conditional |
   BlockAttributeLine |
+  ThematicBreak |
+  PageBreak |
   BlockTitle |
   BlockMacro |
   ChecklistItem |
@@ -70,6 +73,8 @@ DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
 Conditional       { conditionalToken }
 BlockAttributeLine { blockAttrToken }
+ThematicBreak     { thematicBreakToken }
+PageBreak         { pageBreakToken }
 
 // ── List items ────────────────────────────────────────────────────────────────
 // A list item's / description entry's principal text may wrap onto following non-blank
@@ -124,7 +129,8 @@ inlineContent { inline+ }
 inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
-  inlineWord | spaceTok
+  Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
+  inlineWord | spaceTok | punctFallback | ltFallback
 }
 
 Bold       { boldDoubleMark   innerContent boldDoubleMark   |
@@ -136,12 +142,23 @@ Highlight  { hashMark         innerContent hashMark }
 Subscript  { tildeMark        innerContent tildeMark }
 Superscript { caretMark       innerContent caretMark }
 
-innerContent { (inlineWord | spaceTok)+ }
+innerContent { (inlineWord | spaceTok | punctFallback | ltFallback)+ }
 
 AttributeReference { attrRef }
 CrossReference     { xref }
 Footnote           { footnoteToken }
 InlineMacro        { inlineMacroToken }
+
+// Inline constructs gated by dedicated higher-priority tokens (T019 / grammar-tokens.md).
+// Each only matches its full shape; an unmatched lone starter char falls through to
+// `punctFallback` / `ltFallback` so ordinary prose (arithmetic, parentheses, `Q&A`,
+// comparisons) still tokenizes without parser errors.
+Passthrough   { passMark }
+InlineAnchor  { anchorMark }
+BiblioAnchor  { biblioMark }
+Replacement   { replacementMark }
+Entity        { entityMark }
+Callout       { calloutMark }
 
 @tokens {
   // Raw body line — any non-empty line inside delimited blocks
@@ -164,8 +181,23 @@ InlineMacro        { inlineMacroToken }
   attrRef { "{" $[a-zA-Z0-9_] $[a-zA-Z0-9_-]* "}" }
   xref    { "<<" ![\n>]* ">>" }
 
+  // Inline constructs (T019). Each is a single token spanning its full shape so a partial
+  // match (e.g. a lone starter char) never leaks a stray sub-token into surrounding prose.
+  // `passInner` forbids spaces so arithmetic (`1 + 2`) is not mistaken for a passthrough.
+  passMark        { "+" ![+ \t\n]+ "+" }
+  biblioMark      { "[[[" ![\]\n]+ "]]]" }
+  anchorMark      { "[[" ![\]\n]+ "]]" }
+  replacementMark { "(C)" | "(R)" | "(TM)" }
+  entityMark      { "&" $[a-zA-Z0-9#]+ ";" }
+  calloutMark     { "<" $[0-9]+ ">" }
+
+  // Lone narrowed-out starter chars that began no construct — kept as plain text so prose
+  // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`).
+  punctFallback { $[+\[(&] }
+  ltFallback    { "<" }
+
   // Generic inline word — excludes markup starters, whitespace, newlines
-  inlineWord { ![\n *\t_`#~^{<\\]+ }
+  inlineWord { ![\n *\t_`#~^{<\\+\[(&]+ }
   spaceTok   { $[ \t]+ }
 
   nl { "\n" }

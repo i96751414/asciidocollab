@@ -16,8 +16,27 @@ export const LBRACK = 91;
 export const RBRACK = 93;
 export const SEMICOLON = 59;
 export const COMMA = 44;
+export const APOSTROPHE = 39;
+export const LANGLE = 60;
 
 const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
+
+/**
+ * True when the current line consists solely of `min`+ repetitions of `code`
+ * (optionally trailed by whitespace) — e.g. `'''` thematic break, `<<<` page break.
+ */
+export function isBreakLine(input: InputStream, code: number, min: number): boolean {
+  let count = 0;
+  while (input.peek(count) === code) count++;
+  if (count < min) return false;
+  let offset = count;
+  let next = input.peek(offset);
+  while (next === SPACE || next === 9 /* TAB */) {
+    offset++;
+    next = input.peek(offset);
+  }
+  return next === NEWLINE || next === -1;
+}
 
 /** Mirror of the production `isBlockAttributeLine` (keep the two in sync). */
 function isBlockAttributeLine(input: InputStream): boolean {
@@ -219,6 +238,18 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
       if (ch === PLUS) {
         let count = 0; while (input.peek(count) === PLUS) count++;
         if (count >= 4 && (input.peek(count) === NEWLINE || input.peek(count) === -1)) { consumeToEOL(input); input.acceptToken(terms['passthroughDelim']); return; }
+        return;
+      }
+
+      // Thematic break: a line of 3+ apostrophes (`'''`).
+      if (ch === APOSTROPHE) {
+        if (isBreakLine(input, APOSTROPHE, 3)) { consumeToEOL(input); input.acceptToken(terms['thematicBreakToken']); return; }
+        return;
+      }
+
+      // Page break: a line of 3+ left angle-brackets (`<<<`).
+      if (ch === LANGLE) {
+        if (isBreakLine(input, LANGLE, 3)) { consumeToEOL(input); input.acceptToken(terms['pageBreakToken']); return; }
         return;
       }
 

@@ -1,0 +1,103 @@
+import { hasToken, tokenAt, tokensOfType } from './helpers/tokenize';
+
+// US7 / T019 — deferred inline-construct rework (grammar-tokens.md):
+// narrow `inlineWord` and add dedicated tokens for inline passthrough, inline/biblio
+// anchors, replacements, entities, code callouts, and the block-level thematic/page
+// breaks — WITHOUT regressing existing emphasis / xref / attr-ref / prose tokenization.
+
+describe('US7 inline — passthrough (+x+) (FR-027)', () => {
+  test('recognises +x+ as a Passthrough', () => {
+    expect(hasToken('a +literal+ b\n', 'Passthrough')).toBe(true);
+  });
+
+  test('a lone + in arithmetic prose is NOT a passthrough', () => {
+    expect(hasToken('1 + 2 = 3\n', 'Passthrough')).toBe(false);
+    expect(tokensOfType('1 + 2 = 3\n', 'Paragraph')).toHaveLength(1);
+  });
+
+  test('a + immediately followed by a space does not open a passthrough', () => {
+    expect(hasToken('x + y + z\n', 'Passthrough')).toBe(false);
+  });
+});
+
+describe('US7 inline — inline & bibliography anchors (FR-027)', () => {
+  test('recognises [[id]] as an InlineAnchor', () => {
+    expect(hasToken('text [[anchor-id]] more\n', 'InlineAnchor')).toBe(true);
+  });
+
+  test('recognises [[[ref]]] as a BiblioAnchor', () => {
+    expect(hasToken('[[[biblio-ref]]] citation\n', 'BiblioAnchor')).toBe(true);
+  });
+
+  test('a single bracketed word [note] in prose is NOT an anchor', () => {
+    expect(hasToken('see [note] here\n', 'InlineAnchor')).toBe(false);
+    expect(hasToken('see [note] here\n', 'BiblioAnchor')).toBe(false);
+  });
+});
+
+describe('US7 inline — replacements & entities (FR-054)', () => {
+  test.each(['(C)', '(R)', '(TM)'])('recognises %s as a Replacement', (mark) => {
+    expect(hasToken(`Acme ${mark} brand\n`, 'Replacement')).toBe(true);
+  });
+
+  test('a function call f(x) is NOT a replacement', () => {
+    expect(hasToken('call f(x) now\n', 'Replacement')).toBe(false);
+  });
+
+  test.each(['&amp;', '&#8217;'])('recognises %s as an Entity', (entity) => {
+    expect(hasToken(`A ${entity} B\n`, 'Entity')).toBe(true);
+  });
+
+  test('a bare ampersand in Q&A is NOT an entity', () => {
+    expect(hasToken('a Q&A session\n', 'Entity')).toBe(false);
+  });
+});
+
+describe('US7 inline — code callouts (FR-027)', () => {
+  test('recognises <1> as a Callout', () => {
+    expect(hasToken('puts x <1>\n', 'Callout')).toBe(true);
+  });
+
+  test('an xref <<intro>> is NOT a callout (and still tokenizes as CrossReference)', () => {
+    expect(hasToken('see <<intro>>\n', 'Callout')).toBe(false);
+    expect(hasToken('see <<intro>>\n', 'CrossReference')).toBe(true);
+  });
+
+  test('a less-than comparison a < b does not crash tokenization', () => {
+    expect(tokensOfType('a < b\n', 'Paragraph')).toHaveLength(1);
+  });
+});
+
+describe('US7 block — thematic & page breaks (FR-028)', () => {
+  test("recognises ''' as a ThematicBreak", () => {
+    expect(hasToken("'''\n", 'ThematicBreak')).toBe(true);
+  });
+
+  test('recognises <<< as a PageBreak', () => {
+    expect(hasToken('<<<\n', 'PageBreak')).toBe(true);
+  });
+
+  test('a paragraph that merely contains <<< inline is not a PageBreak block', () => {
+    expect(hasToken('text <<< more\n', 'PageBreak')).toBe(false);
+  });
+});
+
+describe('US7 inline rework — existing tokenization not regressed', () => {
+  test('emphasis containing a narrowed char still spans the whole run', () => {
+    // `*a+b*` — the `+` inside bold must not split the Bold node.
+    expect(hasToken('*a+b*\n', 'Bold')).toBe(true);
+    expect(tokenAt('*a+b*\n', 'Bold', 0)).toBe(true);
+  });
+
+  test('bold/italic/monospace/xref/attr-ref all still tokenize', () => {
+    expect(hasToken('a *b* _i_ `c`\n', 'Bold')).toBe(true);
+    expect(hasToken('a *b* _i_ `c`\n', 'Italic')).toBe(true);
+    expect(hasToken('a *b* _i_ `c`\n', 'Monospace')).toBe(true);
+    expect(hasToken('see <<intro>>\n', 'CrossReference')).toBe(true);
+    expect(hasToken('v{version}\n', 'AttributeReference')).toBe(true);
+  });
+
+  test('plain prose with assorted punctuation remains a single Paragraph', () => {
+    expect(tokensOfType('cost is 3 (each) & up + tax\n', 'Paragraph')).toHaveLength(1);
+  });
+});

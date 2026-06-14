@@ -66,4 +66,39 @@ test.describe('US7 highlighting coverage (live editor)', () => {
     const attributeLine = page.locator('.cm-line', { hasText: '[source,ruby]' }).first();
     await expect(attributeLine.locator('span').first()).toBeVisible();
   });
+
+  // T019/T020 — inline-construct rework: passthrough, inline/biblio anchors,
+  // replacements, entities, callouts, and the thematic/page breaks now tokenize.
+  // (Bare-URL / smart-quote / UI+math-macro / hard-break remain a tracked follow-up.)
+  test('new inline & break constructs render as highlighted spans', async ({ page }) => {
+    const sample = [
+      '= Inline Sample',
+      '',
+      'A +literal+ passthrough and an [[inline-anchor]] here.',
+      '',
+      '[[[biblio-ref]]] Acme (C) brand a &amp; b.',
+      '',
+      'puts value <1>',
+      '',
+      "'''",
+      '',
+      '<<<',
+      '',
+    ].join('\n');
+
+    await createAdocFile(page, projectId, 'inline.adoc', sample);
+    await openProject(page, projectId);
+    await openFile(page, 'inline.adoc');
+
+    const content = page.locator('.cm-editor .cm-content');
+    await expect(content).toContainText('+literal+');
+    await expect(content).toContainText('[[inline-anchor]]');
+    await expect(content).toContainText('[[[biblio-ref]]]');
+
+    // The passthrough/anchor line and the thematic-break line must render styled spans.
+    const passLine = page.locator('.cm-line', { hasText: '+literal+' }).first();
+    await expect(passLine.locator('span').first()).toBeVisible();
+    const breakLine = page.locator('.cm-line', { hasText: "'''" }).first();
+    await expect(breakLine.locator('span').first()).toBeVisible();
+  });
 });
