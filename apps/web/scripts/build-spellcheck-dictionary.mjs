@@ -4,10 +4,9 @@
 // must never be bundled for the client — only nspell (pure JS) runs in the browser,
 // fed by these fetched assets.
 //
-// The set MUST match SPELLCHECK_DICTIONARY_LANGUAGES in the domain (and the web mirror
-// in src/lib/codemirror/spellcheck-languages.ts). Languages without a Hunspell dictionary
-// (CJK / most Indic scripts) are selectable but simply have no asset here, so spellcheck
-// is a no-op for them.
+// The set MUST match SPELLCHECK_LANGUAGES in the domain (and the web mirror in
+// src/lib/codemirror/spellcheck-languages.ts) — only languages with a bundled Hunspell
+// dictionary are offered, so there is exactly one asset pair per selectable language.
 //
 // Runs in predev/prebuild. Output is git-ignored generated data — do not edit by hand.
 

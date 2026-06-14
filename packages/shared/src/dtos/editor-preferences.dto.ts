@@ -16,7 +16,6 @@ export interface EditorPreferencesDto {
   spellcheckEnabled?: boolean;
 }
 
-/** Selectable spellcheck/document languages (mirrors the domain's SPELLCHECK_LANGUAGES). */
+/** Selectable spellcheck languages — the dictionary-backed set (mirrors the domain's SPELLCHECK_LANGUAGES). */
 export type SpellcheckLanguageDto =
-  | 'en' | 'zh' | 'hi' | 'es' | 'fr' | 'ar' | 'bn' | 'pt'
-  | 'ur' | 'de' | 'it' | 'uk' | 'ja' | 'pl' | 'tr';
+  | 'en' | 'es' | 'fr' | 'pt' | 'de' | 'it' | 'uk' | 'pl' | 'tr';

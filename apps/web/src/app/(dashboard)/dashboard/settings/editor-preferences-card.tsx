@@ -104,7 +104,7 @@ export function EditorPreferencesCard() {
 
         <div className="space-y-1">
           <Label htmlFor="spellcheckLanguage">Spell Check Language</Label>
-          <CardDescription>Document language for spell checking. Languages without a dictionary are selectable but not spell-checked.</CardDescription>
+          <CardDescription>Document language used for spell checking.</CardDescription>
           <select
             id="spellcheckLanguage"
             value={spellcheckLanguage}
@@ -113,9 +113,7 @@ export function EditorPreferencesCard() {
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
           >
             {SPELLCHECK_LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.label}{option.hasDictionary ? '' : ' (no dictionary)'}
-              </option>
+              <option key={option.code} value={option.code}>{option.label}</option>
             ))}
           </select>
         </div>

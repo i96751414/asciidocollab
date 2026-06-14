@@ -6,18 +6,12 @@ export const DEFAULT_SCROLL_SYNC_ENABLED = false;
 export const DEFAULT_PREVIEW_STYLE = 'asciidocollab' as const;
 
 /**
- * Selectable editor spellcheck languages (ISO 639-1 codes). The user can pick any of these as the
- * document language; spellcheck only produces diagnostics for languages with a bundled Hunspell
- * dictionary (see {@link SPELLCHECK_DICTIONARY_LANGUAGES}). The rest are valid selections that yield
- * no diagnostics (Hunspell does not suit CJK / most Indic scripts) — which, together with the
- * enable/disable flag, lets spellcheck be effectively turned off.
+ * Selectable editor spellcheck languages (ISO 639-1 codes). The list is limited to languages with a
+ * bundled Hunspell dictionary that actually spell-check — offering a language that produces no
+ * diagnostics would be misleading. Hunspell does not suit CJK / most Indic / Arabic-script
+ * languages, so those are intentionally absent; to turn spellcheck off, use the enable/disable flag.
  */
 export const SPELLCHECK_LANGUAGES = [
-  'en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ur', 'de', 'it', 'uk', 'ja', 'pl', 'tr',
-] as const;
-
-/** The subset of SPELLCHECK_LANGUAGES that has a bundled Hunspell dictionary and actually spell-checks. */
-export const SPELLCHECK_DICTIONARY_LANGUAGES = [
   'en', 'es', 'fr', 'pt', 'de', 'it', 'uk', 'pl', 'tr',
 ] as const;
 

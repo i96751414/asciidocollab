@@ -32,7 +32,7 @@ const preferences = {
 jest.mock('@/hooks/use-editor-preferences', () => ({
   useEditorPreferences: () => preferences,
   isSpellcheckLanguageValue: (value: string) =>
-    ['en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ur', 'de', 'it', 'uk', 'ja', 'pl', 'tr'].includes(value),
+    ['en', 'es', 'fr', 'pt', 'de', 'it', 'uk', 'pl', 'tr'].includes(value),
 }));
 
 jest.mock('@/components/preview-style-control', () => ({
@@ -114,12 +114,11 @@ describe('EditorPreferencesCard', () => {
     expect(setSpellcheckEnabled).toHaveBeenCalledWith(false);
   });
 
-  test('offers all 15 languages and wires the selector to setSpellcheckLanguage', () => {
+  test('offers the nine dictionary-backed languages and wires the selector to setSpellcheckLanguage', () => {
     render(<EditorPreferencesCard />);
     const select = screen.getByLabelText('Spell Check Language');
-    expect(select.querySelectorAll('option')).toHaveLength(15);
-    // A language without a bundled dictionary is labelled and still selectable.
-    expect(screen.getByRole('option', { name: /Japanese \(no dictionary\)/ })).toBeInTheDocument();
+    expect(select.querySelectorAll('option')).toHaveLength(9);
+    expect(screen.getByRole('option', { name: 'French' })).toBeInTheDocument();
     fireEvent.change(select, { target: { value: 'fr' } });
     expect(setSpellcheckLanguage).toHaveBeenCalledWith('fr');
   });

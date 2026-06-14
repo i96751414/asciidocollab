@@ -18,7 +18,7 @@ const putBodySchema = {
     previewStyle: { type: 'string', enum: ['asciidocollab', 'asciidoctor'] },
     spellcheckLanguage: {
       type: 'string',
-      enum: ['en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ur', 'de', 'it', 'uk', 'ja', 'pl', 'tr'],
+      enum: ['en', 'es', 'fr', 'pt', 'de', 'it', 'uk', 'pl', 'tr'],
     },
     spellcheckEnabled: { type: 'boolean' },
   },
