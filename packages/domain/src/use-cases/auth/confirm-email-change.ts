@@ -1,11 +1,11 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
-import { Email } from '../../value-objects/email';
+import { UserId } from '../../value-objects/ids/user-id';
+import { Email } from '../../value-objects/identity/email';
 import { EmailChangeTokenRepository } from '../../ports/auth-tokens/email-change-token.repository';
 import { UserRepository } from '../../ports/user/user.repository';
 import { TokenGenerator } from '../../services/token-generator';
 import { DomainError } from '../../errors/domain-error';
-import { InvalidTokenError } from '../../errors/invalid-token';
+import { InvalidTokenError } from '../../errors/auth/invalid-token';
 import { Result } from '../../types/result';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { RequestContext } from '../../types/request-context';

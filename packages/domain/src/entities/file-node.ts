@@ -1,8 +1,8 @@
-import { FileNodeId } from '../value-objects/file-node-id';
-import { ProjectId } from '../value-objects/project-id';
-import { FileNodeType } from '../value-objects/file-node-type';
-import { FilePath } from '../value-objects/file-path';
-import { Timestamps } from '../value-objects/timestamps';
+import { FileNodeId } from '../value-objects/ids/file-node-id';
+import { ProjectId } from '../value-objects/ids/project-id';
+import { FileNodeType } from '../value-objects/files/file-node-type';
+import { FilePath } from '../value-objects/files/file-path';
+import { Timestamps } from '../value-objects/common/timestamps';
 
 /**
  * Represents a node in a project's file tree.

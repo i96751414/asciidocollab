@@ -1,5 +1,5 @@
-import { EditorTheme } from '../../src/value-objects/editor-theme';
-import { ValidationError } from '../../src/errors/validation-error';
+import { EditorTheme } from '../../src/value-objects/editor/editor-theme';
+import { ValidationError } from '../../src/errors/common/validation-error';
 
 describe('EditorTheme', () => {
   test('parse("default") succeeds', () => {

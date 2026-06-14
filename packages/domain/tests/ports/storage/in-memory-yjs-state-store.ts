@@ -1,6 +1,6 @@
 import { YjsStateStore } from '../../../src/ports/storage/yjs-state-store';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { YjsStateId } from '../../../src/value-objects/yjs-state-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { YjsStateId } from '../../../src/value-objects/ids/yjs-state-id';
 
 /** In-memory implementation of YjsStateStore for domain unit tests. */
 export class InMemoryYjsStateStore implements YjsStateStore {

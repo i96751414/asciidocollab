@@ -1,7 +1,7 @@
 import { Project } from '../../src/entities/project';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { ProjectName } from '../../src/value-objects/project-name';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { ProjectName } from '../../src/value-objects/project/project-name';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
 
 describe('Project entity', () => {
   const projectId = ProjectId.create('550e8400-e29b-41d4-a716-446655440000');

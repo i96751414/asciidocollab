@@ -1,9 +1,9 @@
 import { EditorPreferences } from '../../src/entities/editor-preferences';
-import { EditorPreferencesId } from '../../src/value-objects/editor-preferences-id';
-import { EditorTheme } from '../../src/value-objects/editor-theme';
-import { PreviewStyle } from '../../src/value-objects/preview-style';
-import { UserId } from '../../src/value-objects/user-id';
-import { ValidationError } from '../../src/errors/validation-error';
+import { EditorPreferencesId } from '../../src/value-objects/ids/editor-preferences-id';
+import { EditorTheme } from '../../src/value-objects/editor/editor-theme';
+import { PreviewStyle } from '../../src/value-objects/editor/preview-style';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { ValidationError } from '../../src/errors/common/validation-error';
 
 const validId = EditorPreferencesId.create('550e8400-e29b-41d4-a716-446655440000');
 const validUserId = UserId.create('660e8400-e29b-41d4-a716-446655440001');

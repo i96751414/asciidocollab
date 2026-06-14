@@ -1,13 +1,13 @@
 import { EmailChangeToken } from '../../entities/email-change-token';
-import { EmailChangeTokenId } from '../../value-objects/email-change-token-id';
-import { UserId } from '../../value-objects/user-id';
-import { Email } from '../../value-objects/email';
+import { EmailChangeTokenId } from '../../value-objects/ids/email-change-token-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { Email } from '../../value-objects/identity/email';
 import { UserRepository } from '../../ports/user/user.repository';
 import { EmailChangeTokenRepository } from '../../ports/auth-tokens/email-change-token.repository';
 import { TokenGenerator } from '../../services/token-generator';
 import { EmailChangeNotifier } from '../../services/email-change-notifier';
 import { Result } from '../../types/result';
-import { NotificationDeliveryError } from '../../errors/notification-delivery';
+import { NotificationDeliveryError } from '../../errors/common/notification-delivery';
 import { randomUUID } from 'crypto';
 
 /** Initiates an email address change by issuing a confirmation token and notifying the user. */

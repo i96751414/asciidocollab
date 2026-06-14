@@ -1,6 +1,6 @@
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { AuditLog } from '../../entities/audit-log';
-import { AuditLogId } from '../../value-objects/audit-log-id';
+import { AuditLogId } from '../../value-objects/ids/audit-log-id';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { RequestContext } from '../../types/request-context';
 import { withOrigin } from '../audit-metadata';

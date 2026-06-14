@@ -1,5 +1,5 @@
 import { Asset } from '../../../src/entities/asset';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
 import { AssetRepository } from '../../../src/ports/file-tree/asset.repository';
 
 /** In-memory implementation of AssetRepository for use in tests. */

@@ -3,9 +3,9 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemoryAuthAttemptTelemetryRepository } from '../../ports/admin/in-memory-auth-attempt-telemetry.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { PasswordHasher } from '../../../src/services/password-hasher';
 import { RequestContext } from '../../../src/types/request-context';
 import { randomUUID } from 'crypto';

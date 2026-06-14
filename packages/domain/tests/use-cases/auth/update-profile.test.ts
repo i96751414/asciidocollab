@@ -1,8 +1,8 @@
 import { UpdateProfileUseCase } from '../../../src/use-cases/auth/update-profile';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 
 function createTestUser(): User {

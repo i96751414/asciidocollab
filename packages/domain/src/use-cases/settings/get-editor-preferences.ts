@@ -1,9 +1,9 @@
 import type { EditorPreferencesRepository } from '../../ports/user/editor-preferences.repository';
-import type { UserId } from '../../value-objects/user-id';
+import type { UserId } from '../../value-objects/ids/user-id';
 import type { EditorPreferences } from '../../entities/editor-preferences';
 import type { Result } from '../../types/result';
-import { EditorPreferencesId } from '../../value-objects/editor-preferences-id';
-import { EditorTheme } from '../../value-objects/editor-theme';
+import { EditorPreferencesId } from '../../value-objects/ids/editor-preferences-id';
+import { EditorTheme } from '../../value-objects/editor/editor-theme';
 import { EditorPreferences as EditorPreferencesEntity } from '../../entities/editor-preferences';
 import { DEFAULT_FONT_SIZE, DEFAULT_THEME, DEFAULT_SCROLL_SYNC_ENABLED } from '../../constants/editor-preferences';
 import { randomUUID } from 'node:crypto';

@@ -1,7 +1,7 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
-import { Email } from '../../value-objects/email';
-import { ProjectId } from '../../value-objects/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { Email } from '../../value-objects/identity/email';
+import { ProjectId } from '../../value-objects/ids/project-id';
 
 /**
  * Repository interface for managing User persistence.

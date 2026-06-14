@@ -1,6 +1,6 @@
 import { PaginationOptions } from '../../ports/admin/audit-log.repository';
 import { UserRepository } from '../../ports/user/user.repository';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /** Default page size for admin list endpoints. */
 export const ADMIN_LIST_DEFAULT_LIMIT = 50;

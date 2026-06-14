@@ -1,6 +1,6 @@
 import { RecordAuditEventUseCase } from '../../../src/use-cases/auth/record-audit-event';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
-import { UserId } from '../../../src/value-objects/user-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
 import { AUDIT_AUTH_SIGNED_IN } from '../../../src/audit-actions';
 import { randomUUID } from 'crypto';
 

@@ -1,8 +1,8 @@
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { AuditLog } from '../../entities/audit-log';
 import { AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from '../../ports/admin/audit-log.repository';
 import { UserRepository } from '../../ports/user/user.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { isAdmin, normalizeAdminPagination } from './admin-list-helpers';

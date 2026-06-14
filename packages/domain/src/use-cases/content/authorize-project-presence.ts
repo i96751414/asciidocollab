@@ -1,7 +1,7 @@
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
-import { CollabConnectionDeniedError } from '../../errors/collab-connection-denied';
+import { CollabConnectionDeniedError } from '../../errors/content/collab-connection-denied';
 import { Result } from '../../types/result';
 
 /**

@@ -1,21 +1,21 @@
 import { Project } from '../../entities/project';
-import { ProjectId } from '../../value-objects/project-id';
-import { UserId } from '../../value-objects/user-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { ProjectNotFoundError } from '../../errors/project-not-found';
-import { MainFileNotFoundError } from '../../errors/main-file-not-found';
-import { MainFileNotAsciidocError } from '../../errors/main-file-not-asciidoc';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../errors/project/project-not-found';
+import { MainFileNotFoundError } from '../../errors/project/main-file-not-found';
+import { MainFileNotAsciidocError } from '../../errors/project/main-file-not-asciidoc';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { Logger } from '../../ports/observability/logger';
-import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
+import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 
 /** Input for {@link SetProjectMainFileUseCase}; null clears the configuration. */
 export interface SetProjectMainFileInput {

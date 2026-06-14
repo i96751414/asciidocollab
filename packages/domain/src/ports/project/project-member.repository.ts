@@ -1,7 +1,7 @@
 import { ProjectMember } from '../../entities/project-member';
-import { ProjectId } from '../../value-objects/project-id';
-import { UserId } from '../../value-objects/user-id';
-import { Role } from '../../value-objects/role';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { Role } from '../../value-objects/identity/role';
 
 /**
  * Repository interface for managing ProjectMember persistence.

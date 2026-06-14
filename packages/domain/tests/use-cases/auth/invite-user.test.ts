@@ -4,13 +4,13 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { Email } from '../../../src/value-objects/email';
-import { Role } from '../../../src/value-objects/role';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { UserNotFoundError } from '../../../src/errors/user-not-found';
-import { ProjectMemberAlreadyExistsError } from '../../../src/errors/project-member-already-exists';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Role } from '../../../src/value-objects/identity/role';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { UserNotFoundError } from '../../../src/errors/auth/user-not-found';
+import { ProjectMemberAlreadyExistsError } from '../../../src/errors/members/project-member-already-exists';
 
 describe('InviteUserUseCase', () => {
   let userRepo: InMemoryUserRepository;

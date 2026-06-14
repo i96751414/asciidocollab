@@ -1,11 +1,11 @@
 // T035: Failing domain unit tests for ConfirmEmailChangeUseCase
 import { ConfirmEmailChangeUseCase } from '../../../src/use-cases/auth/confirm-email-change';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { EmailChangeToken } from '../../../src/entities/email-change-token';
-import { EmailChangeTokenId } from '../../../src/value-objects/email-change-token-id';
+import { EmailChangeTokenId } from '../../../src/value-objects/ids/email-change-token-id';
 import { InMemoryEmailChangeTokenRepository } from '../../ports/auth-tokens/in-memory-email-change-token.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { UserRepository } from '../../../src/ports/user/user.repository';

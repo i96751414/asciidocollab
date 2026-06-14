@@ -2,8 +2,8 @@ import {
   AuthAttemptTelemetry,
   AUTH_ATTEMPT_FAILED_SIGN_IN,
 } from '../../src/entities/auth-attempt-telemetry';
-import { AuthAttemptTelemetryId } from '../../src/value-objects/auth-attempt-telemetry-id';
-import { ValidationError } from '../../src/errors/validation-error';
+import { AuthAttemptTelemetryId } from '../../src/value-objects/ids/auth-attempt-telemetry-id';
+import { ValidationError } from '../../src/errors/common/validation-error';
 import { randomUUID } from 'crypto';
 
 function makeAttempt(attemptCount: number): AuthAttemptTelemetry {

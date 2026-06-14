@@ -1,9 +1,9 @@
 import { AuthorizeProjectPresenceUseCase } from '../../../src/use-cases/content/authorize-project-presence';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { ProjectMember } from '../../../src/entities/project-member';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { Role } from '../../../src/value-objects/role';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { Role } from '../../../src/value-objects/identity/role';
 
 describe('AuthorizeProjectPresenceUseCase', () => {
   const memberId = UserId.create('550e8400-e29b-41d4-a716-446655440001');

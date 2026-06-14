@@ -1,15 +1,15 @@
 import { FileNode } from '../../entities/file-node';
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { FilePath } from '../../value-objects/file-path';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { FilePath } from '../../value-objects/files/file-path';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
-import { ValidationError } from '../../errors/validation-error';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
+import { ValidationError } from '../../errors/common/validation-error';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 

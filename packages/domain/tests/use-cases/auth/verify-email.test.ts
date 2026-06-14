@@ -3,12 +3,12 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryEmailVerificationTokenRepository } from '../../ports/auth-tokens/in-memory-email-verification-token.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { EmailVerificationToken } from '../../../src/entities/email-verification-token';
-import { EmailVerificationTokenId } from '../../../src/value-objects/email-verification-token-id';
+import { EmailVerificationTokenId } from '../../../src/value-objects/ids/email-verification-token-id';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { InvalidTokenError } from '../../../src/errors/invalid-token';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { InvalidTokenError } from '../../../src/errors/auth/invalid-token';
 import type { TokenGenerator } from '../../../src/services/token-generator';
 import { randomUUID } from 'crypto';
 

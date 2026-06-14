@@ -2,11 +2,11 @@ import { ListAuditLogsUseCase } from '../../../src/use-cases/admin/list-audit-lo
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 import { AuditLog } from '../../../src/entities/audit-log';
-import { AuditLogId } from '../../../src/value-objects/audit-log-id';
+import { AuditLogId } from '../../../src/value-objects/ids/audit-log-id';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 
 function makeAdminUser(id: string): User {
   return new User(

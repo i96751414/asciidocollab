@@ -1,9 +1,9 @@
-import { EditorPreferencesId } from '../value-objects/editor-preferences-id';
-import { EditorTheme } from '../value-objects/editor-theme';
-import { PreviewStyle } from '../value-objects/preview-style';
-import { UserId } from '../value-objects/user-id';
-import { Timestamps } from '../value-objects/timestamps';
-import { ValidationError } from '../errors/validation-error';
+import { EditorPreferencesId } from '../value-objects/ids/editor-preferences-id';
+import { EditorTheme } from '../value-objects/editor/editor-theme';
+import { PreviewStyle } from '../value-objects/editor/preview-style';
+import { UserId } from '../value-objects/ids/user-id';
+import { Timestamps } from '../value-objects/common/timestamps';
+import { ValidationError } from '../errors/common/validation-error';
 import {
   FONT_SIZE_MIN,
   FONT_SIZE_MAX,

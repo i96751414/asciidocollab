@@ -1,5 +1,5 @@
-import { EmailVerificationTokenId } from '../value-objects/email-verification-token-id';
-import { UserId } from '../value-objects/user-id';
+import { EmailVerificationTokenId } from '../value-objects/ids/email-verification-token-id';
+import { UserId } from '../value-objects/ids/user-id';
 
 /** Domain entity representing a one-time email verification token. */
 export class EmailVerificationToken {

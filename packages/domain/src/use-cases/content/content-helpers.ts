@@ -1,11 +1,11 @@
 import { FileNode } from '../../entities/file-node';
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { DomainError } from '../../errors/domain-error';
 
 /** Outcome of a combined membership + file-node lookup. */

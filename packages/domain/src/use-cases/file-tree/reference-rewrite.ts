@@ -1,15 +1,15 @@
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { FilePath } from '../../value-objects/file-path';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { FilePath } from '../../value-objects/files/file-path';
 import { FileNode } from '../../entities/file-node';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { Reference } from '../../types/asciidoc';
 import { extractReferences } from '../../services/asciidoc-extraction';
-import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
-import { resolveSandboxedPath } from '../../value-objects/sandboxed-path';
-import { relativeProjectPath } from '../../value-objects/relative-project-path';
+import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
+import { resolveSandboxedPath } from '../../value-objects/files/sandboxed-path';
+import { relativeProjectPath } from '../../value-objects/files/relative-project-path';
 
 /** Strip leading slashes so a `/docs/a.adoc` FilePath becomes the sandbox-relative `docs/a.adoc`. */
 export function stripLeadingSlash(path: string): string {

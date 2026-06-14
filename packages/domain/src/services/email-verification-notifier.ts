@@ -1,4 +1,4 @@
-import type { Email } from '../value-objects/email';
+import type { Email } from '../value-objects/identity/email';
 
 /** Service interface for sending email-verification messages. */
 export interface EmailVerificationNotifier {

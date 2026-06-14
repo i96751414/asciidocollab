@@ -1,4 +1,4 @@
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /** Repository interface for managing user session records. */
 export interface SessionRepository {

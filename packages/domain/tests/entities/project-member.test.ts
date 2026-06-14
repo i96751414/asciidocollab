@@ -1,7 +1,7 @@
 import { ProjectMember } from '../../src/entities/project-member';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { UserId } from '../../src/value-objects/user-id';
-import { Role } from '../../src/value-objects/role';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { Role } from '../../src/value-objects/identity/role';
 
 describe('ProjectMember entity', () => {
   const projectId = ProjectId.create('550e8400-e29b-41d4-a716-446655440000');

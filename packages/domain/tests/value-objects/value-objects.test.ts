@@ -1,22 +1,22 @@
-import { UserId } from '../../src/value-objects/user-id';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
-import { DocumentId } from '../../src/value-objects/document-id';
-import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
-import { TemplateId } from '../../src/value-objects/template-id';
-import { AuditLogId } from '../../src/value-objects/audit-log-id';
-import { ContentId } from '../../src/value-objects/content-id';
-import { YjsStateId } from '../../src/value-objects/yjs-state-id';
-import { Email } from '../../src/value-objects/email';
-import { FilePath } from '../../src/value-objects/file-path';
-import { FileName } from '../../src/value-objects/file-name';
-import { ProjectName } from '../../src/value-objects/project-name';
-import { Role } from '../../src/value-objects/role';
-import { GitProvider } from '../../src/value-objects/git-provider';
-import { MimeType } from '../../src/value-objects/mime-type';
-import { FileNodeType } from '../../src/value-objects/file-node-type';
-import { TemplateCategory } from '../../src/value-objects/template-category';
-import { ValidationError } from '../../src/errors/validation-error';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
+import { DocumentId } from '../../src/value-objects/ids/document-id';
+import { GitRepositoryId } from '../../src/value-objects/ids/git-repository-id';
+import { TemplateId } from '../../src/value-objects/ids/template-id';
+import { AuditLogId } from '../../src/value-objects/ids/audit-log-id';
+import { ContentId } from '../../src/value-objects/ids/content-id';
+import { YjsStateId } from '../../src/value-objects/ids/yjs-state-id';
+import { Email } from '../../src/value-objects/identity/email';
+import { FilePath } from '../../src/value-objects/files/file-path';
+import { FileName } from '../../src/value-objects/files/file-name';
+import { ProjectName } from '../../src/value-objects/project/project-name';
+import { Role } from '../../src/value-objects/identity/role';
+import { GitProvider } from '../../src/value-objects/project/git-provider';
+import { MimeType } from '../../src/value-objects/files/mime-type';
+import { FileNodeType } from '../../src/value-objects/files/file-node-type';
+import { TemplateCategory } from '../../src/value-objects/project/template-category';
+import { ValidationError } from '../../src/errors/common/validation-error';
 
 describe('Value Objects', () => {
   describe('UUID-based VOs', () => {

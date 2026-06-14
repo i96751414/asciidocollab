@@ -1,7 +1,7 @@
 import { FileNode } from '../../../src/entities/file-node';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { FileNodeRepository } from '../../../src/ports/file-tree/file-node.repository';
 
 /** In-memory implementation of FileNodeRepository for use in tests. */

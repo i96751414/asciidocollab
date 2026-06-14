@@ -1,10 +1,10 @@
 import { Document } from '../../src/entities/document';
-import { DocumentId } from '../../src/value-objects/document-id';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
-import { ContentId } from '../../src/value-objects/content-id';
-import { YjsStateId } from '../../src/value-objects/yjs-state-id';
-import { MimeType } from '../../src/value-objects/mime-type';
-import { Timestamps } from '../../src/value-objects/timestamps';
+import { DocumentId } from '../../src/value-objects/ids/document-id';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
+import { ContentId } from '../../src/value-objects/ids/content-id';
+import { YjsStateId } from '../../src/value-objects/ids/yjs-state-id';
+import { MimeType } from '../../src/value-objects/files/mime-type';
+import { Timestamps } from '../../src/value-objects/common/timestamps';
 
 describe('Document entity', () => {
   const documentId = DocumentId.create('550e8400-e29b-41d4-a716-446655440000');

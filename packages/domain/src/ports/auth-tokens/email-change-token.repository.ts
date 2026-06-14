@@ -1,5 +1,5 @@
 import { EmailChangeToken } from '../../entities/email-change-token';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /** Persistence contract for EmailChangeToken entities. */
 export interface EmailChangeTokenRepository {

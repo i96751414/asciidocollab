@@ -1,5 +1,5 @@
-import { AuthAttemptTelemetryId } from '../../src/value-objects/auth-attempt-telemetry-id';
-import { ValidationError } from '../../src/errors/validation-error';
+import { AuthAttemptTelemetryId } from '../../src/value-objects/ids/auth-attempt-telemetry-id';
+import { ValidationError } from '../../src/errors/common/validation-error';
 import { randomUUID } from 'crypto';
 
 describe('AuthAttemptTelemetryId', () => {

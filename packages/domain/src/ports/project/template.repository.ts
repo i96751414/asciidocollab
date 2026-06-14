@@ -1,5 +1,5 @@
 import { Template } from '../../entities/template';
-import { TemplateId } from '../../value-objects/template-id';
+import { TemplateId } from '../../value-objects/ids/template-id';
 
 /**
  * Repository interface for managing Template persistence.

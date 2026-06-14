@@ -1,7 +1,7 @@
 import { Template } from '../../src/entities/template';
-import { TemplateId } from '../../src/value-objects/template-id';
-import { TemplateCategory } from '../../src/value-objects/template-category';
-import { ProjectId } from '../../src/value-objects/project-id';
+import { TemplateId } from '../../src/value-objects/ids/template-id';
+import { TemplateCategory } from '../../src/value-objects/project/template-category';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
 
 describe('Template entity', () => {
   const templateId = TemplateId.create('550e8400-e29b-41d4-a716-446655440000');

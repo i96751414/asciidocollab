@@ -1,5 +1,5 @@
 import { EmailVerificationToken } from '../../entities/email-verification-token';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /** Repository interface for persisting and retrieving email verification tokens. */
 export interface EmailVerificationTokenRepository {

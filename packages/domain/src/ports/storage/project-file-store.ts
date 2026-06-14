@@ -1,7 +1,7 @@
 import type { Readable } from 'stream';
-import { ProjectId } from '../../value-objects/project-id';
-import { FilePath } from '../../value-objects/file-path';
-import { FileConflictError } from '../../errors/file-conflict';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FilePath } from '../../value-objects/files/file-path';
+import { FileConflictError } from '../../errors/file-tree/file-conflict';
 import { Result } from '../../types/result';
 
 /** Port for reading and writing user-visible project files on the filesystem. */

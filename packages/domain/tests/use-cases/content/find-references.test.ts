@@ -4,12 +4,12 @@ import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
 
 // US12 / FR-065: project-wide find-usages of a section id / anchor / attribute.
 

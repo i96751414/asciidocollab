@@ -1,6 +1,6 @@
 import { Project } from '../../entities/project';
-import { ProjectId } from '../../value-objects/project-id';
-import { UserId } from '../../value-objects/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /**
  * Pagination parameters for listing projects.

@@ -1,17 +1,17 @@
 import { FileNode } from '../../entities/file-node';
-import { Timestamps } from '../../value-objects/timestamps';
+import { Timestamps } from '../../value-objects/common/timestamps';
 import { cascadePathUpdate } from './file-tree-helpers';
-import { UserId } from '../../value-objects/user-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FilePath } from '../../value-objects/file-path';
-import { FileName } from '../../value-objects/file-name';
+import { UserId } from '../../value-objects/ids/user-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FilePath } from '../../value-objects/files/file-path';
+import { FileName } from '../../value-objects/files/file-name';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { Logger } from '../../ports/observability/logger';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
@@ -24,7 +24,7 @@ import {
   capturePathChanges,
   clearMainFileIfMatches,
 } from './reference-rewrite';
-import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
+import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.

@@ -3,10 +3,10 @@ import { InMemorySystemSettingRepository } from '../../ports/admin/in-memory-sys
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
 import { SETTING_MAX_UPLOAD_SIZE_BYTES } from '../../../src/constants';
 import { randomUUID } from 'crypto';
 

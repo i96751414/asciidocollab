@@ -1,7 +1,7 @@
-import { ProjectId } from '../value-objects/project-id';
-import { ProjectName } from '../value-objects/project-name';
-import { FileNodeId } from '../value-objects/file-node-id';
-import { Timestamps } from '../value-objects/timestamps';
+import { ProjectId } from '../value-objects/ids/project-id';
+import { ProjectName } from '../value-objects/project/project-name';
+import { FileNodeId } from '../value-objects/ids/file-node-id';
+import { Timestamps } from '../value-objects/common/timestamps';
 
 /**
  * Represents an AsciiDoc collaboration project.

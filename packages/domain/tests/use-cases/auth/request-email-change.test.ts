@@ -1,16 +1,16 @@
 // T034: Domain unit tests for RequestEmailChangeUseCase
 import { RequestEmailChangeUseCase } from '../../../src/use-cases/auth/request-email-change';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { EmailChangeToken } from '../../../src/entities/email-change-token';
-import { EmailChangeTokenId } from '../../../src/value-objects/email-change-token-id';
+import { EmailChangeTokenId } from '../../../src/value-objects/ids/email-change-token-id';
 import { InMemoryEmailChangeTokenRepository } from '../../ports/auth-tokens/in-memory-email-change-token.repository';
 import { UserRepository } from '../../../src/ports/user/user.repository';
 import { TokenGenerator } from '../../../src/services/token-generator';
 import { EmailChangeNotifier } from '../../../src/services/email-change-notifier';
-import { NotificationDeliveryError } from '../../../src/errors/notification-delivery';
+import { NotificationDeliveryError } from '../../../src/errors/common/notification-delivery';
 
 const USER_ID = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 const CURRENT_EMAIL = 'user@example.com';

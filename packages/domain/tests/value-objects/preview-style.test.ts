@@ -1,5 +1,5 @@
-import { PreviewStyle } from '../../src/value-objects/preview-style';
-import { ValidationError } from '../../src/errors/validation-error';
+import { PreviewStyle } from '../../src/value-objects/editor/preview-style';
+import { ValidationError } from '../../src/errors/common/validation-error';
 
 describe('PreviewStyle', () => {
   test('parse("asciidocollab") succeeds', () => {

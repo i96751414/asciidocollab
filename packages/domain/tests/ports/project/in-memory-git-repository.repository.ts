@@ -1,6 +1,6 @@
 import { GitRepository } from '../../../src/entities/git-repository';
-import { GitRepositoryId } from '../../../src/value-objects/git-repository-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
+import { GitRepositoryId } from '../../../src/value-objects/ids/git-repository-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
 import { GitRepositoryRepository } from '../../../src/ports/project/git-repository.repository';
 
 /** In-memory implementation of GitRepositoryRepository for use in tests. */

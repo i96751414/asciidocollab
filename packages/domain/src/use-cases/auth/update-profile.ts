@@ -1,9 +1,9 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { UserRepository } from '../../ports/user/user.repository';
 import { DomainError } from '../../errors/domain-error';
-import { ValidationError } from '../../errors/validation-error';
-import { UserNotFoundError } from '../../errors/user-not-found';
+import { ValidationError } from '../../errors/common/validation-error';
+import { UserNotFoundError } from '../../errors/auth/user-not-found';
 import { Result } from '../../types/result';
 
 const VALID_THEMES = ['light', 'dark', 'system'] as const;

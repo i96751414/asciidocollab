@@ -1,5 +1,5 @@
-import { EmailChangeTokenId } from '../value-objects/email-change-token-id';
-import { UserId } from '../value-objects/user-id';
+import { EmailChangeTokenId } from '../value-objects/ids/email-change-token-id';
+import { UserId } from '../value-objects/ids/user-id';
 
 /** Domain entity representing a pending email address change request. */
 export class EmailChangeToken {

@@ -1,11 +1,11 @@
 import type { EditorPreferencesRepository } from '../../ports/user/editor-preferences.repository';
-import type { UserId } from '../../value-objects/user-id';
+import type { UserId } from '../../value-objects/ids/user-id';
 import type { Result } from '../../types/result';
 import { EditorPreferences } from '../../entities/editor-preferences';
-import { EditorPreferencesId } from '../../value-objects/editor-preferences-id';
-import { EditorTheme } from '../../value-objects/editor-theme';
-import { PreviewStyle } from '../../value-objects/preview-style';
-import { ValidationError } from '../../errors/validation-error';
+import { EditorPreferencesId } from '../../value-objects/ids/editor-preferences-id';
+import { EditorTheme } from '../../value-objects/editor/editor-theme';
+import { PreviewStyle } from '../../value-objects/editor/preview-style';
+import { ValidationError } from '../../errors/common/validation-error';
 import {
   DEFAULT_SPELLCHECK_LANGUAGE,
   DEFAULT_SPELLCHECK_ENABLED,

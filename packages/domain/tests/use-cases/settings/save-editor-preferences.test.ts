@@ -1,8 +1,8 @@
 import { SaveEditorPreferencesUseCase } from '../../../src/use-cases/settings/save-editor-preferences';
 import { GetEditorPreferencesUseCase } from '../../../src/use-cases/settings/get-editor-preferences';
 import { InMemoryEditorPreferencesRepository } from '../../ports/user/in-memory-editor-preferences.repository';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 
 const userId = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 

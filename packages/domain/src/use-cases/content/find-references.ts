@@ -1,13 +1,13 @@
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { Reference, TextRange } from '../../types/asciidoc';
 import { extractReferences } from '../../services/asciidoc-extraction';
-import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
-import { PermissionDeniedError } from '../../errors/permission-denied';
+import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { stripLeadingSlash } from '../file-tree/reference-rewrite';

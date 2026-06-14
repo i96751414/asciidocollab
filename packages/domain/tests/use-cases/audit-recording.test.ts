@@ -1,8 +1,8 @@
 import { saveAuditBestEffort, recordAuditSuccess } from '../../src/use-cases/audit-recording';
 import { AuditLog } from '../../src/entities/audit-log';
-import { AuditLogId } from '../../src/value-objects/audit-log-id';
-import { UserId } from '../../src/value-objects/user-id';
-import { ProjectId } from '../../src/value-objects/project-id';
+import { AuditLogId } from '../../src/value-objects/ids/audit-log-id';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
 import { InMemoryAuditLogRepository } from '../ports/admin/in-memory-audit-log.repository';
 import { AuditLogRepository } from '../../src/ports/admin/audit-log.repository';
 import { randomUUID } from 'crypto';

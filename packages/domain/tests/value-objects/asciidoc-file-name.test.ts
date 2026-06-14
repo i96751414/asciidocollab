@@ -1,4 +1,4 @@
-import { isAsciiDocumentFileName } from '../../src/value-objects/asciidoc-file-name';
+import { isAsciiDocumentFileName } from '../../src/value-objects/files/asciidoc-file-name';
 
 describe('isAsciiDocumentFileName', () => {
   it.each([

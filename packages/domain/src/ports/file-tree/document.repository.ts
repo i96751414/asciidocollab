@@ -1,7 +1,7 @@
 import { Document } from '../../entities/document';
-import { DocumentId } from '../../value-objects/document-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { YjsStateId } from '../../value-objects/yjs-state-id';
+import { DocumentId } from '../../value-objects/ids/document-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { YjsStateId } from '../../value-objects/ids/yjs-state-id';
 
 /**
  * Repository interface for managing Document persistence.

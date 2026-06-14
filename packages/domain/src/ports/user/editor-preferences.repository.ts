@@ -1,5 +1,5 @@
 import type { EditorPreferences } from '../../entities/editor-preferences';
-import type { UserId } from '../../value-objects/user-id';
+import type { UserId } from '../../value-objects/ids/user-id';
 
 /** Persistence port for user editor preferences. */
 export interface EditorPreferencesRepository {

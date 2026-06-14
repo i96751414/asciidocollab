@@ -1,4 +1,4 @@
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { AuthAttemptTelemetry, AUTH_ATTEMPT_FAILED_SIGN_IN } from '../../entities/auth-attempt-telemetry';
 import {
   AuthAttemptTelemetryRepository,
@@ -6,7 +6,7 @@ import {
 } from '../../ports/admin/auth-attempt-telemetry.repository';
 import { PaginationOptions, PagedResult } from '../../ports/admin/audit-log.repository';
 import { UserRepository } from '../../ports/user/user.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { isAdmin, normalizeAdminPagination } from './admin-list-helpers';

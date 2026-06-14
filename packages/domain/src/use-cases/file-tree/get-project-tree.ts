@@ -1,13 +1,13 @@
 import { FileNode } from '../../entities/file-node';
 import { Document } from '../../entities/document';
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { ProjectNotFoundError } from '../../errors/project-not-found';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../errors/project/project-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 

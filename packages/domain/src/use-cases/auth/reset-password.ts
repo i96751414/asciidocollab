@@ -1,12 +1,12 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { UserRepository } from '../../ports/user/user.repository';
 import { PasswordResetTokenRepository } from '../../ports/auth-tokens/password-reset-token.repository';
 import { DomainError } from '../../errors/domain-error';
-import { InvalidTokenError } from '../../errors/invalid-token';
-import { PasswordReuseError } from '../../errors/password-reuse';
-import { ValidationError } from '../../errors/validation-error';
-import { PasswordPolicy, validatePassword } from '../../value-objects/password-policy';
+import { InvalidTokenError } from '../../errors/auth/invalid-token';
+import { PasswordReuseError } from '../../errors/auth/password-reuse';
+import { ValidationError } from '../../errors/common/validation-error';
+import { PasswordPolicy, validatePassword } from '../../value-objects/identity/password-policy';
 import { Result } from '../../types/result';
 import { PasswordHasher } from '../../services/password-hasher';
 import { TokenGenerator } from '../../services/token-generator';

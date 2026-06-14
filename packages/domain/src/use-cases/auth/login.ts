@@ -1,4 +1,4 @@
-import { Email } from '../../value-objects/email';
+import { Email } from '../../value-objects/identity/email';
 import { UserRepository } from '../../ports/user/user.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { AuthAttemptTelemetryRepository } from '../../ports/admin/auth-attempt-telemetry.repository';

@@ -1,6 +1,6 @@
 import { AuditLog } from '../../../src/entities/audit-log';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
 import { AuditLogRepository, AuditLogFilters, PaginationOptions, PagedResult } from '../../../src/ports/admin/audit-log.repository';
 
 /** In-memory implementation of AuditLogRepository for use in tests. */

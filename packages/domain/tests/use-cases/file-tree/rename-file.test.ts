@@ -1,5 +1,5 @@
 import { RenameFileUseCase } from '../../../src/use-cases/file-tree/rename-file';
-import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
+import { FileNodeNotFoundError } from '../../../src/errors/file-tree/file-node-not-found';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
@@ -8,13 +8,13 @@ import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
 
 describe('RenameFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;

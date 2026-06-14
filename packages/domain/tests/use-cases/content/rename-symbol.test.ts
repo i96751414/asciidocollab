@@ -5,14 +5,14 @@ import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 
 // US12 / FR-064: rename a section id / block anchor / attribute and update every
 // `<<id>>` / `xref:` / `{attr}` reference to it across the project's documents.

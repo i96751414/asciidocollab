@@ -1,12 +1,12 @@
 import { Project } from '../../entities/project';
-import { ProjectId } from '../../value-objects/project-id';
-import { UserId } from '../../value-objects/user-id';
-import { ProjectName } from '../../value-objects/project-name';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectName } from '../../value-objects/project/project-name';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { ProjectNotFoundError } from '../../errors/project-not-found';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../errors/project/project-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { RequestContext } from '../../types/request-context';

@@ -3,10 +3,10 @@ import { AUTH_ATTEMPT_FAILED_SIGN_IN } from '../../../src/entities/auth-attempt-
 import { InMemoryAuthAttemptTelemetryRepository } from '../../ports/admin/in-memory-auth-attempt-telemetry.repository';
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
 import { randomUUID } from 'crypto';
 
 function makeUser(isAdmin: boolean): User {

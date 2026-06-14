@@ -1,6 +1,6 @@
-import { GitRepositoryId } from '../value-objects/git-repository-id';
-import { ProjectId } from '../value-objects/project-id';
-import { GitProvider } from '../value-objects/git-provider';
+import { GitRepositoryId } from '../value-objects/ids/git-repository-id';
+import { ProjectId } from '../value-objects/ids/project-id';
+import { GitProvider } from '../value-objects/project/git-provider';
 
 /**
  * Links a project to an external Git repository for synchronisation.

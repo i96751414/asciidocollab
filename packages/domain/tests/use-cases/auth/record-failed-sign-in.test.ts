@@ -1,6 +1,6 @@
 import { RecordFailedSignInUseCase, UNKNOWN_IP } from '../../../src/use-cases/auth/record-failed-sign-in';
 import { InMemoryAuthAttemptTelemetryRepository } from '../../ports/admin/in-memory-auth-attempt-telemetry.repository';
-import { Email } from '../../../src/value-objects/email';
+import { Email } from '../../../src/value-objects/identity/email';
 
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
 

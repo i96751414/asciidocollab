@@ -4,13 +4,13 @@ import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-lo
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { CannotRemoveLastOwnerError } from '../../../src/errors/cannot-remove-last-owner';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { MemberNotFoundError } from '../../../src/errors/member-not-found';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { CannotRemoveLastOwnerError } from '../../../src/errors/members/cannot-remove-last-owner';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { MemberNotFoundError } from '../../../src/errors/members/member-not-found';
 
 describe('ChangeMemberRoleUseCase', () => {
   let projectRepo: InMemoryProjectRepository;

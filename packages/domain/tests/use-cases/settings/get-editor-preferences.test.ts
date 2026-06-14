@@ -1,10 +1,10 @@
 import { GetEditorPreferencesUseCase } from '../../../src/use-cases/settings/get-editor-preferences';
 import { InMemoryEditorPreferencesRepository } from '../../ports/user/in-memory-editor-preferences.repository';
-import { UserId } from '../../../src/value-objects/user-id';
-import { EditorPreferencesId } from '../../../src/value-objects/editor-preferences-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { EditorPreferencesId } from '../../../src/value-objects/ids/editor-preferences-id';
 import { EditorPreferences } from '../../../src/entities/editor-preferences';
-import { EditorTheme } from '../../../src/value-objects/editor-theme';
-import { PreviewStyle } from '../../../src/value-objects/preview-style';
+import { EditorTheme } from '../../../src/value-objects/editor/editor-theme';
+import { PreviewStyle } from '../../../src/value-objects/editor/preview-style';
 import { DEFAULT_FONT_SIZE, DEFAULT_THEME, DEFAULT_PREVIEW_STYLE } from '../../../src/constants/editor-preferences';
 
 const userId = UserId.create('550e8400-e29b-41d4-a716-446655440000');

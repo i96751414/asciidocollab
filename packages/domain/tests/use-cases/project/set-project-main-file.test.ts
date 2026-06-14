@@ -6,17 +6,17 @@ import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-lo
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { UserId } from '../../../src/value-objects/user-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { Role } from '../../../src/value-objects/role';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { ProjectNotFoundError } from '../../../src/errors/project-not-found';
-import { MainFileNotFoundError } from '../../../src/errors/main-file-not-found';
-import { MainFileNotAsciidocError } from '../../../src/errors/main-file-not-asciidoc';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { Role } from '../../../src/value-objects/identity/role';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../../src/errors/project/project-not-found';
+import { MainFileNotFoundError } from '../../../src/errors/project/main-file-not-found';
+import { MainFileNotAsciidocError } from '../../../src/errors/project/main-file-not-asciidoc';
 
 const projectId = ProjectId.create('550e8400-e29b-41d4-a716-446655440010');
 const editorId = UserId.create('550e8400-e29b-41d4-a716-446655440011');

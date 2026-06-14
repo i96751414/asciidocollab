@@ -1,9 +1,9 @@
 import { ListUserProjectsUseCase } from '../../../src/use-cases/project/list-user-projects';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { Project } from '../../../src/entities/project';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
 
 describe('ListUserProjectsUseCase', () => {
   let useCase: ListUserProjectsUseCase;

@@ -1,5 +1,5 @@
 import { Asset } from '../../entities/asset';
-import { FileNodeId } from '../../value-objects/file-node-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
 
 /**
  * Repository interface for managing Asset persistence.

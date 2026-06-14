@@ -1,4 +1,4 @@
-import { validatePassword, PasswordPolicy } from '../../src/value-objects/password-policy';
+import { validatePassword, PasswordPolicy } from '../../src/value-objects/identity/password-policy';
 
 const fullPolicy: PasswordPolicy = {
   minLength: 8,

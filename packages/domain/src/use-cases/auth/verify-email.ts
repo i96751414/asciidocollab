@@ -1,13 +1,13 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { EmailVerificationToken } from '../../entities/email-verification-token';
 import { AuditLog } from '../../entities/audit-log';
-import { AuditLogId } from '../../value-objects/audit-log-id';
+import { AuditLogId } from '../../value-objects/ids/audit-log-id';
 import { UserRepository } from '../../ports/user/user.repository';
 import { EmailVerificationTokenRepository } from '../../ports/auth-tokens/email-verification-token.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { TokenGenerator } from '../../services/token-generator';
-import { InvalidTokenError } from '../../errors/invalid-token';
+import { InvalidTokenError } from '../../errors/auth/invalid-token';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { randomUUID } from 'crypto';

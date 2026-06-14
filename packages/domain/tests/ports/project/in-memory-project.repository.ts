@@ -1,6 +1,6 @@
 import { Project } from '../../../src/entities/project';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { UserId } from '../../../src/value-objects/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
 import {
   ProjectRepository,
   PaginationParameters,

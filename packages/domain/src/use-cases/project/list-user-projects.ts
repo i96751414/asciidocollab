@@ -1,5 +1,5 @@
 import { Project } from '../../entities/project';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { ProjectRepository, PaginationParameters } from '../../ports/project/project.repository';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';

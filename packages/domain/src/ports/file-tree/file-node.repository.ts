@@ -1,6 +1,6 @@
 import { FileNode } from '../../entities/file-node';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 
 /**
  * Repository interface for managing FileNode persistence.

@@ -4,12 +4,12 @@ import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-p
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { ProjectNotFoundError } from '../../../src/errors/project-not-found';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../../src/errors/project/project-not-found';
 
 describe('UpdateProjectUseCase', () => {
   let useCase: UpdateProjectUseCase;

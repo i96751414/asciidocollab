@@ -1,8 +1,8 @@
 import { FileNode } from '../../src/entities/file-node';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { FileNodeType } from '../../src/value-objects/file-node-type';
-import { FilePath } from '../../src/value-objects/file-path';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { FileNodeType } from '../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../src/value-objects/files/file-path';
 
 describe('FileNode entity', () => {
   const projectId = ProjectId.create('550e8400-e29b-41d4-a716-446655440000');
