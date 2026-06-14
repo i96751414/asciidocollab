@@ -1,0 +1,121 @@
+import type { PrismaClient } from '@prisma/client';
+import {
+  Argon2PasswordHasher,
+  HIBPBreachChecker,
+  CommonPasswordFileChecker,
+  StubEmailSender,
+  NodemailerEmailSender,
+  CryptoTokenGenerator,
+  SessionEncryption,
+  PrismaSessionStore,
+  SmtpPasswordResetNotifier,
+  SmtpEmailChangeNotifier,
+  SmtpRegistrationInvitationNotifier,
+  SmtpEmailVerificationNotifier,
+} from '@asciidocollab/infrastructure';
+import type { EmailSender } from '@asciidocollab/domain';
+import type { getConfig } from '../config';
+import type { AppContainer } from '..';
+
+/** Inputs required to construct the domain service container. */
+export interface CreateServicesInput {
+  /** The application configuration. */
+  appConfig: ReturnType<typeof getConfig>;
+  /** Prisma client used to construct the session store, or undefined when absent. */
+  prisma: PrismaClient | undefined;
+  /** Absolute path to the common-password list file. */
+  commonPasswordsPath: string;
+}
+
+/**
+ * Instantiates the full set of domain services (password hashing, breach
+ * checking, email sending, token generation, session encryption and notifiers).
+ *
+ * @param input - The configuration, Prisma client and data-file path.
+ * @returns The services container decorated onto the Fastify instance.
+ */
+export function createServices(input: CreateServicesInput): AppContainer['services'] {
+  const { appConfig, prisma, commonPasswordsPath } = input;
+
+  const passwordHasher = new Argon2PasswordHasher({
+    memoryCost: appConfig.auth.password.hashMemory,
+    timeCost: appConfig.auth.password.hashTime,
+    parallelism: appConfig.auth.password.hashParallelism,
+  });
+
+  const breachChecker = new HIBPBreachChecker({
+    hibpApiUrl: appConfig.auth.breachCheck.hibpApiUrl,
+  });
+
+  const commonPasswordChecker = new CommonPasswordFileChecker(commonPasswordsPath);
+
+  let emailSender: EmailSender;
+  if (appConfig.auth.email.enabled) {
+    if (!appConfig.auth.email.from) {
+      throw new Error('ASCIIDOCOLLAB_AUTH_EMAIL_FROM is required when email is enabled');
+    }
+    emailSender = new NodemailerEmailSender({
+      enabled: appConfig.auth.email.enabled,
+      host: appConfig.auth.email.smtpHost,
+      port: appConfig.auth.email.smtpPort,
+      user: appConfig.auth.email.smtpUser,
+      password: appConfig.auth.email.smtpPassword,
+      from: appConfig.auth.email.from,
+    });
+  } else {
+    emailSender = new StubEmailSender();
+  }
+
+  const tokenGenerator = new CryptoTokenGenerator({
+    tokenByteLength: appConfig.auth.passwordReset.tokenByteLength,
+    tokenExpiry: appConfig.auth.passwordReset.tokenExpiry,
+  });
+
+  const sessionEncryption = new SessionEncryption({
+    encryptionKey: appConfig.auth.session.encryptionKey,
+  });
+
+  const prismaSessionStore = prisma
+    ? new PrismaSessionStore(prisma, sessionEncryption)
+    : undefined;
+
+  const passwordResetNotifier = new SmtpPasswordResetNotifier(
+    emailSender,
+    appConfig.auth.email.templates.resetRequest.subject,
+    appConfig.auth.email.templates.resetRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+  );
+
+  const emailChangeNotifier = new SmtpEmailChangeNotifier(
+    emailSender,
+    appConfig.auth.email.templates.emailChangeRequest.subject,
+    appConfig.auth.email.templates.emailChangeRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+  );
+
+  const registrationInvitationNotifier = new SmtpRegistrationInvitationNotifier(
+    emailSender,
+    appConfig.auth.invitation.subject,
+    appConfig.auth.invitation.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+  );
+
+  const emailVerificationNotifier = new SmtpEmailVerificationNotifier(
+    emailSender,
+    appConfig.auth.emailVerification.subject,
+    appConfig.auth.emailVerification.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+    appConfig.auth.emailVerification.resendSubject,
+    appConfig.auth.emailVerification.resendHtmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
+  );
+
+  return {
+    passwordHasher,
+    breachChecker,
+    commonPasswordChecker,
+    emailSender,
+    tokenGenerator,
+    sessionEncryption,
+    prismaSessionStore,
+    passwordResetNotifier,
+    emailChangeNotifier,
+    registrationInvitationNotifier,
+    emailVerificationNotifier,
+  };
+}

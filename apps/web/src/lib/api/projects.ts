@@ -1,6 +1,109 @@
 import type { ProjectDto } from '@asciidocollab/shared';
+import { apiRequest } from '@/lib/api/transport';
+import type { PaginatedResponse, PaginationParameters } from '@/lib/api/transport';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+/** Role a user can hold within a project. */
+export type ProjectMemberRole = 'viewer' | 'editor' | 'owner';
+
+/** Represents a project resource returned by the API. */
+export interface Project {
+  /** Unique identifier for the project. */
+  id: string;
+  /** Human-readable name of the project. */
+  name: string;
+  /** Optional description of the project's purpose. */
+  description: string | null;
+  /** List of users who own this project, each identified by userId and displayName. */
+  owners: { userId: string; displayName: string }[];
+  /** Taxonomy tags associated with the project. */
+  tags: string[];
+  /** Identifier of the project's root folder, or null if none has been created. */
+  rootFolderId: string | null;
+  /** Configured main AsciiDoc file node id (US8/FR-045), or null when unset. */
+  mainFileNodeId: string | null;
+  /** ISO timestamp when the project was archived, or null if it is active. */
+  archivedAt: string | null;
+  /** Total number of members in the project, included in list responses. */
+  memberCount?: number;
+  /** Number of files (excluding folders) in the project, included in list responses. */
+  fileCount?: number;
+  /** The calling user's role in this project, included when fetching as an authenticated member. */
+  role?: ProjectMemberRole;
+  /** ISO timestamp when the project was created. */
+  createdAt: string;
+  /** ISO timestamp when the project was last updated. */
+  updatedAt: string;
+}
+
+/** CRUD client for the project resource. */
+export const projectsApi = {
+  async list(parameters?: PaginationParameters): Promise<PaginatedResponse<Project>> {
+    const searchParameters = new URLSearchParams();
+    if (parameters?.page) searchParameters.set('page', parameters.page.toString());
+    if (parameters?.limit) searchParameters.set('limit', parameters.limit.toString());
+    if (parameters?.archived !== undefined)
+      searchParameters.set('archived', parameters.archived.toString());
+
+    const query = searchParameters.toString();
+    return apiRequest(`/api/projects${query ? `?${query}` : ''}`);
+  },
+
+  async get(id: string): Promise<{ /** The retrieved project. */
+  data: Project }> {
+    return apiRequest(`/api/projects/${id}`);
+  },
+
+  async create(data: {
+    /** Name for the new project. */
+    name: string;
+    /** Optional description for the new project. */
+    description?: string;
+    /** Optional taxonomy tags for the new project. */
+    tags?: string[];
+  }): Promise<{ /** The newly created project. */
+  data: Project }> {
+    return apiRequest('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(
+    id: string,
+    data: { /** Updated project name. */
+    name?: string; /** Updated project description. */
+    description?: string; /** Updated taxonomy tags. */
+    tags?: string[] },
+  ): Promise<{ /** The updated project. */
+  data: Project }> {
+    return apiRequest(`/api/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async archive(id: string): Promise<{ /** Confirmation payload containing the archived project id and timestamp. */
+  data: { /** Unique identifier of the archived project. */
+  id: string; /** ISO timestamp when the project was archived. */
+  archivedAt: string } }> {
+    return apiRequest(`/api/projects/${id}/archive`, { method: 'POST' });
+  },
+
+  async restore(id: string): Promise<{ /** Confirmation payload containing the restored project id and cleared timestamp. */
+  data: { /** Unique identifier of the restored project. */
+  id: string; /** Always null after a successful restore. */
+  archivedAt: null } }> {
+    return apiRequest(`/api/projects/${id}/restore`, { method: 'POST' });
+  },
+
+  async delete(id: string): Promise<{ /** Confirmation payload containing the deleted project id. */
+  data: { /** Unique identifier of the deleted project. */
+  id: string } }> {
+    return apiRequest(`/api/projects/${id}`, { method: 'DELETE' });
+  },
+};
 
 /**
  * Set or clear a project's configured main AsciiDoc file (US8/FR-045) via

@@ -2,42 +2,11 @@ import Fastify from 'fastify';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import {
-  PrismaUserRepository,
-  PrismaProjectRepository,
-  PrismaFileNodeRepository,
-  PrismaDocumentRepository,
-  PrismaProjectMemberRepository,
-  PrismaGitRepositoryRepository,
-  PrismaTemplateRepository,
-  PrismaAssetRepository,
-  PrismaAuditLogRepository,
-  PrismaAuthAttemptTelemetryRepository,
-  PrismaPasswordResetTokenRepository,
-  PrismaEmailChangeTokenRepository,
-  PrismaUserInvitationRepository,
-  PrismaEmailVerificationTokenRepository,
-  PrismaSystemSettingRepository,
-  PrismaSessionRepository,
-  Argon2PasswordHasher,
-  HIBPBreachChecker,
-  CommonPasswordFileChecker,
-  StubEmailSender,
-  NodemailerEmailSender,
-  CryptoTokenGenerator,
+import type {
   SessionEncryption,
   PrismaSessionStore,
-  SmtpPasswordResetNotifier,
-  SmtpEmailChangeNotifier,
-  SmtpRegistrationInvitationNotifier,
-  SmtpEmailVerificationNotifier,
-  FilesystemProjectFileStore,
-  FilesystemYjsStateStore,
-  PrismaKeyBindingRepository,
-  PrismaEditorPreferencesRepository,
-  PrismaCollaborationSessionRepository,
 } from '@asciidocollab/infrastructure';
-import {
+import type {
   UserRepository,
   ProjectRepository,
   FileNodeRepository,
@@ -70,56 +39,12 @@ import {
   EmailVerificationNotifier,
 } from '@asciidocollab/domain';
 import { loadConfig, getConfig } from './config';
-import { authPluginWrapped } from './plugins/auth';
-import { originCheckPlugin } from './plugins/origin-check';
-import { rateLimitPluginWrapped } from './plugins/rate-limit';
-import { corsPluginWrapped } from './plugins/cors';
-import { httpsRedirectPluginWrapped } from './plugins/https-redirect';
-import { errorHandler, notFoundHandler } from './plugins/error-handler';
-import { requireAuth } from './plugins/require-auth';
-import { requireEmailVerified } from './plugins/require-email-verified';
-import { healthRoute } from './routes/health';
-import { loginRoute } from './routes/auth/login';
-import { registerRoute } from './routes/auth/register';
-import { logoutRoute } from './routes/auth/logout';
-import { meRoute } from './routes/auth/me';
-import { passwordChangeRoute } from './routes/auth/password/change';
-import { profileUpdateRoute } from './routes/auth/me/profile';
-import { emailChangeRequestRoute } from './routes/auth/email/change-request';
-import { emailConfirmRoute } from './routes/auth/email/confirm';
-import { passwordResetRequestRoute } from './routes/auth/password/reset-request';
-import { passwordResetRoute } from './routes/auth/password/reset';
-import { projectRoutes } from './routes/projects';
-import { memberRoutes } from './routes/projects/members';
-import { usersSearchRoute } from './routes/projects/users-search';
-import { setupStatusRoute } from './routes/auth/setup-status';
-import { sessionStatusRoute } from './routes/auth/session-status';
-import { acceptInviteRoute } from './routes/auth/accept-invite';
-import { usersInviteRoute } from './routes/admin/users-invite';
-import { usersRoute } from './routes/admin/users';
-import { usersAdminStatusRoute } from './routes/admin/users-admin-status';
-import { usersRemoveRoute } from './routes/admin/users-remove';
-import { verifyEmailRoute } from './routes/auth/verify-email';
-import { resendVerificationRoute } from './routes/auth/resend-verification';
-import { openRegistrationStatusRoute } from './routes/auth/open-registration-status';
-import { adminSettingsRoute } from './routes/admin/settings';
-import { accessDeniedRoute } from './routes/admin/access-denied';
-import { auditLogsRoute } from './routes/admin/audit-logs';
-import { failedSignInsRoute } from './routes/admin/failed-sign-ins';
-import { projectDownloadRoute } from './routes/projects/download';
-import { fileDownloadRoute } from './routes/projects/file-download';
-import { fileContentRoutes } from './routes/projects/file-content';
-import { fileTreeRoutes } from './routes/projects/file-tree';
-import { projectMainFileRoutes } from './routes/projects/main-file';
-import { projectRefactoringRoutes } from './routes/projects/refactoring';
-import { assetsRoutes } from './routes/projects/assets';
-import { eventsRoutes } from './routes/projects/events';
-import { fileTreeEventBusPlugin } from './plugins/file-tree-event-bus';
-import { failedSignInPurge } from './plugins/failed-sign-in-purge';
-import { keybindingsRoutes } from './routes/auth/me/keybindings';
-import { editorPreferencesRoutes } from './routes/auth/me/editor-preferences';
+import { createRepositories } from './di/repositories';
+import { createStores } from './di/stores';
+import { createServices } from './di/services';
+import { registerPlugins } from './di/plugins';
+import { registerRoutes } from './di/routes';
 import { createInternalServer } from './internal-server';
-import type { FastifyInstance } from 'fastify';
 
 /** Dependency container passed to `buildServer` to wire repositories and services. */
 export interface AppContainer {
@@ -225,138 +150,29 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
   if (overrides?.repos) {
     app.decorate('repos', overrides.repos);
   } else if (app.prisma) {
-    app.decorate('repos', {
-      user: new PrismaUserRepository(app.prisma),
-      project: new PrismaProjectRepository(app.prisma),
-      fileNode: new PrismaFileNodeRepository(app.prisma),
-      document: new PrismaDocumentRepository(app.prisma),
-      projectMember: new PrismaProjectMemberRepository(app.prisma),
-      gitRepository: new PrismaGitRepositoryRepository(app.prisma),
-      template: new PrismaTemplateRepository(app.prisma),
-      asset: new PrismaAssetRepository(app.prisma),
-      auditLog: new PrismaAuditLogRepository(app.prisma),
-      authAttemptTelemetry: new PrismaAuthAttemptTelemetryRepository(app.prisma),
-      passwordResetToken: new PrismaPasswordResetTokenRepository(app.prisma),
-      emailChangeToken: new PrismaEmailChangeTokenRepository(app.prisma),
-      userInvitation: new PrismaUserInvitationRepository(app.prisma),
-      emailVerificationToken: new PrismaEmailVerificationTokenRepository(app.prisma),
-      systemSetting: new PrismaSystemSettingRepository(app.prisma),
-      session: new PrismaSessionRepository(app.prisma),
-      keyBinding: new PrismaKeyBindingRepository(app.prisma),
-      editorPreferences: new PrismaEditorPreferencesRepository(app.prisma),
-      collaborationSession: new PrismaCollaborationSessionRepository(app.prisma),
-    });
+    app.decorate('repos', createRepositories(app.prisma));
   }
 
   if (overrides?.stores) {
     app.decorate('stores', overrides.stores);
   } else {
-    const storagePath = appConfig.storage.path;
-    app.decorate('stores', {
-      fileStore: new FilesystemProjectFileStore(storagePath),
-      yjsStateStore: new FilesystemYjsStateStore(storagePath),
-    });
+    app.decorate('stores', createStores(appConfig));
   }
 
   if (overrides?.services) {
     app.decorate('services', overrides.services);
   } else {
-    const passwordHasher = new Argon2PasswordHasher({
-      memoryCost: appConfig.auth.password.hashMemory,
-      timeCost: appConfig.auth.password.hashTime,
-      parallelism: appConfig.auth.password.hashParallelism,
-    });
-
-    const breachChecker = new HIBPBreachChecker({
-      hibpApiUrl: appConfig.auth.breachCheck.hibpApiUrl,
-    });
-
-    const commonPasswordChecker = new CommonPasswordFileChecker(
-      path.join(__dirname, '..', 'data', 'common-passwords.txt'),
+    app.decorate(
+      'services',
+      createServices({
+        appConfig,
+        prisma: app.prisma,
+        commonPasswordsPath: path.join(__dirname, '..', 'data', 'common-passwords.txt'),
+      }),
     );
-
-    let emailSender;
-    if (appConfig.auth.email.enabled) {
-      if (!appConfig.auth.email.from) {
-        throw new Error('ASCIIDOCOLLAB_AUTH_EMAIL_FROM is required when email is enabled');
-      }
-      emailSender = new NodemailerEmailSender({
-        enabled: appConfig.auth.email.enabled,
-        host: appConfig.auth.email.smtpHost,
-        port: appConfig.auth.email.smtpPort,
-        user: appConfig.auth.email.smtpUser,
-        password: appConfig.auth.email.smtpPassword,
-        from: appConfig.auth.email.from,
-      });
-    } else {
-      emailSender = new StubEmailSender();
-    }
-
-    const tokenGenerator = new CryptoTokenGenerator({
-      tokenByteLength: appConfig.auth.passwordReset.tokenByteLength,
-      tokenExpiry: appConfig.auth.passwordReset.tokenExpiry,
-    });
-
-    const sessionEncryption = new SessionEncryption({
-      encryptionKey: appConfig.auth.session.encryptionKey,
-    });
-
-    const prismaSessionStore = app.prisma
-      ? new PrismaSessionStore(app.prisma, sessionEncryption)
-      : undefined;
-
-    const passwordResetNotifier = new SmtpPasswordResetNotifier(
-      emailSender,
-      appConfig.auth.email.templates.resetRequest.subject,
-      appConfig.auth.email.templates.resetRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
-    );
-
-    const emailChangeNotifier = new SmtpEmailChangeNotifier(
-      emailSender,
-      appConfig.auth.email.templates.emailChangeRequest.subject,
-      appConfig.auth.email.templates.emailChangeRequest.html.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
-    );
-
-    const registrationInvitationNotifier = new SmtpRegistrationInvitationNotifier(
-      emailSender,
-      appConfig.auth.invitation.subject,
-      appConfig.auth.invitation.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
-    );
-
-    const emailVerificationNotifier = new SmtpEmailVerificationNotifier(
-      emailSender,
-      appConfig.auth.emailVerification.subject,
-      appConfig.auth.emailVerification.htmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
-      appConfig.auth.emailVerification.resendSubject,
-      appConfig.auth.emailVerification.resendHtmlTemplate.replaceAll('{frontendUrl}', appConfig.api.frontendUrl),
-    );
-
-    app.decorate('services', {
-      passwordHasher,
-      breachChecker,
-      commonPasswordChecker,
-      emailSender,
-      tokenGenerator,
-      sessionEncryption,
-      prismaSessionStore,
-      passwordResetNotifier,
-      emailChangeNotifier,
-      registrationInvitationNotifier,
-      emailVerificationNotifier,
-    });
   }
 
-  await app.register(fileTreeEventBusPlugin);
-  await app.register(failedSignInPurge);
-
-  app.setErrorHandler(errorHandler);
-  app.setNotFoundHandler(notFoundHandler);
-
-  await app.register(httpsRedirectPluginWrapped);
-  await app.register(corsPluginWrapped);
-  await app.register(authPluginWrapped);
-  await app.register(rateLimitPluginWrapped);
-  await app.register(originCheckPlugin);
+  await registerPlugins(app);
 
   return app;
 }
@@ -367,60 +183,7 @@ export async function buildServer(overrides?: Partial<AppContainer>) {
  * routes individually without conflicts.
  */
 export async function registerAllRoutes(app: Awaited<ReturnType<typeof buildServer>>): Promise<void> {
-  // Public routes — no auth required
-  await app.register(healthRoute);
-  await app.register(setupStatusRoute);
-  await app.register(sessionStatusRoute);
-  await app.register(emailConfirmRoute);
-
-  // Public auth routes — protected by SameSite=Strict + Origin check (replaces old CSRF tokens)
-  await app.register(loginRoute);
-  await app.register(registerRoute);
-  await app.register(logoutRoute);
-  await app.register(passwordResetRequestRoute);
-  await app.register(passwordResetRoute);
-  await app.register(acceptInviteRoute);
-  await app.register(verifyEmailRoute);
-  await app.register(openRegistrationStatusRoute);
-
-  // Protected routes — require authentication
-  await app.register(async function protectedRoutes(scopedApp: FastifyInstance) {
-    scopedApp.addHook('preHandler', requireAuth);
-
-    // Resend-verification is accessible to authenticated but UNVERIFIED users —
-    // exempting it from the email-verification gate avoids a circular dependency.
-    await scopedApp.register(resendVerificationRoute);
-
-    // All remaining protected routes additionally require a verified email address.
-    await scopedApp.register(async function verifiedRoutes(innerApp: FastifyInstance) {
-      innerApp.addHook('preHandler', requireEmailVerified);
-      await innerApp.register(meRoute);
-      await innerApp.register(passwordChangeRoute);
-      await innerApp.register(profileUpdateRoute);
-      await innerApp.register(emailChangeRequestRoute);
-      await innerApp.register(projectRoutes);
-      await innerApp.register(memberRoutes);
-      await innerApp.register(fileContentRoutes);
-      await innerApp.register(fileTreeRoutes);
-      await innerApp.register(projectMainFileRoutes);
-      await innerApp.register(projectRefactoringRoutes);
-      await innerApp.register(assetsRoutes);
-      await innerApp.register(eventsRoutes);
-      await innerApp.register(keybindingsRoutes);
-      await innerApp.register(editorPreferencesRoutes);
-      await innerApp.register(usersSearchRoute);
-      await innerApp.register(usersInviteRoute);
-      await innerApp.register(usersRoute);
-      await innerApp.register(usersAdminStatusRoute);
-      await innerApp.register(usersRemoveRoute);
-      await innerApp.register(adminSettingsRoute);
-      await innerApp.register(accessDeniedRoute);
-      await innerApp.register(auditLogsRoute);
-      await innerApp.register(failedSignInsRoute);
-      await innerApp.register(projectDownloadRoute);
-      await innerApp.register(fileDownloadRoute);
-    });
-  });
+  await registerRoutes(app);
 }
 
 async function start() {
