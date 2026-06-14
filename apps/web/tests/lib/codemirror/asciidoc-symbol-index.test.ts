@@ -61,6 +61,20 @@ describe('buildProjectSymbolIndex', () => {
     expect(index.inheritedAttributes('unknown').size).toBe(0);
   });
 
+  test('inheritedAttributes resolves nested references in inherited values (document order)', () => {
+    const files: Record<string, string> = {
+      m: ':first: Jane\n:full: {first} Doe\ninclude::c.adoc[]\n',
+      c: '= C\n',
+    };
+    const resolve = makeIncludeResolver(
+      (id) => ({ m: 'm.adoc', c: 'c.adoc' })[id] ?? null,
+      (path) => ({ 'm.adoc': 'm', 'c.adoc': 'c' })[path] ?? null,
+    );
+    const index = buildProjectSymbolIndex('m', (id) => files[id] ?? null, resolve);
+    expect(index.inheritedAttributes('c').get('full')).toBe('Jane Doe');
+    expect(index.effectiveAttributes('c').get('full')).toBe('Jane Doe');
+  });
+
   test('effectiveAttributes merges inherited parent attributes with the file own definitions (own wins)', () => {
     const files: Record<string, string> = { m: ':v: parent\ninclude::c.adoc[]\n', c: ':v: child\n' };
     const resolve = makeIncludeResolver(

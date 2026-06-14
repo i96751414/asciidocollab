@@ -172,6 +172,33 @@ describe('buildIncludeGraphWithInheritance (parent → child attribute scope)', 
     expect(inheritedAttributes.get('main.adoc')?.size).toBe(0);
   });
 
+  test('resolves nested attribute references in inherited values (document order)', () => {
+    const files = {
+      'main.adoc': ':first: Jane\n:full: {first} Doe\n\ninclude::child.adoc[]\n',
+      'child.adoc': '= Child\n',
+    };
+    const { inheritedAttributes } = buildIncludeGraphWithInheritance(
+      'main.adoc',
+      (id) => files[id] ?? null,
+      resolveInclude(files),
+    );
+    expect(inheritedAttributes.get('child.adoc')?.get('full')).toBe('Jane Doe');
+  });
+
+  test('leaves a forward reference in an inherited value unresolved (document order)', () => {
+    const files = {
+      'main.adoc': ':full: {first} Doe\n:first: Jane\n\ninclude::child.adoc[]\n',
+      'child.adoc': '= Child\n',
+    };
+    const { inheritedAttributes } = buildIncludeGraphWithInheritance(
+      'main.adoc',
+      (id) => files[id] ?? null,
+      resolveInclude(files),
+    );
+    // `:full:` is defined before `:first:`, so the reference is not yet in scope — left verbatim.
+    expect(inheritedAttributes.get('child.adoc')?.get('full')).toBe('{first} Doe');
+  });
+
   test('a child inherits the parent :imagesdir: defined above the include', () => {
     const files = {
       'main.adoc': ':imagesdir: assets\n\ninclude::child.adoc[]\n',

@@ -246,7 +246,10 @@ export function buildIncludeGraph(
     // scope for a child, but attributes defined after the include are not — matching Asciidoctor).
     for (const event of documentOrderEvents(content)) {
       if (event.kind === 'attribute') {
-        attributes.set(event.name, event.value);
+        // Resolve nested `{ref}`s in the value against the attributes defined so far (document
+        // order), so a value like `:full: {first} Doe` is stored fully expanded, as Asciidoctor
+        // resolves it at definition time. A forward reference stays verbatim.
+        attributes.set(event.name, substitutePathAttributes(event.value, attributes));
         continue;
       }
       const match = event.match;

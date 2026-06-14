@@ -214,7 +214,10 @@ export function buildIncludeGraphWithInheritance(
 
     for (const event of documentOrderEvents(content)) {
       if (event.kind === 'attribute') {
-        attributes.set(event.name, event.value);
+        // Resolve nested `{ref}`s in the value against the attributes defined so far (document
+        // order), so an inherited value like `:full: {first} Doe` is stored — and inherited — fully
+        // expanded, as Asciidoctor resolves it at definition time. A forward reference stays verbatim.
+        attributes.set(event.name, substitutePathAttributes(event.value, attributes));
         continue;
       }
       const match = event.match;

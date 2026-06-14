@@ -103,6 +103,16 @@ describe('buildIncludeGraph attribute substitution', () => {
     ]);
   });
 
+  test('resolves an include whose target uses a nested attribute reference', () => {
+    const files = {
+      'main.adoc': ':root: parts\n:dir: {root}/sub\n\ninclude::{dir}/intro.adoc[]\n',
+      'parts/sub/intro.adoc': '== Intro\n',
+    };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.nodes).toContain('parts/sub/intro.adoc');
+    expect(tree.unresolved).toHaveLength(0);
+  });
+
   test('does not substitute an attribute defined after the include (document order)', () => {
     const files = {
       'main.adoc': 'include::{partsdir}/intro.adoc[]\n\n:partsdir: parts\n',
