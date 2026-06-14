@@ -80,6 +80,8 @@ test.describe('US7 highlighting coverage (live editor)', () => {
       '',
       'Press kbd:[Ctrl+S] and see stem:[x^2] inline.',
       '',
+      'Visit https://example.com for details.',
+      '',
       'puts value <1>',
       '',
       "'''",
@@ -97,6 +99,7 @@ test.describe('US7 highlighting coverage (live editor)', () => {
     await expect(content).toContainText('[[inline-anchor]]');
     await expect(content).toContainText('[[[biblio-ref]]]');
     await expect(content).toContainText('kbd:[Ctrl+S]');
+    await expect(content).toContainText('https://example.com');
 
     // The passthrough/anchor line and the thematic-break line must render styled spans.
     const passLine = page.locator('.cm-line', { hasText: '+literal+' }).first();

@@ -130,7 +130,7 @@ inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
   Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
-  UiMacro | InlineStem |
+  UiMacro | InlineStem | Link |
   inlineWord | spaceTok | punctFallback | ltFallback
 }
 
@@ -162,12 +162,13 @@ Entity        { entityMark }
 Callout       { calloutMark }
 UiMacro       { uiMacroMark }
 InlineStem    { stemMark }
+Link          { bareUrl }
 
 @tokens {
   // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
   // order. Precedence only applies when the macro token actually matches its full `name:[…]`
   // shape; a plain word that merely starts with the same letters still falls to `inlineWord`.
-  @precedence { stemMark, uiMacroMark, inlineWord }
+  @precedence { stemMark, uiMacroMark, bareUrl, inlineWord }
 
   // Raw body line — any non-empty line inside delimited blocks
   rawBodyLine { ![\n]+ "\n" }
@@ -204,6 +205,10 @@ InlineStem    { stemMark }
   // never collide with the external inline-macro path (which skips an immediate `[`).
   uiMacroMark { ("kbd:" | "btn:") "[" ![\]\n]+ "]" }
   stemMark    { ("stem:" | "latexmath:" | "asciimath:") "[" ![\]\n]* "]" }
+
+  // Bare auto-linked URL. The `://` scheme discriminator makes the `@precedence` over
+  // `inlineWord` safe — a plain word that merely contains a colon never matches.
+  bareUrl { ("https://" | "http://" | "ftp://" | "irc://") ![ \t\n\[\]<>]+ }
 
   // Lone narrowed-out starter chars that began no construct — kept as plain text so prose
   // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`).

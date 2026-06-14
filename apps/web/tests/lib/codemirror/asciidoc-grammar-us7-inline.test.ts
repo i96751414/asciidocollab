@@ -68,6 +68,28 @@ describe('US7 inline — code callouts (FR-027)', () => {
   });
 });
 
+describe('US7 inline — bare URLs (FR-026)', () => {
+  test.each([
+    'https://example.com',
+    'http://example.com/path',
+    'ftp://files.example.com',
+    'irc://chat.example.com',
+  ])('recognises %s as a Link', (url) => {
+    expect(hasToken(`visit ${url} today\n`, 'Link')).toBe(true);
+  });
+
+  test('a bare URL is recognised at the very start of a line', () => {
+    expect(hasToken('https://example.com is the site\n', 'Link')).toBe(true);
+  });
+
+  test('a word with a colon that is not a scheme is NOT a Link', () => {
+    expect(hasToken('note:something here\n', 'Link')).toBe(false);
+    expect(hasToken('the ratio is 3:45 today\n', 'Link')).toBe(false);
+    expect(hasToken('plain https without scheme\n', 'Link')).toBe(false);
+    expect(tokensOfType('note:something here\n', 'Paragraph')).toHaveLength(1);
+  });
+});
+
 describe('US7 inline — UI & math macros (FR-052)', () => {
   test.each(['kbd:[Ctrl+S]', 'btn:[OK]'])('recognises %s as a UiMacro', (macro) => {
     expect(hasToken(`press ${macro} now\n`, 'UiMacro')).toBe(true);

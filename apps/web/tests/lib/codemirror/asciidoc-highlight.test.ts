@@ -76,6 +76,7 @@ describe('AsciiDoc highlight consistency', () => {
     ['code <1>\n', 5, 'callout'],
     ['press kbd:[Esc] x\n', 8, 'ui macro'],
     ['see stem:[x^2] y\n', 6, 'inline stem'],
+    ['go https://x.com now\n', 5, 'bare url'],
     ["'''\n", 0, 'thematic break'],
     ['<<<\n', 0, 'page break'],
   ])('%j (offset %i) is highlighted as a %s', (source, offset) => {
