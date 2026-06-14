@@ -208,6 +208,22 @@ describe('asciidocAttributeFold ViewPlugin', () => {
     view.destroy();
   });
 
+  test('the collapsed widget does not ignore editor events, so a click reveals the raw reference', () => {
+    // WidgetType.ignoreEvent defaults to true, which makes CodeMirror discard a selection change
+    // that lands inside the widget — so a mouse click never moves the cursor onto the collapsed
+    // reference and the raw `{a}` is never shown (only arrow-key movement, which is keyboard-handled,
+    // reveals it). The widget must NOT ignore events so a click reveals the source.
+    const source = ':a: X\n{a}\n';
+    const view = mountView(source, EditorSelection.cursor(0));
+    const set = view.plugin(staticFold)?.decorations;
+    let ignoresMousedown = true;
+    set?.between(0, view.state.doc.length, (_from, _to, deco) => {
+      ignoresMousedown = deco.spec.widget?.ignoreEvent(new MouseEvent('mousedown')) ?? true;
+    });
+    expect(ignoresMousedown).toBe(false);
+    view.destroy();
+  });
+
   test('collapses a reference to an attribute inherited from a parent document', () => {
     const fold = asciidocAttributeFold(() => new Map([['product', 'Acme']]));
     const state = EditorState.create({ doc: 'Use {product} now.\n', extensions: [fold] });

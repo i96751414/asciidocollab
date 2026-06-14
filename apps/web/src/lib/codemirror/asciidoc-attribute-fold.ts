@@ -97,6 +97,17 @@ class AttributeValueWidget extends WidgetType {
     return other.value === this.value;
   }
 
+  /**
+   * Let the editor handle events that occur on the widget. The base widget ignores them by default,
+   * which makes CodeMirror discard a selection change landing inside the widget — so a mouse click
+   * would never move the cursor onto the collapsed reference and never reveal its raw source (only
+   * arrow-key movement, handled by the keymap, would). Returning false lets a click place the cursor
+   * on the reference, which {@link buildDecorations} then reveals.
+   */
+  ignoreEvent(): boolean {
+    return false;
+  }
+
   toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-ad-attr-value';
