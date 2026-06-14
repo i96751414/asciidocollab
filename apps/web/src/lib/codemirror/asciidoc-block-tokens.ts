@@ -34,6 +34,7 @@ import {
   blockTitleToken,
   thematicBreakToken,
   pageBreakToken,
+  hardBreakToken,
   continuationLineToken,
   paragraphLineToken,
 } from './asciidoc-parser.terms.js';
@@ -137,6 +138,16 @@ function isAlphaNumberOrDash(code: number): boolean {
 
 export const blockTokenizer = new ExternalTokenizer(
   (input, stack) => {
+    // Hard line break: a `+` preceded by whitespace and immediately followed by a line end.
+    // Checked before the line-start gate so it is recognised mid-document; consumes only the
+    // `+` (the newline stays a separate token). `peek(-1)` sees the already-consumed space.
+    if (input.next === PLUS && (input.peek(-1) === SPACE || input.peek(-1) === TAB) &&
+        (input.peek(1) === NEWLINE || input.peek(1) === -1)) {
+      input.advance();
+      input.acceptToken(hardBreakToken);
+      return;
+    }
+
     if (!isLineStart(input)) return;
     if (input.next === -1) return;
 

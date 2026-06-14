@@ -84,6 +84,8 @@ test.describe('US7 highlighting coverage (live editor)', () => {
       '',
       'A "`smart quote`" sits here.',
       '',
+      'See link:http://example.com[the site] mid-line.',
+      '',
       'puts value <1>',
       '',
       "'''",
@@ -102,6 +104,7 @@ test.describe('US7 highlighting coverage (live editor)', () => {
     await expect(content).toContainText('[[[biblio-ref]]]');
     await expect(content).toContainText('kbd:[Ctrl+S]');
     await expect(content).toContainText('https://example.com');
+    await expect(content).toContainText('link:http://example.com[the site]');
 
     // The passthrough/anchor line and the thematic-break line must render styled spans.
     const passLine = page.locator('.cm-line', { hasText: '+literal+' }).first();

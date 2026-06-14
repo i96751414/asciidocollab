@@ -21,6 +21,7 @@
   inlineMacroToken, footnoteToken,
   blockTitleToken,
   thematicBreakToken, pageBreakToken,
+  hardBreakToken,
   continuationLineToken,
   paragraphLineToken
 }
@@ -130,7 +131,7 @@ inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
   Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
-  UiMacro | InlineStem | Link | SmartQuote |
+  UiMacro | InlineStem | Link | SmartQuote | HardBreak |
   inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback
 }
 
@@ -147,8 +148,12 @@ innerContent { (inlineWord | spaceTok | punctFallback | ltFallback | quoteFallba
 
 AttributeReference { attrRef }
 CrossReference     { xref }
-Footnote           { footnoteToken }
-InlineMacro        { inlineMacroToken }
+// The external tokenizer only fires at line start, so footnotes / inline macros that appear
+// MID-line are recognised by the `@token` alternatives below (FR-026/052). At line start the
+// external token wins (it runs first); mid-line it declines and the `@token` matches — both
+// produce the same node, so highlighting is identical wherever the construct appears.
+Footnote           { footnoteToken | footnoteMark }
+InlineMacro        { inlineMacroToken | inlineMacroMark }
 
 // Inline constructs gated by dedicated higher-priority tokens (T019 / grammar-tokens.md).
 // Each only matches its full shape; an unmatched lone starter char falls through to
@@ -164,12 +169,15 @@ UiMacro       { uiMacroMark }
 InlineStem    { stemMark }
 Link          { bareUrl }
 SmartQuote    { smartDoubleQuote | smartSingleQuote }
+// Trailing " +" before a line end. Emitted by the external tokenizer (it needs the
+// preceding-space + following-newline lookahead that `@tokens` cannot express).
+HardBreak     { hardBreakToken }
 
 @tokens {
   // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
   // order. Precedence only applies when the macro token actually matches its full `name:[…]`
   // shape; a plain word that merely starts with the same letters still falls to `inlineWord`.
-  @precedence { stemMark, uiMacroMark, bareUrl, inlineWord }
+  @precedence { footnoteMark, stemMark, uiMacroMark, inlineMacroMark, bareUrl, inlineWord }
 
   // Raw body line — any non-empty line inside delimited blocks
   rawBodyLine { ![\n]+ "\n" }
@@ -210,6 +218,13 @@ SmartQuote    { smartDoubleQuote | smartSingleQuote }
   // Bare auto-linked URL. The `://` scheme discriminator makes the `@precedence` over
   // `inlineWord` safe — a plain word that merely contains a colon never matches.
   bareUrl { ("https://" | "http://" | "ftp://" | "irc://") ![ \t\n\[\]<>]+ }
+
+  // Generic mid-line inline macro `name:target[args]` (link/mailto/menu/xref/image/…). A SINGLE
+  // colon after the name (the char after it is not `:`/`[`/space) keeps block macros (`name::`)
+  // and the immediate-`[` UI/math macros out; it requires `[args]` so a plain `note:foo` stays text.
+  inlineMacroMark { $[a-zA-Z] $[a-zA-Z0-9-]* ":" ![:\[ \t\n] ![\[\n]* "[" ![\]\n]* "]" }
+  // Mid-line footnote `footnote:[…]`.
+  footnoteMark { "footnote:[" ![\]\n]* "]" }
 
   // Smart typographic quotes — AsciiDoc curly-quote syntax `"`…`"` / `'`…`'` (a straight
   // quote immediately wrapping a backtick pair). Self-contained tokens, so they win over the

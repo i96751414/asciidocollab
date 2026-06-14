@@ -125,6 +125,16 @@ export function createTestBlockTokenizer(terms: Record<string, number>): Externa
     (input: InputStream, stack) => {
       let ch = input.next;
       if (ch === -1) return;
+
+      // Hard line break: a `+` preceded by whitespace and immediately before a line end
+      // (mirror of the production tokenizer; checked before the line-start branches).
+      if (ch === PLUS && (input.peek(-1) === SPACE || input.peek(-1) === 9 /* TAB */) &&
+          (input.peek(1) === NEWLINE || input.peek(1) === -1)) {
+        input.advance();
+        input.acceptToken(terms['hardBreakToken']);
+        return;
+      }
+
       const atLineStart = isLineStart(input);
 
       // Inline footnote (can appear anywhere)

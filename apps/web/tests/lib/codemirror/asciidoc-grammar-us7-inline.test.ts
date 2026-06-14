@@ -90,6 +90,35 @@ describe('US7 inline — bare URLs (FR-026)', () => {
   });
 });
 
+describe('US7 inline — link/mailto/menu macros & mid-line macros (FR-026/052)', () => {
+  test.each([
+    'link:http://example.com[Site]',
+    'mailto:a@b.com[Mail me]',
+    'menu:File[Save]',
+    'xref:other.adoc#sec[See]',
+  ])('recognises mid-line %s as an InlineMacro', (macro) => {
+    expect(hasToken(`text ${macro} more\n`, 'InlineMacro')).toBe(true);
+  });
+
+  test('a mid-line footnote:[…] tokenizes as a Footnote', () => {
+    expect(hasToken('a claim footnote:[a source] here\n', 'Footnote')).toBe(true);
+  });
+
+  test('a colon word with no bracket args is NOT an inline macro', () => {
+    expect(hasToken('the note:plain stays text\n', 'InlineMacro')).toBe(false);
+    expect(tokensOfType('the note:plain stays text\n', 'Paragraph')).toHaveLength(1);
+  });
+
+  test('a block macro image::pic.png[] (double colon) is not an inline macro', () => {
+    expect(hasToken('image::pic.png[]\n', 'InlineMacro')).toBe(false);
+  });
+
+  test('kbd:[x] stays a UiMacro (not swallowed by the generic inline-macro token)', () => {
+    expect(hasToken('press kbd:[Esc] now\n', 'UiMacro')).toBe(true);
+    expect(hasToken('press kbd:[Esc] now\n', 'InlineMacro')).toBe(false);
+  });
+});
+
 describe('US7 inline — UI & math macros (FR-052)', () => {
   test.each(['kbd:[Ctrl+S]', 'btn:[OK]'])('recognises %s as a UiMacro', (macro) => {
     expect(hasToken(`press ${macro} now\n`, 'UiMacro')).toBe(true);
@@ -130,6 +159,21 @@ describe('US7 inline — smart typographic quotes (FR-054)', () => {
     expect(hasToken("don't stop now\n", 'SmartQuote')).toBe(false);
     expect(tokensOfType("don't stop now\n", 'Paragraph')).toHaveLength(1);
     expect(tokensOfType("don't stop now\n", '⚠')).toHaveLength(0);
+  });
+});
+
+describe('US7 inline — hard line break (FR-054)', () => {
+  test('a trailing " +" at end of a line is a HardBreak', () => {
+    expect(hasToken('first line +\nsecond line\n', 'HardBreak')).toBe(true);
+  });
+
+  test('a mid-line " + " (arithmetic/spacing) is NOT a hard break', () => {
+    expect(hasToken('a + b is math\n', 'HardBreak')).toBe(false);
+    expect(tokensOfType('a + b is math\n', '⚠')).toHaveLength(0);
+  });
+
+  test('a trailing "+" with no preceding space is not a hard break', () => {
+    expect(hasToken('c++\n', 'HardBreak')).toBe(false);
   });
 });
 
