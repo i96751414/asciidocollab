@@ -43,6 +43,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           requestLogger(request),
           request.server.repos.project,
+          request.server.repos.document,
+          request.server.stores.collaborativeContentEditor,
         );
         const renameResult = await renameUseCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!renameResult.success) return sendFileTreeError(reply, renameResult.error);
@@ -53,6 +55,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           request.server.repos.auditLog,
           requestLogger(request),
+          request.server.repos.document,
+          request.server.stores.collaborativeContentEditor,
         );
         const newParentId = FileNodeId.create(parentId);
         const moveResult = await moveUseCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));
@@ -79,6 +83,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           requestLogger(request),
           request.server.repos.project,
+          request.server.repos.document,
+          request.server.stores.collaborativeContentEditor,
         );
         const result = await useCase.execute(actorId, fileNodeId, name, projectId, requestContextFrom(request));
         if (!result.success) return sendFileTreeError(reply, result.error);
@@ -95,6 +101,8 @@ export async function fileTreePatchRoutes(app: FastifyInstance): Promise<void> {
           request.server.stores.fileStore,
           request.server.repos.auditLog,
           requestLogger(request),
+          request.server.repos.document,
+          request.server.stores.collaborativeContentEditor,
         );
         const newParentId = FileNodeId.create(parentId);
         const result = await useCase.execute(actorId, projectId, fileNodeId, newParentId, requestContextFrom(request));

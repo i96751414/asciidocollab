@@ -21,6 +21,9 @@ step "Domain unit tests with coverage …"
 step "API unit tests …"
 pnpm --filter @asciidocollab/api test
 
+step "Collaboration server unit tests …"
+pnpm --filter @asciidocollab/collab test
+
 step "Web unit tests with coverage …"
 pnpm --filter @asciidocollab/web test:ci
 

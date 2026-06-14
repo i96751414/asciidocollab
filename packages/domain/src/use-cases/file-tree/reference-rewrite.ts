@@ -3,8 +3,10 @@ import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { FilePath } from '../../value-objects/files/file-path';
 import { FileNode } from '../../entities/file-node';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
+import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
+import { CollaborativeContentEditor, ContentReplacement } from '../../ports/storage/collaborative-content-editor';
 import { Reference } from '../../types/asciidoc';
 import { extractReferences } from '../../services/asciidoc-extraction';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
@@ -44,6 +46,31 @@ export interface ReferenceRewriteDeps {
   fileNodeRepo: FileNodeRepository;
   /** Reads/writes the persisted file content being rewritten. */
   fileStore: ProjectFileStore;
+  /**
+   * Optional: resolves a file node's collaborative {@link Document}. When provided together with
+   * {@link collaborativeContentEditor}, a referencing file that has a Document is rewritten through
+   * the Yjs source of truth instead of the file store (avoiding the live-clobber bug).
+   */
+  documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>;
+  /** Optional: applies the rewrite to a document's live Yjs content (source of truth). */
+  collaborativeContentEditor?: CollaborativeContentEditor;
+}
+
+/** A reference edit located by offset within its file, with the literal text it replaces. */
+interface ReferenceEdit {
+  from: number;
+  to: number;
+  find: string;
+  replacement: string;
+}
+
+/** Collapse edits to a unique find→replace map (a reference macro may appear more than once). */
+function toReplacements(edits: ReferenceEdit[]): ContentReplacement[] {
+  const byFind = new Map<string, string>();
+  for (const edit of edits) {
+    if (!byFind.has(edit.find)) byFind.set(edit.find, edit.replacement);
+  }
+  return [...byFind].map(([find, replace]) => ({ find, replace }));
 }
 
 /** Split a reference target into its path part and optional `#fragment` (xref only). */
@@ -95,7 +122,7 @@ export async function rewriteReferencesForPathChanges(
     const references = extractReferences(node.id.value, content)
       .filter((reference) => reference.kind !== 'attributeRef');
 
-    const edits: Array<{ from: number; to: number; replacement: string }> = [];
+    const edits: ReferenceEdit[] = [];
     for (const reference of references) {
       const { pathPart, fragment } = splitTarget(reference);
       if (pathPart === '') continue;
@@ -118,11 +145,38 @@ export async function rewriteReferencesForPathChanges(
       const slice = content.slice(reference.range.from, reference.range.to);
       const replacedSlice = slice.replace(oldRaw, newRaw);
       if (replacedSlice !== slice) {
-        edits.push({ from: reference.range.from, to: reference.range.to, replacement: replacedSlice });
+        edits.push({ from: reference.range.from, to: reference.range.to, find: slice, replacement: replacedSlice });
       }
     }
 
     if (edits.length === 0) continue;
+
+    // Source-of-truth routing: if the referencing file is a collaborative Document it may be open
+    // for live editing, where the Yjs document — not the file store — is authoritative. Writing the
+    // file store directly would be invisible to editors AND overwritten by the next Yjs writeback,
+    // silently reverting the rewrite. Apply the edit through the collab editor instead; the file
+    // store is then persisted by the collab server's normal writeback. Files without a Document
+    // (never opened collaboratively) keep the direct file-store path.
+    const document = deps.documentRepo && deps.collaborativeContentEditor
+      ? await deps.documentRepo.findByFileNodeId(node.id)
+      : null;
+
+    if (document && deps.collaborativeContentEditor) {
+      const applied = await deps.collaborativeContentEditor.applyReplacements(
+        projectId,
+        document.yjsStateId,
+        toReplacements(edits),
+      );
+      if (!applied.success) {
+        // Do NOT fall back to a file-store write: if the room is live, the stale Y.Text would
+        // overwrite it on the next writeback. Leave the reference untouched and warn instead.
+        warnings.push(`Could not apply collaborative reference rewrite in ${fromPath}: ${applied.error.message}`);
+        continue;
+      }
+      rewrittenFiles += 1;
+      continue;
+    }
+
     // Apply right-to-left so earlier offsets stay valid as later slices are spliced in.
     edits.sort((a, b) => b.from - a.from);
     let next = content;

@@ -14,6 +14,21 @@ function positiveInteger(name: string) {
 export interface CollabConfig {
   /** WebSocket port for the collaboration server. */
   port: number;
+  /** Port for the internal HTTP server the API calls to rewrite references in live documents. */
+  internalEditPort: number;
+  /** Interface the internal edit server binds to (loopback by default for safety). */
+  internalEditHost: string;
+  /** Optional shared secret enforced on the internal edit endpoint (defense-in-depth on loopback). */
+  internalEditSecret: string;
+  /** Server mTLS material for the internal edit endpoint. All fields empty disables mTLS (loopback HTTP). */
+  internalEditTls: {
+    /** Path to the PEM file containing the server certificate. */
+    cert: string;
+    /** Path to the PEM file containing the server private key. */
+    key: string;
+    /** Path to the PEM file containing the CA certificate used to verify the API client certificate. */
+    clientCa: string;
+  };
   /** Internal URL used by the auth hook to reach apps/api internal server. */
   apiInternalUrl: string;
   /** Auth hook HTTP request timeout in milliseconds. */
@@ -53,6 +68,45 @@ export function createCollabConfig() {
       format: 'port',
       default: 4002,
       env: 'ASCIIDOCOLLAB_COLLAB_PORT',
+    },
+    internalEditPort: {
+      doc: 'Port for the internal HTTP server the API calls to rewrite references in live documents.',
+      format: 'port',
+      default: 4003,
+      env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT',
+    },
+    internalEditHost: {
+      doc: 'Interface the internal edit server binds to. Defaults to loopback; do not expose publicly.',
+      format: String,
+      default: '127.0.0.1',
+      env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_HOST',
+    },
+    internalEditSecret: {
+      doc: 'Optional shared secret enforced on the internal edit endpoint. Empty disables the check (loopback-trust, development only — set this in production).',
+      format: String,
+      default: '',
+      sensitive: true,
+      env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_SECRET',
+    },
+    internalEditTls: {
+      cert: {
+        doc: 'Path to PEM file containing the server certificate for the internal edit mTLS server. Empty disables mTLS (loopback HTTP only).',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_TLS_CERT',
+      },
+      key: {
+        doc: 'Path to PEM file containing the server private key for the internal edit mTLS server.',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_TLS_KEY',
+      },
+      clientCa: {
+        doc: 'Path to PEM file containing the CA certificate used to verify the API client certificate.',
+        format: String,
+        default: '',
+        env: 'ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_TLS_CLIENT_CA',
+      },
     },
     apiInternalUrl: {
       doc: 'Internal URL used by the auth hook to reach apps/api internal server.',

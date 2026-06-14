@@ -10,6 +10,8 @@ import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
+import { DocumentRepository } from '../../ports/file-tree/document.repository';
+import { CollaborativeContentEditor } from '../../ports/storage/collaborative-content-editor';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { Logger } from '../../ports/observability/logger';
@@ -40,6 +42,10 @@ export class RenameFileUseCase {
     private readonly logger?: Logger,
     // Optional: maintains the project main-file configuration on rename (FR-070).
     private readonly projectRepo?: ProjectRepository,
+    // Optional pair: when both are supplied, references in a file that is a collaborative Document
+    // are rewritten through the Yjs source of truth instead of the file store (avoids live-clobber).
+    private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
+    private readonly collaborativeContentEditor?: CollaborativeContentEditor,
   ) {}
 
   /**
@@ -132,7 +138,12 @@ export class RenameFileUseCase {
       // I/O failure must not fail the rename — log and continue (as audit writes do).
       try {
         await rewriteReferencesForPathChanges(
-          { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore },
+          {
+            fileNodeRepo: this.fileNodeRepo,
+            fileStore: this.fileStore,
+            ...(this.documentRepo && { documentRepo: this.documentRepo }),
+            ...(this.collaborativeContentEditor && { collaborativeContentEditor: this.collaborativeContentEditor }),
+          },
           projectId,
           pathChanges,
         );

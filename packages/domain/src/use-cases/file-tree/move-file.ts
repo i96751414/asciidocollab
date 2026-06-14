@@ -4,7 +4,9 @@ import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { FilePath } from '../../value-objects/files/file-path';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
+import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
+import { CollaborativeContentEditor } from '../../ports/storage/collaborative-content-editor';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { Logger } from '../../ports/observability/logger';
 import { RequestContext } from '../../types/request-context';
@@ -29,6 +31,10 @@ export class MoveFileUseCase {
     private readonly fileStore: ProjectFileStore,
     private readonly auditLogRepo: AuditLogRepository,
     private readonly logger?: Logger,
+    // Optional pair: when both are supplied, references in a file that is a collaborative Document
+    // are rewritten through the Yjs source of truth instead of the file store (avoids live-clobber).
+    private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
+    private readonly collaborativeContentEditor?: CollaborativeContentEditor,
   ) {}
 
   /** Validates membership, moves the file on disk to its new parent path, and updates the database record. */
@@ -99,7 +105,12 @@ export class MoveFileUseCase {
     // mirroring how audit-write failures are handled.
     try {
       await rewriteReferencesForPathChanges(
-        { fileNodeRepo: this.fileNodeRepo, fileStore: this.fileStore },
+        {
+          fileNodeRepo: this.fileNodeRepo,
+          fileStore: this.fileStore,
+          ...(this.documentRepo && { documentRepo: this.documentRepo }),
+          ...(this.collaborativeContentEditor && { collaborativeContentEditor: this.collaborativeContentEditor }),
+        },
         projectId,
         pathChanges,
       );

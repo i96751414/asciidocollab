@@ -47,6 +47,10 @@ export ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT="${E2E_COLLAB_INTERNAL_PORT:-4101}"
 COLLAB_PORT="${E2E_COLLAB_PORT:-4102}"
 export ASCIIDOCOLLAB_COLLAB_PORT="$COLLAB_PORT"
 export ASCIIDOCOLLAB_COLLAB_API_INTERNAL_URL="http://127.0.0.1:${ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT}"
+# Collab internal edit endpoint (offset from the default 4003) + the API's URL pointing at it, so a
+# rename/move rewrites references in LIVE collaborative docs via the Yjs source of truth.
+export ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT="${E2E_COLLAB_EDIT_PORT:-4103}"
+export ASCIIDOCOLLAB_COLLAB_EDIT_URL="http://127.0.0.1:${ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT}"
 # Shared file storage so the collab server's write-back is visible to the API's GET /content.
 export ASCIIDOCOLLAB_STORAGE_PATH="${ASCIIDOCOLLAB_STORAGE_PATH:-$ROOT/.e2e-storage}"
 # Empty allowlist disables the Origin check for the isolated local stack.

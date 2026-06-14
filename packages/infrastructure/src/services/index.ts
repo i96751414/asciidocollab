@@ -11,3 +11,9 @@ export { SmtpPasswordResetNotifier } from './smtp-password-reset-notifier';
 export { SmtpEmailChangeNotifier } from './smtp-email-change-notifier';
 export { SmtpRegistrationInvitationNotifier } from './smtp-registration-invitation-notifier';
 export { SmtpEmailVerificationNotifier } from './smtp-email-verification-notifier';
+export {
+  HttpCollaborativeContentEditor,
+  HttpCollaborativeContentEditorConfig,
+  COLLAB_APPLY_EDITS_PATH,
+} from './http-collaborative-content-editor';
+export { createMtlsFetch } from './mtls-fetch';

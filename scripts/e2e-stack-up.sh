@@ -32,6 +32,10 @@ export ASCIIDOCOLLAB_API_PORT="$API_PORT"
 # stray dev API still holding the default 4001. (The `.next` build dir is shared
 # with dev on purpose; only containers and ports are isolated.)
 export ASCIIDOCOLLAB_COLLAB_INTERNAL_PORT="${E2E_COLLAB_INTERNAL_PORT:-4101}"
+# Collab internal edit endpoint — offset from the default 4003 so it never clashes with a dev
+# collab still holding it; the API reaches it via this URL to rewrite references in live docs.
+export ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT="${E2E_COLLAB_EDIT_PORT:-4103}"
+export ASCIIDOCOLLAB_COLLAB_EDIT_URL="http://127.0.0.1:${ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT}"
 export ASCIIDOCOLLAB_API_HOST="0.0.0.0"
 export ASCIIDOCOLLAB_API_FRONTEND_URL="http://localhost:${WEB_PORT}"
 export ASCIIDOCOLLAB_API_CORS_ORIGINS="http://localhost:${WEB_PORT}"

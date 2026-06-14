@@ -22,6 +22,7 @@ export { AssetRepository } from './file-tree/asset.repository';
 // storage/
 export { ProjectFileStore } from './storage/project-file-store';
 export { YjsStateStore } from './storage/yjs-state-store';
+export { CollaborativeContentEditor, ContentReplacement } from './storage/collaborative-content-editor';
 
 // auth-tokens/
 export { EmailChangeTokenRepository } from './auth-tokens/email-change-token.repository';

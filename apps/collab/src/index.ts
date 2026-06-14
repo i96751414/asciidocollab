@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import pino from 'pino';
 import { compositionRoot } from './composition-root.js';
 import { startOrphanedRoomWatchdog } from './watchdog.js';
 import { verifySharedStorage } from './storage-probe.js';
+import { startInternalEditServer } from './internal-edit-server.js';
 
 const logger = pino({
   redact: ['req.headers.cookie', 'req.headers.Cookie'],
@@ -37,10 +39,30 @@ async function main() {
   const port = config.get('port');
   logger.info({ port }, 'Collab server listening');
 
+  // Internal endpoint that lets the API apply cross-file reference rewrites to LIVE documents via
+  // the Yjs source of truth (avoids the clobber where a direct file-store write is reverted by the
+  // next writeback). Bound to loopback; secret-gated when configured.
+  const editSecret = config.get('internalEditSecret');
+  const editTlsCert = config.get('internalEditTls.cert');
+  const editTlsKey = config.get('internalEditTls.key');
+  const editTlsClientCa = config.get('internalEditTls.clientCa');
+  const editTls = editTlsCert && editTlsKey && editTlsClientCa
+    ? { cert: readFileSync(editTlsCert), key: readFileSync(editTlsKey), clientCa: readFileSync(editTlsClientCa) }
+    : undefined;
+  const internalEditServer = startInternalEditServer({
+    hocuspocus: server.hocuspocus,
+    host: config.get('internalEditHost'),
+    port: config.get('internalEditPort'),
+    ...(editSecret ? { secret: editSecret } : {}),
+    ...(editTls ? { tls: editTls } : {}),
+    logger,
+  });
+
   async function shutdown() {
     logger.info('Shutting down collab server…');
     try {
       clearInterval(watchdogInterval);
+      await new Promise<void>((resolve) => internalEditServer.close(() => resolve()));
       await server.destroy();
       await collaborationSessionRepo.closeAll();
       await prisma.$disconnect();
