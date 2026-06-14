@@ -128,38 +128,29 @@ describe('SaveEditorPreferencesUseCase', () => {
     if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
   });
 
-  test('persists spellcheck language and enabled flag', async () => {
+  test('persists the spellcheck enabled flag', async () => {
     const repo = new InMemoryEditorPreferencesRepository();
     const saveUseCase = new SaveEditorPreferencesUseCase(repo);
     const getUseCase = new GetEditorPreferencesUseCase(repo);
 
-    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckLanguage: 'fr', spellcheckEnabled: false });
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckEnabled: false });
 
     const getResult = await getUseCase.execute(userId);
     expect(getResult.success).toBe(true);
     if (getResult.success) {
-      expect(getResult.value.spellcheckLanguage).toBe('fr');
       expect(getResult.value.spellcheckEnabled).toBe(false);
     }
   });
 
-  test('an omitted spellcheck language preserves the previously saved value', async () => {
+  test('an omitted spellcheck enabled flag preserves the previously saved value', async () => {
     const repo = new InMemoryEditorPreferencesRepository();
     const saveUseCase = new SaveEditorPreferencesUseCase(repo);
     const getUseCase = new GetEditorPreferencesUseCase(repo);
 
-    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckLanguage: 'de' });
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckEnabled: false });
     await saveUseCase.execute(userId, { fontSize: 16, theme: 'default' });
 
     const getResult = await getUseCase.execute(userId);
-    if (getResult.success) expect(getResult.value.spellcheckLanguage).toBe('de');
-  });
-
-  test('an unsupported spellcheck language returns ValidationError', async () => {
-    const repo = new InMemoryEditorPreferencesRepository();
-    const useCase = new SaveEditorPreferencesUseCase(repo);
-    const result = await useCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckLanguage: 'klingon' });
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+    if (getResult.success) expect(getResult.value.spellcheckEnabled).toBe(false);
   });
 });

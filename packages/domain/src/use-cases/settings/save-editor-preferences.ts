@@ -6,11 +6,7 @@ import { EditorPreferencesId } from '../../value-objects/ids/editor-preferences-
 import { EditorTheme } from '../../value-objects/editor/editor-theme';
 import { PreviewStyle } from '../../value-objects/editor/preview-style';
 import { ValidationError } from '../../errors/common/validation-error';
-import {
-  DEFAULT_SPELLCHECK_LANGUAGE,
-  DEFAULT_SPELLCHECK_ENABLED,
-  isSpellcheckLanguage,
-} from '../../constants/editor-preferences';
+import { DEFAULT_SPELLCHECK_ENABLED } from '../../constants/editor-preferences';
 import { randomUUID } from 'node:crypto';
 
 interface SaveEditorPreferencesInput {
@@ -19,7 +15,6 @@ interface SaveEditorPreferencesInput {
   scrollSyncEnabled?: boolean;
   softWrap?: boolean;
   previewStyle?: string;
-  spellcheckLanguage?: string;
   spellcheckEnabled?: boolean;
 }
 
@@ -60,13 +55,9 @@ export class SaveEditorPreferencesUseCase {
         previewStyle = previewStyleResult.value;
       }
 
-      const spellcheckLanguage = input.spellcheckLanguage ?? existing?.spellcheckLanguage ?? DEFAULT_SPELLCHECK_LANGUAGE;
-      if (!isSpellcheckLanguage(spellcheckLanguage)) {
-        return { success: false, error: new ValidationError(`unsupported spellcheck language: ${spellcheckLanguage}`) };
-      }
       const spellcheckEnabled = input.spellcheckEnabled ?? existing?.spellcheckEnabled ?? DEFAULT_SPELLCHECK_ENABLED;
 
-      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, scrollSyncEnabled, existing?.timestamps, softWrap, previewStyle, spellcheckLanguage, spellcheckEnabled);
+      prefs = new EditorPreferences(id, userId, input.fontSize, themeResult.value, scrollSyncEnabled, existing?.timestamps, softWrap, previewStyle, spellcheckEnabled);
     } catch (error) {
       if (error instanceof ValidationError) {
         return { success: false, error: error };

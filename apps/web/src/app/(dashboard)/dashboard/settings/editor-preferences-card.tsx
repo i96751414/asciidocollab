@@ -1,10 +1,9 @@
 'use client';
 
-import { useEditorPreferences, EditorThemeValue, isSpellcheckLanguageValue } from '@/hooks/use-editor-preferences';
+import { useEditorPreferences, EditorThemeValue } from '@/hooks/use-editor-preferences';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { PreviewStyleControl } from '@/components/preview-style-control';
-import { SPELLCHECK_LANGUAGE_OPTIONS } from '@/lib/codemirror/spellcheck-languages';
 
 const FONT_SIZES = [12, 13, 14, 16, 18, 20] as const;
 
@@ -19,8 +18,8 @@ const EDITOR_THEMES: { value: EditorThemeValue; label: string }[] = [
 /** Card exposing editor font size, theme, scroll sync, and soft wrap preferences. */
 export function EditorPreferencesCard() {
   const {
-    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle, spellcheckLanguage, spellcheckEnabled,
-    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, setSpellcheckLanguage, setSpellcheckEnabled,
+    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle, spellcheckEnabled,
+    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, setSpellcheckEnabled,
   } = useEditorPreferences();
 
   return (
@@ -100,22 +99,9 @@ export function EditorPreferencesCard() {
             />
             <Label htmlFor="spellcheckEnabled">Spell Check</Label>
           </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="spellcheckLanguage">Spell Check Language</Label>
-          <CardDescription>Document language used for spell checking.</CardDescription>
-          <select
-            id="spellcheckLanguage"
-            value={spellcheckLanguage}
-            disabled={!spellcheckEnabled}
-            onChange={(event) => { if (isSpellcheckLanguageValue(event.target.value)) setSpellcheckLanguage(event.target.value); }}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-          >
-            {SPELLCHECK_LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>{option.label}</option>
-            ))}
-          </select>
+          <CardDescription>
+            The spell-check language is configured per project in its settings.
+          </CardDescription>
         </div>
       </CardContent>
     </Card>

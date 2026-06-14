@@ -7,13 +7,10 @@ import { ValidationError } from '../errors/common/validation-error';
 import {
   FONT_SIZE_MIN,
   FONT_SIZE_MAX,
-  DEFAULT_SPELLCHECK_LANGUAGE,
   DEFAULT_SPELLCHECK_ENABLED,
-  isSpellcheckLanguage,
-  type SpellcheckLanguage,
 } from '../constants/editor-preferences';
 
-/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style, spellcheck). */
+/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style, spellcheck toggle). */
 export class EditorPreferences {
   public readonly timestamps: Timestamps;
 
@@ -26,8 +23,8 @@ export class EditorPreferences {
    * @param timestamps - Optional creation/update timestamps; defaults to now.
    * @param softWrap - When true, the editor wraps long lines instead of scrolling horizontally.
    * @param previewStyle - Selected preview rendering style; defaults to the brand look.
-   * @param spellcheckLanguage - Document language for spellcheck; must be a supported language code.
-   * @param spellcheckEnabled - When false, spellcheck produces no diagnostics regardless of language.
+   * @param spellcheckEnabled - When false, spellcheck produces no diagnostics. The
+   *  spellcheck language is a project-level setting, not a user preference.
    */
   constructor(
     public readonly id: EditorPreferencesId,
@@ -38,16 +35,12 @@ export class EditorPreferences {
     timestamps?: Timestamps,
     public readonly softWrap: boolean = true,
     public readonly previewStyle: PreviewStyle = PreviewStyle.default(),
-    public readonly spellcheckLanguage: SpellcheckLanguage = DEFAULT_SPELLCHECK_LANGUAGE,
     public readonly spellcheckEnabled: boolean = DEFAULT_SPELLCHECK_ENABLED,
   ) {
     if (fontSize < FONT_SIZE_MIN || fontSize > FONT_SIZE_MAX) {
       throw new ValidationError(
         `fontSize must be between ${FONT_SIZE_MIN} and ${FONT_SIZE_MAX}, got ${fontSize}`,
       );
-    }
-    if (!isSpellcheckLanguage(spellcheckLanguage)) {
-      throw new ValidationError(`unsupported spellcheck language: ${spellcheckLanguage}`);
     }
     this.timestamps = timestamps ?? new Timestamps();
   }

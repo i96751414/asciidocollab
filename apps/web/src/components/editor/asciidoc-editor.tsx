@@ -36,6 +36,12 @@ interface AsciiDocEditorProperties {
   isAsciiDoc?: boolean;
   /** When true (default), enables line wrapping in the editor. */
   softWrap?: boolean;
+  /**
+   * Project document language (ISO 639-1) driving the spellchecker, or null when the project has
+   * none configured (the editor then falls back to its default). Spellcheck language is a
+   * project-level setting; whether spellcheck runs at all stays a per-user preference.
+   */
+  spellcheckLanguage?: string | null;
   // Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion.
   getProjectIndex?: () => ProjectSymbolIndex | null;
   onChange?: (value: string) => void;
@@ -112,6 +118,7 @@ export function AsciiDocEditor({
   initialEtag,
   isAsciiDoc = true,
   softWrap: softWrapProperty,
+  spellcheckLanguage,
   getProjectIndex,
   onChange,
   onNavigateToFile,
@@ -142,8 +149,10 @@ export function AsciiDocEditor({
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckLanguage, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
+  // Spellcheck language comes from the project; fall back to English when the project leaves it unset.
+  const effectiveSpellcheckLanguage = spellcheckLanguage ?? 'en';
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
 
@@ -189,7 +198,7 @@ export function AsciiDocEditor({
     softWrap,
     foldStorageKey: projectId && fileNodeId ? `asciidocollab:folds:${projectId}:${fileNodeId}` : undefined,
     spellIgnore,
-    spellcheckLanguage,
+    spellcheckLanguage: effectiveSpellcheckLanguage,
     spellcheckEnabled,
     includePaths,
     imagePaths,

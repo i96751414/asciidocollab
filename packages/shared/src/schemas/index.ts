@@ -6,6 +6,8 @@ export {
   updateProjectSchema,
   inviteMemberSchema,
   updateMemberRoleSchema,
+  projectLanguageSchema,
+  PROJECT_LANGUAGES,
   type CreateProjectInput,
   type UpdateProjectInput,
   type InviteMemberInput,

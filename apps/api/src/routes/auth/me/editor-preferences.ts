@@ -16,10 +16,6 @@ const putBodySchema = {
     scrollSyncEnabled: { type: 'boolean' },
     softWrap: { type: 'boolean' },
     previewStyle: { type: 'string', enum: ['asciidocollab', 'asciidoctor'] },
-    spellcheckLanguage: {
-      type: 'string',
-      enum: ['en', 'es', 'fr', 'pt', 'de', 'it', 'uk', 'pl', 'tr'],
-    },
     spellcheckEnabled: { type: 'boolean' },
   },
   additionalProperties: false,
@@ -45,14 +41,13 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         scrollSyncEnabled: result.value.scrollSyncEnabled,
         softWrap: result.value.softWrap,
         previewStyle: result.value.previewStyle.value,
-        spellcheckLanguage: result.value.spellcheckLanguage,
         spellcheckEnabled: result.value.spellcheckEnabled,
       };
       return reply.status(200).send(dto);
     }
   );
 
-  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellcheckLanguage?: string; spellcheckEnabled?: boolean } }>(
+  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellcheckEnabled?: boolean } }>(
     '/auth/me/editor-preferences',
     {
       preHandler: requireAuth,
@@ -67,7 +62,6 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         scrollSyncEnabled: request.body.scrollSyncEnabled,
         softWrap: request.body.softWrap,
         previewStyle: request.body.previewStyle,
-        spellcheckLanguage: request.body.spellcheckLanguage,
         spellcheckEnabled: request.body.spellcheckEnabled,
       });
 

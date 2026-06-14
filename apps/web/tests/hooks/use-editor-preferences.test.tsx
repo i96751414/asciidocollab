@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEditorPreferences, isEditorThemeValue, isPreviewStyleValue, isSpellcheckLanguageValue } from '@/hooks/use-editor-preferences';
+import { useEditorPreferences, isEditorThemeValue, isPreviewStyleValue } from '@/hooks/use-editor-preferences';
 
 const mockFetch = jest.fn();
 globalThis.fetch = mockFetch;
@@ -410,20 +410,6 @@ test('setPreviewStyle updates state and includes previewStyle in the PUT payload
   }
 });
 
-test('setSpellcheckLanguage updates state, persists, and includes it in the PUT payload', async () => {
-  const { result } = renderHook(() => useEditorPreferences());
-  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
-  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
-  await act(async () => {
-    result.current.setSpellcheckLanguage('fr');
-    jest.advanceTimersByTime(600);
-  });
-  await waitFor(() => expect(result.current.spellcheckLanguage).toBe('fr'));
-  expect(JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}').spellcheckLanguage).toBe('fr');
-  const putCall = mockFetch.mock.calls.find((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
-  expect(putCall && JSON.parse((putCall[1] as { body: string }).body).spellcheckLanguage).toBe('fr');
-});
-
 test('setSpellcheckEnabled toggles the flag and persists it', async () => {
   const { result } = renderHook(() => useEditorPreferences());
   await waitFor(() => expect(mockFetch).toHaveBeenCalled());
@@ -434,13 +420,10 @@ test('setSpellcheckEnabled toggles the flag and persists it', async () => {
   expect(JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}').spellcheckEnabled).toBe(false);
 });
 
-test('spellcheckLanguage/spellcheckEnabled are seeded from the GET response; invalid language falls back', async () => {
-  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ spellcheckLanguage: 'de', spellcheckEnabled: false }) });
+test('spellcheckEnabled is seeded from the GET response', async () => {
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ spellcheckEnabled: false }) });
   const { result } = renderHook(() => useEditorPreferences());
-  await waitFor(() => expect(result.current.spellcheckLanguage).toBe('de'));
-  expect(result.current.spellcheckEnabled).toBe(false);
-  expect(isSpellcheckLanguageValue('de')).toBe(true);
-  expect(isSpellcheckLanguageValue('xx')).toBe(false);
+  await waitFor(() => expect(result.current.spellcheckEnabled).toBe(false));
 });
 
 test('localStorage cache updated when previewStyle changes', async () => {

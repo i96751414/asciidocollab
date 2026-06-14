@@ -1,18 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api/file-content';
 import { isPreviewStyleValue, type PreviewStyleValue } from '@/components/preview-style-control';
-import { SPELLCHECK_LANGUAGE_OPTIONS } from '@/lib/codemirror/spellcheck-languages';
-import type { SpellcheckLanguageDto } from '@asciidocollab/shared';
-
-/** A selectable spellcheck/document language code. */
-export type SpellcheckLanguageValue = SpellcheckLanguageDto;
-
-const VALID_SPELLCHECK_LANGUAGES = new Set(SPELLCHECK_LANGUAGE_OPTIONS.map((option) => option.code));
-
-/** Returns true when `value` is a recognised spellcheck language code. */
-export function isSpellcheckLanguageValue(value: string): value is SpellcheckLanguageValue {
-  return VALID_SPELLCHECK_LANGUAGES.has(value);
-}
 
 // Re-exported so consumers/tests that read preferences can validate tokens from one import.
 export { isPreviewStyleValue } from '@/components/preview-style-control';
@@ -44,13 +32,12 @@ interface EditorPrefs {
   softWrap: boolean;
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
-  spellcheckLanguage: SpellcheckLanguageValue;
   spellcheckEnabled: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckLanguage: 'en', spellcheckEnabled: true };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckLanguage?: string; spellcheckEnabled?: boolean } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -73,7 +60,6 @@ function loadFromStorage(): EditorPrefs {
           softWrap: typeof parsed.softWrap === 'boolean' ? parsed.softWrap : DEFAULT_PREFS.softWrap,
           previewStyle: typeof rawPreviewStyle === 'string' && isPreviewStyleValue(rawPreviewStyle) ? rawPreviewStyle : DEFAULT_PREFS.previewStyle,
           spellIgnore: toStringArray(parsed.spellIgnore),
-          spellcheckLanguage: typeof parsed.spellcheckLanguage === 'string' && isSpellcheckLanguageValue(parsed.spellcheckLanguage) ? parsed.spellcheckLanguage : DEFAULT_PREFS.spellcheckLanguage,
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
         };
       }
@@ -90,7 +76,6 @@ interface UseEditorPreferencesResult {
   softWrap: boolean;
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
-  spellcheckLanguage: SpellcheckLanguageValue;
   spellcheckEnabled: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
@@ -98,7 +83,6 @@ interface UseEditorPreferencesResult {
   setSoftWrap: (enabled: boolean) => void;
   setPreviewStyle: (style: PreviewStyleValue) => void;
   addSpellIgnore: (word: string) => void;
-  setSpellcheckLanguage: (language: SpellcheckLanguageValue) => void;
   setSpellcheckEnabled: (enabled: boolean) => void;
 }
 
@@ -119,7 +103,6 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         softWrap: typeof data.softWrap === 'boolean' ? data.softWrap : previous.softWrap,
         previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
-        spellcheckLanguage: typeof data.spellcheckLanguage === 'string' && isSpellcheckLanguageValue(data.spellcheckLanguage) ? data.spellcheckLanguage : previous.spellcheckLanguage,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
       })))
       .catch(() => { /* keep localStorage value on error */ });
@@ -195,15 +178,6 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  const setSpellcheckLanguage = useCallback((spellcheckLanguage: SpellcheckLanguageValue) => {
-    setPrefs((previous) => {
-      const next = { ...previous, spellcheckLanguage };
-      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      schedulePut(next);
-      return next;
-    });
-  }, []);
-
   const setSpellcheckEnabled = useCallback((spellcheckEnabled: boolean) => {
     setPrefs((previous) => {
       const next = { ...previous, spellcheckEnabled };
@@ -213,5 +187,5 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckLanguage: prefs.spellcheckLanguage, spellcheckEnabled: prefs.spellcheckEnabled, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckLanguage, setSpellcheckEnabled };
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled };
 }

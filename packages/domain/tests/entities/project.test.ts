@@ -55,4 +55,23 @@ describe('Project entity', () => {
 
     expect(() => project.archive()).toThrow();
   });
+
+  test('language defaults to null and can be set or cleared via update', () => {
+    const project = new Project(projectId, projectName, null, [], null);
+    expect(project.language).toBeNull();
+
+    project.update({ language: 'pt' });
+    expect(project.language).toBe('pt');
+
+    project.update({ language: null });
+    expect(project.language).toBeNull();
+  });
+
+  test('rejects an unsupported language', () => {
+    const project = new Project(projectId, projectName, null, [], null);
+    expect(() => project.update({ language: 'klingon' as 'en' })).toThrow();
+    expect(
+      () => new Project(projectId, projectName, null, [], null, undefined, null, null, 'klingon' as 'en'),
+    ).toThrow();
+  });
 });

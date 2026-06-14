@@ -23,6 +23,8 @@ export interface Project {
   rootFolderId: string | null;
   /** Configured main AsciiDoc file node id (US8/FR-045), or null when unset. */
   mainFileNodeId: string | null;
+  /** Document/spellcheck language (ISO 639-1), or null when unset (editor uses its default). */
+  language: string | null;
   /** ISO timestamp when the project was archived, or null if it is active. */
   archivedAt: string | null;
   /** Total number of members in the project, included in list responses. */
@@ -75,7 +77,8 @@ export const projectsApi = {
     data: { /** Updated project name. */
     name?: string; /** Updated project description. */
     description?: string; /** Updated taxonomy tags. */
-    tags?: string[] },
+    tags?: string[]; /** Updated document/spellcheck language (ISO 639-1), or null to clear. */
+    language?: string | null },
   ): Promise<{ /** The updated project. */
   data: Project }> {
     return apiRequest(`/api/projects/${id}`, {

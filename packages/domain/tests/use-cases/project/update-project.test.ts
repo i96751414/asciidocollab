@@ -80,6 +80,28 @@ describe('UpdateProjectUseCase', () => {
     }
   });
 
+  test('updates project language successfully', async () => {
+    expect.assertions(2);
+    const input: UpdateProjectInput = { language: 'pt' };
+    const result = await useCase.execute(ownerId, projectId, input);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.language).toBe('pt');
+    }
+  });
+
+  test('clears project language when set to null', async () => {
+    expect.assertions(2);
+    await useCase.execute(ownerId, projectId, { language: 'fr' });
+    const result = await useCase.execute(ownerId, projectId, { language: null });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.language).toBeNull();
+    }
+  });
+
   test('updates all fields at once', async () => {
     expect.assertions(4);
     const input: UpdateProjectInput = {

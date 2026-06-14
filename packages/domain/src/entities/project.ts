@@ -2,6 +2,7 @@ import { ProjectId } from '../value-objects/ids/project-id';
 import { ProjectName } from '../value-objects/project/project-name';
 import { FileNodeId } from '../value-objects/ids/file-node-id';
 import { Timestamps } from '../value-objects/common/timestamps';
+import { isSpellcheckLanguage, type SpellcheckLanguage } from '../constants/editor-preferences';
 
 /**
  * Represents an AsciiDoc collaboration project.
@@ -21,9 +22,11 @@ export class Project {
   private _tags: string[];
   private _name: ProjectName;
   private _description: string | null;
+  private _language: SpellcheckLanguage | null;
 
   /**
-   * @throws {Error} If tags exceed 10 items, or `initialArchivedAt` precedes `createdAt`.
+   * @throws {Error} If tags exceed 10 items, `initialArchivedAt` precedes
+   *  `createdAt`, or `initialLanguage` is not a supported language code.
    */
   constructor(
     /** Unique identifier for the project. */
@@ -51,6 +54,11 @@ export class Project {
     initialArchivedAt: Date | null = null,
     /** Configured main/master AsciiDoc file (FR-045), or null when unset. */
     initialMainFileNodeId: FileNodeId | null = null,
+    /**
+     * Document language used for spellcheck, or null when unset (the editor then
+     * falls back to its default). Must be a supported language code when present.
+     */
+    initialLanguage: SpellcheckLanguage | null = null,
   ) {
     const deduplicatedTags = [...new Set(tags)];
     if (deduplicatedTags.length > 10) {
@@ -61,12 +69,17 @@ export class Project {
       throw new Error('archivedAt must be >= createdAt');
     }
 
+    if (initialLanguage !== null && !isSpellcheckLanguage(initialLanguage)) {
+      throw new Error(`unsupported language: ${initialLanguage}`);
+    }
+
     this._name = name;
     this._description = description;
     this._tags = deduplicatedTags;
     this._rootFolderId = initialRootFolderId;
     this._mainFileNodeId = initialMainFileNodeId;
     this._archivedAt = initialArchivedAt;
+    this._language = initialLanguage;
     this._timestamps = timestamps;
   }
 
@@ -78,6 +91,11 @@ export class Project {
   /** @returns The optional description of the project. */
   get description(): string | null {
     return this._description;
+  }
+
+  /** @returns The configured document/spellcheck language, or null when unset. */
+  get language(): SpellcheckLanguage | null {
+    return this._language;
   }
 
   /** @returns The root folder identifier, or null if not initialised. */
@@ -170,8 +188,14 @@ export class Project {
     name?: ProjectName;
     description?: string | null;
     tags?: string[];
+    language?: string | null;
   }): void {
-    if (updates.name === undefined && updates.description === undefined && updates.tags === undefined) {
+    if (
+      updates.name === undefined &&
+      updates.description === undefined &&
+      updates.tags === undefined &&
+      updates.language === undefined
+    ) {
       throw new Error('At least one field must be provided');
     }
 
@@ -189,6 +213,16 @@ export class Project {
         throw new Error('Tags must not exceed 10 items');
       }
       this._tags = deduplicated;
+    }
+
+    if (updates.language !== undefined) {
+      if (updates.language === null) {
+        this._language = null;
+      } else if (isSpellcheckLanguage(updates.language)) {
+        this._language = updates.language;
+      } else {
+        throw new Error(`unsupported language: ${updates.language}`);
+      }
     }
 
     this._timestamps = new Timestamps(this._timestamps.createdAt, new Date());

@@ -9,6 +9,7 @@ import {
   ProjectRepository,
   PaginationParameters,
   PaginatedProjects,
+  isSpellcheckLanguage,
 } from '@asciidocollab/domain';
 
 /**
@@ -122,7 +123,7 @@ export class PrismaProjectRepository implements ProjectRepository {
 
 function toDomainProject(record: {
   id: string; name: string; description: string | null;
-  tags: unknown; archivedAt: Date | null; mainFileNodeId?: string | null; createdAt: Date; updatedAt: Date;
+  tags: unknown; archivedAt: Date | null; mainFileNodeId?: string | null; language?: string | null; createdAt: Date; updatedAt: Date;
 }): Project {
   return new Project(
     ProjectId.create(record.id),
@@ -133,12 +134,14 @@ function toDomainProject(record: {
     new Timestamps(record.createdAt, record.updatedAt),
     record.archivedAt,
     record.mainFileNodeId ? FileNodeId.create(record.mainFileNodeId) : null,
+    // A corrupt/unknown stored language must not break loading — treat it as unset.
+    record.language && isSpellcheckLanguage(record.language) ? record.language : null,
   );
 }
 
 function toPersistenceProject(project: Project): {
   id: string; name: string; description: string | null;
-  tags: string[]; mainFileNodeId: string | null; createdAt: Date; updatedAt: Date;
+  tags: string[]; mainFileNodeId: string | null; language: string | null; createdAt: Date; updatedAt: Date;
 } {
   return {
     id: project.id.value,
@@ -146,6 +149,7 @@ function toPersistenceProject(project: Project): {
     description: project.description,
     tags: [...project.tags],
     mainFileNodeId: project.mainFileNodeId?.value ?? null,
+    language: project.language,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   };

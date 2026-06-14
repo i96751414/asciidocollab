@@ -11,6 +11,7 @@ import { updateProjectSchema, type UpdateProjectInput } from "@asciidocollab/sha
 import { ArchiveButton } from "@/components/archive-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { EditorMainFilePicker } from "@/components/editor/editor-main-file-picker";
+import { SPELLCHECK_LANGUAGE_OPTIONS } from "@/lib/codemirror/spellcheck-languages";
 
 interface SettingsClientProperties {
   project: Project;
@@ -31,6 +32,7 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
     description: project.description || "",
     tags: project.tags,
   });
+  const [language, setLanguage] = useState<string | null>(project.language);
 
   const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,11 +41,12 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
     setSuccess(false);
 
     try {
-      const validatedData = updateProjectSchema.parse(formData);
+      const validatedData = updateProjectSchema.parse({ ...formData, language });
       await projectsApi.update(project.id, {
         name: validatedData.name,
         description: validatedData.description || undefined,
         tags: validatedData.tags,
+        language: validatedData.language ?? null,
       });
       setSuccess(true);
       router.refresh();
@@ -119,6 +122,28 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
             placeholder="documentation, api, guide"
             disabled={isArchived}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="language">Language</Label>
+          <p className="text-sm text-muted-foreground">
+            Document language for the editor&apos;s spell checker. Applies to everyone editing this
+            project.
+          </p>
+          <select
+            id="language"
+            value={language ?? ""}
+            onChange={(event) => setLanguage(event.target.value || null)}
+            disabled={isArchived}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+          >
+            <option value="">Not set</option>
+            {SPELLCHECK_LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {!isArchived && (

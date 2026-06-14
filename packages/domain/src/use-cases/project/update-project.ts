@@ -23,6 +23,11 @@ export interface UpdateProjectInput {
   description?: string | null;
   /** The new project tags. */
   tags?: string[];
+  /**
+   * The new document/spellcheck language, or null to clear it. Validated against
+   * the supported set by the Project entity (an unsupported code throws).
+   */
+  language?: string | null;
 }
 
 /**
@@ -83,6 +88,7 @@ export class UpdateProjectUseCase {
       name: project.name.value,
       description: project.description,
       tags: [...project.tags],
+      language: project.language,
     };
 
     // Update project fields using the entity's update method
@@ -90,6 +96,7 @@ export class UpdateProjectUseCase {
       name: input.name === undefined ? undefined : ProjectName.create(input.name),
       description: input.description === undefined ? undefined : input.description,
       tags: input.tags,
+      language: input.language,
     });
 
     await this.projectRepo.save(project);
@@ -107,6 +114,9 @@ export class UpdateProjectUseCase {
       afterTags.some((tag, index) => tag !== before.tags[index])
     ) {
       changes.tags = { from: before.tags, to: afterTags };
+    }
+    if (project.language !== before.language) {
+      changes.language = { from: before.language, to: project.language };
     }
 
     await recordAuditSuccess(this.auditLogRepo, {

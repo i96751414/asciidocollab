@@ -34,6 +34,8 @@ interface ContentAreaProperties {
   contentState: FileContentState;
   canEdit: boolean;
   projectId: string;
+  /** Project document language (ISO 639-1) driving the spellchecker, or null when unset. */
+  projectLanguage: string | null;
   onScrollLine?: (line: number) => void;
   onLineClick?: (line: number) => void;
   // Ctrl+click on an include/image path — reveals and selects the target file in the tree.
@@ -74,6 +76,7 @@ function ContentArea({
   contentState,
   canEdit,
   projectId,
+  projectLanguage,
   onScrollLine,
   onLineClick,
   onNavigateToFile,
@@ -127,6 +130,7 @@ function ContentArea({
       fileNodeId={selectedFile.nodeId}
       initialEtag={contentState.etag}
       isAsciiDoc={isAsciiDocFile(selectedFile.nodeName)}
+      spellcheckLanguage={projectLanguage}
       onScrollLine={onScrollLine}
       onLineClick={onLineClick}
       onNavigateToFile={onNavigateToFile}
@@ -149,6 +153,8 @@ interface ProjectEditorLayoutProperties {
   projectId: string;
   projectName: string;
   projectDescription: string | null;
+  /** Project document language (ISO 639-1) driving the spellchecker, or null when unset. */
+  projectLanguage: string | null;
   /** Configured main-file node id (US8/FR-045), or null when unset. */
   mainFileNodeId: string | null;
   canManage: boolean;
@@ -162,6 +168,7 @@ export function ProjectEditorLayout({
   projectId,
   projectName,
   projectDescription,
+  projectLanguage,
   mainFileNodeId,
   canManage,
   canEdit,
@@ -348,6 +355,7 @@ export function ProjectEditorLayout({
               contentState={contentState}
               canEdit={editorCanEdit}
               projectId={projectId}
+              projectLanguage={projectLanguage}
               onScrollLine={previewOpen && scrollSyncEnabled ? handleScrollLine : undefined}
               onLineClick={previewOpen ? handleLineClick : undefined}
               onNavigateToFile={handleNavigateToFile}

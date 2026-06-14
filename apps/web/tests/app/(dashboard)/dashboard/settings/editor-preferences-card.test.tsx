@@ -7,7 +7,6 @@ const setTheme = jest.fn();
 const setScrollSyncEnabled = jest.fn();
 const setSoftWrap = jest.fn();
 const setPreviewStyle = jest.fn();
-const setSpellcheckLanguage = jest.fn();
 const setSpellcheckEnabled = jest.fn();
 
 const preferences = {
@@ -17,7 +16,6 @@ const preferences = {
   softWrap: true,
   previewStyle: 'asciidocollab',
   spellIgnore: [],
-  spellcheckLanguage: 'en',
   spellcheckEnabled: true,
   setFontSize,
   setTheme,
@@ -25,14 +23,11 @@ const preferences = {
   setSoftWrap,
   setPreviewStyle,
   addSpellIgnore: jest.fn(),
-  setSpellcheckLanguage,
   setSpellcheckEnabled,
 };
 
 jest.mock('@/hooks/use-editor-preferences', () => ({
   useEditorPreferences: () => preferences,
-  isSpellcheckLanguageValue: (value: string) =>
-    ['en', 'es', 'fr', 'pt', 'de', 'it', 'uk', 'pl', 'tr'].includes(value),
 }));
 
 jest.mock('@/components/preview-style-control', () => ({
@@ -114,19 +109,8 @@ describe('EditorPreferencesCard', () => {
     expect(setSpellcheckEnabled).toHaveBeenCalledWith(false);
   });
 
-  test('offers the nine dictionary-backed languages and wires the selector to setSpellcheckLanguage', () => {
+  test('no longer offers a spell-check language selector (now a project setting)', () => {
     render(<EditorPreferencesCard />);
-    const select = screen.getByLabelText('Spell Check Language');
-    expect(select.querySelectorAll('option')).toHaveLength(9);
-    expect(screen.getByRole('option', { name: 'French' })).toBeInTheDocument();
-    fireEvent.change(select, { target: { value: 'fr' } });
-    expect(setSpellcheckLanguage).toHaveBeenCalledWith('fr');
-  });
-
-  test('disables the language selector when spell check is off', () => {
-    preferences.spellcheckEnabled = false;
-    render(<EditorPreferencesCard />);
-    expect(screen.getByLabelText('Spell Check Language')).toBeDisabled();
-    preferences.spellcheckEnabled = true; // restore for other tests
+    expect(screen.queryByLabelText('Spell Check Language')).not.toBeInTheDocument();
   });
 });

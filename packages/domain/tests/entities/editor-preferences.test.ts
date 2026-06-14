@@ -55,21 +55,13 @@ describe('EditorPreferences entity', () => {
     expect(prefs.timestamps.updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
   });
 
-  test('spellcheck defaults to English, enabled', () => {
+  test('spellcheck defaults to enabled', () => {
     const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme);
-    expect(prefs.spellcheckLanguage).toBe('en');
     expect(prefs.spellcheckEnabled).toBe(true);
   });
 
-  test('reflects the provided spellcheck language and enabled flag', () => {
-    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), 'fr', false);
-    expect(prefs.spellcheckLanguage).toBe('fr');
+  test('reflects the provided spellcheck enabled flag', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), false);
     expect(prefs.spellcheckEnabled).toBe(false);
-  });
-
-  test('throws on an unsupported spellcheck language', () => {
-    expect(
-      () => new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), 'klingon' as 'en', true),
-    ).toThrow(ValidationError);
   });
 });
