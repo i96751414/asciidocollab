@@ -56,6 +56,7 @@ export const asciidocHighlightTags = styleTags({
   UiMacro:            t.macroName,
   InlineStem:         t.special(t.macroName),
   Link:               t.link,
+  SmartQuote:         t.quote,
   BlockTitle:         t.annotation,
   OrderedListItem:    t.list,
   UnorderedListItem:  t.list,

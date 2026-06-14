@@ -112,6 +112,27 @@ describe('US7 inline — UI & math macros (FR-052)', () => {
   });
 });
 
+describe('US7 inline — smart typographic quotes (FR-054)', () => {
+  test('recognises a double curly quote "`x`" as a SmartQuote', () => {
+    expect(hasToken('a "`quoted`" b\n', 'SmartQuote')).toBe(true);
+  });
+
+  test('recognises a single curly quote \'`x`\' as a SmartQuote', () => {
+    expect(hasToken("a '`quoted`' b\n", 'SmartQuote')).toBe(true);
+  });
+
+  test('a plain double-quoted "hello" is NOT a SmartQuote', () => {
+    expect(hasToken('say "hello" loud\n', 'SmartQuote')).toBe(false);
+    expect(tokensOfType('say "hello" loud\n', 'Paragraph')).toHaveLength(1);
+  });
+
+  test("an apostrophe in don't does not start a SmartQuote and stays prose", () => {
+    expect(hasToken("don't stop now\n", 'SmartQuote')).toBe(false);
+    expect(tokensOfType("don't stop now\n", 'Paragraph')).toHaveLength(1);
+    expect(tokensOfType("don't stop now\n", '⚠')).toHaveLength(0);
+  });
+});
+
 describe('US7 block — thematic & page breaks (FR-028)', () => {
   test("recognises ''' as a ThematicBreak", () => {
     expect(hasToken("'''\n", 'ThematicBreak')).toBe(true);

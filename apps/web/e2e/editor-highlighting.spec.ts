@@ -82,6 +82,8 @@ test.describe('US7 highlighting coverage (live editor)', () => {
       '',
       'Visit https://example.com for details.',
       '',
+      'A "`smart quote`" sits here.',
+      '',
       'puts value <1>',
       '',
       "'''",

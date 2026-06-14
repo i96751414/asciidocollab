@@ -130,8 +130,8 @@ inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
   Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
-  UiMacro | InlineStem | Link |
-  inlineWord | spaceTok | punctFallback | ltFallback
+  UiMacro | InlineStem | Link | SmartQuote |
+  inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback
 }
 
 Bold       { boldDoubleMark   innerContent boldDoubleMark   |
@@ -143,7 +143,7 @@ Highlight  { hashMark         innerContent hashMark }
 Subscript  { tildeMark        innerContent tildeMark }
 Superscript { caretMark       innerContent caretMark }
 
-innerContent { (inlineWord | spaceTok | punctFallback | ltFallback)+ }
+innerContent { (inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback)+ }
 
 AttributeReference { attrRef }
 CrossReference     { xref }
@@ -163,6 +163,7 @@ Callout       { calloutMark }
 UiMacro       { uiMacroMark }
 InlineStem    { stemMark }
 Link          { bareUrl }
+SmartQuote    { smartDoubleQuote | smartSingleQuote }
 
 @tokens {
   // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
@@ -210,13 +211,20 @@ Link          { bareUrl }
   // `inlineWord` safe — a plain word that merely contains a colon never matches.
   bareUrl { ("https://" | "http://" | "ftp://" | "irc://") ![ \t\n\[\]<>]+ }
 
+  // Smart typographic quotes — AsciiDoc curly-quote syntax `"`…`"` / `'`…`'` (a straight
+  // quote immediately wrapping a backtick pair). Self-contained tokens, so they win over the
+  // bare quote/backtick by longest match; a plain `"hello"` or apostrophe never matches.
+  smartDoubleQuote { "\"`" ![`\n]+ "`\"" }
+  smartSingleQuote { "'`" ![`\n]+ "`'" }
+
   // Lone narrowed-out starter chars that began no construct — kept as plain text so prose
-  // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`).
+  // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`, `don't`, `"x"`).
   punctFallback { $[+\[(&] }
   ltFallback    { "<" }
+  quoteFallback { $["'] }
 
   // Generic inline word — excludes markup starters, whitespace, newlines
-  inlineWord { ![\n *\t_`#~^{<\\+\[(&]+ }
+  inlineWord { ![\n *\t_`#~^{<\\+\[(&"']+ }
   spaceTok   { $[ \t]+ }
 
   nl { "\n" }
