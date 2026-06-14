@@ -100,4 +100,16 @@ describe('US7 inline rework — existing tokenization not regressed', () => {
   test('plain prose with assorted punctuation remains a single Paragraph', () => {
     expect(tokensOfType('cost is 3 (each) & up + tax\n', 'Paragraph')).toHaveLength(1);
   });
+
+  test.each([
+    "'tis the season\n", // leading apostrophe, not a thematic break
+    '<<intro>> opens a line\n', // xref at the very start of a line
+    'a << b and c\n', // bare `<<` that never closes
+    'use ++ carefully\n', // bare `++` with no inner
+    'price (each) here\n', // unmatched parenthesis word
+    'array[0] index\n', // single bracket in prose
+  ])('tricky prose %j stays a single Paragraph (no parser error)', (source) => {
+    expect(tokensOfType(source, 'Paragraph')).toHaveLength(1);
+    expect(tokensOfType(source, '⚠')).toHaveLength(0); // Lezer's error-node name
+  });
 });
