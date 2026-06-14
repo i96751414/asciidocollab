@@ -221,7 +221,7 @@ function isInsideTableBlockByText(text: string): boolean {
  *    blocks, avoiding false positives from |=== inside listing blocks.
  */
 function isInsideTableBlock(state: EditorState, pos: number): boolean {
-  const treeCursor = syntaxTree(state).cursor(pos);
+  const treeCursor = syntaxTree(state).cursorAt(pos);
   do {
     if (treeCursor.name === 'TableBlock') return true;
     if (DELIMITED_BLOCK_NAMES.has(treeCursor.name)) return false;
@@ -237,7 +237,7 @@ function isInsideTableBlock(state: EditorState, pos: number): boolean {
  */
 function getTableColumnCount(state: EditorState, pos: number): number {
   // Syntax-tree path (works for complete tables)
-  const treeCursor = syntaxTree(state).cursor(pos);
+  const treeCursor = syntaxTree(state).cursorAt(pos);
   do {
     if (treeCursor.name === 'TableBlock') {
       const tableText = state.doc.sliceString(treeCursor.from, treeCursor.to);
