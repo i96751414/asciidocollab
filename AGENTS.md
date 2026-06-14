@@ -139,6 +139,7 @@ Run tests for **every package touched**. Do not stop at typecheck.
 | `apps/api/src/` or `apps/api/tests/`                               | `cd apps/api && npx jest`                |
 | `packages/domain/src/` or `packages/domain/tests/`                 | `cd packages/domain && npx jest`         |
 | `packages/infrastructure/src/` or `packages/infrastructure/tests/` | `cd packages/infrastructure && npx jest` |
+| `apps/collab/src/` or `apps/collab/tests/`                         | `pnpm --filter @asciidocollab/collab test` |
 | `apps/web/e2e/`                                                    | Run E2E suite (see Pre-merge gate)       |
 
 MUST NOT run `npx jest` from the repo root without `--filter` — it picks up configs from all workspace packages and produces misleading results.
@@ -155,7 +156,7 @@ pnpm gate    # = scripts/ci/gate.sh — runs all four jobs below, stops on first
 
 ```bash
 ./scripts/ci/quality.sh      # Job 1: build · lint · types · architecture · audit
-./scripts/ci/unit.sh         # Job 2: unit tests + coverage (needs Job 1)
+./scripts/ci/unit.sh         # Job 2: unit tests + coverage — shared, domain, api, collab, web (needs Job 1)
 ./scripts/ci/integration.sh  # Job 3: integration tests via Testcontainers (needs Job 1)
 ./scripts/ci/e2e-local.sh    # Job 4: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
 ```
@@ -371,12 +372,14 @@ Rules:
 
 **HTML preview:** Asciidoctor.js runs in a dedicated Web Worker (`apps/web/src/workers/asciidoc-render.worker.ts`) and auto-renders on a debounce (`PREVIEW_DEBOUNCE_MS`, 1500 ms) so typing never blocks the editor thread — there is no manual Refresh button. The worker post-processes Asciidoctor's HTML with highlight.js (`highlightCodeBlocks`) to add `.hljs-*` token spans to fenced source blocks; the result is sanitized by DOMPurify on the main thread before injection. Preview styling (`styles/asciidoc-preview.css`) is driven by the app's `--*` design tokens, so it follows light/dark theme automatically — never hard-code preview colors.
 
-**Cross-file editor intelligence (US8/US12, feature 026):** A project can designate a **main file** (`PUT /projects/:id/main-file`, `SetProjectMainFileUseCase`, editor/owner only) — the root of the include tree that scopes cross-file resolution. The web `useProjectSymbolIndex` hook walks the cycle-guarded include graph (fetching each reachable file once, capped concurrency, FR-073/SC-025) to build a project symbol index that powers: cross-file diagnostics, xref go-to-definition + hover, **Go to Symbol** (Ctrl/Cmd+Shift+O), and the assembled include preview (rendered only while the open file *is* the main file). The AsciiDoc structural rules (reference/symbol extraction, the include graph, the file-name rule, and the Constitution-IX sandbox path resolver) are **domain-owned** (`packages/domain/src/asciidoc/*`, `project-path/*`); the web keeps non-authoritative *presentation copies* under `apps/web/src/lib/asciidoc/*` because the live editor needs them per-keystroke (web ⊥ domain — never import `@asciidocollab/domain` from `apps/web`). **Refactoring** (Ctrl/Cmd+Shift+R, the "Refactor" header button → `EditorSymbolRefactor`): find-usages (`GET /projects/:id/symbol-usages`, `FindReferencesUseCase`) and project-wide rename of an id/anchor/attribute (`POST /projects/:id/symbol-rename`, `RenameSymbolUseCase`, editor/owner). Rename and file move/rename/delete rewrite `include::`/`image::`/`xref:` references across **all** project files server-side via the file store (best-effort; the open file's live Yjs buffer is collab-owned and reflected through the index's live-content overlay). Both refactoring endpoints share the `project.refactoring` rate limit.
+**Cross-file editor intelligence (US8/US12, feature 026):** A project can designate a **main file** (`PUT /projects/:id/main-file`, `SetProjectMainFileUseCase`, editor/owner only) — the root of the include tree that scopes cross-file resolution. The web `useProjectSymbolIndex` hook walks the cycle-guarded include graph (fetching each reachable file once, capped concurrency, FR-073/SC-025) to build a project symbol index that powers: cross-file diagnostics, xref go-to-definition + hover, **Go to Symbol** (Ctrl/Cmd+Shift+O), and the assembled include preview (rendered only while the open file *is* the main file). The AsciiDoc structural rules (reference/symbol extraction, the include graph, the file-name rule, and the Constitution-IX sandbox path resolver) are **domain-owned** (`packages/domain/src/asciidoc/*`, `project-path/*`); the web keeps non-authoritative *presentation copies* under `apps/web/src/lib/asciidoc/*` because the live editor needs them per-keystroke (web ⊥ domain — never import `@asciidocollab/domain` from `apps/web`). **Refactoring** (Ctrl/Cmd+Shift+R, the "Refactor" header button → `EditorSymbolRefactor`): find-usages (`GET /projects/:id/symbol-usages`, `FindReferencesUseCase`) and project-wide rename of an id/anchor/attribute (`POST /projects/:id/symbol-rename`, `RenameSymbolUseCase`, editor/owner). Rename and file move/rename/delete rewrite `include::`/`image::`/`xref:` references across **all** project files server-side (best-effort). For any referencing file that is a collaborative document (has a `yjsStateId`) the rewrite is applied through the **Yjs source of truth** — the API calls the collab server's internal `POST /internal/collab/apply-edits`, which uses `hocuspocus.openDirectConnection().transact()` so the change shows up live for anyone editing and is **not** clobbered by the next write-back; files with no collab document fall back to a direct file-store write. The chain is the domain port `CollaborativeContentEditor` → infra `HttpCollaborativeContentEditor` → collab `internal-edit-server.ts`. Both refactoring endpoints share the `project.refactoring` rate limit.
 
 **Collaboration (Hocuspocus 4):** `apps/collab` runs Hocuspocus v4 as a standalone native-ESM process. There are two room types, distinguished by name (the convention lives in `@asciidocollab/shared`: `presenceRoomName`/`isPresenceRoom`):
 
 - **Document rooms** — name `<projectId>/<yjsStateId>`. On WS connect the auth-hook calls `GET /internal/collab/auth/document` on the Fastify API to verify ≥`viewer` access and resolve the connection role (`editor`/`observer`, via `connectionConfig.readOnly`). Yjs state is persisted to the filesystem as `.yjs` binary files (`apps/collab/src/extensions/persistence.ts`, plain `import * as Y from 'yjs'`).
 - **Presence rooms** — name `presence/<projectId>`. Authorized via `GET /internal/collab/auth/presence` (project membership only). These carry awareness only: no document session, no persistence, exempt from the per-document connection caps, and forced read-only at the WS layer so no content can be written (FR-011).
+
+Besides the collab→API auth calls above, the API→collab direction has one internal endpoint: **`POST /internal/collab/apply-edits`** (`apps/collab/src/internal-edit-server.ts`, a small loopback HTTP server separate from the WS port). The API calls it (via infra `HttpCollaborativeContentEditor`) so a file rename/move can rewrite cross-file references inside *live* documents through the Yjs source of truth (`hocuspocus.openDirectConnection().transact()`), instead of writing the file store under an open room and being clobbered on write-back. Default is loopback HTTP; harden with `ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_SECRET` and/or mTLS (`*_INTERNAL_EDIT_TLS_*` on collab, `*_EDIT_TLS_*` on the API) when collab runs off-host. `apps/collab` is native ESM, so its Jest specs cannot use `jest.mock`/`require` — use `jest.unstable_mockModule` + dynamic `import` (the `jest` global is provided by `apps/collab/tests/jest-setup.ts`); collab unit tests run in Job 2 (`scripts/ci/unit.sh`).
 
 v4 migration notes: `new Server()` replaces `Server.configure()`; the live-document map moved to `server.hocuspocus.documents`; the auth hook reads request headers via web `Headers.get()` and sets `connectionConfig.readOnly` (v4 `onConnect` no longer exposes `connection`). Migrating `apps/collab` to ESM (`type: module`, node16 resolution, explicit `.js` import specifiers) removed the old `createRequire('yjs')` CJS workaround.
 
@@ -411,17 +414,17 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 
 ---
 
-## Current Test Counts (approximate, as of feature 024)
+## Current Test Counts (approximate, as of feature 026)
 
 | Package                    | Tests |
 |----------------------------|-------|
-| `apps/web` (unit)          | ~1530 |
-| `apps/api` (unit)          | ~420  |
-| `packages/domain` (unit)   | ~532  |
-| `packages/infrastructure`  | ~170  |
-| `apps/collab` (unit)       | ~105  |
-| `packages/shared`          | ~32   |
-| `apps/web` (e2e)           | ~96   |
+| `apps/web` (unit)          | ~2794 |
+| `apps/api` (unit)          | ~462  |
+| `packages/domain` (unit)   | ~748  |
+| `packages/infrastructure`  | ~185  |
+| `apps/collab` (unit)       | ~122  |
+| `packages/shared`          | ~37   |
+| `apps/web` (e2e)           | ~120  |
 
 > Known pre-existing gaps (not a regression of any single feature): `apps/web`
 > jest coverage sits just under the configured 90/93/90 thresholds, and

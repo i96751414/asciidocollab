@@ -112,14 +112,18 @@ Copy `.env.example` to `.env.local` and edit as needed. The only values you must
 
 For **real-time collaboration**, the web client connects to the collaboration WebSocket server:
 
-| Variable                                                                                                                 | Purpose                                                                                        |
-|--------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| `NEXT_PUBLIC_COLLAB_URL`                                                                                                 | WebSocket URL of the collab server (default `ws://localhost:4002`; use `wss://` in production) |
-| `ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS`                                                                                   | Comma-separated allowlist of handshake Origins — **must** be set in production (CSWSH defence) |
-| `ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES` / `_MAX_CONNECTIONS_PER_USER` / `_MAX_ROOMS_PER_USER` / `_CONNECT_RATE_PER_MIN` | Per-user rate/size limits for the public WebSocket                                             |
+| Variable                                                                                                                 | Purpose                                                                                                                |
+|--------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `NEXT_PUBLIC_COLLAB_URL`                                                                                                 | WebSocket URL of the collab server (default `ws://localhost:4002`; use `wss://` in production)                         |
+| `ASCIIDOCOLLAB_COLLAB_ALLOWED_ORIGINS`                                                                                   | Comma-separated allowlist of handshake Origins — **must** be set in production (CSWSH defence)                         |
+| `ASCIIDOCOLLAB_COLLAB_MAX_PAYLOAD_BYTES` / `_MAX_CONNECTIONS_PER_USER` / `_MAX_ROOMS_PER_USER` / `_CONNECT_RATE_PER_MIN` | Per-user rate/size limits for the public WebSocket                                                                     |
+| `ASCIIDOCOLLAB_COLLAB_EDIT_URL` / `ASCIIDOCOLLAB_COLLAB_INTERNAL_EDIT_PORT`                                              | API↔collab internal edit endpoint used to rewrite cross-file references in *live* documents (default loopback `:4003`) |
+| `ASCIIDOCOLLAB_COLLAB_EDIT_SECRET` (= collab `_INTERNAL_EDIT_SECRET`) + the `_EDIT_TLS_*` / `_INTERNAL_EDIT_TLS_*` pairs | Secure the internal edit endpoint with a shared secret and/or mTLS when collab runs off-loopback                       |
 
 In production the collab server must share a registrable domain with the web app so the session
-cookie is sent on the WebSocket handshake (it carries no token); deploy it behind `wss://`.
+cookie is sent on the WebSocket handshake (it carries no token); deploy it behind `wss://`. The
+internal edit endpoint (API→collab) is loopback-only by default — set the shared secret and/or mTLS
+above if the API and collab server run on separate hosts.
 
 All other settings have secure defaults. See `.env.example` for the full list with descriptions.
 
