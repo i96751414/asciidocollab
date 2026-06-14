@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { SymbolUsage, RenameSymbolKind, RenameSymbolResult } from '@/lib/api/projects';
+import { EditorSymbolFind } from '@/components/editor/editor-symbol-find';
+import { EditorSymbolRename } from '@/components/editor/editor-symbol-rename';
 
 /** Props for {@link EditorSymbolRefactor}. */
 interface EditorSymbolRefactorProperties {
@@ -92,30 +94,6 @@ export function EditorSymbolRefactor({
 
   if (!open) return null;
 
-  const renderUsages = () => {
-    if (loading && usages === null) {
-      return <li className="px-4 py-2 text-sm text-muted-foreground">Searching…</li>;
-    }
-    if (usages === null) {
-      return <li className="px-4 py-2 text-sm text-muted-foreground">Find usages to list references.</li>;
-    }
-    if (usages.length === 0) {
-      return <li className="px-4 py-2 text-sm text-muted-foreground">No usages found.</li>;
-    }
-    return usages.map((usage) => (
-      <li key={`${usage.fileNodeId}:${usage.range.from}`}>
-        <button
-          type="button"
-          className="flex w-full items-baseline justify-between gap-3 px-4 py-1.5 text-left text-sm hover:bg-muted"
-          onClick={() => onNavigate(usage)}
-        >
-          <span className="truncate font-medium">{usage.path}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">{usage.kind}</span>
-        </button>
-      </li>
-    ));
-  };
-
   const handleRename = async () => {
     const oldName = name.trim();
     const target = newName.trim();
@@ -141,78 +119,29 @@ export function EditorSymbolRefactor({
         className="w-full max-w-lg rounded-lg border bg-background shadow-lg"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <select
-            aria-label="Symbol kind"
-            value={kind}
-            onChange={(event) => setKind(event.target.value === 'attribute' ? 'attribute' : 'anchor')}
-            className="rounded border bg-transparent px-2 py-1 text-sm"
-          >
-            <option value="anchor">id / anchor</option>
-            <option value="attribute">attribute</option>
-          </select>
-          <input
-            type="text"
-            aria-label="Symbol name"
-            placeholder="symbol name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void runFind(name);
-              if (event.key === 'Escape') onClose();
-            }}
-            className="flex-1 rounded border bg-transparent px-2 py-1 text-sm outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => void runFind(name)}
-            className="rounded border px-2 py-1 text-sm hover:bg-muted"
-          >
-            Find usages
-          </button>
-        </div>
-
-        {error && (
-          <p role="alert" className="px-4 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-
-        <ul className="max-h-60 overflow-y-auto py-1" aria-label="Usages">
-          {renderUsages()}
-        </ul>
+        <EditorSymbolFind
+          kind={kind}
+          name={name}
+          loading={loading}
+          usages={usages}
+          error={error}
+          onKindChange={setKind}
+          onNameChange={setName}
+          onFind={(target) => void runFind(target)}
+          onNavigate={onNavigate}
+          onClose={onClose}
+        />
 
         {canEdit && (
-          <div className="flex items-center gap-2 border-t px-4 py-3">
-            <input
-              type="text"
-              aria-label="New name"
-              placeholder="rename to…"
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void handleRename();
-                if (event.key === 'Escape') onClose();
-              }}
-              className="flex-1 rounded border bg-transparent px-2 py-1 text-sm outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => void handleRename()}
-              disabled={loading || name.trim() === '' || newName.trim() === '' || newName.trim() === name.trim()}
-              className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground disabled:opacity-50"
-            >
-              Rename
-            </button>
-          </div>
-        )}
-
-        {result && (
-          <p className="border-t px-4 py-2 text-sm text-muted-foreground">
-            Renamed across {result.rewrittenFiles} file{result.rewrittenFiles === 1 ? '' : 's'} (
-            {result.updatedReferences} occurrence{result.updatedReferences === 1 ? '' : 's'}).
-            {result.warnings.length > 0 && ` ${result.warnings.length} warning(s).`}
-          </p>
+          <EditorSymbolRename
+            name={name}
+            newName={newName}
+            loading={loading}
+            result={result}
+            onNewNameChange={setNewName}
+            onRename={() => void handleRename()}
+            onClose={onClose}
+          />
         )}
       </div>
     </div>

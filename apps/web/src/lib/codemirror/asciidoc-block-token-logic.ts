@@ -1,5 +1,19 @@
 import type { InputStream, Stack } from '@lezer/lr';
 
+import {
+  NEWLINE, SPACE, TAB, EQUALS, DASH, STAR, UNDERSCORE,
+  PLUS, SLASH, COLON, PIPE, DOT, LBRACK, SEMICOLON, COMMA,
+  APOSTROPHE, LANGLE,
+  isBreakLine,
+  isBlockAttributeLine,
+  startsListMarker,
+  isLineStart,
+  consumeToEOL,
+  peekString,
+  isAlphaNumber,
+  isAlphaNumberOrDash,
+} from './asciidoc-block-token-helpers';
+
 /**
  * AsciiDoc block-level external-tokenizer logic — the SINGLE source of truth shared by the
  * production tokenizer (`asciidoc-block-tokens.ts`, which injects the generated term ids) and
@@ -8,107 +22,16 @@ import type { InputStream, Stack } from '@lezer/lr';
  * (which is ESM the jest transform can't load), taking the term-id map `T` as a parameter
  * instead — so the same code runs (and is covered) in both contexts and can never diverge.
  *
+ * The reusable char-code constants and stateless scanning predicates live in the sibling
+ * `asciidoc-block-token-helpers` module; this file keeps the per-position tokenizer dispatch.
+ *
  * `T` is keyed by the external token names declared in `asciidoc.grammar` (`docTitleToken`,
  * `heading1Token`, …). `createBlockTokenLogic` destructures them ONCE (mirroring the original
  * `import { … as … }` aliases) so the hot-path tokenizer body reads free local bindings.
  */
 
-const NEWLINE = 10, SPACE = 32, TAB = 9, EQUALS = 61, DASH = 45, STAR = 42, UNDERSCORE = 95;
-const PLUS = 43, SLASH = 47, COLON = 58, PIPE = 124, DOT = 46, LBRACK = 91, RBRACK = 93, SEMICOLON = 59, COMMA = 44;
-const APOSTROPHE = 39, LANGLE = 60;
-
 // Conditional preprocessor directives — highlighted distinctly from generic block macros (FR-051).
 const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
-
-/**
- * True when the current line consists solely of `min`+ repetitions of `code`
- * (optionally trailed by whitespace) — e.g. `'''` thematic break, `<<<` page break.
- */
-function isBreakLine(input: { peek: (offset: number) => number }, code: number, min: number): boolean {
-  let count = 0;
-  while (input.peek(count) === code) count++;
-  if (count < min) return false;
-  let offset = count;
-  let next = input.peek(offset);
-  while (next === SPACE || next === TAB) {
-    offset++;
-    next = input.peek(offset);
-  }
-  return next === NEWLINE || next === -1;
-}
-
-/**
- * True when the current line is a generic block-attribute line `[..]` whose last
- * non-whitespace character is a closing bracket (e.g. `[source,ruby]`,
- * `[cols="1,1"]`, `[.lead]`). Excludes block anchors `[[id]]` (start `[[`).
- */
-function isBlockAttributeLine(input: { peek: (offset: number) => number }): boolean {
-  if (input.peek(1) === LBRACK) return false; // `[[` block anchor, not an attribute line
-  let offset = 1;
-  let lastClose = -1;
-  while (offset < 2000) {
-    const code = input.peek(offset);
-    if (code === NEWLINE || code === -1) break;
-    if (code === RBRACK) lastClose = offset;
-    offset++;
-  }
-  if (lastClose < 1) return false;
-  for (let position = lastClose + 1; position < offset; position++) {
-    const code = input.peek(position);
-    if (code !== SPACE && code !== TAB) return false;
-  }
-  return true;
-}
-
-// True when a list marker begins at `offset` (used to allow leading whitespace before a marker,
-// which Asciidoctor permits). Each pattern requires a trailing space, so it never matches a bare
-// block delimiter line (`****`, `----`, `....`) — those have no space and are column-0 only.
-function startsListMarker(input: { peek: (offset: number) => number }, offset: number): boolean {
-  const code = input.peek(offset);
-  if (code === STAR) {
-    let n = 0;
-    while (input.peek(offset + n) === STAR) n++;
-    return input.peek(offset + n) === SPACE; // `* `, `** ` … (checklist is `* [x] `, also a space)
-  }
-  if (code === DASH) {
-    return input.peek(offset + 1) === SPACE; // single `- ` only; `--`/`----` are delimiters
-  }
-  if (code === DOT) {
-    let n = 0;
-    while (input.peek(offset + n) === DOT) n++;
-    return input.peek(offset + n) === SPACE; // `. `, `.. ` …
-  }
-  if (code >= 48 && code <= 57) {
-    let n = 0;
-    while (input.peek(offset + n) >= 48 && input.peek(offset + n) <= 57) n++;
-    return input.peek(offset + n) === DOT && input.peek(offset + n + 1) === SPACE; // `1. `
-  }
-  return false;
-}
-
-function isLineStart(input: { pos: number; peek: (offset: number) => number }): boolean {
-  return input.pos === 0 || input.peek(-1) === NEWLINE;
-}
-
-function consumeToEOL(input: { next: number; advance: () => void }): void {
-  while (input.next !== NEWLINE && input.next !== -1) input.advance();
-  if (input.next === NEWLINE) input.advance();
-}
-
-function peekString(input: { peek: (offset: number) => number }, string_: string, offset = 0): boolean {
-  for (let index = 0; index < string_.length; index++) {
-    if (input.peek(offset + index) !== string_.codePointAt(index)) return false;
-  }
-  return true;
-}
-
-function isAlphaNumber(code: number): boolean {
-  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
-}
-
-function isAlphaNumberOrDash(code: number): boolean {
-  return isAlphaNumber(code) || code === 45 || code === 95;
-}
 
 /**
  * Build the block-tokenizer read function bound to a term-id map. Term ids are destructured

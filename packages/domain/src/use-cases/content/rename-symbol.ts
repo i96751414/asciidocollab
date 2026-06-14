@@ -8,16 +8,23 @@ import { Logger } from '../../ports/observability/logger';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { AUDIT_SYMBOL_RENAMED } from '../../audit-actions';
-import { extractReferences, extractSymbols } from '../../services/asciidoc-extraction';
 import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
 import { PermissionDeniedError } from '../../errors/permission-denied';
 import { ValidationError } from '../../errors/validation-error';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { FileNode } from '../../entities/file-node';
+import { RenamableSymbolKind, isValidNewName } from './rename-symbol-validation';
+import {
+  Edit,
+  applyEdits,
+  computeEdits,
+  extractSymbols,
+  hasConflictingDefinition,
+  nameMatcher,
+} from './rename-symbol-rewrite';
 
-/** The kind of project symbol that can be renamed (FR-064). */
-export type RenamableSymbolKind = 'anchor' | 'attribute';
+export type { RenamableSymbolKind } from './rename-symbol-validation';
 
 /** Input for {@link RenameSymbolUseCase}. */
 export interface RenameSymbolInput {
@@ -39,24 +46,6 @@ export interface RenameSymbolOutcome {
   warnings: string[];
 }
 
-/** A new-name validity rule per symbol kind: anchors allow `:.-`; attributes are word-only. */
-const NEW_NAME_PATTERN: Record<RenamableSymbolKind, RegExp> = {
-  anchor: /^[A-Za-z][\w:.-]*$/,
-  attribute: /^[A-Za-z0-9][\w-]*$/,
-};
-
-/** The id part of an xref target, dropping any `file.adoc#` prefix and `,label` suffix. */
-function xrefAnchorId(target: string): string {
-  const hashIndex = target.indexOf('#');
-  return hashIndex === -1 ? target : target.slice(hashIndex + 1);
-}
-
-/** Replace the id part of an xref target with `newName`, preserving any `file.adoc#` path prefix. */
-function rewriteXrefTarget(target: string, newName: string): string {
-  const hashIndex = target.indexOf('#');
-  return hashIndex === -1 ? newName : target.slice(0, hashIndex + 1) + newName;
-}
-
 /**
  * Renames a section id / block anchor or a document attribute and rewrites every
  * `<<id>>` / `xref:` / `{attr}` reference to it across the project's documents
@@ -69,6 +58,10 @@ function rewriteXrefTarget(target: string, newName: string): string {
  * the rename is refused when `newName` is already defined elsewhere (SC-020:
  * warn before breaking). Each file's edits are computed first and only applied
  * once the whole project has been scanned and found conflict-free.
+ *
+ * This file is a thin orchestrator: new-name validation lives in
+ * `rename-symbol-validation`, and the scan/apply/conflict text logic in
+ * `rename-symbol-rewrite`; RBAC, persistence and audit logging stay here.
  */
 export class RenameSymbolUseCase {
   /** Initializes the use case with the repositories, file store and audit log it needs. */
@@ -110,7 +103,7 @@ export class RenameSymbolUseCase {
     }
 
     const { symbolKind, oldName, newName } = input;
-    if (!NEW_NAME_PATTERN[symbolKind].test(newName)) {
+    if (!isValidNewName(symbolKind, newName)) {
       return { success: false, error: new ValidationError(`Invalid ${symbolKind} name: "${newName}"`) };
     }
 
@@ -123,8 +116,8 @@ export class RenameSymbolUseCase {
       .filter((node) => node.type.value === 'file' && isAsciiDocumentFileName(node.name))
       .toSorted((a, b) => a.path.value.localeCompare(b.path.value));
 
-    const matchesNew = this.nameMatcher(symbolKind, newName);
-    const matchesOld = this.nameMatcher(symbolKind, oldName);
+    const matchesNew = nameMatcher(symbolKind, newName);
+    const matchesOld = nameMatcher(symbolKind, oldName);
 
     // First pass: scan every document, detect any conflicting definition of the
     // new name, and stage the edits for files that reference/define the old name.
@@ -137,11 +130,11 @@ export class RenameSymbolUseCase {
       const content = buffer.toString('utf8');
 
       const symbols = extractSymbols(node.id.value, content);
-      if (symbols.some((symbol) => symbol.kind === symbolKind && matchesNew(symbol.name) && !matchesOld(symbol.name))) {
+      if (hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) {
         conflict = true;
       }
 
-      const edits = this.computeEdits(symbolKind, oldName, newName, content, symbols, matchesOld);
+      const edits = computeEdits(symbolKind, oldName, newName, content, symbols, matchesOld);
       if (edits.length > 0) staged.push({ node, content, edits });
     }
 
@@ -155,9 +148,7 @@ export class RenameSymbolUseCase {
     // Second pass: apply the staged edits (right-to-left so offsets stay valid).
     let updatedReferences = 0;
     for (const { node, content, edits } of staged) {
-      edits.sort((a, b) => b.from - a.from);
-      let next = content;
-      for (const edit of edits) next = next.slice(0, edit.from) + edit.replacement + next.slice(edit.to);
+      const next = applyEdits(content, edits);
       await this.fileStore.write(projectId, node.path, Buffer.from(next, 'utf8'));
       updatedReferences += edits.length;
     }
@@ -174,60 +165,4 @@ export class RenameSymbolUseCase {
 
     return { success: true, value: { rewrittenFiles: staged.length, updatedReferences, warnings: [] } };
   }
-
-  /** Name comparison for a kind: anchors are case-sensitive, attributes are not (Asciidoctor downcases). */
-  private nameMatcher(kind: RenamableSymbolKind, name: string): (candidate: string) => boolean {
-    if (kind === 'attribute') {
-      const lower = name.toLowerCase();
-      return (candidate) => candidate.toLowerCase() === lower;
-    }
-    return (candidate) => candidate === name;
-  }
-
-  /** Build the definition + reference edits for one file's content. */
-  private computeEdits(
-    symbolKind: RenamableSymbolKind,
-    oldName: string,
-    newName: string,
-    content: string,
-    symbols: ReturnType<typeof extractSymbols>,
-    matchesOld: (candidate: string) => boolean,
-  ): Edit[] {
-    const edits: Edit[] = [];
-
-    // Definitions (the `[[old]]` / `:old:` declaration itself).
-    for (const symbol of symbols) {
-      if (symbol.kind !== symbolKind || !matchesOld(symbol.name)) continue;
-      const slice = content.slice(symbol.range.from, symbol.range.to);
-      const replacement = slice.replace(symbol.name, newName);
-      if (replacement !== slice) edits.push({ from: symbol.range.from, to: symbol.range.to, replacement });
-    }
-
-    // References (the `<<old>>` / `{old}` usages).
-    for (const reference of extractReferences('', content)) {
-      let oldRaw: string | undefined;
-      let newRaw: string | undefined;
-      if (symbolKind === 'anchor' && reference.kind === 'xref' && xrefAnchorId(reference.target) === oldName) {
-        oldRaw = reference.target;
-        newRaw = rewriteXrefTarget(reference.target, newName);
-      } else if (symbolKind === 'attribute' && reference.kind === 'attributeRef' && matchesOld(reference.target)) {
-        oldRaw = reference.target;
-        newRaw = newName;
-      }
-      if (oldRaw === undefined || newRaw === undefined) continue;
-
-      const slice = content.slice(reference.range.from, reference.range.to);
-      const replacement = slice.replace(oldRaw, newRaw);
-      if (replacement !== slice) edits.push({ from: reference.range.from, to: reference.range.to, replacement });
-    }
-
-    return edits;
-  }
-}
-
-/** A single in-file text replacement. */
-interface Edit {
-  from: number;
-  to: number;
-  replacement: string;
 }

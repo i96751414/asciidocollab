@@ -2,21 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
-import { buildIncludeGraph } from '../lib/asciidoc/extraction';
 import {
   buildProjectSymbolIndex,
   makeIncludeResolver,
   type ProjectSymbolIndex,
 } from '@/lib/codemirror/asciidoc-symbol-index';
-import type { FileTreeNode } from '@/components/file-tree/types';
+import { buildFilePathIndex } from '@/lib/codemirror/file-path-index';
+import { fetchReachableContent } from '@/lib/codemirror/include-tree-fetcher';
 import { getDocumentContent } from '@/lib/api/file-content';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
-
-/** Cap on concurrent content fetches while assembling the include tree (FR-073/SC-025). */
-const MAX_CONCURRENT_FETCHES = 6;
-/** Hard bound on fixpoint passes; each pass fetches ≥1 new file, so this can never be hit in practice. */
-const MAX_PASSES = 1000;
 
 /** Options for {@link useProjectSymbolIndex}. */
 interface UseProjectSymbolIndexOptions {
@@ -49,20 +44,6 @@ interface UseProjectSymbolIndexResult {
    * without a file-tree event, such as a project-wide symbol rename (FR-064).
    */
   refresh: () => void;
-}
-
-/** Flatten a file tree into bidirectional id↔path maps (files only; paths normalized to project-relative). */
-function indexFilePaths(
-  node: FileTreeNode,
-  pathById: Map<string, string>,
-  idByPath: Map<string, string>,
-): void {
-  if (node.type === 'file') {
-    const path = node.path.replace(/^\/+/, '');
-    pathById.set(node.id, path);
-    idByPath.set(path, node.id);
-  }
-  for (const child of node.children) indexFilePaths(child, pathById, idByPath);
 }
 
 /**
@@ -115,16 +96,15 @@ export function useProjectSymbolIndex({
     }
     buildToken.current += 1;
     const token = buildToken.current;
+    const isCancelled = (): boolean => token !== buildToken.current;
 
     if (!treeLoaded.current) {
       try {
         const tree = await fetchProjectFileTree(projectId);
-        if (token !== buildToken.current) return;
-        const nextPathById = new Map<string, string>();
-        const nextIdByPath = new Map<string, string>();
-        indexFilePaths(tree, nextPathById, nextIdByPath);
-        pathById.current = nextPathById;
-        idByPath.current = nextIdByPath;
+        if (isCancelled()) return;
+        const paths = buildFilePathIndex(tree);
+        pathById.current = paths.pathById;
+        idByPath.current = paths.idByPath;
         treeLoaded.current = true;
       } catch {
         /* Tree load failed — fall through; resolution degrades to whatever is already cached/live. */
@@ -136,29 +116,16 @@ export function useProjectSymbolIndex({
       (path) => idByPath.current.get(path) ?? null,
     );
 
-    // Fixpoint: walk the include graph, fetching any reachable-but-uncached file. Each file is
-    // fetched once (the cache stores null for 404s too), so the loop converges in ≤ depth passes.
-    for (let pass = 0; pass < MAX_PASSES; pass += 1) {
-      const tree = buildIncludeGraph(rootFileId, readContent, resolveInclude);
-      const missing = tree.nodes.filter(
-        (id) => id !== liveOverlay.current.id && !contentCache.current.has(id),
-      );
-      if (missing.length === 0) break;
-      for (let start = 0; start < missing.length; start += MAX_CONCURRENT_FETCHES) {
-        const batch = missing.slice(start, start + MAX_CONCURRENT_FETCHES);
-        const fetched = await Promise.all(
-          batch.map((id) =>
-            getDocumentContent(projectId, id).then(
-              (text) => ({ id, text }),
-              () => ({ id, text: null }),
-            ),
-          ),
-        );
-        if (token !== buildToken.current) return;
-        for (const entry of fetched) contentCache.current.set(entry.id, entry.text);
-      }
-    }
-    if (token !== buildToken.current) return;
+    const completed = await fetchReachableContent({
+      rootFileId,
+      readContent,
+      resolveInclude,
+      fetchContent: (id) => getDocumentContent(projectId, id),
+      cache: contentCache.current,
+      overlayFileId: liveOverlay.current.id,
+      isCancelled,
+    });
+    if (!completed) return;
 
     const built = buildProjectSymbolIndex(
       rootFileId,
