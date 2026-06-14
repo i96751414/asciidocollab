@@ -181,4 +181,38 @@ describe('LoginForm validation and conditional UI', () => {
       expect(screen.getByRole('link', { name: /create an account/i })).toBeInTheDocument();
     });
   });
+
+  test('swallows a failed open-registration lookup without showing the link', async () => {
+    adminApi.getOpenRegistrationStatus.mockRejectedValue(new Error('network down'));
+    render(<LoginForm redirectTo="/dashboard" />);
+    await waitFor(() => expect(adminApi.getOpenRegistrationStatus).toHaveBeenCalled());
+    expect(screen.queryByRole('link', { name: /create an account/i })).not.toBeInTheDocument();
+  });
+
+  test('shows only the email error when the password is provided but the email is invalid', async () => {
+    render(<LoginForm redirectTo="/dashboard" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'not-an-email' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(true);
+      expect(alerts.some((a) => /password is required/i.test(a.textContent ?? ''))).toBe(false);
+    });
+    expect(authApi.login).not.toHaveBeenCalled();
+  });
+
+  test('redirects to a safe internal path after a successful login', async () => {
+    const router = { push: jest.fn() };
+    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue(router);
+    authApi.login.mockResolvedValue({ message: 'Authenticated' });
+
+    render(<LoginForm redirectTo="/projects/42" />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
+    fireEvent.submit(screen.getByRole('form'));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/projects/42'));
+  });
 });

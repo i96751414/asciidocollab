@@ -115,4 +115,55 @@ describe('asciidoc-outline StateField', () => {
     // No doc change → the same outline reference is kept.
     expect(after).toBe(before);
   });
+
+  test('excludes a heading preceded by a [discrete] attribute line (FR-072)', () => {
+    const documentContent = [
+      '== Real Section',
+      '',
+      '[discrete]',
+      '== Discrete Heading',
+      '',
+    ].join('\n');
+
+    const outline = getOutline(documentContent);
+    const titles = outline.map((entry) => entry.title);
+    expect(titles).toContain('Real Section');
+    expect(titles).not.toContain('Discrete Heading');
+  });
+
+  test('excludes a heading preceded by a [float] attribute line (FR-072)', () => {
+    const documentContent = [
+      '== Real Section',
+      '',
+      '[float]',
+      '== Floating Heading',
+      '',
+    ].join('\n');
+
+    const outline = getOutline(documentContent);
+    const titles = outline.map((entry) => entry.title);
+    expect(titles).toContain('Real Section');
+    expect(titles).not.toContain('Floating Heading');
+  });
+
+  test('keeps a heading whose previous line is an unrelated attribute (not discrete/float)', () => {
+    const documentContent = [
+      '[.lead]',
+      '== Lead Heading',
+      '',
+    ].join('\n');
+
+    const outline = getOutline(documentContent);
+    const titles = outline.map((entry) => entry.title);
+    expect(titles).toContain('Lead Heading');
+  });
+
+  test('falls back to the raw line as the title when no "= " prefix matches', () => {
+    // 7 leading equals: tokenized as a heading, but the /^={1,6} / prefix regex
+    // does not match, so the whole raw line (trimmed) is used as the title.
+    const documentContent = '======= Deep Heading\n';
+    const outline = getOutline(documentContent);
+    expect(outline.length).toBeGreaterThan(0);
+    expect(outline[0].title).toBe('======= Deep Heading');
+  });
 });

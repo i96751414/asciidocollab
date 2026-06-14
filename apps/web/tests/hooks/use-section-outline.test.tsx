@@ -33,6 +33,20 @@ describe('useSectionOutline', () => {
     expect(result.current).toEqual([]);
   });
 
+  test('returns empty array when reading the outline field throws', () => {
+    const view = {
+      state: {
+        field: jest.fn(() => {
+          throw new Error('field not present');
+        }),
+      },
+      destroy: jest.fn(),
+      dispatch: jest.fn(),
+    } as unknown as EditorView;
+    const { result } = renderHook(() => useSectionOutline(view as unknown as EditorView));
+    expect(result.current).toEqual([]);
+  });
+
   test('returns empty array when view is null', () => {
     const { result } = renderHook(() => useSectionOutline(null));
     expect(result.current).toEqual([]);

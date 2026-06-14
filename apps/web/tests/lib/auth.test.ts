@@ -183,3 +183,56 @@ describe('getProfile', () => {
     expect(session).not.toHaveProperty('email');
   });
 });
+
+describe('auth API base URL', () => {
+  const ORIGINAL_ENV = process.env;
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  test('uses NEXT_PUBLIC_API_URL when it is set', async () => {
+    process.env = { ...ORIGINAL_ENV, NEXT_PUBLIC_API_URL: 'https://api.test' };
+    jest.resetModules();
+
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ userId: 'u' }),
+    });
+    globalThis.fetch = fetchMock;
+    const { cookies } = require('next/headers');
+    (cookies as jest.Mock).mockResolvedValue({ getAll: () => [] });
+
+    const { getProfile: freshGetProfile } = require('@/lib/auth');
+    await freshGetProfile();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.test/auth/me',
+      expect.anything(),
+    );
+  });
+
+  test('falls back to the localhost default when NEXT_PUBLIC_API_URL is unset', async () => {
+    process.env = { ...ORIGINAL_ENV };
+    delete process.env.NEXT_PUBLIC_API_URL;
+    jest.resetModules();
+
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ userId: 'u' }),
+    });
+    globalThis.fetch = fetchMock;
+    const { cookies } = require('next/headers');
+    (cookies as jest.Mock).mockResolvedValue({ getAll: () => [] });
+
+    const { getProfile: freshGetProfile } = require('@/lib/auth');
+    await freshGetProfile();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/me',
+      expect.anything(),
+    );
+  });
+});

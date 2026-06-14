@@ -1,7 +1,9 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
+import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { useProjectSymbolIndex } from '@/hooks/use-project-symbol-index';
 import { getDocumentContent } from '@/lib/api/file-content';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
+import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 
 jest.mock('@/lib/api/file-content', () => ({ getDocumentContent: jest.fn() }));
 jest.mock('@/lib/api/file-tree', () => ({ fetchProjectFileTree: jest.fn() }));
@@ -10,6 +12,31 @@ jest.mock('@/hooks/use-file-tree-events', () => ({ useFileTreeEvents: jest.fn() 
 
 const mockGetContent = getDocumentContent as jest.MockedFunction<typeof getDocumentContent>;
 const mockFetchTree = fetchProjectFileTree as jest.MockedFunction<typeof fetchProjectFileTree>;
+const mockFileTreeEvents = useFileTreeEvents as jest.MockedFunction<typeof useFileTreeEvents>;
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+/** A manually-resolvable promise, for driving async ordering in superseded-build races. */
+function makeDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolveFunction) => {
+    resolve = resolveFunction;
+  });
+  return { promise, resolve };
+}
+
+/** Grab the latest (stable) SSE handlers the hook registered with useFileTreeEvents. */
+function latestSseHandlers(): {
+  onEvent: (event: FileTreeEventDto) => void;
+  onReconnect: () => void;
+} {
+  const calls = mockFileTreeEvents.mock.calls;
+  const last = calls.at(-1)!;
+  return { onEvent: last[1], onReconnect: last[2] };
+}
 
 // Tree: main.adoc → a.adoc + b.adoc; b.adoc → a.adoc (cycle/dup); c.adoc is unreachable.
 const TREE = {
@@ -36,6 +63,7 @@ const CONTENT: Record<string, string> = {
 beforeEach(() => {
   mockGetContent.mockReset();
   mockFetchTree.mockReset();
+  mockFileTreeEvents.mockClear();
   mockFetchTree.mockResolvedValue(TREE as never);
   mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
     Promise.resolve(CONTENT[fileId] ?? ''),
@@ -108,5 +136,139 @@ describe('useProjectSymbolIndex', () => {
     const files = result.current.getFiles();
     expect(files['main.adoc']).toBe('include::a.adoc[]\n'); // open file served from the live overlay
     expect(files['a.adoc']).toBe(CONTENT.a);
+  });
+
+  test('tolerates a content fetch that rejects (caches null, still builds an index)', async () => {
+    // b.adoc errors; the include walk must not throw and the index still resolves a.adoc's anchor.
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      fileId === 'b' ? Promise.reject(new Error('boom')) : Promise.resolve(CONTENT[fileId] ?? ''),
+    );
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    expect(result.current.index!.resolveXref('anchor-a')).not.toBe('unresolved');
+    // b failed to load, so its anchor is absent from the index.
+    expect(result.current.index!.resolveXref('anchor-b')).toBe('unresolved');
+  });
+
+  test('still builds when the live overlay file is absent from the file-tree path map', async () => {
+    // openFileId 'ghost' is not in TREE, so pathById has no entry → the getPath fallback returns null.
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'ghost',
+        openFileId: 'ghost',
+        liveContent: 'include::a.adoc[]\n',
+      }),
+    );
+    // The index still builds; ghost has no path entry, so the getPath fallback yields null.
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    expect(result.current.getIndex()).toBe(result.current.index);
+  });
+
+  test('exposes pathOf via the built index: maps a known id and returns null for an unknown one', async () => {
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    expect(result.current.index!.pathOf('main')).toBe('main.adoc'); // id present in the path map
+    expect(result.current.index!.pathOf('ghost')).toBeNull(); // unknown id → null fallback
+  });
+
+  test('resolves includes pointing at files absent from the tree to nothing (no crash)', async () => {
+    // main now includes a path the file tree has no id for; the path→id lookup falls back to null.
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      fileId === 'main' ? Promise.resolve('include::missing.adoc[]\n') : Promise.resolve(CONTENT[fileId] ?? ''),
+    );
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    expect(result.current.index!.resolveXref('anchor-a')).toBe('unresolved'); // unresolved include ⇒ a.adoc absent
+  });
+
+  test('rebuilds and re-reads the affected file on a file-tree SSE event', async () => {
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300)); // let the debounced rebuild settle
+    const before = mockGetContent.mock.calls.length;
+
+    // An SSE event for 'a' invalidates that file's cache + the tree, triggering a rebuild.
+    const { onEvent } = latestSseHandlers();
+    act(() => {
+      onEvent({ fileNodeId: 'a' } as never);
+    });
+    await waitFor(() => expect(mockGetContent.mock.calls.length).toBeGreaterThan(before));
+    const refetched = mockGetContent.mock.calls.slice(before).map((call) => call[1]);
+    expect(refetched).toContain('a'); // the invalidated file is re-read
+  });
+
+  test('clears the entire cache and rebuilds on an SSE reconnect', async () => {
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300)); // let the debounced rebuild settle
+    const before = mockGetContent.mock.calls.length;
+
+    // A reconnect drops the whole cache + tree and re-reads the full reachable set.
+    const { onReconnect } = latestSseHandlers();
+    act(() => {
+      onReconnect();
+    });
+    await waitFor(() => expect(mockGetContent.mock.calls.length).toBeGreaterThan(before));
+    const refetched = mockGetContent.mock.calls.slice(before).map((call) => call[1]);
+    expect(refetched.toSorted()).toEqual(['a', 'b', 'main']); // full reachable set re-read
+  });
+
+  test('a build superseded while its tree fetch is in flight aborts without setting an index', async () => {
+    const first = makeDeferred<typeof TREE>();
+    const second = makeDeferred<typeof TREE>();
+    mockFetchTree
+      .mockReturnValueOnce(first.promise as never)
+      .mockReturnValueOnce(second.promise as never);
+
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    // Build #1 is parked awaiting the tree. refresh() starts build #2 (bumps the token).
+    act(() => {
+      result.current.refresh();
+    });
+    // Resolve build #2 first so it completes and produces the index.
+    await act(async () => {
+      second.resolve(TREE);
+      await second.promise;
+    });
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const built = result.current.index;
+
+    // Now let the stale build #1 resume: its token check fails, so it must not overwrite the index.
+    await act(async () => {
+      first.resolve(TREE);
+      await first.promise;
+    });
+    expect(result.current.index).toBe(built); // unchanged by the superseded build
+  });
+
+  test('a build superseded while content fetches are in flight aborts without setting an index', async () => {
+    const firstContent = makeDeferred<string>();
+    let resumedSecond = false;
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) => {
+      // The very first content fetch is parked; everything afterwards resolves normally.
+      if (!resumedSecond) {
+        resumedSecond = true;
+        return firstContent.promise;
+      }
+      return Promise.resolve(CONTENT[fileId] ?? '');
+    });
+
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
+    // Build #1's tree resolves (default mock), then it parks on the first content fetch.
+    await waitFor(() => expect(mockGetContent).toHaveBeenCalled());
+    // refresh() supersedes build #1 mid-fetch (bumps the token) and runs build #2 to completion.
+    act(() => {
+      result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const built = result.current.index;
+
+    // Resume the stale content fetch; the post-batch token check must abort build #1.
+    await act(async () => {
+      firstContent.resolve(CONTENT.main);
+      await firstContent.promise;
+    });
+    expect(result.current.index).toBe(built); // superseded build left the index untouched
   });
 });

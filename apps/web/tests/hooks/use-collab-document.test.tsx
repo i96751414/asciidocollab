@@ -7,6 +7,23 @@ import {
 } from '@/hooks/use-collab-document';
 import { COLLAB_SYNC_TIMEOUT_MS } from '@/lib/editor-config';
 
+// Mock the real provider so the default factory (used when no `createProvider` is
+// injected) can be constructed without opening a WebSocket. This exercises
+// `defaultCreateProvider` and the `options.createProvider ?? defaultCreateProvider`
+// fallback in the hook.
+const hocuspocusConstructor = jest.fn();
+jest.mock('@hocuspocus/provider', () => ({
+  HocuspocusProvider: class {
+    awareness = { setLocalState: jest.fn(), setLocalStateField: jest.fn() };
+    on = jest.fn();
+    off = jest.fn();
+    destroy = jest.fn();
+    constructor(arguments_: unknown) {
+      hocuspocusConstructor(arguments_);
+    }
+  },
+}));
+
 /** A minimal driveable fake of HocuspocusProvider for the hook's event contract. */
 class FakeProvider implements CollabProvider {
   awareness = { setLocalState: jest.fn(), setLocalStateField: jest.fn() } as unknown as CollabProvider['awareness'];
@@ -176,5 +193,74 @@ describe('useCollabDocument', () => {
       'user',
       expect.objectContaining({ userId: 'u-1', name: 'Ada', color: expect.any(String), colorLight: expect.any(String) }),
     );
+  });
+
+  // defaultCreateProvider fallback (line 78) + the `?? defaultCreateProvider` branch
+  // (lines 110/111): rendering with no injected factory uses the mocked HocuspocusProvider.
+  test('falls back to the default HocuspocusProvider factory when none is injected', () => {
+    renderHook(() => useCollabDocument({ projectId: 'p1', yjsStateId: 'y1', enabled: true }));
+    expect(hocuspocusConstructor).toHaveBeenCalledWith(expect.objectContaining({ name: 'p1/y1' }));
+  });
+
+  // readStatus line 83 `: undefined` path — payload has a non-string `status` key.
+  test('ignores a status event whose status field is present but not a string', () => {
+    const { view, getProvider } = setup();
+    act(() => getProvider().emit('status', { status: 42 }));
+    expect(view.result.current.connectionState).toBe('connecting');
+  });
+
+  // handleSynced early return (line 146) — synced fires with `state: false`, so state stays 'connecting'.
+  test('does not transition to "synced" when synced fires with state:false', () => {
+    const { view, getProvider } = setup();
+    act(() => getProvider().emit('synced', { state: false }));
+    expect(view.result.current.connectionState).toBe('connecting');
+  });
+
+  // handleStatus `if (hasSynced)` false path (line 155) — disconnected before ever syncing is a no-op.
+  test('ignores a disconnected status event that arrives before the first sync', () => {
+    const { view, getProvider } = setup();
+    act(() => getProvider().emit('status', { status: 'disconnected' }));
+    expect(view.result.current.connectionState).toBe('connecting');
+  });
+
+  // handleStatus ternary `: 'connecting'` path (line 158) — connecting status while in plain 'connecting'.
+  test('stays "connecting" when a connecting status event fires before any sync', () => {
+    const { view, getProvider } = setup();
+    act(() => getProvider().emit('status', { status: 'connecting' }));
+    expect(view.result.current.connectionState).toBe('connecting');
+  });
+
+  // offlineTimer `if (!hasSynced)` false path (line 167) — timer firing after a sync must not force offline.
+  test('does not go offline when the sync timeout elapses after syncing', () => {
+    const { view, getProvider } = setup();
+    act(() => getProvider().emit('synced', { state: true }));
+    expect(view.result.current.connectionState).toBe('synced');
+    act(() => {
+      jest.advanceTimersByTime(COLLAB_SYNC_TIMEOUT_MS + 1);
+    });
+    expect(view.result.current.connectionState).toBe('synced');
+  });
+
+  // Awareness optional-chaining short-circuit on set (line 142) and cleanup (line 174):
+  // a provider whose awareness is null exercises both `?.` no-op paths without throwing.
+  test('handles a provider with null awareness on set and teardown', () => {
+    let provider: FakeProvider | undefined;
+    const createProvider: CreateCollabProvider = (arguments_) => {
+      provider = new FakeProvider(arguments_);
+      provider.awareness = null;
+      return provider;
+    };
+    const view = renderHook(() =>
+      useCollabDocument({
+        projectId: 'p1',
+        yjsStateId: 'y1',
+        enabled: true,
+        user: { userId: 'u-1', name: 'Ada' },
+        createProvider,
+      }),
+    );
+    expect(view.result.current.awareness).toBeNull();
+    expect(() => view.unmount()).not.toThrow();
+    expect((provider as FakeProvider).destroy).toHaveBeenCalled();
   });
 });

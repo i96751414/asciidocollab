@@ -8,7 +8,7 @@ import {
 const FILES: Record<string, { path: string; content: string }> = {
   main: {
     path: 'main.adoc',
-    content: '= Book\n\n[[overview]]\n== Overview\n\ninclude::chapter1.adoc[]\n',
+    content: '= Book\n:author: Ada\n\n[[overview]]\n== Overview\n\ninclude::chapter1.adoc[]\n',
   },
   chapter1: {
     path: 'chapter1.adoc',
@@ -18,6 +18,7 @@ const FILES: Record<string, { path: string; content: string }> = {
 const PATH_TO_ID: Record<string, string> = { 'main.adoc': 'main', 'chapter1.adoc': 'chapter1' };
 
 const getContent = (id: string) => FILES[id]?.content ?? null;
+const getMainContentOnly = (id: string) => (id === 'main' ? FILES.main.content : null);
 const pathOf = (id: string) => FILES[id]?.path ?? null;
 const resolveInclude = makeIncludeResolver(
   (id) => FILES[id]?.path ?? null,
@@ -38,6 +39,26 @@ describe('buildProjectSymbolIndex', () => {
     // chapter1 references <<overview>> which is defined in main.
     expect(index.resolveXref('overview')).not.toBe('unresolved');
     expect(index.resolveXref('does-not-exist')).toBe('unresolved');
+  });
+
+  test('resolves an attribute reference to its definition; unknown ⇒ unresolved', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    // main defines `:author: Ada`.
+    expect(index.resolveAttribute('author')).not.toBe('unresolved');
+    expect(index.resolveAttribute('nope')).toBe('unresolved');
+  });
+
+  test('inheritedOffset returns the accumulated level offset for a file', () => {
+    const index = buildProjectSymbolIndex('main', getContent, resolveInclude);
+    expect(typeof index.inheritedOffset('chapter1')).toBe('number');
+  });
+
+  test('skips files whose content is unavailable when aggregating', () => {
+    // The include graph lists chapter1 as a node, but getContent only returns
+    // content for main, exercising the `content === null` continue branch.
+    const index = buildProjectSymbolIndex('main', getMainContentOnly, resolveInclude);
+    expect(index.tree.nodes).toContain('chapter1');
+    expect(index.symbols.every((s) => s.fileId === 'main')).toBe(true);
   });
 
   test('records an out-of-sandbox include as unresolved (Constitution IX)', () => {
@@ -88,5 +109,8 @@ describe('makeIncludeResolver (Constitution IX sandbox)', () => {
   });
   test('rejects remote targets', () => {
     expect(resolveInclude('main', 'https://evil.example/x.adoc')).toBeNull();
+  });
+  test('returns null when the referencing file has no known path', () => {
+    expect(resolveInclude('ghost', 'chapter1.adoc')).toBeNull();
   });
 });

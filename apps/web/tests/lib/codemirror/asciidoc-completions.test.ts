@@ -572,6 +572,23 @@ describe('completion source guard and tree-path branches', () => {
     expect((insertedText.match(/\|/g) ?? []).length).toBe(3);
   });
 
+  test('column-count text fallback skips a non-pipe line before the first cell row', async () => {
+    // Unclosed table (text-fallback path). The line immediately after the |===
+    // opener is prose, not a |cell row, so getTableColumnCount's scan must skip it
+    // (the `line.startsWith('|')` guard is false) and keep looking for the real
+    // header row before deriving the column count.
+    const documentContent = '|===\nsome prose line\n|a |b\n\n|';
+    const result = await getCompletions(tableCellCompletionSource, documentContent, documentContent.length);
+    expect(result).not.toBeNull();
+    let insertedText = '';
+    const mockView = {
+      dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+    };
+    (result!.options[0].apply as (...arguments_: unknown[]) => void)(mockView, result!.options[0], documentContent.length - 1, documentContent.length);
+    // The real header row "|a |b" has 2 cells, so the inserted row has 2 pipes.
+    expect((insertedText.match(/\|/g) ?? []).length).toBe(2);
+  });
+
   test('table cell completion uses the syntax tree for a complete table', async () => {
     // A closed table → the parser produces a TableBlock node, exercising the
     // syntax-tree path of isInsideTableBlock and getTableColumnCount.

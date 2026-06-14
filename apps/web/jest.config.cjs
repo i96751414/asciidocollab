@@ -1,13 +1,16 @@
 /** @type {import('jest').Config} */
 
 const sharedTransform = {
-  '^.+\\.(ts|tsx)$': ['ts-jest', {
+  // Transform .js too (with allowJs) so the generated Lezer parser (`asciidoc-parser.js`,
+  // ESM) and the modules that import it can load under the commonjs jest runtime.
+  '^.+\\.(ts|tsx|js)$': ['ts-jest', {
     tsconfig: {
       jsx: 'react-jsx',
       module: 'commonjs',
       moduleResolution: 'node',
       esModuleInterop: true,
       resolveJsonModule: true,
+      allowJs: true,
       rootDir: '.',
       ignoreDeprecations: '6.0',
       paths: {
@@ -36,28 +39,13 @@ const coveragePathIgnorePatterns = ['/node_modules/', '<rootDir>/e2e/', '<rootDi
 // would silently miss new files in unlisted locations.
 const collectCoverageFrom = [
   'src/**/*.{ts,tsx}',
-  // Next.js App Router route tree — pages/layouts/route-client components are
-  // integration surfaces exercised by the Playwright e2e suite, not unit-tested
-  // here. The one substantial editor module that lives under app/ is re-included.
-  '!src/app/**',
-  'src/app/**/project-editor-layout.tsx',
-  '!src/proxy.ts',
-  // Web Worker entry points (Worker / import.meta — not loadable under ts-jest).
+  // The only exclusions are files that physically cannot be loaded as modules under the
+  // jest runtime — Web/Shared Worker entry scripts (worker-global scope: `onconnect`,
+  // `self`, no module exports) and the render-worker factory (`new Worker(new URL(...,
+  // import.meta.url))`, which `import.meta` makes unloadable under the commonjs transform;
+  // it exists precisely so consumers MOCK it). Everything else is unit-tested.
   '!src/**/*.worker.ts',
   '!src/lib/create-render-worker.ts',
-  // The generated Lezer parser + the modules that statically import it (ESM the
-  // jest transform cannot load). The tokenizer LOGIC is covered separately via
-  // `asciidoc-block-token-logic.ts`, which these two only wire up.
-  '!src/lib/codemirror/asciidoc-parser.js',
-  '!src/lib/codemirror/asciidoc-language.ts',
-  '!src/lib/codemirror/asciidoc-block-tokens.ts',
-  // Pre-existing app-wide gap: legacy (non-editor) feature components/contexts/helpers
-  // that predate this work and have no unit tests yet. TODO: backfill tests and drop
-  // these exclusions — they are enumerated (not hidden by an allow-list) so the debt
-  // stays visible and a NEW untested module is still caught by the gate.
-  '!src/components/{archive-button,delete-project-button,empty-state,error-boundary,invite-member-form,member-list,project-form,project-settings-form,sole-owner-warning,user-search-combobox}.tsx',
-  '!src/contexts/current-user-context.tsx',
-  '!src/lib/get-project-access.ts',
 ];
 
 const config = {

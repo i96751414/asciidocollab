@@ -29,6 +29,18 @@ jest.mock('@/components/user-menu', () => ({
   ),
 }));
 
+let capturedInitialTheme: string | undefined;
+jest.mock('@/components/theme-toggle', () => ({
+  ThemeToggle: ({ initialTheme }: { initialTheme: string }) => {
+    capturedInitialTheme = initialTheme;
+    return <div data-testid="theme-toggle">{initialTheme}</div>;
+  },
+}));
+
+jest.mock('@/components/logo', () => ({
+  Logo: () => <div data-testid="logo" />,
+}));
+
 jest.mock('@/components/theme-provider', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="theme-provider">{children}</div>
@@ -68,6 +80,28 @@ describe('DashboardLayout', () => {
   test('children are rendered in the layout', async () => {
     render(await DashboardLayout({ children: <span data-testid="child">content</span> }));
     expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  test('passes a concrete light/dark theme straight through to ThemeToggle', async () => {
+    capturedInitialTheme = undefined;
+    mockGetProfile.mockResolvedValue({ ...mockProfile, appTheme: 'dark' });
+    render(await DashboardLayout({ children: <span>content</span> }));
+    expect(capturedInitialTheme).toBe('dark');
+  });
+
+  test('falls back to "system" for an unrecognised appTheme value', async () => {
+    capturedInitialTheme = undefined;
+    mockGetProfile.mockResolvedValue({ ...mockProfile, appTheme: 'sepia' });
+    render(await DashboardLayout({ children: <span>content</span> }));
+    expect(capturedInitialTheme).toBe('system');
+  });
+
+  test('redirects to /login?reason=expired when the profile is null', async () => {
+    mockGetProfile.mockResolvedValue(null);
+    // The test mock for redirect() does not throw (unlike the real one), so execution
+    // continues and dereferences the null profile — both effects are expected here.
+    await expect(DashboardLayout({ children: <span>content</span> })).rejects.toThrow();
+    expect(mockRedirect).toHaveBeenCalledWith('/login?reason=expired');
   });
 });
 

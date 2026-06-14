@@ -33,6 +33,30 @@ jest.mock('@/lib/codemirror/asciidoc-language', () => {
   return { asciidoc: () => new LanguageSupport(language) };
 });
 
+// The real source-highlight loader lazily `import()`s embedded language packs from
+// `@codemirror/language-data` — ESM modules the commonjs ts-jest runtime cannot load, so the
+// genuine async `reparse` path never fires under jest. The mount-side reparse CALLBACK (the
+// `(view) => view.dispatch(languageCompartment.reconfigure(...))` arrow we own) is still real
+// hook logic, so we stub the loader to invoke that callback once — out of band via a microtask,
+// since CodeMirror forbids dispatching synchronously inside an update cycle (matching how the
+// real loader calls it from an async `.then`). Everything else about the plugin is inert here.
+jest.mock('@/lib/codemirror/asciidoc-source-highlight', () => {
+  const { ViewPlugin } = jest.requireActual('@codemirror/view') as typeof import('@codemirror/view');
+  return {
+    asciidocSourceHighlight: (reparse: (view: import('@codemirror/view').EditorView) => void) =>
+      ViewPlugin.fromClass(
+        class {
+          fired = false;
+          update(update: import('@codemirror/view').ViewUpdate) {
+            if (this.fired || !update.docChanged) return;
+            this.fired = true;
+            queueMicrotask(() => reparse(update.view));
+          }
+        },
+      ),
+  };
+});
+
 /**
  * The minimal subset of {@link useEditorMount} options every test supplies. Individual tests
  * spread their own overrides on top of this so the harness stays focused on the case under test.
@@ -53,6 +77,21 @@ if (typeof Range.prototype.getClientRects !== 'function') {
 if (typeof Range.prototype.getBoundingClientRect !== 'function') {
   Range.prototype.getBoundingClientRect = () => new DOMRect();
 }
+
+// The spell-check source fetches its Hunspell dictionary from `/dictionaries/*` and returns no
+// diagnostics (skipping the per-user ignore accessor) when that fetch fails — which it always does
+// under jsdom. Serving a tiny in-memory dictionary lets `nspell` build a real checker so the lint
+// source actually consults the `() => spellIgnore ?? []` accessor we pass it. `loadSpellChecker`
+// memoises the first result module-wide, so this stub must be installed before any lint runs.
+const DICTIONARY_AFF = 'SET UTF-8\n';
+const DICTIONARY_DIC = '2\nprose\nhere\n';
+// jsdom has no global `Response`, so we resolve to a minimal fetch-result shape exposing only the
+// `ok`/`text()` members `loadSpellChecker` reads.
+globalThis.fetch = ((input: RequestInfo | URL): Promise<Response> => {
+  const url = String(input);
+  const body = url.endsWith('.aff') ? DICTIONARY_AFF : DICTIONARY_DIC;
+  return Promise.resolve({ ok: true, text: () => Promise.resolve(body) } as unknown as Response);
+}) as typeof fetch;
 
 const noop = (): void => {};
 
@@ -383,6 +422,18 @@ describe('useEditorMount handleHeadingClick', () => {
     expect(rendered.getView().state.selection.main.head).toBe(9);
     rendered.unmount();
   });
+
+  test('is a safe no-op after the view is torn down (no live view ref)', () => {
+    const rendered = mount(baseOptions({ content: '= Title\n\n== Section\n' }));
+    const { handleHeadingClick } = rendered.getResult();
+    rendered.unmount(); // clears viewReference.current → the guard's else-branch
+
+    expect(() => {
+      act(() => {
+        handleHeadingClick({ from: 9 });
+      });
+    }).not.toThrow();
+  });
 });
 
 describe('useEditorMount line-click handler', () => {
@@ -505,6 +556,29 @@ describe('useEditorMount collab path', () => {
     expect(rendered.getView().state.selection.main.head).toBe(rendered.getView().state.doc.line(2).from);
 
     rendered.unmount();
+    awareness.destroy();
+    doc.destroy();
+  });
+
+  test('skips the scheduled line restore when the view is torn down before the microtask runs', () => {
+    const doc = new Y.Doc();
+    const awareness = new Awareness(doc);
+    const rendered = mount(collabOptions(doc, awareness, { initialLine: 2 }));
+
+    // The first content arrival schedules the restore to a microtask; tearing the editor down
+    // synchronously (clearing viewReference.current) before microtasks flush exercises the
+    // `if (!view) return` guard inside that microtask.
+    act(() => {
+      doc.getText('codemirror').insert(0, 'alpha\nbeta\ngamma\n');
+      rendered.unmount();
+    });
+
+    expect(() => {
+      act(() => {
+        // No throw: the microtask sees a null view ref and bails out.
+      });
+    }).not.toThrow();
+
     awareness.destroy();
     doc.destroy();
   });
@@ -727,6 +801,31 @@ describe('useEditorMount scroll sync (onScrollLine)', () => {
     jest.useRealTimers();
   });
 
+  test('drops a queued scroll callback when onScrollLine is removed before the debounce fires', () => {
+    jest.useFakeTimers();
+    const onScrollLine = jest.fn();
+    const rendered = mount(baseOptions({ content: 'a\nb\nc\n', onScrollLine }));
+    const view = rendered.getView();
+    jest.spyOn(view, 'posAtCoords').mockReturnValue(2); // resolves, so execution reaches the call site
+
+    // Queue the debounce while the callback is wired, then clear it via a rerender (the ref-sync
+    // effect nulls onScrollLineReference.current) before the timer fires — so the live `?.` call at
+    // the call site short-circuits on the now-absent callback.
+    act(() => {
+      view.scrollDOM.dispatchEvent(new Event('scroll'));
+    });
+    act(() => {
+      rendered.rerender(baseOptions({ content: 'a\nb\nc\n', onScrollLine: undefined }));
+    });
+    act(() => {
+      jest.advanceTimersByTime(60);
+    });
+
+    expect(onScrollLine).not.toHaveBeenCalled();
+    rendered.unmount();
+    jest.useRealTimers();
+  });
+
   test('does not fire onScrollLine when posAtCoords cannot resolve', () => {
     jest.useFakeTimers();
     const onScrollLine = jest.fn();
@@ -873,10 +972,157 @@ describe('useEditorMount wired completion sources', () => {
   });
 });
 
-// NOTE: the Ctrl+click hover tooltip (hoverTooltip callback) is intentionally NOT exercised here.
-// CodeMirror's hover plugin resolves the hovered position via posAtCoords/coordsAtPos, which
-// require a real layout engine; jsdom has none, so the tooltip DOM never materialises and the
-// callback never runs. That path is covered by the Playwright e2e suite instead.
+// The Ctrl+click hover tooltip's *triggering* (mouse hover → posAtCoords/coordsAtPos) needs a
+// real layout engine jsdom lacks, so it cannot be driven by simulated mouse movement. The tooltip
+// SOURCE itself, however, is pure hook logic (line lookup, xref-preview/macro-range resolution,
+// platform-aware affordance text) and is exercised here by invoking it directly. The hover plugin
+// captures the source on its instance, so we reach it through the view's live plugin list.
+type HoverTooltip = ReturnType<Parameters<typeof import('@codemirror/view').hoverTooltip>[0]>;
+type HoverSource = (view: EditorView, pos: number, side: -1 | 1) => HoverTooltip;
+interface HoverPluginValue { source?: HoverSource; hoverTime?: number; lastMove?: unknown }
+interface PluginInstanceLike { value: HoverPluginValue | null }
+
+// A probe macro placed on line 1 of every hover test so the editor's OWN hover source can be told
+// apart from the lint hover (the `@codemirror/lint` package registers its own hoverTooltip with the
+// same shape). Our source returns this affordance string on the probe; the lint source returns null.
+const HOVER_PROBE_LINE = 'include::__probe__.adoc[]\n';
+const HOVER_PROBE_POS = 12; // inside the probe macro's path range
+const AFFORDANCE = 'click to open in the file tree';
+
+/**
+ * Locate the editor's own Ctrl+click hover source among the live plugin instances. Several plugins
+ * expose a `source`, so we identify ours by behaviour: it returns the file-tree affordance for the
+ * probe macro on line 1. The returned source can then be called at any position under test.
+ */
+function hoverSourceOf(view: EditorView): HoverSource {
+  const plugins = (view as unknown as { plugins: PluginInstanceLike[] }).plugins;
+  for (const instance of plugins) {
+    const source = instance.value?.source;
+    if (typeof source !== 'function') continue;
+    const probe = source(view, HOVER_PROBE_POS, 1);
+    if (probe && !Array.isArray(probe) && (probe.create(view).dom.textContent ?? '').includes('file tree')) {
+      return source;
+    }
+  }
+  throw new Error('Ctrl+click hover tooltip source not found on view');
+}
+
+/** Render a resolved tooltip's DOM (invoking its create()) so the create-branch is covered. */
+function tooltipDomText(view: EditorView, tooltip: HoverTooltip): string {
+  if (!tooltip || Array.isArray(tooltip)) throw new Error('expected a single tooltip');
+  const { dom } = tooltip.create(view);
+  return dom.textContent ?? '';
+}
+
+/** A fake project index whose xref resolution feeds {@link xrefHoverPreview} a known location. */
+function fakeProjectIndex(resolves: boolean): import('@/lib/codemirror/asciidoc-symbol-index').ProjectSymbolIndex {
+  const symbol = { fileId: 'f1', kind: 'anchor', name: 'sec', range: { from: 0, to: 0 } };
+  return {
+    tree: { rootId: 'f1', nodes: {} },
+    activeFileId: 'f1',
+    symbols: [],
+    references: [],
+    resolveXref: () => (resolves ? symbol : 'unresolved'),
+    resolveAttribute: () => 'unresolved',
+    inheritedOffset: () => 0,
+    pathOf: () => 'chapters/intro.adoc',
+    lineOf: () => 7,
+  } as unknown as import('@/lib/codemirror/asciidoc-symbol-index').ProjectSymbolIndex;
+}
+
+describe('useEditorMount Ctrl+click hover tooltip source', () => {
+  test('returns an index-backed xref preview when an xref sits under the cursor (FR-034)', () => {
+    const rendered = mount(baseOptions({
+      content: `${HOVER_PROBE_LINE}see <<sec>> now\n`,
+      getProjectIndex: () => fakeProjectIndex(true),
+    }));
+    const view = rendered.getView();
+    const xrefPos = view.state.doc.line(2).from + 6; // inside the <<sec>> token on line 2
+    const tooltip = hoverSourceOf(view)(view, xrefPos, 1);
+
+    expect(tooltip).not.toBeNull();
+    expect(tooltipDomText(view, tooltip)).toContain('line 7');
+    rendered.unmount();
+  });
+
+  test('falls through to the macro-path affordance when no xref is under the cursor', () => {
+    const rendered = mount(baseOptions({
+      content: `${HOVER_PROBE_LINE}include::child.adoc[]\n`,
+      includePaths: ['child.adoc'],
+    }));
+    const view = rendered.getView();
+    const pathPos = view.state.doc.line(2).from + 12; // inside the include:: path on line 2
+    const tooltip = hoverSourceOf(view)(view, pathPos, 1);
+
+    expect(tooltip).not.toBeNull();
+    expect(tooltipDomText(view, tooltip)).toContain(AFFORDANCE);
+    rendered.unmount();
+  });
+
+  test('returns null when the cursor is on a path line but outside the path range', () => {
+    const rendered = mount(baseOptions({ content: `${HOVER_PROBE_LINE}include::child.adoc[]\n` }));
+    const view = rendered.getView();
+    const beforePath = view.state.doc.line(2).from; // column 0 on line 2, before the macro path range
+    expect(hoverSourceOf(view)(view, beforePath, 1)).toBeNull();
+    rendered.unmount();
+  });
+
+  test('returns null on a plain prose line with neither an xref nor a macro path', () => {
+    const rendered = mount(baseOptions({ content: `${HOVER_PROBE_LINE}just some prose text\n` }));
+    const view = rendered.getView();
+    expect(hoverSourceOf(view)(view, view.state.doc.line(2).from + 3, 1)).toBeNull();
+    rendered.unmount();
+  });
+
+  test('skips the xref preview when the index resolves nothing, then shows the macro affordance', () => {
+    const rendered = mount(baseOptions({
+      content: `${HOVER_PROBE_LINE}include::child.adoc[]\n`,
+      getProjectIndex: () => fakeProjectIndex(false),
+    }));
+    const view = rendered.getView();
+    const pathPos = view.state.doc.line(2).from + 12;
+    const tooltip = hoverSourceOf(view)(view, pathPos, 1);
+
+    // The index is present (xref branch entered) but resolves no xref here, so the source falls
+    // through to the macro-path affordance — exercising the index-present, preview-absent path.
+    expect(tooltip).not.toBeNull();
+    expect(tooltipDomText(view, tooltip)).toContain(AFFORDANCE);
+    rendered.unmount();
+  });
+
+  test('uses the ⌘ affordance label on a Mac platform', () => {
+    const platform = Object.getOwnPropertyDescriptor(globalThis.navigator, 'platform');
+    Object.defineProperty(globalThis.navigator, 'platform', { value: 'MacIntel', configurable: true });
+    const rendered = mount(baseOptions({ content: `${HOVER_PROBE_LINE}include::child.adoc[]\n` }));
+    const view = rendered.getView();
+    const tooltip = hoverSourceOf(view)(view, view.state.doc.line(2).from + 12, 1);
+
+    expect(tooltipDomText(view, tooltip)).toContain('⌘');
+    rendered.unmount();
+    if (platform) Object.defineProperty(globalThis.navigator, 'platform', platform);
+  });
+});
+
+describe('useEditorMount source-highlight reparse callback (US5)', () => {
+  test('reconfigures the language compartment when an embedded language loads', async () => {
+    const rendered = mount(baseOptions({ content: '[source,json]\n----\n{}\n----\n' }));
+    const view = rendered.getView();
+    const dispatchSpy = jest.spyOn(view, 'dispatch');
+
+    // The mocked loader schedules the real mount-side reparse callback on the first doc change.
+    act(() => {
+      view.dispatch({ changes: { from: view.state.doc.length, insert: '\n' } });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The reparse arrow dispatched a (compartment-reconfigure) effect on the live view.
+    expect(dispatchSpy).toHaveBeenCalled();
+    expect(view.state.doc.toString()).toContain('[source,json]');
+    rendered.unmount();
+  });
+});
 
 describe('useEditorMount remountKey', () => {
   test('recreates the view when remountKey changes', () => {
