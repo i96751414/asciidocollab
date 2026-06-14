@@ -207,6 +207,110 @@ describe('FileTree — Drag and Drop', () => {
     expect(onSelectFile).not.toHaveBeenCalled();
   });
 
+  test('dropping a folder onto itself is a no-op (no dialog)', async () => {
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText('folder-a')).toBeInTheDocument());
+
+    const folderA = screen.getByText('folder-a');
+    fireEvent.dragStart(folderA, { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(folderA, { dataTransfer: { getData: jest.fn().mockReturnValue(FOLDER_A) } });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  test('dropping a node whose id is unknown is a no-op (source not found guard)', async () => {
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText('folder-b')).toBeInTheDocument());
+
+    const targetFolder = screen.getByText('folder-b');
+    // No dragStart fired (so the tracked ref is null); the payload references a non-existent node.
+    fireEvent.drop(targetFolder, { dataTransfer: { getData: jest.fn().mockReturnValue('ghost-id') } });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  test('a move that collides with an existing destination name flags a conflict', async () => {
+    const conflictServer = {
+      id: ROOT_ID, name: 'Project', type: 'folder', path: '/', parentId: null,
+      children: [
+        {
+          id: FOLDER_A, name: 'folder-a', type: 'folder', path: '/folder-a', parentId: ROOT_ID,
+          children: [{ id: FILE_1, name: 'shared.adoc', type: 'file', path: '/folder-a/shared.adoc', parentId: FOLDER_A, children: [] }],
+        },
+        {
+          id: FOLDER_B, name: 'folder-b', type: 'folder', path: '/folder-b', parentId: ROOT_ID,
+          children: [{ id: 'file-2', name: 'shared.adoc', type: 'file', path: '/folder-b/shared.adoc', parentId: FOLDER_B, children: [] }],
+        },
+      ],
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(conflictServer) });
+
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText('folder-b')).toBeInTheDocument());
+
+    const fileNode = screen.getAllByText('shared.adoc')[0];
+    const targetFolder = screen.getByText('folder-b');
+    fireEvent.dragStart(fileNode, { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(targetFolder, { dataTransfer: { getData: jest.fn().mockReturnValue(FILE_1) } });
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(screen.getByText(/already exists in the destination/i)).toBeInTheDocument();
+  });
+
+  test('dragStart originating off any node row does not activate a drag', async () => {
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+
+    // The container itself has no data-node-id ancestor row → the guard bails before setting state.
+    fireEvent.dragStart(screen.getByTestId('file-tree'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    expect(screen.getByTestId('file-tree')).not.toHaveAttribute('data-drag-active');
+  });
+
+  test('a re-fired openPathRequest with the same nonce is ignored', async () => {
+    const onSelectFile = jest.fn();
+    const { rerender } = render(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null} openPathRequest={{ path: 'folder-a/document.adoc', nonce: 3 }} />,
+    );
+    await waitFor(() => expect(onSelectFile).toHaveBeenCalledTimes(1));
+
+    // Re-render with the identical nonce: the resolve effect must not fire again.
+    rerender(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={onSelectFile} selectedNodeId={null} openPathRequest={{ path: 'folder-a/document.adoc', nonce: 3 }} />,
+    );
+    expect(onSelectFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('right-clicking a node row is handled without error (onContextMenu wiring)', async () => {
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+
+    // The tree passes a no-op onContextMenu to each node; firing it must not throw.
+    expect(() => fireEvent.contextMenu(screen.getByText('document.adoc'))).not.toThrow();
+  });
+
+  test('re-rendering with an unchanged selectedNodeId does not re-run the reveal', async () => {
+    const { rerender } = render(
+      <FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={FILE_1} />,
+    );
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+    const scrollIntoView = Element.prototype.scrollIntoView as jest.Mock;
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    scrollIntoView.mockClear();
+
+    // Same selection, only canEdit toggled → the reveal short-circuits on the last-revealed ref.
+    rerender(<FileTree projectId={PROJECT_ID} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={FILE_1} />);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  test('renders a collapse button and invokes onCollapse when provided', async () => {
+    const onCollapse = jest.fn();
+    render(<FileTree projectId={PROJECT_ID} canEdit onSelectFile={jest.fn()} selectedNodeId={null} onCollapse={onCollapse} />);
+    await waitFor(() => expect(screen.queryByText('document.adoc')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(/collapse sidebar/i));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+  });
+
   test('openPathRequest for an unknown path selects nothing', async () => {
     const onSelectFile = jest.fn();
     const { rerender } = render(

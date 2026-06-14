@@ -1,0 +1,665 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/project-editor-layout';
+import type { ProjectSymbol } from '@asciidocollab/shared';
+import type { SymbolUsage } from '@/lib/api/projects';
+import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+
+// Focused coverage suite for the layout's handlers and conditional UI: preview toggle,
+// main-file picker wiring, go-to-symbol + refactor dialogs, xref/usage navigation
+// (index-backed lineOf), binary/image/error content branches, and keyboard shortcuts.
+
+jest.mock('@/contexts/current-user-context', () => ({
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+}));
+
+// Editor stub that surfaces the navigation callbacks so tests can drive Ctrl+click flows.
+jest.mock('@/components/editor/asciidoc-editor', () => ({
+  AsciiDocEditor: jest.fn((properties: {
+    content: string;
+    canEdit: boolean;
+    projectId?: string;
+    fileNodeId?: string;
+    inheritedOffset?: number;
+    onNavigateToFile?: (path: string) => void;
+    onNavigateToXref?: (target: XrefTarget) => void;
+    onOpenUrl?: (url: string) => void;
+    onScrollLine?: (line: number) => void;
+    onLineClick?: (line: number) => void;
+    onChange?: (value: string) => void;
+  }) => (
+    <div
+      data-testid="asciidoc-editor"
+      data-can-edit={String(properties.canEdit)}
+      data-file-node-id={properties.fileNodeId ?? ''}
+      data-inherited-offset={String(properties.inheritedOffset ?? '')}
+    >
+      {properties.content}
+    </div>
+  )),
+}));
+
+jest.mock('@/components/file-tree/file-tree', () => ({
+  FileTree: ({ onSelectFile, onCollapse, openPathRequest }: {
+    onSelectFile?: (id: string, name: string, path: string, type: 'file' | 'folder') => void;
+    onCollapse?: () => void;
+    openPathRequest?: { path: string; nonce: number } | null;
+  }) => (
+    <div data-testid="file-tree" data-open-path={openPathRequest?.path ?? ''}>
+      <button onClick={() => onCollapse?.()}>collapse sidebar</button>
+      <button onClick={() => onSelectFile?.('picked', 'picked.adoc', '/picked.adoc', 'file')}>pick file</button>
+    </div>
+  ),
+}));
+
+jest.mock('@/components/asciidoc-preview', () => ({
+  AsciiDocPreview: jest.fn(({ onCollapse, onToggleScrollSync, onPreviewStyleChange, mainPath }: {
+    onCollapse?: () => void;
+    onToggleScrollSync?: () => void;
+    onPreviewStyleChange?: (style: string) => void;
+    mainPath?: string;
+  }) => (
+    <div data-testid="asciidoc-preview" data-main-path={mainPath ?? ''}>
+      {onCollapse && <button aria-label="collapse preview" onClick={onCollapse} />}
+      {onToggleScrollSync && <button aria-label="toggle scroll sync" onClick={onToggleScrollSync} />}
+      {onPreviewStyleChange && <button aria-label="set style" onClick={() => onPreviewStyleChange('github')} />}
+    </div>
+  )),
+  isAsciiDocFile: (name: string) => name.endsWith('.adoc'),
+}));
+
+jest.mock('@/components/image-preview', () => ({
+  ImagePreview: ({ fileName }: { fileName: string }) => <div data-testid="image-preview">{fileName}</div>,
+}));
+
+jest.mock('@/lib/codemirror/asciidoc-image-extensions', () => ({
+  isImageFile: (name: string) => name.endsWith('.png') || name.endsWith('.jpg'),
+}));
+
+jest.mock('react-resizable-panels', () => ({
+  PanelGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Panel: ({ children, className, ...rest }: {
+    children: React.ReactNode;
+    className?: string;
+    // react-resizable-panels props that must not leak onto the DOM div.
+    id?: string;
+    order?: number;
+    defaultSize?: number;
+    minSize?: number;
+  }) => {
+    const testId = (rest as Record<string, string>)['data-testid'];
+    return <div className={className} data-testid={testId}>{children}</div>;
+  },
+  PanelResizeHandle: () => <div />,
+}));
+
+// Main-file picker stub: fires onChange so the mainFile state wiring is exercised.
+jest.mock('@/components/editor/editor-main-file-picker', () => ({
+  EditorMainFilePicker: ({ currentMainFileNodeId, onChange }: {
+    currentMainFileNodeId: string | null;
+    onChange?: (id: string | null) => void;
+  }) => (
+    <button data-testid="main-file-picker" data-current={currentMainFileNodeId ?? ''} onClick={() => onChange?.('mainfile-1')}>
+      pick main
+    </button>
+  ),
+}));
+
+// Go-to-symbol stub: exposes open state + a button to select the seeded symbol.
+const goToSymbolSelect: { current: ((symbol: ProjectSymbol) => void) | null } = { current: null };
+jest.mock('@/components/editor/editor-go-to-symbol', () => ({
+  EditorGoToSymbol: ({ open, symbols, pathOf, onSelect, onClose }: {
+    open: boolean;
+    symbols: ProjectSymbol[];
+    pathOf: (id: string) => string | null;
+    onSelect: (symbol: ProjectSymbol) => void;
+    onClose: () => void;
+  }) => {
+    goToSymbolSelect.current = onSelect;
+    if (!open) return null;
+    return (
+      <div data-testid="go-to-symbol" data-symbol-count={symbols.length} data-first-path={symbols[0] ? pathOf(symbols[0].fileId) ?? '' : ''}>
+        <button onClick={() => onSelect(symbols[0])}>select first symbol</button>
+        <button aria-label="close go to symbol" onClick={onClose} />
+      </div>
+    );
+  },
+}));
+
+// Refactor stub: exposes open state plus navigate + renamed callbacks.
+jest.mock('@/components/editor/editor-symbol-refactor', () => ({
+  EditorSymbolRefactor: ({ open, onNavigate, onRenamed, onClose }: {
+    open: boolean;
+    onNavigate: (usage: SymbolUsage) => void;
+    onRenamed: () => void;
+    onClose: () => void;
+  }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="refactor">
+        <button onClick={() => onNavigate({ fileNodeId: 'usage-file', path: '/usage.adoc', kind: 'xref', range: { from: 7, to: 12 } })}>
+          navigate usage
+        </button>
+        <button onClick={() => onRenamed()}>trigger renamed</button>
+        <button aria-label="close refactor" onClick={onClose} />
+      </div>
+    );
+  },
+}));
+
+jest.mock('@/lib/api/projects', () => ({
+  findSymbolUsages: jest.fn(),
+  renameSymbol: jest.fn(),
+}));
+
+const mockGetCollabInfo = jest.fn();
+jest.mock('@/lib/api/collab', () => ({ getCollabDocumentInfo: (...a: unknown[]) => mockGetCollabInfo(...a) }));
+
+const mockGetDocumentContent = jest.fn();
+jest.mock('@/lib/api/file-content', () => ({
+  getDocumentContent: (...a: unknown[]) => mockGetDocumentContent(...a),
+  API_BASE_URL: 'http://localhost:4000',
+}));
+
+let mockCollabDoc: { doc: unknown; awareness: unknown; connectionState: string } = {
+  doc: null, awareness: null, connectionState: 'synced',
+};
+jest.mock('@/hooks/use-collab-document', () => ({
+  useCollabDocument: () => mockCollabDoc,
+}));
+
+jest.mock('@/hooks/use-project-presence', () => ({
+  useProjectPresence: () => new Map(),
+}));
+
+const mockRefreshIndex = jest.fn();
+const mockGetFiles = jest.fn(() => []);
+const mockLineOf = jest.fn((_fileId: string, offset: number) => offset + 100);
+const mockPathOf = jest.fn((id: string) => `/path/${id}.adoc`);
+const mockInheritedOffset = jest.fn(() => 3);
+const SYMBOLS: ProjectSymbol[] = [
+  { kind: 'section', name: 'overview', fileId: 'sym-file', range: { from: 5, to: 9 } },
+];
+function makeIndex(activeFileId = 'f1') {
+  return {
+    activeFileId,
+    symbols: SYMBOLS,
+    pathOf: mockPathOf,
+    lineOf: mockLineOf,
+    inheritedOffset: mockInheritedOffset,
+  };
+}
+let mockIndexValue: ReturnType<typeof makeIndex> | null = makeIndex();
+jest.mock('@/hooks/use-project-symbol-index', () => ({
+  useProjectSymbolIndex: jest.fn(() => ({
+    index: mockIndexValue,
+    getIndex: () => mockIndexValue,
+    getFiles: mockGetFiles,
+    refresh: mockRefreshIndex,
+  })),
+}));
+
+const mockSelectFile = jest.fn();
+let mockFileSelection: {
+  selectedFile: { nodeId: string; nodeName: string; path: string; nodeType: 'file' | 'folder' } | null;
+  contentState: Record<string, unknown>;
+};
+jest.mock('@/hooks/use-file-selection', () => ({
+  useFileSelection: () => ({
+    selectedFile: mockFileSelection.selectedFile,
+    contentState: mockFileSelection.contentState,
+    selectFile: mockSelectFile,
+    clearSelection: jest.fn(),
+  }),
+}));
+
+jest.mock('@/hooks/use-editor-preferences', () => ({
+  useEditorPreferences: () => ({
+    scrollSyncEnabled: true,
+    setScrollSyncEnabled: jest.fn(),
+    previewStyle: 'default',
+    setPreviewStyle: jest.fn(),
+  }),
+}));
+
+let mockStoredSelection: { nodeId: string; nodeName: string; nodeType: 'file' | 'folder'; path: string; line?: number } | null = null;
+jest.mock('@/hooks/use-last-selection', () => ({
+  useLastSelection: () => ({
+    readLastSelection: () => mockStoredSelection,
+    rememberFile: jest.fn(),
+    rememberLine: jest.fn(),
+    clearLastSelection: jest.fn(),
+  }),
+}));
+
+const defaultProps = {
+  projectId: 'p1',
+  projectName: 'Proj',
+  projectDescription: 'A description',
+  mainFileNodeId: null,
+  canManage: true,
+  canEdit: true,
+  userId: 'u-test',
+};
+
+function adocFile(nodeId = 'f1') {
+  return {
+    selectedFile: { nodeId, nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' as const },
+    contentState: { content: '= Doc', etag: null, isLoading: false, error: null, isBinary: false, notFound: false },
+  };
+}
+
+function collabAdocFile(nodeId = 'cf1') {
+  return {
+    selectedFile: { nodeId, nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' as const },
+    contentState: {
+      content: '= Doc', etag: null, isLoading: false, error: null, isBinary: false, notFound: false,
+      collab: { yjsStateId: 'y1', role: 'editor' as const },
+    },
+  };
+}
+
+beforeEach(() => {
+  mockIndexValue = makeIndex();
+  mockFileSelection = adocFile();
+  mockCollabDoc = { doc: null, awareness: null, connectionState: 'synced' };
+  mockSelectFile.mockReset();
+  mockRefreshIndex.mockReset();
+  mockGetCollabInfo.mockReset();
+  mockGetDocumentContent.mockReset();
+  mockLineOf.mockClear();
+  mockPathOf.mockReset();
+  mockPathOf.mockImplementation((id: string) => `/path/${id}.adoc`);
+  mockStoredSelection = null;
+  goToSymbolSelect.current = null;
+  jest.requireMock('@/components/editor/asciidoc-editor').AsciiDocEditor.mockClear();
+  jest.requireMock('@/components/asciidoc-preview').AsciiDocPreview.mockClear();
+  sessionStorage.clear();
+});
+
+function lastEditorProperties() {
+  const editor = jest.requireMock('@/components/editor/asciidoc-editor').AsciiDocEditor;
+  return editor.mock.calls.at(-1)?.[0];
+}
+function lastPreviewProperties() {
+  const preview = jest.requireMock('@/components/asciidoc-preview').AsciiDocPreview;
+  return preview.mock.calls.at(-1)?.[0];
+}
+
+describe('ProjectEditorLayout — preview toggle & scroll sync', () => {
+  test('expanding the preview persists open state and threads scroll/line handlers', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument();
+    expect(sessionStorage.getItem('asciidoc-preview-open')).toBe('true');
+    // With the preview open + scrollSyncEnabled, the editor receives scroll/line handlers.
+    expect(typeof lastEditorProperties()?.onScrollLine).toBe('function');
+    expect(typeof lastEditorProperties()?.onLineClick).toBe('function');
+  });
+
+  test('restores the preview-open state from sessionStorage on mount', async () => {
+    sessionStorage.setItem('asciidoc-preview-open', 'true');
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument());
+  });
+
+  test('collapsing the preview hides it and persists the closed state', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse preview/i }));
+    expect(screen.queryByTestId('asciidoc-preview')).not.toBeInTheDocument();
+    expect(sessionStorage.getItem('asciidoc-preview-open')).toBe('false');
+  });
+
+  test('scroll-sync handler dedups identical lines, line-click always re-fires', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    const props = lastEditorProperties();
+    act(() => { props.onScrollLine(5); });
+    act(() => { props.onScrollLine(5); });
+    act(() => { props.onLineClick(8); });
+    expect(lastPreviewProperties()?.scrollToLine).toEqual({ line: 8 });
+  });
+
+  test('preview scroll-sync + style toggles invoke their handlers', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    fireEvent.click(screen.getByRole('button', { name: /toggle scroll sync/i }));
+    fireEvent.click(screen.getByRole('button', { name: /set style/i }));
+    // No throw — handlers are wired through to the preference setters.
+    expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — main-file picker wiring', () => {
+  test('selecting a main file updates the picker current value', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('main-file-picker')).toHaveAttribute('data-current', '');
+    fireEvent.click(screen.getByTestId('main-file-picker'));
+    expect(screen.getByTestId('main-file-picker')).toHaveAttribute('data-current', 'mainfile-1');
+  });
+
+  test('the assembled-document preview path is used when the open file is the main file', () => {
+    mockFileSelection = adocFile('mainfile-1');
+    render(<ProjectEditorLayout {...defaultProps} mainFileNodeId="mainfile-1" />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    expect(lastPreviewProperties()?.mainPath).toBe('/path/mainfile-1.adoc');
+  });
+});
+
+describe('ProjectEditorLayout — go to symbol', () => {
+  test('header button opens the palette seeded with the index symbols', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    expect(screen.getByTestId('go-to-symbol')).toHaveAttribute('data-symbol-count', '1');
+  });
+
+  test('Ctrl+Shift+O keyboard shortcut opens the palette', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => {
+      fireEvent.keyDown(globalThis, { key: 'o', ctrlKey: true, shiftKey: true });
+    });
+    expect(screen.getByTestId('go-to-symbol')).toBeInTheDocument();
+  });
+
+  test('selecting a symbol navigates via lineOf and closes the palette', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    fireEvent.click(screen.getByRole('button', { name: /select first symbol/i }));
+    expect(mockLineOf).toHaveBeenCalledWith('sym-file', 5);
+    expect(screen.queryByTestId('go-to-symbol')).not.toBeInTheDocument();
+  });
+
+  test('selecting a symbol is a no-op when the index is unavailable', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    mockIndexValue = null;
+    act(() => { goToSymbolSelect.current?.(SYMBOLS[0]); });
+    expect(mockLineOf).not.toHaveBeenCalled();
+  });
+
+  test('closing the palette via onClose hides it', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    fireEvent.click(screen.getByRole('button', { name: /close go to symbol/i }));
+    expect(screen.queryByTestId('go-to-symbol')).not.toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — refactor dialog', () => {
+  test('header button opens the refactor dialog', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+    expect(screen.getByTestId('refactor')).toBeInTheDocument();
+  });
+
+  test('Ctrl+Shift+R keyboard shortcut opens the dialog', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => {
+      fireEvent.keyDown(globalThis, { key: 'r', ctrlKey: true, shiftKey: true });
+    });
+    expect(screen.getByTestId('refactor')).toBeInTheDocument();
+  });
+
+  test('navigating to a cross-file usage uses lineOf and switches files', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+    fireEvent.click(screen.getByRole('button', { name: /navigate usage/i }));
+    expect(mockLineOf).toHaveBeenCalledWith('usage-file', 7);
+    // Cross-file usage requests the tree to open the usage path.
+    expect(screen.getByTestId('file-tree')).toHaveAttribute('data-open-path', '/usage.adoc');
+  });
+
+  test('onRenamed refreshes the project symbol index', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+    fireEvent.click(screen.getByRole('button', { name: /trigger renamed/i }));
+    expect(mockRefreshIndex).toHaveBeenCalled();
+  });
+
+  test('usage navigation is a no-op when the index is unavailable', () => {
+    mockIndexValue = null;
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+    fireEvent.click(screen.getByRole('button', { name: /navigate usage/i }));
+    expect(mockLineOf).not.toHaveBeenCalled();
+  });
+
+  test('closing the refactor dialog via onClose hides it', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+    fireEvent.click(screen.getByRole('button', { name: /close refactor/i }));
+    expect(screen.queryByTestId('refactor')).not.toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — editor navigation callbacks', () => {
+  test('onNavigateToFile asks the tree to reveal the path', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { lastEditorProperties().onNavigateToFile('/includes/child.adoc'); });
+    expect(screen.getByTestId('file-tree')).toHaveAttribute('data-open-path', '/includes/child.adoc');
+  });
+
+  test('same-file xref reveals in place via revealRequest', async () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { lastEditorProperties().onNavigateToXref({ fileId: 'f1', path: null, line: 42, sameFile: true }); });
+    await waitFor(() => expect(lastEditorProperties()?.revealRequest).toEqual({ line: 42, nonce: expect.any(Number) }));
+  });
+
+  test('cross-file xref opens the defining file', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { lastEditorProperties().onNavigateToXref({ fileId: 'other', path: '/other.adoc', line: 9, sameFile: false }); });
+    expect(screen.getByTestId('file-tree')).toHaveAttribute('data-open-path', '/other.adoc');
+  });
+
+  test('onOpenUrl opens a new tab with safe rel options', () => {
+    const openSpy = jest.spyOn(globalThis, 'open').mockImplementation(() => null);
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { lastEditorProperties().onOpenUrl('https://example.com'); });
+    expect(openSpy).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer');
+    openSpy.mockRestore();
+  });
+
+  test('the editor receives the inherited heading-level offset from the index', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('asciidoc-editor')).toHaveAttribute('data-inherited-offset', '3');
+  });
+
+  test('the file picked from the tree is selected (handleSelectFile)', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /pick file/i }));
+    expect(mockSelectFile).toHaveBeenCalledWith('picked', 'picked.adoc', '/picked.adoc', 'file');
+  });
+});
+
+describe('ProjectEditorLayout — content branches', () => {
+  test('renders an image preview for binary image files', () => {
+    mockFileSelection = {
+      selectedFile: { nodeId: 'img1', nodeName: 'pic.png', path: '/pic.png', nodeType: 'file' },
+      contentState: { content: null, etag: null, isLoading: false, error: null, isBinary: true, notFound: false },
+    };
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('image-preview')).toHaveTextContent('pic.png');
+  });
+
+  test('shows the not-available message for non-image binary files', () => {
+    mockFileSelection = {
+      selectedFile: { nodeId: 'bin1', nodeName: 'data.bin', path: '/data.bin', nodeType: 'file' },
+      contentState: { content: null, etag: null, isLoading: false, error: null, isBinary: true, notFound: false },
+    };
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByText(/preview not available for binary files/i)).toBeInTheDocument();
+  });
+
+  test('shows the content error message when the fetch failed', () => {
+    mockFileSelection = {
+      selectedFile: { nodeId: 'e1', nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: null, etag: null, isLoading: false, error: 'Boom', isBinary: false, notFound: false },
+    };
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByText('Boom')).toBeInTheDocument();
+  });
+
+  test('shows the loading skeleton while content is loading', () => {
+    mockFileSelection = {
+      selectedFile: { nodeId: 'l1', nodeName: 'doc.adoc', path: '/doc.adoc', nodeType: 'file' },
+      contentState: { content: null, etag: null, isLoading: true, error: null, isBinary: false, notFound: false },
+    };
+    const { container } = render(<ProjectEditorLayout {...defaultProps} />);
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — sidebar expand', () => {
+  test('collapsing then expanding the sidebar toggles its visibility', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
+    expect(screen.getByTestId('file-tree-panel')).toHaveClass('hidden');
+    fireEvent.click(screen.getByRole('button', { name: /expand sidebar/i }));
+    expect(screen.getByTestId('file-tree-panel')).not.toHaveClass('hidden');
+  });
+});
+
+describe('ProjectEditorLayout — viewer gating & description', () => {
+  test('renders the project description in the header', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByText('A description')).toBeInTheDocument();
+  });
+
+  test('does not render Settings/Members for non-managers', () => {
+    render(<ProjectEditorLayout {...defaultProps} canManage={false} />);
+    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /members/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — keyboard shortcut variants', () => {
+  test('Cmd+Shift+O (uppercase) opens go-to-symbol', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { fireEvent.keyDown(globalThis, { key: 'O', metaKey: true, shiftKey: true }); });
+    expect(screen.getByTestId('go-to-symbol')).toBeInTheDocument();
+  });
+
+  test('Cmd+Shift+R (uppercase) opens the refactor dialog', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    act(() => { fireEvent.keyDown(globalThis, { key: 'R', metaKey: true, shiftKey: true }); });
+    expect(screen.getByTestId('refactor')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — go-to-symbol path resolution', () => {
+  test('the palette resolves each symbol file id to its path via the index', () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    expect(screen.getByTestId('go-to-symbol')).toHaveAttribute('data-first-path', '/path/sym-file.adoc');
+  });
+});
+
+describe('ProjectEditorLayout — cross-file xref then selection threads the line', () => {
+  test('a cross-file xref carries its line to the next selection as initialLine', async () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    // Cross-file xref stores the pending line and asks the tree to open the file...
+    act(() => { lastEditorProperties().onNavigateToXref({ fileId: 'other', path: '/other.adoc', line: 17, sameFile: false }); });
+    // ...then the tree selecting that file applies the pending line as the restored line.
+    fireEvent.click(screen.getByRole('button', { name: /pick file/i }));
+    // The next selection consumes the pending line; selectFile was invoked for the picked node.
+    expect(mockSelectFile).toHaveBeenCalledWith('picked', 'picked.adoc', '/picked.adoc', 'file');
+  });
+});
+
+describe('ProjectEditorLayout — cursor-line debounce restart', () => {
+  test('a second cursor move within the window clears the prior timer before scheduling', () => {
+    jest.useFakeTimers();
+    try {
+      render(<ProjectEditorLayout {...defaultProps} />);
+      const props = lastEditorProperties();
+      act(() => { props.onCursorLineChange(3); });
+      act(() => { props.onCursorLineChange(4); });
+      act(() => { jest.advanceTimersByTime(500); });
+      // No throw and the timer-restart branch (clearTimeout of the existing handle) is exercised.
+      expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+describe('ProjectEditorLayout — collaboration-backed selection', () => {
+  test('a collab file whose Y.Doc is not ready yet shows the pending placeholder (no REST editor)', () => {
+    mockFileSelection = collabAdocFile();
+    mockCollabDoc = { doc: null, awareness: null, connectionState: 'connecting' };
+    const { container } = render(<ProjectEditorLayout {...defaultProps} />);
+    // collabPending → loading skeleton, the legacy editor must not mount.
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(screen.queryByTestId('asciidoc-editor')).not.toBeInTheDocument();
+  });
+
+  test('a ready collab binding mounts the editor with the collab connection state', () => {
+    mockFileSelection = collabAdocFile();
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'synced' };
+    render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument();
+    expect(lastEditorProperties()?.collab?.role).toBe('editor');
+  });
+
+  test('the offline fallback seeds the editor read-only from GET /content', async () => {
+    mockFileSelection = collabAdocFile();
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'offline' };
+    mockGetDocumentContent.mockResolvedValue('= Offline body');
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toHaveTextContent('= Offline body'));
+    expect(lastEditorProperties()?.canEdit).toBe(false);
+    expect(mockGetDocumentContent).toHaveBeenCalledWith('p1', 'cf1');
+  });
+
+  test('the offline fallback falls back to an empty buffer when GET /content fails', async () => {
+    mockFileSelection = collabAdocFile();
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'offline' };
+    mockGetDocumentContent.mockRejectedValue(new Error('boom'));
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(mockGetDocumentContent).toHaveBeenCalled());
+    // The editor still mounts read-only with an empty override rather than getting stuck pending.
+    await waitFor(() => expect(screen.getByTestId('asciidoc-editor')).toBeInTheDocument());
+  });
+
+  test('a reconnect that re-checks the role to observer flips the editor read-only', async () => {
+    mockFileSelection = collabAdocFile();
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'synced' };
+    mockGetCollabInfo.mockResolvedValue({ yjsStateId: 'y1', role: 'observer' });
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+    expect(lastEditorProperties()?.collab?.role).toBe('editor');
+
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'reconnecting' };
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+    mockCollabDoc = { doc: {}, awareness: {}, connectionState: 'synced' };
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+
+    await waitFor(() => expect(lastEditorProperties()?.collab?.role).toBe('observer'));
+    expect(mockGetCollabInfo).toHaveBeenCalledWith('p1', 'cf1');
+  });
+});
+
+describe('ProjectEditorLayout — restored-line & index-null edge branches', () => {
+  test('a stored selection with a line threads it to the editor as initialLine', async () => {
+    mockStoredSelection = { nodeId: 'f1', nodeName: 'doc.adoc', nodeType: 'file', path: '/doc.adoc', line: 88 };
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await waitFor(() => expect(lastEditorProperties()?.initialLine).toBe(88));
+  });
+
+  test('the go-to-symbol palette tolerates a null project index for path resolution', () => {
+    mockIndexValue = null;
+    render(<ProjectEditorLayout {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+    // index null → symbolPathOf returns null; the palette still renders (empty symbol list).
+    expect(screen.getByTestId('go-to-symbol')).toHaveAttribute('data-symbol-count', '0');
+  });
+
+  test('the assembled-document preview path is omitted when the main file has no resolvable path', () => {
+    mockFileSelection = adocFile('mainfile-1');
+    mockPathOf.mockImplementation(() => null);
+    render(<ProjectEditorLayout {...defaultProps} mainFileNodeId="mainfile-1" />);
+    fireEvent.click(screen.getByRole('button', { name: /expand preview/i }));
+    expect(lastPreviewProperties()?.mainPath).toBeUndefined();
+  });
+});

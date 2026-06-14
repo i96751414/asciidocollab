@@ -17,8 +17,13 @@ jest.mock('@/components/ui/dropdown-menu', () => ({
 
 // Mock Radix dialog to render inline with controlled open state
 jest.mock('@radix-ui/react-dialog', () => ({
-  Root: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
-    open ? <div data-testid="dialog-root">{children}</div> : <div data-testid="dialog-root-closed">{children}</div>,
+  Root: ({ children, open, onOpenChange }: { children: React.ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void }) =>
+    open ? (
+      <div data-testid="dialog-root">
+        {children}
+        <button data-testid="dialog-dismiss" onClick={() => onOpenChange?.(false)}>dismiss</button>
+      </div>
+    ) : <div data-testid="dialog-root-closed">{children}</div>,
   Portal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Overlay: () => null,
   Content: ({ children }: { children: React.ReactNode }) => <div data-testid="dialog-content">{children}</div>,
@@ -393,6 +398,46 @@ describe('FileTreeActions', () => {
       />,
     );
     expect(screen.getByText(/Reveal in Tree/i).closest('button')).not.toBeDisabled();
+  });
+
+  it('dismissing the input dialog (onOpenChange=false) closes it', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="test.adoc"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText(/Rename/i));
+    expect(screen.getByTestId('dialog-root')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('dialog-dismiss'));
+    expect(screen.getByTestId('dialog-root-closed')).toBeInTheDocument();
+  });
+
+  it('dismissing the delete confirmation (onOpenChange=false) closes it', () => {
+    render(
+      <FileTreeActions
+        projectId={projectId}
+        fileNodeId={fileNodeId}
+        parentId={parentId}
+        nodeType="file"
+        nodeName="test.adoc"
+        hasChildren={false}
+        onUpdate={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText(/Delete/i));
+    expect(screen.getByTestId('confirmation-dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('cancel-button'));
+    expect(screen.queryByTestId('confirmation-dialog')).not.toBeInTheDocument();
   });
 
   it('clicking New Folder opens Dialog with default folder name input', async () => {

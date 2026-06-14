@@ -59,6 +59,31 @@ describe('computeDiagnostics (FR-032/033/050/060)', () => {
     const index = indexFor({ a: { path: 'a.adoc', content } }, 'a');
     expect(computeDiagnostics(index, 'a', content).some((d) => d.code === 'unterminated-block')).toBe(false);
   });
+
+  test('a duplicate id defined across two files is only flagged in the linted file', () => {
+    // The same anchor id is defined in both files; computeDiagnostics for `a`
+    // reports only `a`'s occurrence (the other file's duplicate is filtered out).
+    const files = {
+      a: { path: 'a.adoc', content: '[[dup]]\nA\ninclude::b.adoc[]\n' },
+      b: { path: 'b.adoc', content: '[[dup]]\nB\n' },
+    };
+    const index = indexFor(files, 'a');
+    const dupA = computeDiagnostics(index, 'a', files.a.content).filter((d) => d.code === 'duplicate-id');
+    const dupB = computeDiagnostics(index, 'b', files.b.content).filter((d) => d.code === 'duplicate-id');
+    expect(dupA).toHaveLength(1);
+    expect(dupB).toHaveLength(1);
+  });
+
+  test('an unresolved include in another file is not attributed to the linted file', () => {
+    // The root file `a` has the bad include; linting child `b` must not surface it.
+    const files = {
+      a: { path: 'a.adoc', content: 'include::ghost.adoc[]\ninclude::b.adoc[]\n' },
+      b: { path: 'b.adoc', content: 'plain body\n' },
+    };
+    const index = indexFor(files, 'a');
+    expect(computeDiagnostics(index, 'b', files.b.content).some((d) => d.code === 'unresolved-include')).toBe(false);
+    expect(computeDiagnostics(index, 'a', files.a.content).some((d) => d.code === 'unresolved-include')).toBe(true);
+  });
 });
 
 describe('buildProjectSymbolIndex activeFileId', () => {
@@ -110,5 +135,32 @@ describe('asciidocDiagnosticsSource (open-file scope, FR-047)', () => {
     const source = asciidocDiagnosticsSource(() => index);
     const messages = source(fakeView(files.chapter.content)).map((d) => d.message);
     expect(messages).toContain('Unknown cross-reference: ghost');
+  });
+});
+
+describe('asciidocDiagnosticsSource current-file fallback (FR-047)', () => {
+  test('with no cross-file index getter, lints the open document alone', () => {
+    // The default getIndex returns null, so the source builds a current-file-only
+    // index from the open buffer and still flags same-file issues.
+    const source = asciidocDiagnosticsSource();
+    const content = 'See <<ghost>>.\nUse {undef}.\n----\nunterminated\n';
+    const messages = source(fakeView(content)).map((d) => d.message);
+    expect(messages).toContain('Unknown cross-reference: ghost');
+    expect(messages).toContain('Undefined attribute: undef');
+    expect(messages.some((m) => m.startsWith('Unterminated block:'))).toBe(true);
+  });
+
+  test('an explicit null-returning getter also uses the current-file fallback', () => {
+    const source = asciidocDiagnosticsSource(() => null);
+    const content = '[[a]]\nA\n\n[[a]]\nB\n';
+    const codes = source(fakeView(content)).map((d) => d.severity);
+    // duplicate-id is an error severity in the mapped lint diagnostic.
+    expect(codes).toContain('error');
+  });
+
+  test('current-file fallback produces no diagnostics for a clean document', () => {
+    const source = asciidocDiagnosticsSource();
+    const content = '[[here]]\n== Here\n\nSee <<here>>.\n';
+    expect(source(fakeView(content))).toEqual([]);
   });
 });

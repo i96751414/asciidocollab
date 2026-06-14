@@ -1,8 +1,73 @@
+/* @jest-environment jsdom */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { buildParser } from '@lezer/generator';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { LRLanguage, LanguageSupport, ensureSyntaxTree } from '@codemirror/language';
+import type { Diagnostic } from '@codemirror/lint';
 import {
   tokenizeWords,
   selectMisspelled,
   SPELLCHECK_SKIP_NODES,
 } from '@/lib/codemirror/asciidoc-spellcheck';
+import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
+
+// Build the parser from the grammar source (as the fold tests do) rather than
+// importing the production language module: the generated `asciidoc-parser.js`
+// is ESM that the node-project Jest transform does not compile.
+const grammarPath = path.resolve(__dirname, '../../../src/lib/codemirror/asciidoc.grammar');
+const grammarSource = fs.readFileSync(grammarPath, 'utf8');
+const lezerParser = buildParser(grammarSource, {
+  externalTokenizer: (_name: string, terms: Record<string, number>) => createTestBlockTokenizer(terms),
+});
+const langExtension = new LanguageSupport(LRLanguage.define({ name: 'asciidoc', parser: lezerParser }));
+
+// A tiny Hunspell dictionary: enough for nspell to build and to know a few words.
+// Hunspell `.dic` starts with a word count, then one stem per line.
+const FAKE_AFF = String.raw`SET UTF-8
+TRY esianrtolcdugmphbyfvkwz
+`;
+const FAKE_DIC = ['5', 'hello', 'world', 'code', 'title', 'good'].join('\n') + '\n';
+
+/** Response stand-in for a successful same-origin dictionary fetch. */
+function okResponse(body: string): Partial<Response> {
+  return { ok: true, text: async () => body };
+}
+
+/**
+ * Run a callback against a freshly-imported copy of the spellcheck module so the
+ * module-level `checkerPromise` cache starts empty (otherwise a null/loaded
+ * result from one test would leak into the next).
+ */
+async function withFreshModule(
+  run: (module_: typeof import('@/lib/codemirror/asciidoc-spellcheck')) => Promise<void>,
+): Promise<void> {
+  let imported: typeof import('@/lib/codemirror/asciidoc-spellcheck') | undefined;
+  await jest.isolateModulesAsync(async () => {
+    imported = await import('@/lib/codemirror/asciidoc-spellcheck');
+  });
+  if (!imported) throw new Error('module import failed');
+  await run(imported);
+}
+
+/** A live view with the AsciiDoc language so `syntaxTree` yields real skip nodes. */
+function makeView(documentText: string): EditorView {
+  const view = new EditorView({
+    state: EditorState.create({ doc: documentText, extensions: [langExtension] }),
+  });
+  // Force a full parse so the tree-walk sees real block nodes (e.g. ListingBlock).
+  ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+  return view;
+}
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  jest.restoreAllMocks();
+});
 
 describe('tokenizeWords (FR-063)', () => {
   test('splits prose into word tokens with absolute offsets', () => {
@@ -42,5 +107,130 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     // Prose-bearing nodes are NOT skipped.
     expect(SPELLCHECK_SKIP_NODES.has('Paragraph')).toBe(false);
     expect(SPELLCHECK_SKIP_NODES.has('Heading1')).toBe(false);
+  });
+});
+
+describe('loadSpellChecker (FR-063)', () => {
+  test('builds an nspell checker from the self-hosted aff/dic files', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      const checker = await loadSpellChecker();
+      expect(checker).not.toBeNull();
+      expect(checker?.correct('hello')).toBe(true);
+      expect(checker?.correct('wrld')).toBe(false);
+      expect(Array.isArray(checker?.suggest('wrld'))).toBe(true);
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/dictionaries/en.aff');
+    expect(fetchMock).toHaveBeenCalledWith('/dictionaries/en.dic');
+  });
+
+  test('caps suggestions at five entries', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      const checker = await loadSpellChecker();
+      expect(checker?.suggest('helo').length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  test('returns null when a dictionary file is unavailable (non-ok response)', async () => {
+    globalThis.fetch = (async () => ({ ok: false, text: async () => '' })) as unknown as typeof fetch;
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      expect(await loadSpellChecker()).toBeNull();
+    });
+  });
+
+  test('returns null when the fetch itself rejects', async () => {
+    globalThis.fetch = (async () => {
+      throw new Error('offline');
+    }) as unknown as typeof fetch;
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      expect(await loadSpellChecker()).toBeNull();
+    });
+  });
+
+  test('caches the checker promise across calls (fetches once)', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await withFreshModule(async ({ loadSpellChecker }) => {
+      const first = loadSpellChecker();
+      const second = loadSpellChecker();
+      expect(first).toBe(second);
+      await first;
+    });
+    // Two files fetched on the first call, none on the cached second call.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('asciidocSpellcheckSource (FR-063)', () => {
+  test('returns no diagnostics when the dictionary is not loaded', async () => {
+    globalThis.fetch = (async () => {
+      throw new Error('offline');
+    }) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('this paragraf has a typ\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      expect(diagnostics).toEqual([]);
+      view.destroy();
+    });
+  });
+
+  test('flags a misspelled prose word as an info diagnostic', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('hello wrld\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).toContain('wrld');
+      expect(words).not.toContain('hello');
+      const flagged = diagnostics.find((diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to) === 'wrld');
+      expect(flagged?.severity).toBe('info');
+      expect(flagged?.message).toContain('wrld');
+      view.destroy();
+    });
+  });
+
+  test('produces no diagnostics for an all-correct document', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('hello world good code\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      expect(diagnostics).toEqual([]);
+      view.destroy();
+    });
+  });
+
+  test('honours the per-user ignore list', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('hello wrld\n');
+      const diagnostics = await asciidocSpellcheckSource(() => ['wrld'])(view);
+      expect(diagnostics).toEqual([]);
+      view.destroy();
+    });
+  });
+
+  test('skips misspellings inside non-prose nodes (verbatim listing block)', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // The misspelled token "wrldd" lives inside a listing block, so the
+      // skip-node range must suppress its diagnostic (the `continue` branch).
+      const view = makeView('----\nwrldd\n----\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const words = diagnostics.map((diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('wrldd');
+      view.destroy();
+    });
   });
 });

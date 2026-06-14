@@ -14,6 +14,7 @@ import {
   tableCellCompletionSource,
   captionCompletionSource,
   createImageCompletionSource,
+  sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
@@ -496,6 +497,41 @@ describe('AsciiDoc Completion Sources', () => {
   });
 });
 
+  describe('sourceLanguageCompletionSource (US8/FR-031)', () => {
+    test('triggers inside [source, and returns matching language tokens', async () => {
+      const document = '[source,ja';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.some((o) => o.label === 'java' || o.label === 'javascript')).toBe(true);
+    });
+
+    test('lists every language when the prefix is empty', async () => {
+      const document = '[source,';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect((result?.options.length ?? 0)).toBeGreaterThan(0);
+    });
+
+    test('tolerates whitespace after the comma and lower-cases the prefix', async () => {
+      const document = '[source, JA';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.every((o) => o.label.startsWith('ja'))).toBe(true);
+    });
+
+    test('returns no options for a prefix that matches no language', async () => {
+      const document = '[source,zzzznotalang';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result?.options.length ?? 0).toBe(0);
+    });
+
+    test('does not trigger outside a [source, context', async () => {
+      const document = 'just prose';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+  });
+
 describe('completion source guard and tree-path branches', () => {
   test('xref returns [#id] style anchors (second capture group)', async () => {
     const documentContent = '[#my-id]\nSome text\n\nSee <<';
@@ -520,6 +556,20 @@ describe('completion source guard and tree-path branches', () => {
 
   test('caption source returns null when the cursor is not after a dot', async () => {
     expect(await getCompletions(captionCompletionSource, 'no dot here', 'no dot here'.length)).toBeNull();
+  });
+
+  test('an open table drives the text-based column-count fallback', async () => {
+    // Unclosed table (no TableBlock node) → getTableColumnCount takes its
+    // text-scanning fallback path, walking from the last top-level |=== opener.
+    const documentContent = '|===\n|x |y |z\n\n|';
+    const result = await getCompletions(tableCellCompletionSource, documentContent, documentContent.length);
+    expect(result).not.toBeNull();
+    let insertedText = '';
+    const mockView = {
+      dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+    };
+    (result!.options[0].apply as (...arguments_: unknown[]) => void)(mockView, result!.options[0], documentContent.length - 1, documentContent.length);
+    expect((insertedText.match(/\|/g) ?? []).length).toBe(3);
   });
 
   test('table cell completion uses the syntax tree for a complete table', async () => {

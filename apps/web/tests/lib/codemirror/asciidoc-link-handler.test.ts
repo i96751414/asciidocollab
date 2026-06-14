@@ -271,6 +271,46 @@ describe('createLinkHandler', () => {
     expect(onNavigateToFile).not.toHaveBeenCalled();
   });
 
+  test('block image navigation tolerates absent onNavigateToFile and preventDefault', () => {
+    const handler = createLinkHandler({});
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('image::pic.png[]', 8),
+      ),
+    ).not.toThrow();
+  });
+
+  test('absolute-URL image tolerates absent onOpenUrl and preventDefault', () => {
+    const handler = createLinkHandler({});
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('image::https://cdn.example.com/a.png[]', 12),
+      ),
+    ).not.toThrow();
+  });
+
+  test('an out-of-sandbox image path (..) does not navigate', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::../escape.png[]', 10),
+    );
+    expect(onNavigateToFile).not.toHaveBeenCalled();
+  });
+
+  test('unresolved image with no onUnresolvedPath callback is a no-op', () => {
+    const handler = createLinkHandler({}, ['ok.png']);
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('image::missing.png[]', 8),
+      ),
+    ).not.toThrow();
+  });
+
   test('an unresolved image path reports onUnresolvedPath when a paths list is supplied', () => {
     const onNavigateToFile = jest.fn();
     const onUnresolvedPath = jest.fn();
@@ -335,6 +375,38 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
     expect(onNavigateToXref).not.toHaveBeenCalled();
   });
 
+  test('Ctrl+click on a path#frag xref resolves by the fragment after the hash', () => {
+    const onNavigateToXref = jest.fn();
+    // The `xref:other.adoc#remote[]` form carries a path before the `#`; the
+    // resolver must use the id after the hash ("remote").
+    clickAt('xref:other.adoc#remote[]\n', 'remote', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: 'other', sameFile: false }),
+    );
+  });
+
+  test('Ctrl+click with an index present but not over an xref falls through to other macros', () => {
+    // The index is supplied, but the click is on an include:: line (no xref token
+    // under the cursor), so the xref branch yields nothing and include nav fires.
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile }, undefined, openIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::other.adoc[]', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('other.adoc');
+  });
+
+  test('resolved xref navigation tolerates absent onNavigateToXref and preventDefault', () => {
+    const handler = createLinkHandler({}, undefined, openIndex);
+    expect(() =>
+      handler.handleMousedown(
+        { ctrlKey: true, clientX: 0, clientY: 0 } as unknown as MouseEvent,
+        createMockView('See <<local>> here.', 8),
+      ),
+    ).not.toThrow();
+  });
+
   test('xref click with no index supplied is a no-op (does not throw)', () => {
     const onNavigateToXref = jest.fn();
     expect(() => clickAt(FILES.open.content, '<<local>>', onNavigateToXref, () => null)).not.toThrow();
@@ -360,5 +432,31 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
 
   test('xrefHoverPreview returns null when the cursor is not over an xref', () => {
     expect(xrefHoverPreview('plain text', 2, openIndex())).toBeNull();
+  });
+
+  test('a malformed percent-encoded include path falls back to the raw path (decode catch)', () => {
+    // decodeURIComponent throws on a lone "%"; normalizePath must catch and use the raw value.
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile });
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::bad%path.adoc[]', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('bad%path.adoc');
+  });
+
+  test('xrefHoverPreview labels a resolved definition with no known path as "Definition"', () => {
+    // An index that resolves the symbol but whose pathOf returns null exercises the
+    // `target.path ?? 'Definition'` fallback for a cross-file definition.
+    const index = buildProjectSymbolIndex(
+      'open',
+      (id) => FILES[id]?.content ?? null,
+      makeIncludeResolver((id) => PATH_OF[id] ?? null, (p) => PATH_TO_ID[p] ?? null),
+      'open',
+      () => null,
+    );
+    const line = 'xref:remote[]';
+    const preview = xrefHoverPreview(line, line.indexOf('remote') + 1, index);
+    expect(preview?.text).toBe('Definition · line 1');
   });
 });

@@ -106,4 +106,67 @@ describe('renameSymbol', () => {
       renameSymbol('p1', { symbolKind: 'anchor', oldName: 'a', newName: '1 bad' }),
     ).rejects.toMatchObject({ status: 400, code: 'INVALID_SYMBOL_RENAME' });
   });
+
+  test('throws with status + code on a 403', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({ error: { code: 'FORBIDDEN', message: 'denied' } }),
+    });
+    await expect(
+      renameSymbol('p1', { symbolKind: 'attribute', oldName: 'a', newName: 'b' }),
+    ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+  });
+
+  test('falls back to REFACTORING_ERROR / a status-derived message when the body is empty', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) });
+    await expect(
+      renameSymbol('p1', { symbolKind: 'anchor', oldName: 'a', newName: 'b' }),
+    ).rejects.toMatchObject({ status: 500, code: 'REFACTORING_ERROR', message: 'Rename failed: 500' });
+  });
+
+  test('falls back when the error body is not valid JSON', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 502, json: () => Promise.reject(new Error('nope')) });
+    await expect(
+      renameSymbol('p1', { symbolKind: 'anchor', oldName: 'a', newName: 'b' }),
+    ).rejects.toMatchObject({ status: 502, code: 'REFACTORING_ERROR', message: 'Rename failed: 502' });
+  });
+});
+
+describe('setProjectMainFile fallback errors', () => {
+  test('falls back to SET_MAIN_FILE_ERROR / a status-derived message when the body is empty', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) });
+    await expect(setProjectMainFile('p1', 'f1')).rejects.toMatchObject({
+      status: 500,
+      code: 'SET_MAIN_FILE_ERROR',
+      message: 'Set main file failed: 500',
+    });
+  });
+
+  test('falls back when the error body is not valid JSON', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 503, json: () => Promise.reject(new Error('nope')) });
+    await expect(setProjectMainFile('p1', 'f1')).rejects.toMatchObject({
+      status: 503,
+      code: 'SET_MAIN_FILE_ERROR',
+    });
+  });
+});
+
+describe('findSymbolUsages fallback errors', () => {
+  test('falls back to REFACTORING_ERROR / a status-derived message when the body is empty', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) });
+    await expect(findSymbolUsages('p1', 'x')).rejects.toMatchObject({
+      status: 500,
+      code: 'REFACTORING_ERROR',
+      message: 'Find usages failed: 500',
+    });
+  });
+
+  test('falls back when the error body is not valid JSON', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 502, json: () => Promise.reject(new Error('nope')) });
+    await expect(findSymbolUsages('p1', 'x')).rejects.toMatchObject({
+      status: 502,
+      code: 'REFACTORING_ERROR',
+    });
+  });
 });

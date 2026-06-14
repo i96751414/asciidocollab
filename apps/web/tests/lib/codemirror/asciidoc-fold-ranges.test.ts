@@ -146,4 +146,13 @@ describe('foldRangeForBlock / foldRangeForTable (FR-012)', () => {
     expect(foldRangeForTable(fakeNode('CsvTableBlock', 5, 10), state(',===\na\n,===\n'))).not.toBeNull();
     expect(foldRangeForTable(fakeNode('DsvTableBlock', 5, 10), state(':===\na\n:===\n'))).not.toBeNull();
   });
+
+  test('an empty-body block (opener line abuts closer line) is not foldable', () => {
+    // `----\n----` — the opener's end-of-line offset is not before the closer line
+    // start, so foldRangeForDelimitedNode returns null (the degenerate-range branch).
+    const source = '----\n----\n';
+    // firstChild covers the opener delimiter (ends at offset 5, the newline);
+    // lastChild (closer) starts at offset 5 → computed from >= to → null.
+    expect(foldRangeForBlock(fakeNode('ListingBlock', 5, 5), state(source))).toBeNull();
+  });
 });

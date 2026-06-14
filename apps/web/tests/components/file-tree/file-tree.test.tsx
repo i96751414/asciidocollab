@@ -17,13 +17,22 @@ jest.mock('@/hooks/use-key-bindings', () => ({
 }));
 
 jest.mock('@/hooks/use-file-tree-key-handler', () => ({
-  useFileTreeKeyHandler: jest.fn(),
+  // Capture the callback map so tests can invoke the wired key actions directly.
+  useFileTreeKeyHandler: jest.fn((_reference: unknown, _bindings: unknown, callbacks: Record<string, (() => void) | undefined>) => {
+    (globalThis as unknown as Record<string, unknown>).__lastKeyCallbacks = callbacks;
+  }),
 }));
 
 // Keep the real DragDropZone (its onNodeMove logic is under test) but stub the upload hook so a
 // drop does not run the real OS-file upload walker.
 jest.mock('@/hooks/use-drop-upload', () => ({
   useDropUpload: () => ({ onDrop: jest.fn(), progress: [], clearProgress: jest.fn() }),
+}));
+
+// The move dialog handlers call these directly; mock so no real network request fires.
+jest.mock('@/lib/api/file-tree', () => ({
+  moveFileNode: jest.fn().mockResolvedValue(undefined),
+  renameFileNode: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Recursive mock: renders data-node-id (so the reveal scroll query can find a node)
@@ -76,7 +85,26 @@ jest.mock('@/components/file-tree/file-tree-node', () => {
   return { FileTreeNode: MockFileTreeNode };
 });
 
+// The root header renders the real FileTreeActions behind a Radix dropdown, which does not open
+// under fireEvent in jsdom. Mock it so the wired callbacks (Reveal in Tree, etc.) are directly
+// clickable. (FileTreeNode — the other consumer — is mocked separately above.)
+jest.mock('@/components/file-tree/file-tree-actions', () => ({
+  FileTreeActions: ({ onRevealInTree, hasSelection }: { onRevealInTree?: () => void; hasSelection?: boolean }) => (
+    <button data-testid="root-reveal" disabled={!hasSelection} onClick={() => onRevealInTree?.()}>
+      Reveal in Tree
+    </button>
+  ),
+}));
+
 const projectId = 'proj-1';
+
+// When a source file shares its name with a root file, two `node-<name>` testids exist; this
+// selects the dragged one by its stable node id instead.
+function dragSourceById(container: HTMLElement, nodeId: string) {
+  const source = container.querySelector(`[data-node-id="${nodeId}"]`);
+  if (!(source instanceof HTMLElement)) throw new Error('source node not found');
+  return source;
+}
 
 const rootNode = {
   id: 'root-1',
@@ -552,6 +580,9 @@ describe('FileTree move to root (drop on the root area)', () => {
   };
 
   beforeEach(() => {
+    const api = jest.requireMock('@/lib/api/file-tree');
+    api.moveFileNode.mockClear().mockResolvedValue(undefined);
+    api.renameFileNode.mockClear().mockResolvedValue(undefined);
     globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(rootMoveTree) } as Response);
     (globalThis as unknown as Record<string, unknown>).__lastOnEvent = undefined;
   });
@@ -575,5 +606,317 @@ describe('FileTree move to root (drop on the root area)', () => {
 
     fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('confirming the move dialog calls moveFileNode then re-fetches the tree', async () => {
+    const { moveFileNode } = jest.requireMock('@/lib/api/file-tree');
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(rootMoveTree) } as Response);
+    globalThis.fetch = fetchMock;
+
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-nested.adoc')).toBeInTheDocument());
+
+    fireEvent.dragStart(screen.getByTestId('node-nested.adoc'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^confirm$/i }));
+
+    await waitFor(() => expect(moveFileNode).toHaveBeenCalledWith(projectId, 'f1', 'root-1'));
+    // Dialog closes and the tree re-fetches (initial fetch + post-move fetch).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed move surfaces an error banner (handleMoveConfirm catch path)', async () => {
+    const { moveFileNode } = jest.requireMock('@/lib/api/file-tree');
+    moveFileNode.mockRejectedValueOnce(new Error('boom'));
+
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-nested.adoc')).toBeInTheDocument());
+
+    fireEvent.dragStart(screen.getByTestId('node-nested.adoc'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^confirm$/i }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/failed to move file/i));
+  });
+
+  it('cancelling the move dialog closes it without calling moveFileNode', async () => {
+    const { moveFileNode } = jest.requireMock('@/lib/api/file-tree');
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-nested.adoc')).toBeInTheDocument());
+
+    fireEvent.dragStart(screen.getByTestId('node-nested.adoc'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(moveFileNode).not.toHaveBeenCalled();
+  });
+});
+
+// A move that collides with an existing file in the destination offers "Move & Rename",
+// exercising handleMoveAndRename (rename then move).
+describe('FileTree move with name conflict (Move & Rename)', () => {
+  const conflictTree = {
+    id: 'root-1',
+    name: 'root',
+    type: 'folder' as const,
+    path: '/',
+    parentId: null,
+    children: [
+      {
+        id: 'docs', name: 'docs', type: 'folder' as const, path: '/docs', parentId: 'root-1',
+        children: [{ id: 'f1', name: 'report.adoc', type: 'file' as const, path: '/docs/report.adoc', parentId: 'docs', children: [] }],
+      },
+      // Root already holds a file with the same name as the one being moved → conflict.
+      { id: 'f2', name: 'report.adoc', type: 'file' as const, path: '/report.adoc', parentId: 'root-1', children: [] },
+    ],
+  };
+
+  beforeEach(() => {
+    const api = jest.requireMock('@/lib/api/file-tree');
+    api.moveFileNode.mockClear().mockResolvedValue(undefined);
+    api.renameFileNode.mockClear().mockResolvedValue(undefined);
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(conflictTree) } as Response);
+    (globalThis as unknown as Record<string, unknown>).__lastOnEvent = undefined;
+  });
+
+  it('Move & Rename renames the source then moves it, then re-fetches', async () => {
+    const { moveFileNode, renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+    const { container } = render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(container.querySelector('[data-node-id="f1"]')).not.toBeNull());
+
+    fireEvent.dragStart(dragSourceById(container, 'f1'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(screen.getByText(/already exists in the destination/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /move & rename/i }));
+
+    await waitFor(() => expect(renameFileNode).toHaveBeenCalledWith(projectId, 'f1', 'report (1).adoc'));
+    await waitFor(() => expect(moveFileNode).toHaveBeenCalledWith(projectId, 'f1', 'root-1'));
+  });
+
+  it('Move & Rename of an extensionless name appends " (1)" with no extension', async () => {
+    const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+    const noExtensionTree = {
+      id: 'root-1', name: 'root', type: 'folder' as const, path: '/', parentId: null,
+      children: [
+        {
+          id: 'docs', name: 'docs', type: 'folder' as const, path: '/docs', parentId: 'root-1',
+          children: [{ id: 'f1', name: 'README', type: 'file' as const, path: '/docs/README', parentId: 'docs', children: [] }],
+        },
+        { id: 'f2', name: 'README', type: 'file' as const, path: '/README', parentId: 'root-1', children: [] },
+      ],
+    };
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(noExtensionTree) } as Response);
+
+    const { container } = render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(container.querySelector('[data-node-id="f1"]')).not.toBeNull());
+
+    fireEvent.dragStart(dragSourceById(container, 'f1'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /move & rename/i }));
+    await waitFor(() => expect(renameFileNode).toHaveBeenCalledWith(projectId, 'f1', 'README (1)'));
+  });
+
+  it('a failed Move & Rename surfaces an error banner (handleMoveAndRename catch path)', async () => {
+    const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
+    renameFileNode.mockRejectedValueOnce(new Error('nope'));
+    const { container } = render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(container.querySelector('[data-node-id="f1"]')).not.toBeNull());
+
+    fireEvent.dragStart(dragSourceById(container, 'f1'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    fireEvent.drop(screen.getByTestId('file-tree-drop-zone'), { dataTransfer: { items: {} } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /move & rename/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/failed to move and rename/i));
+  });
+});
+
+// Additional branch coverage for applyEvent and the error-dismiss / drag-end / reveal paths.
+describe('FileTree misc branch coverage', () => {
+  beforeEach(() => {
+    mockFetch(rootNode);
+    (globalThis as unknown as Record<string, unknown>).__lastOnEvent = undefined;
+  });
+
+  it('dismiss error button clears the operation-error banner', async () => {
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('trigger-error-doc.adoc'));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /dismiss error/i }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  it('a created event for a nested folder recurses into the matching parent', async () => {
+    const nestedTree = {
+      id: 'root-1',
+      name: 'root',
+      type: 'folder' as const,
+      path: '/',
+      parentId: null,
+      children: [
+        { id: 'docs', name: 'docs', type: 'folder' as const, path: '/docs', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(nestedTree);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-docs')).toBeInTheDocument());
+
+    // Parent is the nested `docs` folder, not the root → exercises the addNode recursion branch.
+    const event: FileTreeEventDto = {
+      type: 'created',
+      fileNodeId: 'nested-file',
+      nodeType: 'file',
+      name: 'inner.adoc',
+      path: '/docs/inner.adoc',
+      parentId: 'docs',
+    };
+    act(() => { (globalThis as unknown as Record<string, (event_: FileTreeEventDto) => void>).__lastOnEvent(event); });
+
+    await waitFor(() => expect(screen.getByTestId('node-inner.adoc')).toBeInTheDocument());
+  });
+
+  it('a tree change while the selection is unchanged does not re-reveal (last-revealed short-circuit)', async () => {
+    const scrollIntoView = jest.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="file-1" />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    scrollIntoView.mockClear();
+
+    // An SSE event mutates the tree (a new dep value) while selectedNodeId stays the same, so the
+    // reveal effect re-runs but short-circuits on the last-revealed ref.
+    act(() => {
+      (globalThis as unknown as Record<string, (event_: FileTreeEventDto) => void>).__lastOnEvent({
+        type: 'created', fileNodeId: 'file-9', nodeType: 'file', name: 'extra.adoc', path: '/extra.adoc', parentId: 'root-1',
+      });
+    });
+    await waitFor(() => expect(screen.getByTestId('node-extra.adoc')).toBeInTheDocument());
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('a moved event into a nested folder recurses through addNode', async () => {
+    const nestedTree = {
+      id: 'root-1', name: 'root', type: 'folder' as const, path: '/', parentId: null,
+      children: [
+        { id: 'docs', name: 'docs', type: 'folder' as const, path: '/docs', parentId: 'root-1', children: [] },
+        { id: 'file-1', name: 'doc.adoc', type: 'file' as const, path: '/doc.adoc', parentId: 'root-1', children: [] },
+      ],
+    };
+    mockFetch(nestedTree);
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    // Target parent is the nested `docs` folder → addNode must recurse past root (else branch).
+    act(() => {
+      (globalThis as unknown as Record<string, (event_: FileTreeEventDto) => void>).__lastOnEvent({
+        type: 'moved', fileNodeId: 'file-1', nodeType: 'file', name: 'doc.adoc', path: '/docs/doc.adoc', parentId: 'docs',
+      });
+    });
+
+    // The file relocated under docs (which auto-expands), so it is still rendered.
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+  });
+
+  it('an unrecognised event type leaves the tree unchanged (applyEvent fallthrough)', async () => {
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    act(() => {
+      (globalThis as unknown as Record<string, (event_: unknown) => void>).__lastOnEvent({
+        type: 'unknown-kind',
+        fileNodeId: 'x',
+        nodeType: 'file',
+        name: 'x',
+        path: '/x',
+        parentId: 'root-1',
+      });
+    });
+
+    // Unchanged: the original node is still present and nothing new appeared.
+    expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument();
+  });
+
+  it('Reveal in Tree (root actions) reveals and scrolls the selected node into view', async () => {
+    const scrollIntoView = jest.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    jest.useFakeTimers();
+    try {
+      render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId="file-1" />);
+      await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('root-reveal'));
+      act(() => { jest.runOnlyPendingTimers(); });
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('wires no-op rename/delete/new-file/new-folder key callbacks when a node is selected', async () => {
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId="file-1" />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    const callbacks = (globalThis as unknown as Record<string, Record<string, (() => void) | undefined>>).__lastKeyCallbacks;
+    // With a selection the four mutation shortcuts resolve to (currently no-op) handlers; invoking
+    // them must not throw. (They become real actions once wired to the menu.)
+    expect(typeof callbacks['file-tree:rename']).toBe('function');
+    expect(() => {
+      callbacks['file-tree:rename']?.();
+      callbacks['file-tree:delete']?.();
+      callbacks['file-tree:new-file']?.();
+      callbacks['file-tree:new-folder']?.();
+    }).not.toThrow();
+  });
+
+  it('leaves mutation key callbacks undefined when nothing is selected', async () => {
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    const callbacks = (globalThis as unknown as Record<string, Record<string, (() => void) | undefined>>).__lastKeyCallbacks;
+    expect(callbacks['file-tree:rename']).toBeUndefined();
+    expect(callbacks['file-tree:delete']).toBeUndefined();
+  });
+
+  it('an SSE event arriving before the tree has loaded is ignored (applyEvent null guard)', async () => {
+    // A fetch that never resolves keeps the tree null, so the event hits the `if (!tree)` guard.
+    globalThis.fetch = jest.fn().mockReturnValue(new Promise(() => {}));
+    render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByText(/loading/i)).toBeInTheDocument());
+
+    act(() => {
+      (globalThis as unknown as Record<string, (event_: FileTreeEventDto) => void>).__lastOnEvent({
+        type: 'created', fileNodeId: 'x', nodeType: 'file', name: 'x.adoc', path: '/x.adoc', parentId: 'root-1',
+      });
+    });
+    // Still loading — the event was a no-op because there was no tree.
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+
+  it('drag end clears the active-drag state on the container', async () => {
+    render(<FileTree projectId={projectId} canEdit onSelectFile={jest.fn()} selectedNodeId={null} />);
+    await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
+
+    const container = screen.getByTestId('file-tree');
+    fireEvent.dragStart(screen.getByTestId('node-doc.adoc'), { dataTransfer: { setData: jest.fn(), effectAllowed: '' } });
+    await waitFor(() => expect(container).toHaveAttribute('data-drag-active', 'true'));
+
+    fireEvent.dragEnd(container);
+    await waitFor(() => expect(container).not.toHaveAttribute('data-drag-active'));
   });
 });
