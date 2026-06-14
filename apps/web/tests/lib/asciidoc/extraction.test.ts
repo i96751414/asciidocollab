@@ -3,10 +3,12 @@ import {
   parseIncludeLevelOffset,
   extractReferences,
   extractSymbols,
+  extractAttributeDefinitions,
   resolveReference,
   buildIncludeGraph,
   inheritedLevelOffset,
 } from '@/lib/asciidoc/extraction';
+import { resolveSandboxedPath } from '@/lib/asciidoc/sandbox-path';
 import type { ProjectSymbol, Reference } from '@asciidocollab/shared';
 
 // Unit coverage for the editor-side (presentation) AsciiDoc extraction copy. The
@@ -87,6 +89,57 @@ describe('extractSymbols', () => {
   test('an unset attribute (:attr!:) is not treated as a definition', () => {
     const symbols = extractSymbols('f', ':draft!:\n');
     expect(symbols.filter((symbol) => symbol.kind === 'attribute')).toHaveLength(0);
+  });
+
+  test('an explicit id above a heading overrides the section auto-id', () => {
+    for (const anchor of ['[#install-guide]', '[[install-guide]]']) {
+      const symbols = extractSymbols('f', `${anchor}\n====== Install\n`);
+      const named = symbols.map((symbol) => `${symbol.kind}:${symbol.name}`);
+      expect(named).toContain('section:install-guide'); // heading takes the explicit id
+      expect(named).not.toContain('section:_install'); // the auto-id is suppressed
+      expect(named).toContain('anchor:install-guide'); // the anchor itself remains (rename keys off it)
+    }
+  });
+
+  test('two headings with the same text but distinct explicit ids are not duplicates', () => {
+    const symbols = extractSymbols('f', '====== Dup\n\n[#install-guide]\n====== Dup\n');
+    const sections = symbols.filter((symbol) => symbol.kind === 'section').map((symbol) => symbol.name);
+    expect(sections).toEqual(['_dup', 'install-guide']);
+  });
+});
+
+describe('extractAttributeDefinitions', () => {
+  test('captures name→value pairs, downcased, skipping unset definitions', () => {
+    const defs = extractAttributeDefinitions(':PartsDir: shared/parts\n:empty:\n:draft!:\nbody\n');
+    expect(defs).toEqual([
+      { name: 'partsdir', value: 'shared/parts' },
+      { name: 'empty', value: '' },
+    ]);
+  });
+});
+
+const resolveInclude = (files: Record<string, string>) => (from: string, target: string) => {
+  const resolved = resolveSandboxedPath(from, target);
+  return resolved.ok && files[resolved.path] !== undefined ? resolved.path : null;
+};
+
+describe('buildIncludeGraph attribute substitution', () => {
+  test('resolves an include whose target uses an attribute reference', () => {
+    const files = {
+      'main.adoc': ':partsdir: parts\n\ninclude::{partsdir}/intro.adoc[]\n',
+      'parts/intro.adoc': '== Intro\n',
+    };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.nodes).toContain('parts/intro.adoc');
+    expect(tree.unresolved).toHaveLength(0);
+  });
+
+  test('reports the raw target when the attribute is undefined', () => {
+    const files = { 'main.adoc': 'include::{missing}/intro.adoc[]\n' };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.unresolved).toEqual([
+      expect.objectContaining({ fromFile: 'main.adoc', target: '{missing}/intro.adoc' }),
+    ]);
   });
 });
 

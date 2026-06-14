@@ -1,5 +1,6 @@
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
-import { parseIncludeLevelOffset } from '../lib/asciidoc/extraction';
+import { substitutePathAttributes } from '../lib/asciidoc/include-path';
+import { parseIncludeLevelOffset, extractAttributeDefinitions } from '../lib/asciidoc/extraction';
 
 /**
  * Sandbox-confined AsciiDoc include assembler (US8/FR-068, Constitution IX).
@@ -55,6 +56,9 @@ export function assembleIncludes(
 ): AssembleResult {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const unresolved: UnresolvedInclude[] = [];
+  // Attribute values accumulate across the assembled tree so `include::{partsdir}/x.adoc[]`
+  // resolves like Asciidoctor (document order; a parent's definitions are in scope for its includes).
+  const attributes = new Map<string, string>();
 
   const marker = (from: string, target: string, reason: string): string => {
     unresolved.push({ from, target, reason });
@@ -64,6 +68,7 @@ export function assembleIncludes(
   const expand = (path: string, stack: readonly string[], depth: number): string => {
     const content = readFile(path);
     if (content === null) return '';
+    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
     const out: string[] = [];
     for (const line of content.split('\n')) {
       const match = INCLUDE_LINE_RE.exec(line);
@@ -71,22 +76,23 @@ export function assembleIncludes(
         out.push(line);
         continue;
       }
-      const target = match[1].trim();
+      const rawTarget = match[1].trim();
+      const target = substitutePathAttributes(rawTarget, attributes);
       const resolved = resolveSandboxedPath(path, target);
       if (!resolved.ok) {
-        out.push(marker(path, target, resolved.reason));
+        out.push(marker(path, rawTarget, resolved.reason));
         continue;
       }
       if (stack.includes(resolved.path)) {
-        out.push(marker(path, target, 'cycle'));
+        out.push(marker(path, rawTarget, 'cycle'));
         continue;
       }
       if (depth + 1 > maxDepth) {
-        out.push(marker(path, target, 'depth'));
+        out.push(marker(path, rawTarget, 'depth'));
         continue;
       }
       if (readFile(resolved.path) === null) {
-        out.push(marker(path, target, 'not-found'));
+        out.push(marker(path, rawTarget, 'not-found'));
         continue;
       }
       const child = expand(resolved.path, [...stack, resolved.path], depth + 1);

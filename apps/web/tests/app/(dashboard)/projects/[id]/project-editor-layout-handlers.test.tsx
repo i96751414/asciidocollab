@@ -93,18 +93,6 @@ jest.mock('react-resizable-panels', () => ({
   PanelResizeHandle: () => <div />,
 }));
 
-// Main-file picker stub: fires onChange so the mainFile state wiring is exercised.
-jest.mock('@/components/editor/editor-main-file-picker', () => ({
-  EditorMainFilePicker: ({ currentMainFileNodeId, onChange }: {
-    currentMainFileNodeId: string | null;
-    onChange?: (id: string | null) => void;
-  }) => (
-    <button data-testid="main-file-picker" data-current={currentMainFileNodeId ?? ''} onClick={() => onChange?.('mainfile-1')}>
-      pick main
-    </button>
-  ),
-}));
-
 // Go-to-symbol stub: exposes open state + a button to select the seeded symbol.
 const goToSymbolSelect: { current: ((symbol: ProjectSymbol) => void) | null } = { current: null };
 jest.mock('@/components/editor/editor-go-to-symbol', () => ({
@@ -332,13 +320,6 @@ describe('ProjectEditorLayout — preview toggle & scroll sync', () => {
 });
 
 describe('ProjectEditorLayout — main-file picker wiring', () => {
-  test('selecting a main file updates the picker current value', () => {
-    render(<ProjectEditorLayout {...defaultProps} />);
-    expect(screen.getByTestId('main-file-picker')).toHaveAttribute('data-current', '');
-    fireEvent.click(screen.getByTestId('main-file-picker'));
-    expect(screen.getByTestId('main-file-picker')).toHaveAttribute('data-current', 'mainfile-1');
-  });
-
   test('the assembled-document preview path is used when the open file is the main file', () => {
     mockFileSelection = adocFile('mainfile-1');
     render(<ProjectEditorLayout {...defaultProps} mainFileNodeId="mainfile-1" />);

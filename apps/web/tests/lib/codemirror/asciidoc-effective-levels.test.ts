@@ -2,6 +2,7 @@ import {
   MAX_HEADING_LEVEL,
   parseLevelOffset,
   computeHeadingLevels,
+  isBoundaryBlockConstruct,
 } from '@/lib/codemirror/asciidoc-effective-levels';
 
 describe('parseLevelOffset', () => {
@@ -80,5 +81,56 @@ describe('computeHeadingLevels', () => {
     const source = 'intro\n\n== Section\n';
     const infos = computeHeadingLevels(source);
     expect(source.slice(infos[0].from, infos[0].from + 2)).toBe('==');
+  });
+
+  // ── Block-boundary rule (paragraph absorption) ───────────────────────────────
+  // A `==`-line glued to preceding prose (no blank line) is paragraph text, not a heading,
+  // so it must never be folded or font-styled as one. Mirrors Asciidoctor + the Lezer grammar.
+
+  test('a heading glued under prose is absorbed into the paragraph (not a heading)', () => {
+    const infos = computeHeadingLevels('Some prose text\n== Section Foo\n');
+    expect(infos).toHaveLength(0);
+  });
+
+  test('a heading after a closed delimited block (no blank line) is a heading', () => {
+    // Asciidoctor renders `<h2>` here — a closing delimiter is a block boundary.
+    const infos = computeHeadingLevels('****\nSidebar block\n****\n== Section Foo\n');
+    expect(infos.map((info) => info.line)).toEqual([4]);
+  });
+
+  test('a blank line ends the paragraph so the next heading is recognised', () => {
+    const infos = computeHeadingLevels('Some prose text\n\n== Section Foo\n');
+    expect(infos.map((info) => info.line)).toEqual([3]);
+  });
+
+  test('headings glued under single-line block constructs are still headings', () => {
+    for (const opener of ['[#myid]', '[.lead]', '.Block title', '// a comment', ':attr: val', 'image::pic.png[]']) {
+      const infos = computeHeadingLevels(`${opener}\n== Heading\n`);
+      expect(infos.map((info) => info.line)).toEqual([2]);
+    }
+  });
+
+  test('a heading is suppressed after a list item with no blank line', () => {
+    const infos = computeHeadingLevels('* item\n== Heading\n');
+    expect(infos).toHaveLength(0);
+  });
+
+  test('only the first of a prose-glued heading run is absorbed; later sections still parse', () => {
+    const infos = computeHeadingLevels('intro\n== Glued\n\n== Real\n');
+    expect(infos.map((info) => info.line)).toEqual([4]);
+  });
+});
+
+describe('isBoundaryBlockConstruct', () => {
+  test('recognises attribute entries, block-attr/anchor lines, block titles, comments, block macros', () => {
+    for (const line of [':attr: v', ':attr!:', '[.lead]', '[#id]', '[[id]]', '.Title', '// note', 'image::x.png[]']) {
+      expect(isBoundaryBlockConstruct(line)).toBe(true);
+    }
+  });
+
+  test('plain prose and list markers are not block constructs', () => {
+    for (const line of ['Some prose', '* item', '- item', 'word word', '. ordered']) {
+      expect(isBoundaryBlockConstruct(line)).toBe(false);
+    }
   });
 });

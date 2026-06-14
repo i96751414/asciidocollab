@@ -42,6 +42,18 @@ jest.mock('@/components/delete-project-button', () => ({
   ),
 }));
 
+interface MainFilePickerProperties {
+  canEdit: boolean;
+  currentMainFileNodeId: string | null;
+}
+
+jest.mock('@/components/editor/editor-main-file-picker', () => ({
+  EditorMainFilePicker: ({ canEdit, currentMainFileNodeId }: MainFilePickerProperties) =>
+    canEdit ? (
+      <div data-testid="main-file-picker" data-current={currentMainFileNodeId ?? ''} />
+    ) : null,
+}));
+
 const PROJECT = {
   id: 'proj-1',
   name: 'My Project',
@@ -81,6 +93,17 @@ describe('SettingsClient — form rendering', () => {
     renderClient({ project: { ...PROJECT, description: null, tags: [] } });
     expect(screen.getByLabelText(/description/i)).toHaveValue('');
     expect(screen.getByLabelText(/tags/i)).toHaveValue('');
+  });
+
+  test('renders the main-file picker seeded with the project main file', () => {
+    renderClient({ project: { ...PROJECT, mainFileNodeId: 'node-9' } });
+    expect(screen.getByRole('heading', { name: /main file/i })).toBeInTheDocument();
+    expect(screen.getByTestId('main-file-picker')).toHaveAttribute('data-current', 'node-9');
+  });
+
+  test('hides the main-file picker for archived projects', () => {
+    renderClient({ project: { ...PROJECT, archivedAt: '2024-01-01T00:00:00Z' } });
+    expect(screen.queryByTestId('main-file-picker')).not.toBeInTheDocument();
   });
 });
 

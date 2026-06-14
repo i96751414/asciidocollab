@@ -5,6 +5,7 @@ import type {
   Reference,
   UnresolvedInclude,
 } from '../types/asciidoc';
+import { substitutePathAttributes } from './asciidoc-path';
 
 /**
  * Pure reference/symbol extraction + include-graph and effective-level rules for
@@ -18,7 +19,59 @@ const IMAGE_RE = /image::?([^[\n]+)\[/g;
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
 const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):/gm;
+// Attribute definition WITH its value: `:name: value` (an unset `:name!:` does not match).
+const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*?)[ \t]*$/gm;
 const HEADING_RE = /^(={1,6})\s+(.+)$/gm;
+// An explicit block id (`[#id]` or `[[id]]`) on its own line. When it sits
+// immediately above a heading it overrides the auto-generated section id.
+const SECTION_ID_ATTR_RE = /^[ \t]*\[(?:#([A-Za-z][\w:.-]*)|\[([A-Za-z][\w:.-]*)\])\][ \t]*$/;
+
+// A `==`-line is only a section title at a block boundary. Plain prose opens a paragraph that
+// absorbs every following non-blank line until a blank line, so `prose\n== Foo` is paragraph
+// text, not a heading. A blank line, a closing delimited block, or a single-line block construct
+// (attribute entry / block-attribute / block title / comment / block macro) keeps the next line
+// at a boundary. NON-AUTHORITATIVE MIRROR of the editor rule in
+// `apps/web/src/lib/codemirror/asciidoc-effective-levels.ts` (`computeHeadingLevels` /
+// `isBoundaryBlockConstruct`); keep them in sync. Verified against Asciidoctor + the Lezer grammar.
+const DELIMITER_LINE_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,}|={4,}|\*{4,}|_{4,}|--|\|===|,===|:===)$/;
+const BOUNDARY_CONSTRUCT_RE = /^(?::[A-Za-z0-9][\w-]*!?:|\[.+\]$|\.[^\s.[]|\/\/|[A-Za-z0-9_-]+::\S)/;
+
+/**
+ * Offsets (line starts) of the `={1,6} text` lines that are genuine section titles, meaning those
+ * that sit at a block boundary rather than being absorbed into a paragraph. Used to filter the raw
+ * {@link HEADING_RE} matches in {@link extractSymbols} so prose like `text\n== Foo` is not
+ * mistaken for a section.
+ */
+function realHeadingOffsets(content: string): Set<number> {
+  const offsets = new Set<number>();
+  let cursor = 0;
+  let openDelimiter: string | null = null;
+  let inParagraph = false;
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    const start = cursor;
+    cursor += line.length + 1;
+    if (openDelimiter !== null) {
+      if (trimmed === openDelimiter) openDelimiter = null;
+      continue;
+    }
+    if (trimmed === '') {
+      inParagraph = false;
+      continue;
+    }
+    if (inParagraph) continue; // absorbed paragraph continuation — starts no block
+    if (DELIMITER_LINE_RE.test(trimmed)) {
+      openDelimiter = trimmed;
+      continue;
+    }
+    if (/^={1,6}\s+\S/.test(line)) {
+      offsets.add(start);
+      continue;
+    }
+    if (!BOUNDARY_CONSTRUCT_RE.test(trimmed)) inParagraph = true;
+  }
+  return offsets;
+}
 
 /** Auto-generate a section id from heading text (Asciidoctor-style). */
 export function headingToId(title: string): string {
@@ -58,12 +111,29 @@ export function extractReferences(fileId: string, content: string): Reference[] 
   return references;
 }
 
+/**
+ * The explicit id declared on the block-attribute line immediately above a
+ * heading (Asciidoctor lets `[#id]`/`[[id]]` override a section's auto-generated
+ * id), or null when there is none. The `[[id]]`/`[#id]` line is still also
+ * surfaced as an `anchor` symbol by the anchor pass below — both name the same
+ * id, and rename/find-references key off the anchor kind (US12).
+ */
+function explicitSectionId(content: string, headingStart: number): string | null {
+  if (headingStart === 0 || content[headingStart - 1] !== '\n') return null;
+  const previousLineStart = content.lastIndexOf('\n', headingStart - 2) + 1;
+  const match = SECTION_ID_ATTR_RE.exec(content.slice(previousLineStart, headingStart - 1));
+  return match ? (match[1] ?? match[2]) : null;
+}
+
 /** Extract all definable symbols (sections/anchors/attributes) from a file's content. */
 export function extractSymbols(fileId: string, content: string): ProjectSymbol[] {
   const symbols: ProjectSymbol[] = [];
 
+  const headingOffsets = realHeadingOffsets(content);
   for (const match of content.matchAll(HEADING_RE)) {
-    symbols.push({ kind: 'section', name: headingToId(match[2]), fileId, range: rangeOf(match) });
+    if (!headingOffsets.has(match.index ?? 0)) continue; // absorbed into a paragraph — not a section
+    const explicitId = explicitSectionId(content, match.index ?? 0);
+    symbols.push({ kind: 'section', name: explicitId ?? headingToId(match[2]), fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(ANCHOR_RE)) {
     const name = match[1] ?? match[2] ?? match[3];
@@ -73,6 +143,24 @@ export function extractSymbols(fileId: string, content: string): ProjectSymbol[]
     if (match[2] !== '!') symbols.push({ kind: 'attribute', name: match[1], fileId, range: rangeOf(match) });
   }
   return symbols;
+}
+
+/**
+ * Extract attribute name→value definitions (`:name: value`) from a file, in
+ * document order, with names downcased (Asciidoctor treats them case-insensitively).
+ * Unset definitions (`:name!:`) are skipped. Used to resolve `{attr}` references in
+ * include/image targets ({@link substitutePathAttributes}); later definitions
+ * override earlier ones when merged into a map.
+ *
+ * @param content - The file's full text.
+ * @returns The ordered list of attribute definitions.
+ */
+export function extractAttributeDefinitions(content: string): Array<{ name: string; value: string }> {
+  const definitions: Array<{ name: string; value: string }> = [];
+  for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
+    definitions.push({ name: match[1].toLowerCase(), value: match[2] });
+  }
+  return definitions;
 }
 
 /** Resolve a reference against the known symbols, or `'unresolved'`. */
@@ -97,9 +185,14 @@ export function resolveReference(reference: Reference, symbols: ProjectSymbol[])
  * Build the transitive include graph from a root file. Cycle-guarded (a file is
  * visited once); each edge carries the `leveloffset=` declared on its include.
  *
+ * `{attr}` references in an include target are expanded against the attributes
+ * defined across the files visited so far (parent definitions are in scope before
+ * a child is walked), so `include::{partsdir}/intro.adoc[]` resolves like Asciidoctor.
+ *
  * @param rootFileId - The main/current file id.
  * @param readContent - Returns a file's content, or null if unavailable.
- * @param resolveInclude - Resolves an include target (from a file) to a file id, or null.
+ * @param resolveInclude - Resolves an (already attribute-substituted) include target
+ *   to a file id, or null.
  *   SECURITY (Constitution IX): include `target`s are user-controlled, so this callback
  *   MUST sandbox them via `resolveSandboxedPath` (the web symbol index does) — this pure
  *   model deliberately performs no filesystem access and cannot confine paths itself.
@@ -113,6 +206,9 @@ export function buildIncludeGraph(
   const edges: IncludeEdge[] = [];
   const unresolved: UnresolvedInclude[] = [];
   const visited = new Set<string>();
+  // Attribute values accumulate as the walk descends so a child include can use an
+  // attribute the parent defined (document-order, last definition wins).
+  const attributes = new Map<string, string>();
 
   const walk = (fileId: string): void => {
     if (visited.has(fileId)) return;
@@ -122,12 +218,14 @@ export function buildIncludeGraph(
     const content = readContent(fileId);
     if (content === null) return;
 
+    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
+
     for (const match of content.matchAll(INCLUDE_RE)) {
-      const target = match[1].trim();
+      const rawTarget = match[1].trim();
       const range = rangeOf(match);
-      const resolved = resolveInclude(fileId, target);
+      const resolved = resolveInclude(fileId, substitutePathAttributes(rawTarget, attributes));
       if (resolved === null) {
-        unresolved.push({ fromFile: fileId, target, range });
+        unresolved.push({ fromFile: fileId, target: rawTarget, range });
         continue;
       }
       edges.push({ from: fileId, to: resolved, includeDirectiveRange: range, leveloffset: parseIncludeLevelOffset(match[2]) });

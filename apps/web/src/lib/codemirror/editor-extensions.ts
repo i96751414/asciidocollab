@@ -72,6 +72,10 @@ export interface BuildEditorExtensionsOptions {
   getIncludePaths: () => string[];
   /** Returns the latest image paths for image:: completion. */
   getImagePaths: () => string[];
+  /** Returns the open file's project-relative path, used to relativize include::/image:: targets. */
+  getCurrentFilePath: () => string | null;
+  /** Returns the project attribute map (supplies `imagesdir` for image-target relativization). */
+  getCurrentAttributes: () => ReadonlyMap<string, string>;
   /** Returns the latest project symbol index (or null for current-file scope). */
   projectIndexAccessor: () => ProjectSymbolIndex | null;
   /** Returns the inherited include-path heading-level offset (US3/FR-071). */
@@ -105,6 +109,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     uploadImage,
     getIncludePaths,
     getImagePaths,
+    getCurrentFilePath,
+    getCurrentAttributes,
     projectIndexAccessor,
     getInheritedOffset,
     collabActive,
@@ -173,8 +179,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
         createAttributeCompletionSource(projectIndexAccessor),
         sourceLanguageCompletionSource,
         createXrefCompletionSource(projectIndexAccessor),
-        createIncludeCompletionSource(getIncludePaths),
-        createImageCompletionSource(getImagePaths),
+        createIncludeCompletionSource(getIncludePaths, getCurrentFilePath),
+        createImageCompletionSource(getImagePaths, getCurrentAttributes),
         tableSnippetCompletionSource,
         tableCellCompletionSource,
         captionCompletionSource,

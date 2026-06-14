@@ -143,6 +143,14 @@ export function useEditorMount({
   const getProjectIndexReference = useRef(getProjectIndex);
   useEffect(() => { getProjectIndexReference.current = getProjectIndex; }, [getProjectIndex]);
   const projectIndexAccessor = (): ProjectSymbolIndex | null => getProjectIndexReference.current?.() ?? null;
+  // The open file's project-relative path (from the symbol index), used to write include::/image::
+  // targets relative to the authoring file — AsciiDoc resolves directives relative to it, not the root.
+  const currentFilePath = (): string | null => {
+    const index = projectIndexAccessor();
+    return index ? index.pathOf(index.activeFileId) : null;
+  };
+  // Project attribute map (for `{attr}` / `imagesdir` substitution in macro targets).
+  const currentAttributes = (): ReadonlyMap<string, string> => projectIndexAccessor()?.attributes ?? new Map();
   const inheritedOffsetReference = useRef(inheritedOffset);
   useEffect(() => { inheritedOffsetReference.current = inheritedOffset; }, [inheritedOffset]);
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
@@ -195,7 +203,7 @@ export function useEditorMount({
     // DOM-level handlers + Ctrl+click hover tooltip. Each closes over a live ref accessor so it
     // always observes the latest prop without rebinding (see editor-dom-handlers.ts).
     const lineClickHandler = createLineClickHandler(() => onLineClickReference.current);
-    const fileDropHandler = createFileDropHandler();
+    const fileDropHandler = createFileDropHandler(currentFilePath, currentAttributes);
     const ctrlClickTooltip = createCtrlClickTooltip(projectIndexAccessor);
 
     const state = EditorState.create({
@@ -217,6 +225,8 @@ export function useEditorMount({
         uploadImage,
         getIncludePaths: () => includePathsReference.current,
         getImagePaths: () => imagePathsReference.current,
+        getCurrentFilePath: currentFilePath,
+        getCurrentAttributes: currentAttributes,
         projectIndexAccessor,
         getInheritedOffset: () => inheritedOffsetReference.current,
         collabActive,

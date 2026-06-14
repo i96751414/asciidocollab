@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { resolveIncludeTarget, resolveImageTarget, NO_ATTRIBUTES } from '@/lib/asciidoc/include-path';
 import type { ProjectSymbolIndex } from './asciidoc-symbol-index';
 
 // Pattern matchers for different link types within a line of text
@@ -114,22 +115,6 @@ export function xrefHoverPreview(
   return { text, from: at.start, to: at.end };
 }
 
-/** Normalises and validates a path extracted from an include:: macro. Returns null if unsafe. */
-function normalizePath(raw: string): string | null {
-  let normalized: string;
-  try {
-    normalized = decodeURIComponent(raw);
-  } catch {
-    normalized = raw;
-  }
-  if (normalized.startsWith('/')) return null;
-  const segments = normalized.split('/');
-  for (const segment of segments) {
-    if (segment === '..') return null;
-  }
-  return normalized;
-}
-
 /** Result of createLinkHandler — provides a mousedown handler for wiring via addEventListener. */
 export interface LinkHandlerResult {
   /**
@@ -175,17 +160,39 @@ export function createLinkHandler(
       }
     }
 
-    const includeMatch = INCLUDE_MACRO.exec(lineText);
-    if (includeMatch) {
-      const rawPath = includeMatch[1];
-      const normalized = normalizePath(rawPath);
-      if (!normalized) return;
-      if (currentPaths && !currentPaths.includes(normalized)) {
+    // Resolve an include::/image:: target for navigation — exactly one Asciidoctor-correct resolution,
+    // no fallbacks. `include::` resolves relative to the open (including) file; `image::` resolves
+    // relative to the project root + `:imagesdir:` (its base directory is the document root, not the
+    // macro's folder). `{attr}` references are substituted by the resolvers.
+    //   'ok' → navigate; 'unresolved' → report; 'ignore' → unsafe/out-of-sandbox target, do nothing.
+    const resolveNavTarget = (
+      rawPath: string,
+      kind: 'include' | 'image',
+    ): { status: 'ok'; path: string } | { status: 'unresolved' } | { status: 'ignore' } => {
+      const attributes = index ? index.attributes : NO_ATTRIBUTES;
+      const resolved =
+        kind === 'image'
+          ? resolveImageTarget(rawPath, attributes)
+          : resolveIncludeTarget(index?.pathOf(index.activeFileId) ?? '', rawPath, attributes);
+      if (!resolved.ok) return { status: 'ignore' };
+      if (currentPaths && !currentPaths.includes(resolved.path)) return { status: 'unresolved' };
+      return { status: 'ok', path: resolved.path };
+    };
+
+    const navigate = (rawPath: string, kind: 'include' | 'image'): void => {
+      const resolution = resolveNavTarget(rawPath, kind);
+      if (resolution.status === 'ignore') return;
+      if (resolution.status === 'unresolved') {
         callbacks.onUnresolvedPath?.(rawPath);
         return;
       }
-      callbacks.onNavigateToFile?.(normalized);
+      callbacks.onNavigateToFile?.(resolution.path);
       event.preventDefault?.();
+    };
+
+    const includeMatch = INCLUDE_MACRO.exec(lineText);
+    if (includeMatch) {
+      navigate(includeMatch[1], 'include');
       return;
     }
 
@@ -198,14 +205,7 @@ export function createLinkHandler(
         event.preventDefault?.();
         return;
       }
-      const normalized = normalizePath(rawPath);
-      if (!normalized) return;
-      if (currentPaths && !currentPaths.includes(normalized)) {
-        callbacks.onUnresolvedPath?.(rawPath);
-        return;
-      }
-      callbacks.onNavigateToFile?.(normalized);
-      event.preventDefault?.();
+      navigate(rawPath, 'image');
       return;
     }
 

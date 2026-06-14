@@ -1,12 +1,14 @@
 import {
   extractReferences,
   extractSymbols,
+  extractAttributeDefinitions,
   resolveReference,
   buildIncludeGraph,
   inheritedLevelOffset,
   headingToId,
   parseIncludeLevelOffset,
 } from '../../src/services/asciidoc-extraction';
+import { resolveSandboxedPath } from '../../src/value-objects/files/sandboxed-path';
 
 describe('extractReferences (FR-046/065)', () => {
   test('extracts xref, include, image, and attributeRef', () => {
@@ -37,6 +39,68 @@ describe('extractSymbols (FR-061)', () => {
 
   test('an unset attribute (:name!:) is not a definition', () => {
     expect(extractSymbols('f1', ':toc!:\n').filter((s) => s.kind === 'attribute')).toHaveLength(0);
+  });
+
+  test('an explicit id above a heading overrides the section auto-id (anchor itself remains)', () => {
+    const symbols = extractSymbols('f1', '[#install-guide]\n====== Install\n');
+    expect(symbols).toContainEqual(expect.objectContaining({ kind: 'section', name: 'install-guide' }));
+    expect(symbols.some((s) => s.name === '_install')).toBe(false);
+    expect(symbols.some((s) => s.kind === 'anchor' && s.name === 'install-guide')).toBe(true);
+  });
+
+  test('same-text headings with distinct explicit ids yield distinct section ids', () => {
+    const symbols = extractSymbols('f1', '====== Dup\n\n[#install-guide]\n====== Dup\n');
+    expect(symbols.filter((s) => s.kind === 'section').map((s) => s.name)).toEqual(['_dup', 'install-guide']);
+  });
+
+  test('a heading glued under prose is paragraph text, not a section (block-boundary rule)', () => {
+    const symbols = extractSymbols('f1', 'Some prose text\n== Section Foo\n');
+    expect(symbols.filter((s) => s.kind === 'section')).toHaveLength(0);
+  });
+
+  test('a heading after a closed delimited block (no blank line) is still a section', () => {
+    const symbols = extractSymbols('f1', '****\nSidebar block\n****\n== Section Foo\n');
+    expect(symbols).toContainEqual(expect.objectContaining({ kind: 'section', name: '_section_foo' }));
+  });
+
+  test('headings inside a verbatim block are not sections, but the one after is', () => {
+    const symbols = extractSymbols('f1', '== Real\n\n----\n== Not a heading\n----\n\n== Also Real\n');
+    expect(symbols.filter((s) => s.kind === 'section').map((s) => s.name)).toEqual(['_real', '_also_real']);
+  });
+});
+
+describe('extractAttributeDefinitions', () => {
+  test('captures name→value pairs, downcased, skipping unset definitions', () => {
+    const defs = extractAttributeDefinitions(':PartsDir: shared/parts\n:empty:\n:draft!:\nbody\n');
+    expect(defs).toEqual([
+      { name: 'partsdir', value: 'shared/parts' },
+      { name: 'empty', value: '' },
+    ]);
+  });
+});
+
+const resolveInclude = (files: Record<string, string>) => (from: string, target: string) => {
+  const resolved = resolveSandboxedPath(from, target);
+  return resolved.ok && files[resolved.path] !== undefined ? resolved.path : null;
+};
+
+describe('buildIncludeGraph attribute substitution', () => {
+  test('resolves an include whose target uses an attribute reference', () => {
+    const files = {
+      'main.adoc': ':partsdir: parts\n\ninclude::{partsdir}/intro.adoc[]\n',
+      'parts/intro.adoc': '== Intro\n',
+    };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.nodes).toContain('parts/intro.adoc');
+    expect(tree.unresolved).toHaveLength(0);
+  });
+
+  test('reports the raw (unsubstituted) target when an attribute is undefined', () => {
+    const files = { 'main.adoc': 'include::{missing}/intro.adoc[]\n' };
+    const tree = buildIncludeGraph('main.adoc', (id) => files[id] ?? null, resolveInclude(files));
+    expect(tree.unresolved).toEqual([
+      expect.objectContaining({ fromFile: 'main.adoc', target: '{missing}/intro.adoc' }),
+    ]);
   });
 });
 

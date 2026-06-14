@@ -5,6 +5,7 @@ import type {
   Reference,
   UnresolvedInclude,
 } from '@asciidocollab/shared';
+import { substitutePathAttributes } from './include-path';
 
 /**
  * Editor-side (presentation) AsciiDoc reference/symbol extraction + include-graph,
@@ -22,7 +23,12 @@ const IMAGE_RE = /image::?([^[\n]+)\[/g;
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
 const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):/gm;
+// Attribute definition WITH its value: `:name: value` (an unset `:name!:` does not match).
+const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*?)[ \t]*$/gm;
 const HEADING_RE = /^(={1,6})\s+(.+)$/gm;
+// An explicit block id (`[#id]` or `[[id]]`) on its own line. When it sits
+// immediately above a heading it overrides the auto-generated section id.
+const SECTION_ID_ATTR_RE = /^[ \t]*\[(?:#([A-Za-z][\w:.-]*)|\[([A-Za-z][\w:.-]*)\])\][ \t]*$/;
 
 /** Auto-generate a section id from heading text (Asciidoctor-style). */
 export function headingToId(title: string): string {
@@ -62,12 +68,27 @@ export function extractReferences(fileId: string, content: string): Reference[] 
   return references;
 }
 
+/**
+ * The explicit id declared on the block-attribute line immediately above a
+ * heading (Asciidoctor lets `[#id]`/`[[id]]` override a section's auto-generated
+ * id), or null when there is none. The `[[id]]`/`[#id]` line is still also
+ * surfaced as an `anchor` symbol by the anchor pass below — both name the same
+ * id, and rename/find-references key off the anchor kind (US12).
+ */
+function explicitSectionId(content: string, headingStart: number): string | null {
+  if (headingStart === 0 || content[headingStart - 1] !== '\n') return null;
+  const previousLineStart = content.lastIndexOf('\n', headingStart - 2) + 1;
+  const match = SECTION_ID_ATTR_RE.exec(content.slice(previousLineStart, headingStart - 1));
+  return match ? (match[1] ?? match[2]) : null;
+}
+
 /** Extract all definable symbols (sections/anchors/attributes) from a file's content. */
 export function extractSymbols(fileId: string, content: string): ProjectSymbol[] {
   const symbols: ProjectSymbol[] = [];
 
   for (const match of content.matchAll(HEADING_RE)) {
-    symbols.push({ kind: 'section', name: headingToId(match[2]), fileId, range: rangeOf(match) });
+    const explicitId = explicitSectionId(content, match.index ?? 0);
+    symbols.push({ kind: 'section', name: explicitId ?? headingToId(match[2]), fileId, range: rangeOf(match) });
   }
   for (const match of content.matchAll(ANCHOR_RE)) {
     const name = match[1] ?? match[2] ?? match[3];
@@ -77,6 +98,23 @@ export function extractSymbols(fileId: string, content: string): ProjectSymbol[]
     if (match[2] !== '!') symbols.push({ kind: 'attribute', name: match[1], fileId, range: rangeOf(match) });
   }
   return symbols;
+}
+
+/**
+ * Extract attribute name→value definitions (`:name: value`) from a file, in
+ * document order, with names downcased (Asciidoctor treats them case-insensitively).
+ * Unset definitions (`:name!:`) are skipped. Used to resolve `{attr}` references in
+ * include/image targets; later definitions override earlier ones when merged.
+ *
+ * @param content - The file's full text.
+ * @returns The ordered list of attribute definitions.
+ */
+export function extractAttributeDefinitions(content: string): Array<{ name: string; value: string }> {
+  const definitions: Array<{ name: string; value: string }> = [];
+  for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
+    definitions.push({ name: match[1].toLowerCase(), value: match[2] });
+  }
+  return definitions;
 }
 
 /** Resolve a reference against the known symbols, or `'unresolved'`. */
@@ -117,6 +155,9 @@ export function buildIncludeGraph(
   const edges: IncludeEdge[] = [];
   const unresolved: UnresolvedInclude[] = [];
   const visited = new Set<string>();
+  // Attribute values accumulate as the walk descends so a child include can use an
+  // attribute the parent defined (document-order, last definition wins).
+  const attributes = new Map<string, string>();
 
   const walk = (fileId: string): void => {
     if (visited.has(fileId)) return;
@@ -126,12 +167,14 @@ export function buildIncludeGraph(
     const content = readContent(fileId);
     if (content === null) return;
 
+    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
+
     for (const match of content.matchAll(INCLUDE_RE)) {
-      const target = match[1].trim();
+      const rawTarget = match[1].trim();
       const range = rangeOf(match);
-      const resolved = resolveInclude(fileId, target);
+      const resolved = resolveInclude(fileId, substitutePathAttributes(rawTarget, attributes));
       if (resolved === null) {
-        unresolved.push({ fromFile: fileId, target, range });
+        unresolved.push({ fromFile: fileId, target: rawTarget, range });
         continue;
       }
       edges.push({ from: fileId, to: resolved, includeDirectiveRange: range, leveloffset: parseIncludeLevelOffset(match[2]) });

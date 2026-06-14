@@ -38,16 +38,21 @@ export function createLineClickHandler(
  * (see file-tree.tsx). Returns false for non-tree drags / read-only views so CodeMirror handles
  * them normally; returns true once it has consumed a tree drop.
  *
+ * @param getFromPath - Returns the open file's project-relative path (to relativize the macro target), or null.
+ * @param getAttributes - Returns the project attribute map (supplies `imagesdir` for image targets).
  * @returns A CodeMirror extension wiring the drop handler.
  */
-export function createFileDropHandler(): ReturnType<typeof EditorView.domEventHandlers> {
+export function createFileDropHandler(
+  getFromPath: () => string | null = () => null,
+  getAttributes: () => ReadonlyMap<string, string> = () => new Map(),
+): ReturnType<typeof EditorView.domEventHandlers> {
   return EditorView.domEventHandlers({
     drop(event, view) {
       const raw = event.dataTransfer?.getData('application/x-asciidoc-node');
       if (!raw) return false; // not a tree-file drag — let CodeMirror handle it normally
       if (!view.state.facet(EditorView.editable)) return false; // read-only
       event.preventDefault();
-      const macro = macroFromDropPayload(raw);
+      const macro = macroFromDropPayload(raw, getFromPath(), getAttributes());
       if (macro === null) return true;
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
       const { doc } = view.state;

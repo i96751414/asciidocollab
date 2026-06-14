@@ -57,6 +57,34 @@ const LEVELOFFSET_RE = /^:leveloffset(!?):\s*(.*?)\s*$/;
 // (mirrors the grammar — Heading nodes never appear inside block bodies).
 const DELIMITER_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,}|={4,}|\*{4,}|_{4,}|--|\|===|,===|:===)$/;
 
+// Single-line block constructs that sit AT a block boundary: an attribute entry, a
+// block-attribute / anchor line (`[.lead]`, `[#id]`, `[[id]]`), a block title (`.Title`),
+// a comment line (`//`), or a block macro (`image::x[]`). Like a blank line or a closing
+// delimiter — and UNLIKE plain prose — they do not open a paragraph, so a heading glued
+// directly beneath one (no blank line) is still a heading. Verified against Asciidoctor and
+// the Lezer grammar; see {@link computeHeadingLevels} for the paragraph-absorption rule.
+const ATTR_ENTRY_LINE_RE = /^:[A-Za-z0-9][\w-]*!?:/;
+const BLOCK_ATTR_LINE_RE = /^\[.+\]$/;
+const BLOCK_TITLE_RE = /^\.[^\s.[]/;
+const COMMENT_LINE_RE = /^\/\//;
+const BLOCK_MACRO_RE = /^[A-Za-z0-9_-]+::\S/;
+
+/**
+ * Whether a line, evaluated at a block boundary, is a single-line block construct (not a
+ * paragraph). Such a line keeps the next line at a boundary, so a heading immediately
+ * below it (no blank line) is still recognised as a heading — matching Asciidoctor and the
+ * editor's Lezer grammar.
+ */
+export function isBoundaryBlockConstruct(trimmedLine: string): boolean {
+  return (
+    ATTR_ENTRY_LINE_RE.test(trimmedLine) ||
+    BLOCK_ATTR_LINE_RE.test(trimmedLine) ||
+    BLOCK_TITLE_RE.test(trimmedLine) ||
+    COMMENT_LINE_RE.test(trimmedLine) ||
+    BLOCK_MACRO_RE.test(trimmedLine)
+  );
+}
+
 /** Parse a `:leveloffset:` attribute value into an operation, or `null` if not a leveloffset entry. */
 export function parseLevelOffset(line: string): LevelOffsetOp | null {
   const match = LEVELOFFSET_RE.exec(line);
@@ -91,6 +119,13 @@ function applyOffset(current: number, op: LevelOffsetOp, base: number): number {
  * accumulated from ancestor files in the include path (0 when the file is the tree root, or when
  * no main file supplies it — FR-071).
  *
+ * A `==`-line is only a heading at a block boundary. Plain prose opens a paragraph that absorbs
+ * every following non-blank line until a blank line, so `prose\n== Foo` is paragraph text — NOT a
+ * heading — and must not be folded or styled as one. A blank line, a closing delimited block, or a
+ * single-line block construct ({@link isBoundaryBlockConstruct}) keeps the next line at a boundary.
+ * This mirrors the editor's Lezer grammar (and Asciidoctor), so folding / font-size styling never
+ * diverge from the syntax highlight.
+ *
  * @param documentText - The file's full text.
  * @param inheritedOffset - The offset inherited from include ancestors (default 0).
  * @returns One {@link HeadingLevelInfo} per heading line, in document order.
@@ -102,6 +137,7 @@ export function computeHeadingLevels(documentText: string, inheritedOffset = 0):
   let cursor = 0; // document offset of the current line start
   let openDelimiter: string | null = null;
   let pendingDiscrete = false;
+  let inParagraph = false; // inside an open paragraph that absorbs following lines until a blank
 
   for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
@@ -111,6 +147,20 @@ export function computeHeadingLevels(documentText: string, inheritedOffset = 0):
       cursor += line.length + 1;
       continue;
     }
+
+    if (trimmed === '') {
+      inParagraph = false;
+      cursor += line.length + 1;
+      continue;
+    }
+
+    // Inside a paragraph every non-blank line is absorbed (even one shaped like a heading or a
+    // delimiter), so it can start no block construct — exactly as the grammar / Asciidoctor parse it.
+    if (inParagraph) {
+      cursor += line.length + 1;
+      continue;
+    }
+
     if (DELIMITER_RE.test(trimmed)) {
       openDelimiter = trimmed;
       pendingDiscrete = false;
@@ -148,7 +198,11 @@ export function computeHeadingLevels(documentText: string, inheritedOffset = 0):
       continue;
     }
 
-    if (trimmed !== '') pendingDiscrete = false;
+    // A non-blank line that began no block construct opens a paragraph (so a heading glued
+    // below it is absorbed) — unless it is itself a single-line block construct, which leaves
+    // the next line at a boundary where a heading is still recognised.
+    pendingDiscrete = false;
+    if (!isBoundaryBlockConstruct(trimmed)) inParagraph = true;
     cursor += line.length + 1;
   }
 

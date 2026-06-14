@@ -2,6 +2,7 @@ import {
   buildIncludeGraph,
   extractSymbols,
   extractReferences,
+  extractAttributeDefinitions,
   resolveReference,
   inheritedLevelOffset,
 } from '../asciidoc/extraction';
@@ -31,6 +32,11 @@ export interface ProjectSymbolIndex {
   symbols: ProjectSymbol[];
   /** All references found across the tree. */
   references: Reference[];
+  /**
+   * Attribute name (lowercase) → value across the tree (document order, last definition wins).
+   * Used to substitute `{attr}` references in include/image targets when resolving paths.
+   */
+  attributes: ReadonlyMap<string, string>;
   /**
    * Resolve an xref target to its defining symbol.
    *
@@ -111,11 +117,13 @@ export function buildProjectSymbolIndex(
 
   const symbols: ProjectSymbol[] = [];
   const references: Reference[] = [];
+  const attributes = new Map<string, string>();
   for (const fileId of tree.nodes) {
     const content = getContent(fileId);
     if (content === null) continue;
     symbols.push(...extractSymbols(fileId, content));
     references.push(...extractReferences(fileId, content));
+    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
   }
 
   return {
@@ -123,6 +131,7 @@ export function buildProjectSymbolIndex(
     activeFileId,
     symbols,
     references,
+    attributes,
     resolveXref: (target) =>
       resolveReference({ kind: 'xref', target, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
     resolveAttribute: (name) =>

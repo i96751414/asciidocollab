@@ -324,6 +324,117 @@ describe('createLinkHandler', () => {
   });
 });
 
+describe('createLinkHandler — include resolution is relative to the open file', () => {
+  // The open file lives inside "New Folder"; an index supplies its path so include targets
+  // resolve relative to that directory (Asciidoctor semantics), matching the preview/diagnostics.
+  const FILES: Record<string, { path: string; content: string }> = {
+    open: { path: 'New Folder/new-document-2.adoc', content: 'include::new-document.adoc[]\n' },
+    sibling: { path: 'New Folder/new-document.adoc', content: '== Sibling\n' },
+  };
+  const PATH_OF: Record<string, string> = { open: FILES.open.path, sibling: FILES.sibling.path };
+  const PATH_TO_ID = Object.fromEntries(Object.entries(PATH_OF).map(([id, p]) => [p, id]));
+  const availablePaths = Object.values(PATH_OF);
+
+  function nestedIndex() {
+    return buildProjectSymbolIndex(
+      'open',
+      (id) => FILES[id]?.content ?? null,
+      makeIncludeResolver((id) => PATH_OF[id] ?? null, (p) => PATH_TO_ID[p] ?? null),
+      'open',
+      (id) => PATH_OF[id] ?? null,
+    );
+  }
+
+  test('a sibling include (no folder prefix) resolves to its project-relative path', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile }, availablePaths, nestedIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::new-document.adoc[]', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('New Folder/new-document.adoc');
+  });
+
+  test('a root-relative include written inside a nested file is now flagged unresolved', () => {
+    // Consistency with diagnostics/preview: from "New Folder/…", this target means
+    // "New Folder/New Folder/new-document.adoc", which does not exist.
+    const onNavigateToFile = jest.fn();
+    const onUnresolvedPath = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile, onUnresolvedPath }, availablePaths, nestedIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::New Folder/new-document.adoc[]', 12),
+    );
+    expect(onNavigateToFile).not.toHaveBeenCalled();
+    expect(onUnresolvedPath).toHaveBeenCalledWith('New Folder/new-document.adoc');
+  });
+
+  test('an image is resolved relative to the project root, not the open file folder', () => {
+    // The macro sits in a nested file, but image targets resolve relative to the project root (no
+    // imagesdir here), so a root-level image is found — and a folder-prefixed one keeps its prefix.
+    const onNavigateToFile = jest.fn();
+    const onUnresolvedPath = jest.fn();
+    const paths = [...availablePaths, 'gummy.jpg', 'New Folder/Screenshot.png'];
+    const handler = createLinkHandler({ onNavigateToFile, onUnresolvedPath }, paths, nestedIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::gummy.jpg[]', 8),
+    );
+    expect(onNavigateToFile).toHaveBeenLastCalledWith('gummy.jpg');
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::New Folder/Screenshot.png[]', 8),
+    );
+    expect(onNavigateToFile).toHaveBeenLastCalledWith('New Folder/Screenshot.png');
+    expect(onUnresolvedPath).not.toHaveBeenCalled();
+  });
+});
+
+describe('createLinkHandler — attribute and imagesdir resolution', () => {
+  const FILES: Record<string, { path: string; content: string }> = {
+    open: {
+      path: 'book/main.adoc',
+      content: ':partsdir: parts\n:imagesdir: assets\n\ninclude::{partsdir}/intro.adoc[]\nimage::logo.png[]\n',
+    },
+    intro: { path: 'book/parts/intro.adoc', content: '== Intro\n' },
+  };
+  const PATH_OF: Record<string, string> = { open: FILES.open.path, intro: FILES.intro.path };
+  const PATH_TO_ID = Object.fromEntries(Object.entries(PATH_OF).map(([id, p]) => [p, id]));
+  // The image file is not part of the include graph, but is a navigable project path. It lives at
+  // `assets/` (project root + imagesdir), NOT `book/assets/` — images are root-relative, unlike includes.
+  const availablePaths = [...Object.values(PATH_OF), 'assets/logo.png'];
+
+  function index() {
+    return buildProjectSymbolIndex(
+      'open',
+      (id) => FILES[id]?.content ?? null,
+      makeIncludeResolver((id) => PATH_OF[id] ?? null, (p) => PATH_TO_ID[p] ?? null),
+      'open',
+      (id) => PATH_OF[id] ?? null,
+    );
+  }
+
+  test('an include target using {partsdir} resolves to its project-relative path', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile }, availablePaths, index);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('include::{partsdir}/intro.adoc[]', 12),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('book/parts/intro.adoc');
+  });
+
+  test('an image target resolves to imagesdir relative to the project root (not the open file folder)', () => {
+    const onNavigateToFile = jest.fn();
+    const handler = createLinkHandler({ onNavigateToFile }, availablePaths, index);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView('image::logo.png[]', 8),
+    );
+    expect(onNavigateToFile).toHaveBeenCalledWith('assets/logo.png');
+  });
+});
+
 describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
   const FILES: Record<string, { path: string; content: string }> = {
     open: {
@@ -364,8 +475,10 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
   test('Ctrl+click on a cross-file xref: macro switches files at the definition', () => {
     const onNavigateToXref = jest.fn();
     clickAt(FILES.open.content, 'xref:remote', onNavigateToXref);
+    // `[[remote]]` sits directly above `== Remote`, so it is that section's explicit id; the
+    // definition resolves to the heading line (2), not the standalone anchor line.
     expect(onNavigateToXref).toHaveBeenCalledWith(
-      expect.objectContaining({ fileId: 'other', path: 'other.adoc', sameFile: false, line: 1 }),
+      expect.objectContaining({ fileId: 'other', path: 'other.adoc', sameFile: false, line: 2 }),
     );
   });
 
@@ -416,7 +529,7 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
   test('xrefHoverPreview describes a cross-file definition location', () => {
     const line = 'xref:remote[]';
     const preview = xrefHoverPreview(line, line.indexOf('remote') + 1, openIndex());
-    expect(preview).toEqual({ text: 'other.adoc · line 1', from: 0, to: line.length });
+    expect(preview).toEqual({ text: 'other.adoc · line 2', from: 0, to: line.length });
   });
 
   test('xrefHoverPreview marks a same-file definition', () => {
@@ -457,6 +570,6 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
     );
     const line = 'xref:remote[]';
     const preview = xrefHoverPreview(line, line.indexOf('remote') + 1, index);
-    expect(preview?.text).toBe('Definition · line 1');
+    expect(preview?.text).toBe('Definition · line 2');
   });
 });

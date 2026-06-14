@@ -5,10 +5,18 @@ export {
   parseIncludeLevelOffset,
   extractReferences,
   extractSymbols,
+  extractAttributeDefinitions,
   resolveReference,
   buildIncludeGraph,
   inheritedLevelOffset,
 } from './asciidoc-extraction';
+// Centralized include/image target resolution (attribute substitution + imagesdir + sandbox).
+export {
+  substitutePathAttributes,
+  imagesDirectory,
+  resolveIncludeTarget,
+  resolveImageTarget,
+} from './asciidoc-path';
 export { PasswordHasher } from './password-hasher';
 export { BreachChecker } from './breach-checker';
 export { EmailSender } from './email-sender';

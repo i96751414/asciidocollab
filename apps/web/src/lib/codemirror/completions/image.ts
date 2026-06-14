@@ -1,11 +1,18 @@
 import type { CompletionSource, CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
+import { relativeImagePath } from '@/lib/asciidoc/include-path';
 
 /**
  * Image path completion source factory — triggers after "image::" or "image:".
  * Filters paths to image extensions only. On accept, inserts path[] with cursor between [ and ].
+ *
+ * Offered paths are relativized to the image base directory — the project root joined with
+ * `:imagesdir:` — so the inserted target resolves correctly under Asciidoctor's image rules.
  */
-export function createImageCompletionSource(paths: string[] | (() => string[])): CompletionSource {
+export function createImageCompletionSource(
+  paths: string[] | (() => string[]),
+  getAttributes: () => ReadonlyMap<string, string> = () => new Map(),
+): CompletionSource {
   return (context: CompletionContext): CompletionResult | null => {
     // Match after 'image::' (block) or 'image:' (inline, not followed by another colon)
     const match = context.matchBefore(/image::?[^\n["]*/);
@@ -23,7 +30,8 @@ export function createImageCompletionSource(paths: string[] | (() => string[])):
     const triggerLength = text.startsWith('image::') ? 'image::'.length : 'image:'.length;
     const prefix = text.slice(triggerLength);
 
-    const currentPaths = typeof paths === 'function' ? paths() : paths;
+    const attributes = getAttributes();
+    const currentPaths = (typeof paths === 'function' ? paths() : paths).map((p) => relativeImagePath(p, attributes));
     const filtered = currentPaths.filter((p) => isImageFile(p) && p.startsWith(prefix));
 
     const options: Completion[] = filtered.map((label) => ({

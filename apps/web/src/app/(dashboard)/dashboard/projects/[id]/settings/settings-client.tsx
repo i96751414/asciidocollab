@@ -10,6 +10,7 @@ import { projectsApi, Project, ProjectMemberRole } from "@/lib/api";
 import { updateProjectSchema, type UpdateProjectInput } from "@asciidocollab/shared";
 import { ArchiveButton } from "@/components/archive-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
+import { EditorMainFilePicker } from "@/components/editor/editor-main-file-picker";
 
 interface SettingsClientProperties {
   project: Project;
@@ -131,6 +132,21 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
           </div>
         )}
       </form>
+
+      {!isArchived && (
+        <div className="space-y-2 pt-4 border-t">
+          <h2 className="text-lg font-semibold">Main file</h2>
+          <p className="text-sm text-muted-foreground">
+            The main file scopes cross-file resolution (include graph, symbols, diagnostics, and
+            heading levels) for the whole project. Leave it unset to resolve each file on its own.
+          </p>
+          <EditorMainFilePicker
+            projectId={project.id}
+            canEdit={!isArchived}
+            currentMainFileNodeId={project.mainFileNodeId}
+          />
+        </div>
+      )}
 
       {isOwner && (
         <div className="space-y-4 pt-4 border-t">

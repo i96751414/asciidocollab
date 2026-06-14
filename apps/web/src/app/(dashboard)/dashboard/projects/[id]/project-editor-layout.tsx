@@ -9,7 +9,6 @@ import { BackButton } from '@/components/back-button';
 import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
-import { EditorMainFilePicker } from '@/components/editor/editor-main-file-picker';
 import { useProjectSymbolIndex } from '@/hooks/use-project-symbol-index';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
@@ -173,7 +172,7 @@ export function ProjectEditorLayout({
   // Layout-shell + live-content state: main-file selection, sidebar + preview visibility, and the
   // live editor buffer that feeds the preview.
   const {
-    mainFile, setMainFile,
+    mainFile,
     sidebarOpen, setSidebarOpen, sidebarResize,
     previewOpen, togglePreview,
     liveContent, handleChange,
@@ -273,12 +272,6 @@ export function ProjectEditorLayout({
             <Replace className="mr-2 h-4 w-4" />
             Refactor
           </Button>
-          <EditorMainFilePicker
-            projectId={projectId}
-            canEdit={canEdit}
-            currentMainFileNodeId={mainFile}
-            onChange={setMainFile}
-          />
           {canManage && (
             <>
               <Button asChild variant="ghost" size="sm">

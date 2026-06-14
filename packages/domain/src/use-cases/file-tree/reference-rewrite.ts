@@ -126,6 +126,9 @@ export async function rewriteReferencesForPathChanges(
     for (const reference of references) {
       const { pathPart, fragment } = splitTarget(reference);
       if (pathPart === '') continue;
+      // A target with `{attr}` references is templated; we can't rewrite it to a literal
+      // relative path without losing the variable, so leave it untouched on move/rename.
+      if (pathPart.includes('{')) continue;
 
       const resolved = resolveSandboxedPath(fromPath, pathPart);
       if (!resolved.ok) continue; // out-of-sandbox / unresolvable: not ours to touch

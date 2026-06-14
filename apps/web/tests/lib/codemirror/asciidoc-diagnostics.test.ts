@@ -42,8 +42,29 @@ describe('computeDiagnostics (FR-032/033/050/060)', () => {
     expect(computeDiagnostics(index, 'a', content).some((d) => d.code === 'duplicate-id')).toBe(true);
   });
 
+  test('does not flag same-text headings when an explicit id disambiguates them', () => {
+    const content = '====== Section 2.222\n\n== Section 3\n\n[#install-guide]\n====== Section 2.222\n';
+    const index = indexFor({ a: { path: 'a.adoc', content } }, 'a');
+    expect(computeDiagnostics(index, 'a', content).some((d) => d.code === 'duplicate-id')).toBe(false);
+  });
+
   test('flags an unresolved include', () => {
     const content = 'include::nope.adoc[]\n';
+    const index = indexFor({ a: { path: 'a.adoc', content } }, 'a');
+    expect(computeDiagnostics(index, 'a', content).some((d) => d.code === 'unresolved-include')).toBe(true);
+  });
+
+  test('resolves an include whose target uses an attribute reference', () => {
+    const files = {
+      a: { path: 'a.adoc', content: ':partsdir: parts\n\ninclude::{partsdir}/intro.adoc[]\n' },
+      b: { path: 'parts/intro.adoc', content: '== Intro\n' },
+    };
+    const index = indexFor(files, 'a');
+    expect(computeDiagnostics(index, 'a', files.a.content).some((d) => d.code === 'unresolved-include')).toBe(false);
+  });
+
+  test('flags an include whose attribute is undefined', () => {
+    const content = 'include::{missing}/intro.adoc[]\n';
     const index = indexFor({ a: { path: 'a.adoc', content } }, 'a');
     expect(computeDiagnostics(index, 'a', content).some((d) => d.code === 'unresolved-include')).toBe(true);
   });

@@ -127,8 +127,7 @@ test.describe('Real-time SSE sync across tabs and browsers', () => {
       const tabA = await openProjectPage(contextA, projectId);
       const tabB = await openProjectPage(contextB, projectId);
 
-      // Target the tree node specifically: a seeded `.adoc` file also appears as an option in the
-      // main-file picker (`/shared-file.adoc`), so a loose getByText would match two elements.
+      // Target the tree node specifically by test id rather than a loose getByText on the file name.
       await expect(tabA.getByTestId('tree-node-shared-file.adoc')).toBeVisible({ timeout: 8000 });
       await expect(tabB.getByTestId('tree-node-shared-file.adoc')).toBeVisible({ timeout: 8000 });
 

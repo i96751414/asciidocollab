@@ -123,6 +123,18 @@ describe('AsciiDoc Completion Sources', () => {
       expect(result?.options.length).toBe(0);
     });
 
+    test('offers paths relative to the authoring file so the inserted target resolves', async () => {
+      const source = createIncludeCompletionSource(
+        ['New Folder/new-document.adoc', 'a-new-document.adoc'],
+        () => 'New Folder/new-document-2.adoc',
+      );
+      const documentContent = 'include::';
+      const result = await getCompletions(source, documentContent, documentContent.length);
+      const labels = result?.options.map((option) => option.label);
+      expect(labels).toContain('new-document.adoc'); // same folder → no prefix
+      expect(labels).toContain('../a-new-document.adoc'); // project root → climb out
+    });
+
     // Issue 10: xrefCompletionSource must serialise the document only once per
     // invocation. Two independent toString() calls on a large doc waste memory.
     test('xrefCompletionSource calls doc.toString() at most once per invocation', async () => {
@@ -315,6 +327,18 @@ describe('AsciiDoc Completion Sources', () => {
       expect(result?.options.some((o) => o.label.includes('logo.png'))).toBe(true);
       expect(result?.options.some((o) => o.label.includes('banner.svg'))).toBe(true);
       expect(result?.options.some((o) => o.label.includes('intro.adoc'))).toBe(false);
+    });
+
+    test('offers image paths relative to imagesdir (project-root based)', async () => {
+      const source = createImageCompletionSource(
+        ['assets/logo.png', 'assets/sub/icon.png'],
+        () => new Map([['imagesdir', 'assets']]),
+      );
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      const labels = result?.options.map((o) => o.label);
+      expect(labels).toContain('logo.png'); // assets/logo.png relative to imagesdir "assets"
+      expect(labels).toContain('sub/icon.png');
     });
 
     test('triggers after image: (single colon) and returns image files', async () => {
