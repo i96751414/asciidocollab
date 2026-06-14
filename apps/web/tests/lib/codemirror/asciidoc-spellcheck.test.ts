@@ -104,9 +104,27 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     expect(SPELLCHECK_SKIP_NODES.has('Monospace')).toBe(true);
     expect(SPELLCHECK_SKIP_NODES.has('InlineMacro')).toBe(true);
     expect(SPELLCHECK_SKIP_NODES.has('AttributeEntry')).toBe(true);
+    // New non-prose inline nodes (T019) — URLs, macros, math, anchors, callouts,
+    // entities, and passthroughs must not be spell-checked as prose.
+    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor']) {
+      expect(SPELLCHECK_SKIP_NODES.has(node)).toBe(true);
+    }
     // Prose-bearing nodes are NOT skipped.
     expect(SPELLCHECK_SKIP_NODES.has('Paragraph')).toBe(false);
     expect(SPELLCHECK_SKIP_NODES.has('Heading1')).toBe(false);
+    expect(SPELLCHECK_SKIP_NODES.has('SmartQuote')).toBe(false); // contains prose
+  });
+
+  test('a bare URL (Link) is not flagged as misspelled prose', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('Visit https://exampledomain.test now\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [])(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('exampledomain');
+      view.destroy();
+    });
   });
 });
 

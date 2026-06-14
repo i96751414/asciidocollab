@@ -18,7 +18,8 @@ import { parseListMarker, type ListMarker } from './asciidoc-list-item';
  * by feature 021 alongside the blocks the grammar already covers.
  */
 const SUPPRESSING_BLOCKS = new Set([
-  'ListingBlock', 'LiteralBlock', 'PassthroughBlock', 'CommentBlock', 'TableBlock',
+  'ListingBlock', 'LiteralBlock', 'PassthroughBlock', 'CommentBlock',
+  'TableBlock', 'CsvTableBlock', 'DsvTableBlock',
 ]);
 
 /**

@@ -14,6 +14,7 @@
     "lint": "eslint src/ tests/ e2e/",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:ci": "jest --coverage --coverageReporters=text lcov",
     "check": "tsc --noEmit && eslint src/ tests/ e2e/ && jest --passWithNoTests",
     "e2e": "playwright test",
     "mutate": "stryker run"

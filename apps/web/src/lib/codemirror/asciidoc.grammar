@@ -127,6 +127,13 @@ Paragraph             { inlineContent nl ParagraphContinuation* }
 ParagraphContinuation { paragraphLineToken }
 inlineContent { inline+ }
 
+// CONSTRAINED-FORMATTING NOTE: like the long-standing Bold/Italic/Monospace marks, the
+// inline constructs below match by SHAPE and do NOT enforce AsciiDoc's "constrained"
+// word-boundary rule (a mark must abut whitespace/punctuation, not be embedded in a word).
+// So `a*b*c`→Bold, `a+b+c`→Passthrough, `Vec<3>`→Callout, `a&b;`→Entity all tokenize even
+// though Asciidoctor would render them literally. This is an intentional, consistent
+// highlighter tradeoff (a full fix needs lookbehind, i.e. an external-tokenizer rewrite of
+// ALL inline marks); accept these prose false-positives rather than fix one mark in isolation.
 inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
@@ -201,7 +208,7 @@ HardBreak     { hardBreakToken }
 
   // Inline constructs (T019). Each is a single token spanning its full shape so a partial
   // match (e.g. a lone starter char) never leaks a stray sub-token into surrounding prose.
-  // `passInner` forbids spaces so arithmetic (`1 + 2`) is not mistaken for a passthrough.
+  // passMark's inner run forbids spaces so spaced arithmetic (`1 + 2`) is not a passthrough.
   passMark        { "+" ![+ \t\n]+ "+" }
   biblioMark      { "[[[" ![\]\n]+ "]]]" }
   anchorMark      { "[[" ![\]\n]+ "]]" }

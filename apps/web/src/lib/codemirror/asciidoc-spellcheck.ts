@@ -18,6 +18,10 @@ export const SPELLCHECK_SKIP_NODES = new Set([
   'StemBlock', 'Monospace', 'AttributeEntry', 'AttributeReference', 'BlockMacro',
   'InlineMacro', 'CrossReference', 'Footnote', 'Conditional', 'BlockAttributeLine',
   'DocumentTitle',
+  // Inline non-prose constructs (T019): URLs, UI/math macros, inline passthrough,
+  // anchors, callouts, and entities are verbatim/identifier content, not prose.
+  'Link', 'InlineStem', 'UiMacro', 'Passthrough', 'InlineAnchor', 'BiblioAnchor',
+  'Callout', 'Entity',
 ]);
 
 const WORD_RE = /[A-Za-z][A-Za-z']*/g;

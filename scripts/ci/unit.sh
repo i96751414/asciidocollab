@@ -22,6 +22,6 @@ step "API unit tests …"
 pnpm --filter @asciidocollab/api test
 
 step "Web unit tests with coverage …"
-(cd apps/web && npx jest --coverage --coverageReporters=text lcov)
+pnpm --filter @asciidocollab/web test:ci
 
 ok "All unit tests passed."

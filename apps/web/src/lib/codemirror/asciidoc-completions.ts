@@ -177,6 +177,9 @@ export function createIncludeCompletionSource(paths: string[] | (() => string[])
 const DELIMITED_BLOCK_NAMES = new Set([
   'ListingBlock', 'ExampleBlock', 'CommentBlock', 'SidebarBlock',
   'QuoteBlock', 'PassthroughBlock', 'OpenBlock', 'AdmonitionBlock', 'StemBlock',
+  // CSV/DSV tables are delimited blocks but NOT |-tables, so the cursor walk must
+  // treat them as "not inside a |=== table" (don't offer the table skeleton/rows there).
+  'CsvTableBlock', 'DsvTableBlock',
 ]);
 
 /**
