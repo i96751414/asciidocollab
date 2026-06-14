@@ -28,30 +28,36 @@ const sharedModuleNameMapper = {
 // option, so it must live inside each project entry (not at the root).
 const coveragePathIgnorePatterns = ['/node_modules/', '<rootDir>/e2e/', '<rootDir>/tests/'];
 
-// Enforce coverage over the AsciiDoc-editor surface this app owns (matching the
-// monorepo convention where domain/api/shared set `collectCoverageFrom: src/**`).
-// Without this, the global threshold below only measures files a test happens to
-// import, so a brand-new editor module with no test would silently pass the gate.
-// Excluded: files that cannot be loaded under the jest transform or are exercised
-// only via the isolated e2e stack —
-//   - asciidoc-parser.js: the generated Lezer parser (ESM, not transformed here);
-//   - asciidoc-language.ts: imports that generated ESM parser;
-//   - asciidoc-block-tokens.ts: the production external tokenizer (its logic is
-//     exercised through the hand-synced test mirror + the full e2e suite);
-//   - *.worker.ts / create-render-worker.ts: Web Worker entry points (import.meta).
-// The broader src/app route tree and legacy non-editor components remain on the
-// e2e-covered convention (a separate, app-wide unit-coverage effort, out of scope here).
+// Enforce coverage over ALL application source (matching the monorepo convention
+// where domain/api/shared set `collectCoverageFrom: src/**`). Without this, the
+// global threshold below only measures files a test happens to import, so a brand-new
+// module with no test would silently pass the gate. This list is EXCLUSION-based
+// (`src/**` then `!…`) so any newly-added file is counted by default — an allow-list
+// would silently miss new files in unlisted locations.
 const collectCoverageFrom = [
-  'src/lib/codemirror/**/*.{ts,tsx}',
-  'src/lib/asciidoc/**/*.{ts,tsx}',
-  'src/lib/api/**/*.{ts,tsx}',
-  'src/components/editor/**/*.{ts,tsx}',
-  'src/components/file-tree/**/*.{ts,tsx}',
-  'src/hooks/**/*.{ts,tsx}',
+  'src/**/*.{ts,tsx}',
+  // Next.js App Router route tree — pages/layouts/route-client components are
+  // integration surfaces exercised by the Playwright e2e suite, not unit-tested
+  // here. The one substantial editor module that lives under app/ is re-included.
+  '!src/app/**',
+  'src/app/**/project-editor-layout.tsx',
+  '!src/proxy.ts',
+  // Web Worker entry points (Worker / import.meta — not loadable under ts-jest).
+  '!src/**/*.worker.ts',
+  '!src/lib/create-render-worker.ts',
+  // The generated Lezer parser + the modules that statically import it (ESM the
+  // jest transform cannot load). The tokenizer LOGIC is covered separately via
+  // `asciidoc-block-token-logic.ts`, which these two only wire up.
   '!src/lib/codemirror/asciidoc-parser.js',
   '!src/lib/codemirror/asciidoc-language.ts',
   '!src/lib/codemirror/asciidoc-block-tokens.ts',
-  '!src/**/*.worker.ts',
+  // Pre-existing app-wide gap: legacy (non-editor) feature components/contexts/helpers
+  // that predate this work and have no unit tests yet. TODO: backfill tests and drop
+  // these exclusions — they are enumerated (not hidden by an allow-list) so the debt
+  // stays visible and a NEW untested module is still caught by the gate.
+  '!src/components/{archive-button,delete-project-button,empty-state,error-boundary,invite-member-form,member-list,project-form,project-settings-form,sole-owner-warning,user-search-combobox}.tsx',
+  '!src/contexts/current-user-context.tsx',
+  '!src/lib/get-project-access.ts',
 ];
 
 const config = {
