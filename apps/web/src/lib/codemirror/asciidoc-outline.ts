@@ -1,67 +1,70 @@
 import { StateField } from '@codemirror/state';
-import { syntaxTree, ensureSyntaxTree } from '@codemirror/language';
 import type { EditorState, Transaction } from '@codemirror/state';
-import type { SyntaxNodeRef } from '@lezer/common';
+import {
+  computeHeadingLevels,
+  inheritedHeadingOffsetFacet,
+  refreshHeadingLevelsEffect,
+} from './asciidoc-heading-levels';
 
 /** An entry in the section outline panel. */
 export interface SectionOutlineEntry {
-  /** Heading level (1–5). */
+  /** Effective heading level (1–5) — the raw marker level shifted by `:leveloffset:`. */
   level: number;
   /** Heading title text. */
   title: string;
   /** Line number of the heading. */
   line: number;
-  /** Document offset of the heading node start. */
+  /** Document offset of the heading line start. */
   from: number;
 }
 
-/** Maps grammar node names to heading levels. */
-const HEADING_NODE_LEVELS: Record<string, number> = {
-  Heading1: 1,
-  Heading2: 2,
-  Heading3: 3,
-  Heading4: 4,
-  Heading5: 5,
-};
+/** Strips the `={1,6}` marker (and following whitespace) from a heading line to get its title. */
+const HEADING_PREFIX_RE = /^={1,6}\s+/;
 
+/** Reads the current include-path inherited heading-level offset from the facet (0 if unset). */
+function inheritedOffset(state: EditorState): number {
+  return state.facet(inheritedHeadingOffsetFacet)();
+}
+
+/**
+ * Derives the section outline from {@link computeHeadingLevels} — the single editor authority for
+ * effective heading levels — so it stays consistent with the heading highlight and section folding.
+ * Headings whose effective level (raw + `:leveloffset:` + inherited offset) exceeds the max are not
+ * headings (FR-010) and are excluded, as are `[discrete]`/`[float]` headings (FR-072) and the
+ * document title (effective level 0).
+ */
 function extractHeadings(state: EditorState): SectionOutlineEntry[] {
   const entries: SectionOutlineEntry[] = [];
-  const tree = ensureSyntaxTree(state, state.doc.length) ?? syntaxTree(state);
 
-  tree.cursor().iterate((node: SyntaxNodeRef) => {
-    const level = HEADING_NODE_LEVELS[node.type.name];
-    if (level === undefined) return;
+  for (const info of computeHeadingLevels(state.doc.toString(), inheritedOffset(state))) {
+    // beyondMax ⇒ not a heading; discrete ⇒ styled but excluded; level < 1 ⇒ document title.
+    if (info.beyondMax || info.discrete || info.effectiveLevel < 1) continue;
 
-    const lineObject = state.doc.lineAt(node.from);
-    const rawLine = lineObject.text;
-
-    // Discrete/float headings are styled as headings but excluded from the outline (FR-072).
-    if (lineObject.number > 1) {
-      const previous = state.doc.line(lineObject.number - 1).text.trim();
-      if (previous === '[discrete]' || previous === '[float]') return;
-    }
-
-    const prefixMatch = rawLine.match(/^={1,6} /);
+    const rawLine = state.doc.line(info.line).text;
+    const prefixMatch = rawLine.match(HEADING_PREFIX_RE);
     const title = prefixMatch ? rawLine.slice(prefixMatch[0].length) : rawLine;
 
     entries.push({
-      level,
+      level: info.effectiveLevel,
       title: title.trim(),
-      line: lineObject.number,
-      from: node.from,
+      line: info.line,
+      from: info.from,
     });
-  });
+  }
 
   return entries;
 }
 
-/** CM6 StateField that tracks the current section outline from the Lezer parse tree. */
+/** CM6 StateField that tracks the current section outline from the effective heading levels. */
 export const outlineField = StateField.define<SectionOutlineEntry[]>({
   create(state: EditorState) {
     return extractHeadings(state);
   },
   update(entries: SectionOutlineEntry[], tr: Transaction) {
-    if (!tr.docChanged) return entries;
+    // Recompute on a doc edit, or when the inherited offset changed out-of-band (FR-071) and the
+    // heading-levels refresh effect is dispatched — both can change effective levels.
+    const refreshed = tr.effects.some((effect) => effect.is(refreshHeadingLevelsEffect));
+    if (!tr.docChanged && !refreshed) return entries;
     return extractHeadings(tr.state);
   },
 });

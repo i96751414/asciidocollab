@@ -5,6 +5,10 @@ import { EditorState } from '@codemirror/state';
 import { LRLanguage, LanguageSupport } from '@codemirror/language';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import {
+  inheritedHeadingOffsetFacet,
+  refreshHeadingLevelsEffect,
+} from '@/lib/codemirror/asciidoc-heading-levels';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
 const grammarPath = path.resolve(__dirname, '../../../src/lib/codemirror/asciidoc.grammar');
@@ -158,12 +162,70 @@ describe('asciidoc-outline StateField', () => {
     expect(titles).toContain('Lead Heading');
   });
 
-  test('falls back to the raw line as the title when no "= " prefix matches', () => {
-    // 7 leading equals: tokenized as a heading, but the /^={1,6} / prefix regex
-    // does not match, so the whole raw line (trimmed) is used as the title.
-    const documentContent = '======= Deep Heading\n';
+  test('excludes a 7-equals line — beyond the max section level, it is not a heading', () => {
+    // 7 leading equals is not a valid section marker (max is 6 = level 5), so it is body text.
+    const outline = getOutline('======= Deep Heading\n');
+    expect(outline).toEqual([]);
+  });
+
+  test('shifts the outline level by an in-document :leveloffset:', () => {
+    const documentContent = [
+      '== Section Foo',
+      '',
+      ':leveloffset: +1',
+      '',
+      '=== Section 2',
+      '',
+    ].join('\n');
+
     const outline = getOutline(documentContent);
-    expect(outline.length).toBeGreaterThan(0);
-    expect(outline[0].title).toBe('======= Deep Heading');
+    // `== Section Foo` is level 1; `=== Section 2` is raw level 2 + offset 1 ⇒ level 3 (not 2).
+    expect(outline).toEqual([
+      expect.objectContaining({ title: 'Section Foo', level: 1 }),
+      expect.objectContaining({ title: 'Section 2', level: 3 }),
+    ]);
+  });
+
+  test('excludes a heading pushed beyond the max level by :leveloffset: (FR-010)', () => {
+    const documentContent = [
+      '== Section Foo',
+      '',
+      ':leveloffset: +6',
+      '',
+      '=== Section 2',
+      '',
+    ].join('\n');
+
+    const outline = getOutline(documentContent);
+    // `=== Section 2` becomes effective level 8 (> max) ⇒ not a heading, excluded from the outline.
+    expect(outline.map((entry) => entry.title)).toEqual(['Section Foo']);
+  });
+
+  test('excludes the document title (effective level 0)', () => {
+    const outline = getOutline('= Document Title\n\n== Section\n');
+    expect(outline.map((entry) => entry.title)).toEqual(['Section']);
+  });
+
+  test('applies the inherited include-path offset from the facet', () => {
+    // An ancestor include supplies an offset of +2, so `== Sub` (raw level 1) becomes level 3.
+    const state = EditorState.create({
+      doc: '== Sub',
+      extensions: [outlineField, asciidocExtension, inheritedHeadingOffsetFacet.of(() => 2)],
+    });
+    expect(state.field(outlineField)).toEqual([expect.objectContaining({ title: 'Sub', level: 3 })]);
+  });
+
+  test('recomputes when the inherited offset changes out-of-band (refresh effect)', () => {
+    let offset = 0;
+    const initial = EditorState.create({
+      doc: '====== Deep',
+      extensions: [outlineField, asciidocExtension, inheritedHeadingOffsetFacet.of(() => offset)],
+    });
+    // `======` is raw level 5: in range at offset 0, beyond max once the offset rises to +1.
+    expect(initial.field(outlineField).map((entry) => entry.title)).toEqual(['Deep']);
+
+    offset = 1;
+    const refreshed = initial.update({ effects: refreshHeadingLevelsEffect.of() }).state;
+    expect(refreshed.field(outlineField)).toEqual([]);
   });
 });

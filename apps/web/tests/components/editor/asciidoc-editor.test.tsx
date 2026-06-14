@@ -148,6 +148,9 @@ jest.mock('@codemirror/state', () => {
     StateField: {
       define: () => ({ field: true }),
     },
+    Facet: {
+      define: () => ({ of: (value: unknown) => ({ facet: value }) }),
+    },
     StateEffect: {
       appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) },
       define: () => ({ of: (value: unknown) => ({ value }) }),

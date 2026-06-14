@@ -66,6 +66,14 @@ export const asciidocEditorTheme = EditorView.theme({
   // Discrete/float headings are styled as headings but render in a muted accent
   // to signal they are excluded from the document outline.
   ".cm-ad-discrete": { fontStyle: "italic", color: c("--syntax-keyword") },
+  // A section marker whose effective level (raw + :leveloffset:) exceeds the max is NOT a
+  // heading (FR-010). The grammar still colours it as one, so override that on the line and
+  // its highlight spans to render it as plain body text.
+  ".cm-ad-suppressed-heading, .cm-ad-suppressed-heading span": {
+    color: `${c("--foreground")} !important`,
+    fontWeight: "400 !important",
+    fontSize: "1em !important",
+  },
   // Collapsed {attr} reference rendered as its resolved value (FR-057).
   ".cm-ad-attr-value": {
     color: c("--syntax-attr"),

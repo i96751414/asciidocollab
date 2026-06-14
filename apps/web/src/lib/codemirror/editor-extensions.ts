@@ -10,7 +10,7 @@ import { asciidoc } from '@/lib/codemirror/asciidoc-language';
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import { asciidocHeadingLevels } from '@/lib/codemirror/asciidoc-heading-levels';
+import { asciidocHeadingLevels, inheritedHeadingOffsetFacet } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { asciidocSourceHighlight } from '@/lib/codemirror/asciidoc-source-highlight';
 import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-fold-persist';
@@ -169,6 +169,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
     // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
     asciidocHeadingLevels(getInheritedOffset),
+    // Expose the same inherited offset to the outline StateField so it derives effective levels
+    // (and the beyond-max / leveloffset rules) identically to the heading highlight.
+    inheritedHeadingOffsetFacet.of(getInheritedOffset),
     // {attr} collapse-to-value display fold — source text unchanged (FR-057).
     asciidocAttributeFold,
     outlineField,

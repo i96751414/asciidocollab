@@ -139,10 +139,23 @@ describe('asciidocHeadingLevels — inherited offset', () => {
 });
 
 describe('asciidocHeadingLevels — max-level cutoff (FR-010)', () => {
-  test('a heading whose effective level exceeds the max is NOT styled as a heading', () => {
-    // `======` is raw level 5; +1 inherited offset → effective level 6 (> MAX) ⇒ paragraph.
+  test('a heading whose effective level exceeds the max is flagged as suppressed, not styled', () => {
+    // `======` is raw level 5; +1 inherited offset → effective level 6 (> MAX). The grammar still
+    // tokenises it as a heading, so the line is tagged to neutralise that colour (see theme).
     const view = mount('====== TooDeep', () => 1);
-    expect(lineClasses(view)).toEqual(['cm-line']);
+    expect(lineClasses(view)).toEqual(['cm-line cm-ad-suppressed-heading']);
+  });
+
+  test('an in-document :leveloffset: pushing a heading past the max suppresses it', () => {
+    // `=== Section 2` is raw level 2; with `:leveloffset: +6` the effective level is 8 (> MAX).
+    const view = mount('== Section Foo\n\n:leveloffset: +6\n\n=== Section 2');
+    expect(lineClasses(view)).toEqual([
+      'cm-line cm-ad-h1', // == Section Foo
+      'cm-line',
+      'cm-line', // :leveloffset: +6
+      'cm-line',
+      'cm-line cm-ad-suppressed-heading', // === Section 2 — beyond max
+    ]);
   });
 
   test('an in-range heading at the same offset is still styled', () => {

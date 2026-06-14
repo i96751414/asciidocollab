@@ -52,6 +52,7 @@ jest.mock('@codemirror/state', () => ({
     readOnly: { of: (value: boolean) => ({ readOnly: value }) },
   },
   StateField: { define: () => ({ field: true }) },
+  Facet: { define: () => ({ of: (value: unknown) => ({ facet: value }) }) },
   StateEffect: { appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) }, define: () => ({ of: (value: unknown) => ({ value }) }) },
   Compartment: class { of(extension: unknown) { return extension; } reconfigure(extension: unknown) { return extension; } },
   Prec: { highest: (extension: unknown) => extension, high: (extension: unknown) => extension, default: (extension: unknown) => extension, low: (extension: unknown) => extension, lowest: (extension: unknown) => extension },
