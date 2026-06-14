@@ -1,6 +1,9 @@
 packages:
   - "packages/*"
   - "apps/*"
+overrides:
+  # Force the patched esbuild (GHSA-gv7w-rqvm-qjhr); only pulled transitively via tsx.
+  esbuild@<0.28.1: ">=0.28.1"
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
