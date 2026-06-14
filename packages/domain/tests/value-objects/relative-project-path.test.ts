@@ -1,4 +1,4 @@
-import { relativeProjectPath, toProjectRelative } from '../../src/project-path/relative-project-path';
+import { relativeProjectPath, toProjectRelative } from '../../src/value-objects/relative-project-path';
 
 describe('relativeProjectPath', () => {
   it('returns the bare basename for two files in the same directory', () => {

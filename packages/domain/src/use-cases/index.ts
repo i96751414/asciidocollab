@@ -56,7 +56,7 @@ export { FindReferencesUseCase } from './content/find-references';
 export type { ReferenceUsage } from './content/find-references';
 export { RenameSymbolUseCase } from './content/rename-symbol';
 export type { RenameSymbolInput, RenameSymbolOutcome, RenamableSymbolKind } from './content/rename-symbol';
-export { isAsciiDocumentFileName } from '../asciidoc/file-name';
+export { isAsciiDocumentFileName } from '../value-objects/asciidoc-file-name';
 export { UploadAssetUseCase } from './content/upload-asset';
 export { GetAssetContentUseCase } from './content/get-asset-content';
 export { GetAssetContentByPathUseCase } from './content/get-asset-content-by-path';

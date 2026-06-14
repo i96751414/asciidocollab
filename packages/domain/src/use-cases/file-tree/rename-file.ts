@@ -24,7 +24,7 @@ import {
   capturePathChanges,
   clearMainFileIfMatches,
 } from './reference-rewrite';
-import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
+import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.

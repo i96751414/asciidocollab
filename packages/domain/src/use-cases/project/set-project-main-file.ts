@@ -15,7 +15,7 @@ import { Result } from '../../types/result';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { Logger } from '../../ports/observability/logger';
-import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
+import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
 
 /** Input for {@link SetProjectMainFileUseCase}; null clears the configuration. */
 export interface SetProjectMainFileInput {

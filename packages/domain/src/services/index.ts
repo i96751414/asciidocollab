@@ -1,4 +1,14 @@
-/** @file Barrel re-exports for domain service interfaces. */
+/** @file Barrel re-exports for domain services (interfaces + pure domain-service modules). */
+// Pure AsciiDoc analysis domain service — reference/symbol extraction + include-graph (stateless).
+export {
+  headingToId,
+  parseIncludeLevelOffset,
+  extractReferences,
+  extractSymbols,
+  resolveReference,
+  buildIncludeGraph,
+  inheritedLevelOffset,
+} from './asciidoc-extraction';
 export { PasswordHasher } from './password-hasher';
 export { BreachChecker } from './breach-checker';
 export { EmailSender } from './email-sender';

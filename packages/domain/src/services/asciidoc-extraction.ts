@@ -4,7 +4,7 @@ import type {
   ProjectSymbol,
   Reference,
   UnresolvedInclude,
-} from './types';
+} from '../types/asciidoc';
 
 /**
  * Pure reference/symbol extraction + include-graph and effective-level rules for

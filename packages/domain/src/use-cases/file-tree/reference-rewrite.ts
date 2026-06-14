@@ -5,11 +5,11 @@ import { FileNode } from '../../entities/file-node';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { Reference } from '../../asciidoc/types';
-import { extractReferences } from '../../asciidoc/extraction';
-import { isAsciiDocumentFileName } from '../../asciidoc/file-name';
-import { resolveSandboxedPath } from '../../project-path/resolve-sandboxed-path';
-import { relativeProjectPath } from '../../project-path/relative-project-path';
+import { Reference } from '../../types/asciidoc';
+import { extractReferences } from '../../services/asciidoc-extraction';
+import { isAsciiDocumentFileName } from '../../value-objects/asciidoc-file-name';
+import { resolveSandboxedPath } from '../../value-objects/sandboxed-path';
+import { relativeProjectPath } from '../../value-objects/relative-project-path';
 
 /** Strip leading slashes so a `/docs/a.adoc` FilePath becomes the sandbox-relative `docs/a.adoc`. */
 export function stripLeadingSlash(path: string): string {
