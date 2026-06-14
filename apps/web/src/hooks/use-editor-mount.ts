@@ -1,42 +1,20 @@
 'use client';
 import { useEffect, useRef, useCallback } from 'react';
-import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip } from '@codemirror/view';
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { search, searchKeymap } from '@codemirror/search';
-import { autocompletion } from '@codemirror/autocomplete';
-import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
-import { showMinimap } from '@replit/codemirror-minimap';
-import { asciidoc } from '@/lib/codemirror/asciidoc-language';
-import { macroFromDropPayload, padBlockMacro, macroPathRange } from '@/lib/codemirror/asciidoc-file-drop';
-import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
-import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
-import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import { asciidocHeadingLevels, refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
-import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
-import { asciidocSourceHighlight } from '@/lib/codemirror/asciidoc-source-highlight';
-import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-fold-persist';
-import { formatKeymap, autoWrapInputHandler } from '@/lib/codemirror/asciidoc-format-keymap';
-import { asciidocPasteHandlers } from '@/lib/codemirror/asciidoc-paste';
-import { asciidocSpellcheckSource } from '@/lib/codemirror/asciidoc-spellcheck';
-import { asciidocDiagnosticsSource } from '@/lib/codemirror/asciidoc-diagnostics';
-import { linter, lintGutter } from '@codemirror/lint';
-import {
-  createAttributeCompletionSource,
-  createXrefCompletionSource,
-  createIncludeCompletionSource,
-  createImageCompletionSource,
-  tableSnippetCompletionSource,
-  tableCellCompletionSource,
-  captionCompletionSource,
-  sourceLanguageCompletionSource,
-} from '@/lib/codemirror/asciidoc-completions';
+import { EditorState, Compartment, type Extension } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
-import { createLinkHandler, xrefHoverPreview, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
-import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
-import { listContinuationKeymap } from '@/lib/codemirror/asciidoc-list-continuation';
+import { buildEditorExtensions } from '@/lib/codemirror/editor-extensions';
+import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linter';
+import {
+  createLineClickHandler,
+  createFileDropHandler,
+  createCtrlClickTooltip,
+  wireScrollSync,
+} from '@/lib/codemirror/editor-dom-handlers';
 
 /**
  * Clamps a remembered 1-based line number to the document's valid range — the FR-005 "closest
@@ -214,159 +192,37 @@ export function useEditorMount({
       onCursorChange({ line: line.number, col: head - line.from + 1, totalLines: update.state.doc.lines });
     });
 
-    const lineClickHandler = EditorView.domEventHandlers({
-      mousedown(event, view) {
-        if (!onLineClickReference.current) return;
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (pos === null) return;
-        const lineNumber = view.state.doc.lineAt(pos).number;
-        onLineClickReference.current(lineNumber);
-      },
-    });
-
-    // Dropping a file from the tree inserts a macro: image:: for images, include:: otherwise.
-    // The tree sets the project-relative path on a custom dataTransfer type (see file-tree.tsx).
-    const fileDropHandler = EditorView.domEventHandlers({
-      drop(event, view) {
-        const raw = event.dataTransfer?.getData('application/x-asciidoc-node');
-        if (!raw) return false; // not a tree-file drag — let CodeMirror handle it normally
-        if (!view.state.facet(EditorView.editable)) return false; // read-only
-        event.preventDefault();
-        const macro = macroFromDropPayload(raw);
-        if (macro === null) return true;
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
-        const { doc } = view.state;
-        const charBefore = pos > 0 ? doc.sliceString(pos - 1, pos) : null;
-        const charAfter = pos < doc.length ? doc.sliceString(pos, pos + 1) : null;
-        const insert = padBlockMacro(macro, charBefore, charAfter);
-        view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
-        view.focus();
-        return true;
-      },
-    });
-
-    // Hover tooltip over include::/image:: paths advertising the Ctrl+click affordance.
-    const ctrlClickTooltip = hoverTooltip((view, pos) => {
-      const line = view.state.doc.lineAt(pos);
-      // Cross-reference preview (FR-034): resolve the xref under the cursor against the project
-      // index and show its definition location (or an "unknown reference" notice).
-      const index = projectIndexAccessor();
-      if (index) {
-        const preview = xrefHoverPreview(line.text, pos - line.from, index);
-        if (preview) {
-          return {
-            pos: line.from + preview.from,
-            end: line.from + preview.to,
-            above: true,
-            create() {
-              const dom = document.createElement('div');
-              dom.textContent = preview.text;
-              dom.style.padding = '2px 6px';
-              dom.style.fontSize = '12px';
-              return { dom };
-            },
-          };
-        }
-      }
-      const range = macroPathRange(line.text);
-      if (!range) return null;
-      const start = line.from + range.start;
-      const end = line.from + range.end;
-      if (pos < start || pos > end) return null;
-      return {
-        pos: start,
-        end,
-        above: true,
-        create() {
-          const dom = document.createElement('div');
-          dom.textContent = `${navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}+click to open in the file tree`;
-          dom.style.padding = '2px 6px';
-          dom.style.fontSize = '12px';
-          return { dom };
-        },
-      };
-    });
+    // DOM-level handlers + Ctrl+click hover tooltip. Each closes over a live ref accessor so it
+    // always observes the latest prop without rebinding (see editor-dom-handlers.ts).
+    const lineClickHandler = createLineClickHandler(() => onLineClickReference.current);
+    const fileDropHandler = createFileDropHandler();
+    const ctrlClickTooltip = createCtrlClickTooltip(projectIndexAccessor);
 
     const state = EditorState.create({
       // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
       doc: collabActive ? '' : content,
-      extensions: [
-        // The language lives in a compartment so the source-highlight loader can
-        // reconfigure it (forcing a re-parse) once an embedded language loads (US5).
-        languageCompartment.current.of(asciidoc()),
-        asciidocSourceHighlight((view) =>
-          view.dispatch({ effects: languageCompartment.current.reconfigure(asciidoc()) }),
-        ),
-        syntaxHighlighting(asciidocHighlightStyle),
-        syntaxHighlighting(defaultHighlightStyle),
-        // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
-        ...(collabActive ? [] : [history()]),
-        // List auto-continuation Enter command — registered before defaultKeymap (and at
-        // Prec.high) so it handles list lines first and all other lines fall through (FR-011).
-        listContinuationKeymap,
-        // Formatting shortcuts (Mod-b/i/`, Mod-/) + type-over-selection auto-wrap (US9).
-        // Bound before defaultKeymap so they win without overriding save/find/undo.
-        keymap.of([...formatKeymap]),
-        autoWrapInputHandler,
-        keymap.of([...defaultKeymap, ...(collabActive ? [] : historyKeymap), ...searchKeymap]),
-        search({ top: true }),
-        // readOnly blocks user input but not programmatic Yjs-applied updates, so observers
-        // still see live remote edits (research D8); editable.of(false) also drops the caret/
-        // contenteditable so there is no misleading editable affordance.
-        readOnlyCompartment.current.of([
-          EditorState.readOnly.of(!canEdit),
-          EditorView.editable.of(canEdit),
-        ]),
-        lineNumbers(),
-        highlightActiveLine(),
-        asciidocFold,
-        foldGutter(),
-        // Whole-document fold controls (fold-all/unfold-all/to-level) + per-file
-        // fold persistence (US10).
-        foldControlsKeymap,
-        foldPersistence(foldStorageKey ?? null),
-        // Paste/drop conveniences: URL→link, HTML→AsciiDoc, image→upload+image:: (US9).
-        asciidocPasteHandlers({ uploadImage }),
-        // Prose spell-check (US9) + cross-file/structural diagnostics (US8):
-        // each is its own lint source so they merge in the gutter/underlines.
-        lintGutter(),
-        spellcheckCompartment.current.of(
-          linter(asciidocSpellcheckSource(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled)),
-        ),
-        linter(asciidocDiagnosticsSource(projectIndexAccessor)),
-        // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
-        // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
-        asciidocHeadingLevels(() => inheritedOffsetReference.current),
-        // {attr} collapse-to-value display fold — source text unchanged (FR-057).
-        asciidocAttributeFold,
-        outlineField,
-        tableContextField,
-        showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),
-        autocompletion({
-          override: [
-            createAttributeCompletionSource(projectIndexAccessor),
-            sourceLanguageCompletionSource,
-            createXrefCompletionSource(projectIndexAccessor),
-            createIncludeCompletionSource(() => includePathsReference.current),
-            createImageCompletionSource(() => imagePathsReference.current),
-            tableSnippetCompletionSource,
-            tableCellCompletionSource,
-            captionCompletionSource,
-          ],
-        }),
-        ...(collabExtension ? [collabExtension] : []),
-        updateListener,
-        lineClickHandler,
-        fileDropHandler,
-        ctrlClickTooltip,
-        // Brand editor theme (chrome + syntax via --syntax-* vars), following light/dark
-        // automatically. Prec.highest so its highlight wins over the highlighters above:
-        // CodeMirror mounts higher-precedence style modules last, so they win the cascade.
-        Prec.highest(asciidocTheme),
-        // Soft-wrap lives in a compartment so toggling the preference reconfigures
-        // the live editor without a remount (US2/FR-007).
-        lineWrapCompartment.current.of(softWrap ? [EditorView.lineWrapping] : []),
-      ],
+      extensions: buildEditorExtensions({
+        compartments: {
+          readOnly: readOnlyCompartment.current,
+          language: languageCompartment.current,
+          lineWrap: lineWrapCompartment.current,
+          spellcheck: spellcheckCompartment.current,
+        },
+        canEdit,
+        softWrap,
+        foldStorageKey: foldStorageKey ?? null,
+        getSpellIgnore: () => spellIgnore ?? [],
+        spellcheckLanguage,
+        spellcheckEnabled,
+        uploadImage,
+        getIncludePaths: () => includePathsReference.current,
+        getImagePaths: () => imagePathsReference.current,
+        projectIndexAccessor,
+        getInheritedOffset: () => inheritedOffsetReference.current,
+        collabActive,
+        collabExtension,
+        hookExtensions: [updateListener, lineClickHandler, fileDropHandler, ctrlClickTooltip],
+      }),
     });
 
     const view = new EditorView({ state, parent: containerReference.current });
@@ -384,20 +240,7 @@ export function useEditorMount({
     }
 
     // Scroll sync: fire onScrollLine with the 1-based line at the top of the viewport.
-    let scrollDebounce: ReturnType<typeof setTimeout> | null = null;
-    const handleEditorScroll = () => {
-      if (!onScrollLineReference.current) return;
-      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
-      scrollDebounce = setTimeout(() => {
-        scrollDebounce = null;
-        const rect = view.scrollDOM.getBoundingClientRect();
-        const pos = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 });
-        if (pos !== null) {
-          onScrollLineReference.current?.(view.state.doc.lineAt(pos).number);
-        }
-      }, 50);
-    };
-    view.scrollDOM.addEventListener('scroll', handleEditorScroll, { passive: true });
+    const teardownScrollSync = wireScrollSync(view, () => onScrollLineReference.current);
 
     const linkHandler = createLinkHandler(
       {
@@ -415,8 +258,7 @@ export function useEditorMount({
     view.dom.addEventListener('mousedown', mousedownFunction);
 
     return () => {
-      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
-      view.scrollDOM.removeEventListener('scroll', handleEditorScroll);
+      teardownScrollSync();
       view.dom.removeEventListener('mousedown', mousedownFunction);
       view.destroy();
       viewReference.current = null;
@@ -480,7 +322,7 @@ export function useEditorMount({
     if (!viewReference.current) return;
     viewReference.current.dispatch({
       effects: spellcheckCompartment.current.reconfigure(
-        linter(asciidocSpellcheckSource(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled)),
+        createSpellcheckLinter(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled),
       ),
     });
   }, [spellcheckLanguage, spellcheckEnabled, spellIgnore]);

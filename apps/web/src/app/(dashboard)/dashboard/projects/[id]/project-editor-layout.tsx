@@ -1,11 +1,10 @@
 'use client';
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ListTree, Replace, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
-import { usePanelResize } from '@/hooks/use-panel-resize';
 import { BackButton } from '@/components/back-button';
 import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
@@ -16,23 +15,20 @@ import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index'
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
-import type { ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useFileSelection } from '@/hooks/use-file-selection';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
-import { useLastSelection } from '@/hooks/use-last-selection';
-import { useCollabDocument, type ConnectionState } from '@/hooks/use-collab-document';
-import { useProjectPresence } from '@/hooks/use-project-presence';
-import { useCurrentUser } from '@/contexts/current-user-context';
-import { getDocumentContent } from '@/lib/api/file-content';
-import { getCollabDocumentInfo } from '@/lib/api/collab';
-import type { CollabAuthRole, ProjectSymbol } from '@asciidocollab/shared';
+import { type ConnectionState } from '@/hooks/use-collab-document';
 
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { EditorGoToSymbol } from '@/components/editor/editor-go-to-symbol';
 import { EditorSymbolRefactor } from '@/components/editor/editor-symbol-refactor';
-import { findSymbolUsages, renameSymbol, type SymbolUsage } from '@/lib/api/projects';
+import { findSymbolUsages, renameSymbol } from '@/lib/api/projects';
+import { useProjectEditorState } from '@/app/(dashboard)/dashboard/projects/[id]/use-project-editor-state';
+import { useManagedCollab } from '@/app/(dashboard)/dashboard/projects/[id]/use-managed-collab';
+import { useEditorNavigation } from '@/app/(dashboard)/dashboard/projects/[id]/use-editor-navigation';
+import { useEditorRestoration } from '@/app/(dashboard)/dashboard/projects/[id]/use-editor-restoration';
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -172,26 +168,20 @@ export function ProjectEditorLayout({
   canEdit,
   userId,
 }: ProjectEditorLayoutProperties) {
-  // Live main-file selection (US8); updates when the picker persists a change so the
-  // cross-file symbol index (T059) and heading-level offset (T066) re-evaluate.
-  const [mainFile, setMainFile] = useState<string | null>(mainFileNodeId);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const sidebarResize = usePanelResize({
-    initialWidth: 256, min: 160, max: 480, side: 'start', storageKey: 'asciidoc-filetree-width',
-  });
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
-  // Live editor reveal request (same-file go-to-definition, FR-049); each nonce reveals once.
-  const [revealRequest, setRevealRequest] = useState<{ line: number; nonce: number } | null>(null);
-  const revealNonce = useRef(0);
-  // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
-  const lastScrolledLine = useRef<number | null>(null);
-  // Track live editor content so the preview reflects what the user is typing.
-  const [liveContent, setLiveContent] = useState('');
-  // True once the user has typed in the current file — prevents server updates from
-  // overwriting in-progress edits.
-  const userHasEditedReference = useRef(false);
   const { selectedFile, contentState, selectFile, clearSelection } = useFileSelection(projectId);
+
+  // Layout-shell + live-content state: main-file selection, sidebar + preview visibility, and the
+  // live editor buffer that feeds the preview.
+  const {
+    mainFile, setMainFile,
+    sidebarOpen, setSidebarOpen, sidebarResize,
+    previewOpen, togglePreview,
+    liveContent, handleChange,
+  } = useProjectEditorState({
+    mainFileNodeId,
+    selectedFileNodeId: selectedFile?.nodeId ?? null,
+    content: contentState.content,
+  });
 
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
@@ -203,276 +193,41 @@ export function ProjectEditorLayout({
     liveContent,
   });
 
-  // Collaboration binding for the selected file. `contentState.collab` is set by useFileSelection
-  // on the collab path (a backing collaborative document); otherwise this hook stays inert.
-  const currentUser = useCurrentUser();
-  const collabInfo = contentState.collab;
-  const { doc, awareness, connectionState } = useCollabDocument({
-    projectId,
-    yjsStateId: collabInfo?.yjsStateId ?? '',
-    enabled: collabInfo != null,
-    user: { userId: currentUser.userId, name: currentUser.displayName },
+  // Collaboration orchestration for the open file: the Yjs binding, mid-session role enforcement
+  // (FR-012), offline read-only fallback (FR-013), presence (feature 024), and the derived editor
+  // props (research D6 / EditorMode).
+  const {
+    presenceByFile,
+    editorCollab,
+    collabUnavailable,
+    editorCanEdit,
+    editorContentOverride,
+    editorConnectionState,
+    editorPending,
+  } = useManagedCollab({ projectId, selectedFile, contentState, canEdit });
+
+  // File + cross-reference navigation, the go-to-symbol palette, and the refactor dialog.
+  const {
+    scrollRequest, resetScroll, revealRequest, openPathRequest, pendingXrefLine,
+    handleScrollLine, handleLineClick, handleNavigateToFile, handleNavigateToXref, handleOpenUrl,
+    goToSymbolOpen, setGoToSymbolOpen, symbolPathOf, handleSelectSymbol,
+    refactorOpen, setRefactorOpen, handleNavigateToUsage, handleSymbolRenamed,
+  } = useEditorNavigation({ projectIndex, getProjectIndex, refreshProjectIndex });
+
+  // Last-selection restoration (FR-010), cursor-line persistence (FR-006), and the stale-memory
+  // cleanup for a missing restored file (FR-009/US3).
+  const { handleSelectFile, handleCursorLineChange, initialLine } = useEditorRestoration({
+    userId, projectId, selectedFile, contentState, selectFile, clearSelection, pendingXrefLine,
   });
-
-  // Feature 024: project-wide open-file presence for the file tree. Joins a lightweight presence
-  // room to publish which file this user has open and observe which files others have open.
-  const presenceByFile = useProjectPresence({
-    projectId,
-    enabled: true,
-    user: { userId: currentUser.userId, name: currentUser.displayName },
-    // "Open" means a collaborative document is open in the editor — gate on collabInfo so a selected
-    // folder (or a legacy/non-collab file) is never advertised as the viewer's open file.
-    openFileNodeId: collabInfo ? (selectedFile?.nodeId ?? null) : null,
-  });
-
-  // Mid-session role enforcement (FR-012 / edge case "permission change mid-session"): the role
-  // is re-checked on reconnect, so a user demoted to viewer flips to read-only without a reload.
-  const [liveRole, setLiveRole] = useState<CollabAuthRole | null>(null);
-  useEffect(() => {
-    setLiveRole(collabInfo?.role ?? null);
-  }, [collabInfo?.yjsStateId, collabInfo?.role]);
-  const previousConnectionReference = useRef<ConnectionState>(connectionState);
-  useEffect(() => {
-    const previous = previousConnectionReference.current;
-    previousConnectionReference.current = connectionState;
-    if (collabInfo && selectedFile && previous === 'reconnecting' && connectionState === 'synced') {
-      getCollabDocumentInfo(projectId, selectedFile.nodeId)
-        .then((info) => { if (info) setLiveRole(info.role); })
-        .catch(() => { /* keep the current role; the server still rejects observer writes */ });
-    }
-  }, [connectionState, collabInfo, selectedFile?.nodeId, projectId]);
-  const effectiveRole: CollabAuthRole = liveRole ?? collabInfo?.role ?? 'editor';
-
-  const collabBinding: CollabBinding | null =
-    collabInfo && doc && awareness
-      ? { doc, awareness, connectionState, role: effectiveRole, yjsStateId: collabInfo.yjsStateId }
-      : null;
-  // Collaborative file whose provider/Y.Doc has not been created yet — show a placeholder
-  // rather than briefly mounting the legacy REST editor.
-  const collabPending = collabInfo != null && collabBinding == null;
-
-  // Offline fallback (FR-013): the collab server never synced within the timeout. Drop the
-  // (empty) Yjs binding and open the file read-only, seeded from GET /content, with a banner —
-  // no edits are accepted, so nothing is silently lost.
-  const offline = collabInfo != null && connectionState === 'offline';
-  const [offlineContent, setOfflineContent] = useState<string | null>(null);
-  useEffect(() => {
-    if (!offline || !selectedFile) {
-      setOfflineContent(null);
-      return;
-    }
-    let cancelled = false;
-    getDocumentContent(projectId, selectedFile.nodeId)
-      .then((text) => { if (!cancelled) setOfflineContent(text); })
-      .catch(() => { if (!cancelled) setOfflineContent(''); });
-    return () => { cancelled = true; };
-  }, [offline, selectedFile?.nodeId, projectId]);
-
-  // A text document with no collaborative backing (GET /collab 404) must open read-only — never
-  // the legacy editable REST path, whose uncoordinated PUTs let clients overwrite each other.
-  const collabUnavailable = contentState.collabUnavailable;
-
-  // Editor props derived from the collaboration mode (research D6 / EditorMode).
-  const editorCollab = offline ? null : collabBinding;
-  const editorCanEdit = offline || collabUnavailable ? false : canEdit;
-  const editorContentOverride = offline ? offlineContent : undefined;
-  const editorConnectionState = collabInfo ? connectionState : undefined;
-  const editorPending = collabPending || (offline && offlineContent === null);
 
   const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle } = useEditorPreferences();
-  const { readLastSelection, rememberFile, rememberLine, clearLastSelection } = useLastSelection(userId, projectId);
-  // The line to restore, paired with the file it belongs to. Applied only to that file's first
-  // (restore) mount; cleared once the user navigates so in-session clicks never re-jump (Decision 4).
-  const [restoredLine, setRestoredLine] = useState<{ nodeId: string; line: number } | null>(null);
-  const lineDebounceReference = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Persist the file on every selection, then delegate to useFileSelection. Folders are
-  // ignored by rememberFile, so only content files are remembered. A user-initiated selection
-  // also ends the restore window, so the remembered line is never re-applied mid-session.
-  // Pending cross-file go-to-definition line: set when an xref targets another file, consumed by
-  // the next selection so the opened file reveals the definition via its mount-time initialLine.
-  const pendingXrefLine = useRef<number | null>(null);
-  const handleSelectFile = useCallback(
-    (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => {
-      const xrefLine = pendingXrefLine.current;
-      pendingXrefLine.current = null;
-      setRestoredLine(xrefLine === null ? null : { nodeId, line: xrefLine });
-      rememberFile({ nodeId, nodeName, nodeType, path: nodePath });
-      selectFile(nodeId, nodeName, nodePath, nodeType);
-    },
-    [rememberFile, selectFile],
-  );
-
-  // Debounced cursor-line persistence — AsciiDoc files only (FR-006).
-  const handleCursorLineChange = useCallback((line: number) => {
-    if (!selectedFile || !isAsciiDocFile(selectedFile.nodeName)) return;
-    if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current);
-    lineDebounceReference.current = setTimeout(() => { rememberLine(line); }, 500);
-  }, [selectedFile, rememberLine]);
-
-  // Cancel any pending line-persistence debounce when the open file changes (or on unmount), so a
-  // stale timer from the previous file never merges its line into the newly-selected file's entry.
-  useEffect(() => () => { if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current); }, [selectedFile?.nodeId]);
-
-  // Restore the last opened file (and its cursor line) on mount. Synchronous localStorage read —
-  // never blocks first paint (FR-010); a no-op when nothing is stored.
-  //
-  // The empty dependency array already runs this once per real mount. We deliberately do NOT gate
-  // it behind a persistent ref: under React StrictMode (and any mount→unmount→remount cycle), the
-  // unmount aborts the first content fetch via useFileSelection's cleanup; a persistent guard would
-  // then suppress the re-fetch on remount, leaving the editor stuck on "Loading…" forever. Letting
-  // the effect re-run re-issues the fetch (the superseded request resolves to a harmless AbortError).
-  useEffect(() => {
-    const stored = readLastSelection();
-    if (!stored) return;
-    if (stored.line !== undefined) setRestoredLine({ nodeId: stored.nodeId, line: stored.line });
-    selectFile(stored.nodeId, stored.nodeName, stored.path, stored.nodeType);
-  }, []);
-
-  // Apply the restored line only to the restored file (matched by id); undefined otherwise.
-  const initialLine = restoredLine && selectedFile?.nodeId === restoredLine.nodeId
-    ? restoredLine.line
-    : undefined;
-
-  // The selected file is gone (content fetch 404). Clear the stale memory so it is not retried,
-  // and reset to the no-file state — no error is shown (FR-009 / US3).
-  useEffect(() => {
-    if (!contentState.notFound) return;
-    clearLastSelection();
-    clearSelection();
-  }, [contentState.notFound, clearLastSelection, clearSelection]);
-
-  // Scroll-sync handler: dedup identical consecutive lines to avoid jitter.
-  const handleScrollLine = useCallback((line: number) => {
-    if (lastScrolledLine.current === line) return;
-    lastScrolledLine.current = line;
-    setScrollRequest({ line });
-  }, []);
-
-  // Line-click handler: always fires, even for the same line clicked twice.
-  // No dedup — the user intentionally clicked, so we always issue a fresh scroll.
-  const handleLineClick = useCallback((line: number) => {
-    setScrollRequest({ line });
-  }, []);
-
-  const handleChange = useCallback((value: string) => {
-    userHasEditedReference.current = true;
-    setLiveContent(value);
-  }, []);
-
-  // When switching to a different file, reset edit tracking and load initial content.
-  useEffect(() => {
-    userHasEditedReference.current = false;
-    setLiveContent(contentState.content ?? '');
-  }, [selectedFile?.nodeId]);
-
-  // Apply server-pushed content updates only while the user hasn't typed anything.
-  useEffect(() => {
-    if (!userHasEditedReference.current) {
-      setLiveContent(contentState.content ?? '');
-    }
-  }, [contentState.content]);
 
   // Reset scroll position whenever a different file is opened.
   // useLayoutEffect prevents a one-frame flash of the old scroll position.
   useLayoutEffect(() => {
-    setScrollRequest(null);
-    lastScrolledLine.current = null;
-  }, [selectedFile?.nodeId]);
+    resetScroll();
+  }, [selectedFile?.nodeId, resetScroll]);
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem('asciidoc-preview-open');
-    if (stored === 'true') setPreviewOpen(true);
-  }, []);
-
-  const togglePreview = () => {
-    setPreviewOpen((previous) => {
-      const next = !previous;
-      sessionStorage.setItem('asciidoc-preview-open', String(next));
-      return next;
-    });
-  };
-
-  // Ctrl+click on a macro path asks the file tree to reveal + select that file. A bumped nonce
-  // makes each request distinct so repeat clicks on the same path re-fire.
-  const [openPathRequest, setOpenPathRequest] = useState<{ path: string; nonce: number } | null>(null);
-  const openPathNonce = useRef(0);
-  const handleNavigateToFile = useCallback((path: string) => {
-    openPathNonce.current += 1;
-    setOpenPathRequest({ path, nonce: openPathNonce.current });
-  }, []);
-  // Cross-reference go-to-definition (FR-049): reveal in place when the target is the open file,
-  // otherwise switch to the defining file (carrying the line to reveal once it mounts).
-  const handleNavigateToXref = useCallback((target: XrefTarget) => {
-    if (target.sameFile || target.path === null) {
-      revealNonce.current += 1;
-      setRevealRequest({ line: target.line, nonce: revealNonce.current });
-      return;
-    }
-    pendingXrefLine.current = target.line;
-    handleNavigateToFile(target.path);
-  }, [handleNavigateToFile]);
-
-  // Go to Symbol palette (FR-061): jump to any section/anchor across the project tree. Selecting a
-  // symbol reuses the xref go-to-definition path (same-file reveal or cross-file switch).
-  const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
-  const symbolPathOf = useCallback((id: string) => projectIndex?.pathOf(id) ?? null, [projectIndex]);
-  const handleSelectSymbol = useCallback((symbol: ProjectSymbol) => {
-    setGoToSymbolOpen(false);
-    const index = getProjectIndex();
-    if (!index) return;
-    handleNavigateToXref({
-      fileId: symbol.fileId,
-      path: index.pathOf(symbol.fileId),
-      line: index.lineOf(symbol.fileId, symbol.range.from),
-      sameFile: symbol.fileId === index.activeFileId,
-    });
-  }, [getProjectIndex, handleNavigateToXref]);
-  // Ctrl/Cmd+Shift+O opens the palette (VS Code-style "go to symbol").
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'o' || event.key === 'O')) {
-        event.preventDefault();
-        setGoToSymbolOpen(true);
-      }
-    };
-    globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Cross-file refactoring dialog (US12/FR-064-065): find-usages + rename id/anchor/attribute.
-  const [refactorOpen, setRefactorOpen] = useState(false);
-  const handleNavigateToUsage = useCallback((usage: SymbolUsage) => {
-    setRefactorOpen(false);
-    const index = getProjectIndex();
-    if (!index) return;
-    handleNavigateToXref({
-      fileId: usage.fileNodeId,
-      path: usage.path,
-      line: index.lineOf(usage.fileNodeId, usage.range.from),
-      sameFile: usage.fileNodeId === index.activeFileId,
-    });
-  }, [getProjectIndex, handleNavigateToXref]);
-  // After a rename rewrites persisted files, rebuild the index so usages/diagnostics reflect the new
-  // name. The open file's live buffer is collab-owned and updates on its own (matching the move/rename
-  // reference-rewrite precedent); the index overlays that live content so it stays consistent.
-  const handleSymbolRenamed = useCallback(() => {
-    refreshProjectIndex();
-  }, [refreshProjectIndex]);
-  // Ctrl/Cmd+Shift+R opens the refactoring dialog.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'r' || event.key === 'R')) {
-        event.preventDefault();
-        setRefactorOpen(true);
-      }
-    };
-    globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
-  }, []);
-  const handleOpenUrl = useCallback((url: string) => {
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-  }, []);
   // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
   // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
   const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;

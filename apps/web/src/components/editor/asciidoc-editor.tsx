@@ -7,7 +7,6 @@ import type { Awareness } from 'y-protocols/awareness';
 import type { CollabAuthRole } from '@asciidocollab/shared';
 import type { ConnectionState } from '@/hooks/use-collab-document';
 import { collabExtensions } from './editor-collab-extensions';
-import { CollabPresenceBar } from './collab-presence-bar';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
@@ -20,11 +19,8 @@ import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
-import { EditorToolbar } from './editor-toolbar';
-import { EditorTableContextToolbar } from './editor-table-context-toolbar';
-import { EditorSectionOutline } from './editor-section-outline';
-import { ResizeHandle } from '@/components/ui/resize-handle';
-import { usePanelResize } from '@/hooks/use-panel-resize';
+import { EditorChrome } from './editor-chrome';
+import { EditorOutlinePanel } from './editor-outline-panel';
 
 interface AsciiDocEditorProperties {
   content: string;
@@ -145,10 +141,6 @@ export function AsciiDocEditor({
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
-  const [outlineOpen, setOutlineOpen] = useState(true);
-  const outlineResize = usePanelResize({
-    initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
-  });
 
   const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckLanguage, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
@@ -244,27 +236,19 @@ export function AsciiDocEditor({
       style={editorStyle(fontSize)}
       data-theme={theme}
     >
-      {isAsciiDoc && (
-        <EditorToolbar
-          view={viewReference.current}
-          canEdit={effectiveCanEdit}
-          fontSize={fontSize}
-          theme={theme}
-          softWrap={softWrap}
-          setFontSize={setFontSize}
-          setTheme={setTheme}
-          setSoftWrap={setSoftWrap}
-        />
-      )}
-      {isAsciiDoc && effectiveCanEdit && tableContext !== null && viewReference.current !== null && (
-        <EditorTableContextToolbar
-          view={viewReference.current}
-          context={tableContext}
-          tableText={viewReference.current.state.doc.sliceString(tableContext.tableFrom, tableContext.tableTo)}
-          tableFrom={tableContext.tableFrom}
-        />
-      )}
-      {collab && <CollabPresenceBar awareness={collab.awareness} />}
+      <EditorChrome
+        view={viewReference.current}
+        isAsciiDoc={isAsciiDoc}
+        canEdit={effectiveCanEdit}
+        fontSize={fontSize}
+        theme={theme}
+        softWrap={softWrap}
+        setFontSize={setFontSize}
+        setTheme={setTheme}
+        setSoftWrap={setSoftWrap}
+        tableContext={tableContext}
+        awareness={collab?.awareness}
+      />
       <EditorBanners
         externalChange={externalChangeBanner}
         draftContent={draftContent}
@@ -277,42 +261,8 @@ export function AsciiDocEditor({
       />
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />
-        {isAsciiDoc && outlineOpen && (
-          <ResizeHandle
-            ariaLabel="Resize outline"
-            onPointerDown={outlineResize.onPointerDown}
-            onKeyDown={outlineResize.onKeyDown}
-            isResizing={outlineResize.isResizing}
-          />
-        )}
-        {isAsciiDoc && outlineOpen && (
-          <div style={{ width: outlineResize.width }} className="shrink-0 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-2 py-1 border-b text-xs text-muted-foreground">
-              <span>Outline</span>
-              <button
-                type="button"
-                aria-label="Collapse outline panel"
-                className="hover:text-foreground"
-                onClick={() => setOutlineOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-            <EditorSectionOutline
-              entries={outlineEntries}
-              onHeadingClick={handleHeadingClick}
-            />
-          </div>
-        )}
-        {isAsciiDoc && !outlineOpen && (
-          <button
-            type="button"
-            aria-label="Expand outline panel"
-            className="w-5 shrink-0 border-l flex items-center justify-center text-muted-foreground hover:text-foreground text-xs"
-            onClick={() => setOutlineOpen(true)}
-          >
-            ≡
-          </button>
+        {isAsciiDoc && (
+          <EditorOutlinePanel entries={outlineEntries} onHeadingClick={handleHeadingClick} />
         )}
       </div>
       {(projectId && fileNodeId) && (
