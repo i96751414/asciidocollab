@@ -47,11 +47,25 @@ test.describe('US5 in-editor source highlighting', () => {
     const content = page.locator('.cm-editor .cm-content');
     await expect(content).toContainText('const greeting');
 
-    // The JS keyword `const` should become a highlighted token span once the
-    // JavaScript language chunk has loaded (lazy import).
-    await expect(
-      page.locator('.cm-line', { hasText: 'const greeting' }).locator('span').first(),
-    ).toBeVisible({ timeout: 10_000 });
+    const jsLine = page.locator('.cm-line', { hasText: 'const greeting' });
+    const cobolLine = page.locator('.cm-line', { hasText: 'DISPLAY' });
+
+    // Once the JavaScript language chunk loads (lazy import), the embedded parser
+    // tokenizes the body: the `const` KEYWORD becomes its own span whose text is
+    // EXACTLY `const`. Without injection the whole body line is a single
+    // `t.content` span (`const greeting = "hello";`), so an exact-`const` span
+    // only exists when real syntax highlighting is applied — the regression guard
+    // (the parseMixed wrap used to bail on the real grammar, leaving every block
+    // un-highlighted, yet a single content span still satisfied the old
+    // `span.first()` assertion, masking the bug).
+    await expect(jsLine.locator('span', { hasText: /^const$/ })).toBeVisible({ timeout: 10_000 });
+    // The line is split into MULTIPLE token spans (keyword/name/operator/string),
+    // not one content span — a second, language-agnostic signal of tokenization.
+    expect(await jsLine.locator('span').count()).toBeGreaterThan(1);
+
+    // Contrast: `cobol` is not in the allow-list, so its body is never injected and
+    // stays a single plain content span — no per-keyword `DISPLAY` span appears.
+    await expect(cobolLine.locator('span', { hasText: /^DISPLAY$/ })).toHaveCount(0);
 
     // AsciiDoc resumes: the "== After" heading is still styled as a heading line.
     await expect(page.locator('.cm-line.cm-ad-h1', { hasText: 'After' })).toHaveCount(1);

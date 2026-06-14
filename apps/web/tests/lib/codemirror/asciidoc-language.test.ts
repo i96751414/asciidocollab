@@ -49,7 +49,7 @@ const x = 1;
 });
 
 describe('asciidoc()', () => {
-  test('returns a LanguageSupport wrapping asciidocLanguage', () => {
+  test('returns a LanguageSupport wrapping the asciidocLanguage singleton', () => {
     const support = asciidoc();
     expect(support).toBeInstanceOf(LanguageSupport);
     expect(support.language).toBe(asciidocLanguage);
@@ -57,5 +57,15 @@ describe('asciidoc()', () => {
 
   test('returns a fresh LanguageSupport on each call', () => {
     expect(asciidoc()).not.toBe(asciidoc());
+  });
+
+  // Load-bearing for source highlighting (US5): the loader forces a re-parse via
+  // `compartment.reconfigure(asciidoc({ fresh: true }))`, and CodeMirror only restarts parsing when
+  // the language facet's Language object actually changes. So `{ fresh: true }` must wrap a DISTINCT
+  // Language (≠ the singleton, and ≠ each other) — otherwise `[source,<lang>]` blocks stay
+  // un-highlighted, the latent bug this guards against.
+  test('{ fresh: true } wraps a DISTINCT Language each call so a reparse restarts parsing', () => {
+    expect(asciidoc({ fresh: true }).language).not.toBe(asciidocLanguage);
+    expect(asciidoc({ fresh: true }).language).not.toBe(asciidoc({ fresh: true }).language);
   });
 });

@@ -126,8 +126,10 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // The language lives in a compartment so the source-highlight loader can
     // reconfigure it (forcing a re-parse) once an embedded language loads (US5).
     compartments.language.of(asciidoc()),
+    // `{ fresh: true }`: reconfiguring with a NEW Language is what forces CodeMirror to restart
+    // parsing so the just-loaded embedded parser is injected (see asciidoc-language.ts).
     asciidocSourceHighlight((view) =>
-      view.dispatch({ effects: compartments.language.reconfigure(asciidoc()) }),
+      view.dispatch({ effects: compartments.language.reconfigure(asciidoc({ fresh: true })) }),
     ),
     syntaxHighlighting(asciidocHighlightStyle),
     syntaxHighlighting(defaultHighlightStyle),

@@ -11,12 +11,15 @@
  *
  * `sourceMixedWrap` is a `parseMixed` wrap whose injection only happens while a
  * parser walks a `[source,<lang>]` block. The production AsciiDoc grammar's block
- * delimiters are anonymous external tokens (no child nodes), and the generated
- * `asciidoc-parser.js` is ESM that jest cannot load — so we drive the wrap with a
- * tiny purpose-built grammar whose listing/literal delimiters ARE named child
- * nodes (exactly the `firstChild`/`lastChild` shape the wrap reads). An equally
- * tiny embedded "language" parser stands in for a real language pack; the wrap
- * injects it as a mounted overlay tree, which `resolveInner` reveals.
+ * delimiters and body are anonymous (lowercase) tokens, so a `ListingBlock` node
+ * has NO child nodes — the wrap therefore derives the body span from the block
+ * text, not from `firstChild`/`lastChild`. Most cases below drive the wrap with a
+ * tiny purpose-built grammar (fast, and lets us model delimiter edge-cases); the
+ * `sourceMixedWrap over the real AsciiDoc grammar` suite additionally runs the
+ * actual generated parser (`asciidoc-parser.js`, loadable here via ts-jest's
+ * `allowJs`) so the real anonymous-delimiter shape is covered. A tiny embedded
+ * "language" parser stands in for a real language pack; the wrap injects it as a
+ * mounted overlay tree, which `resolveInner` reveals.
  *
  * The lazy loader is mocked at the `source-languages` boundary so the embedded
  * parser resolves synchronously, without a real `@codemirror/language-data` pack.
@@ -42,6 +45,7 @@ import {
   sourceMixedWrap,
   asciidocSourceHighlight,
 } from '@/lib/codemirror/asciidoc-source-highlight';
+import { asciidocLanguage } from '@/lib/codemirror/asciidoc-language';
 import { resolveSourceLanguage } from '@/lib/codemirror/source-languages';
 
 // The mocked seam, typed as a jest mock for `mockReturnValue`/`mockReset`.
@@ -289,6 +293,40 @@ describe('sourceMixedWrap', () => {
   });
 });
 
+// Regression guard for the production grammar shape. The fabricated grammars above
+// give listing/literal blocks NAMED delimiter child nodes; the REAL AsciiDoc grammar's
+// delimiters and body are anonymous (lowercase) tokens, so a `ListingBlock` node has
+// no child nodes at all (`firstChild`/`lastChild` are null). A wrap that derived the
+// body span from those children injected nothing in the real editor — every
+// `[source,<lang>]` block rendered unhighlighted. These tests drive the actual
+// `asciidocLanguage.parser` (configured with `sourceMixedWrap`) over real `----`/`....`
+// blocks so that regression cannot return undetected.
+describe('sourceMixedWrap over the real AsciiDoc grammar (regression)', () => {
+  test('injects the embedded parser into a real [source,java] listing block', async () => {
+    await loadLanguage('java');
+    const documentText = '[source,java]\n----\nclass Foo {}\n----\n';
+    const tree = asciidocLanguage.parser.parse(documentText);
+    const bodyOffset = documentText.indexOf('class') + 2;
+    expect(tree.resolveInner(bodyOffset, 1).name).toBe('Code');
+    // The delimiter line itself stays under the AsciiDoc grammar (not the embedded parser).
+    expect(tree.resolveInner(documentText.indexOf('----') + 1, 1).name).not.toBe('Code');
+  });
+
+  test('injects the embedded parser into a real literal block (....)', async () => {
+    await loadLanguage('python');
+    const documentText = '[source,python]\n....\nprint(1)\n....\n';
+    const bodyOffset = documentText.indexOf('print') + 2;
+    expect(asciidocLanguage.parser.parse(documentText).resolveInner(bodyOffset, 1).name).toBe('Code');
+  });
+
+  test('does not inject a real block whose language is not loaded', () => {
+    // `cobol` is not in the allow-list, so nothing is ever cached for it.
+    const documentText = '[source,cobol]\n----\nDISPLAY "x"\n----\n';
+    const bodyOffset = documentText.indexOf('DISPLAY') + 2;
+    expect(asciidocLanguage.parser.parse(documentText).resolveInner(bodyOffset, 1).name).not.toBe('Code');
+  });
+});
+
 describe('asciidocSourceHighlight (lazy loader plugin)', () => {
   test('loads the declared language and reparses a live (connected) view', async () => {
     resolveSourceLanguageMock.mockReturnValue(fakeDescription(embeddedParser));
@@ -325,12 +363,13 @@ describe('asciidocSourceHighlight (lazy loader plugin)', () => {
   test('is a no-op when the resolver returns null (unsupported by language-data)', async () => {
     resolveSourceLanguageMock.mockReturnValue(null);
     const reparse = jest.fn();
-    // `java` is in the allow-list but loaded by no earlier test, so the cache
-    // cannot short-circuit the resolve.
-    track(mountView('[source,java]\n<<<\nx\n>>>\n', reparse));
+    // `typescript` is in the allow-list but loaded/cached by no other test, so the
+    // cache cannot short-circuit the resolve. (Java is deliberately cached by the
+    // real-grammar regression suite, so it cannot serve as the uncached language here.)
+    track(mountView('[source,typescript]\n<<<\nx\n>>>\n', reparse));
 
     await flush();
-    expect(resolveSourceLanguageMock).toHaveBeenCalledWith('Java');
+    expect(resolveSourceLanguageMock).toHaveBeenCalledWith('TypeScript');
     expect(reparse).not.toHaveBeenCalled();
   });
 

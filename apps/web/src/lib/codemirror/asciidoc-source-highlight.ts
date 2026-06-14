@@ -53,6 +53,29 @@ function languageForBlock(input: Input, blockFrom: number): string | null {
   return null;
 }
 
+/**
+ * Compute the body span of a delimited block (the range strictly between the
+ * opening and closing delimiter lines), or null when there is no body.
+ *
+ * The AsciiDoc grammar's block delimiters and body are anonymous (lowercase)
+ * tokens, so the block node has NO child nodes to read — `firstChild`/`lastChild`
+ * are both null. The span is therefore derived from the block text: the body
+ * starts after the first line (the opening delimiter) and ends at the start of
+ * the last line (the closing delimiter).
+ */
+function blockBodySpan(input: Input, blockFrom: number, blockTo: number): { from: number; to: number } | null {
+  const text = input.read(blockFrom, blockTo);
+  const openEnd = text.indexOf('\n');
+  if (openEnd === -1) return null;
+  const from = blockFrom + openEnd + 1;
+  // The closing delimiter is the block's last line; ignore a trailing newline first.
+  const end = text.endsWith('\n') ? text.length - 1 : text.length;
+  const closeLineStart = text.lastIndexOf('\n', end - 1);
+  if (closeLineStart === -1) return null;
+  const to = blockFrom + closeLineStart + 1;
+  return from < to ? { from, to } : null;
+}
+
 /** Mixed-language wrap that injects the embedded language parser into source-block bodies. */
 export const sourceMixedWrap = parseMixed((node: SyntaxNodeRef, input: Input): NestedParse | null => {
   if (node.name !== 'ListingBlock' && node.name !== 'LiteralBlock') return null;
@@ -61,13 +84,9 @@ export const sourceMixedWrap = parseMixed((node: SyntaxNodeRef, input: Input): N
   const parser = loadedParsers.get(language);
   if (!parser) return null;
 
-  const open = node.node.firstChild;
-  const close = node.node.lastChild;
-  if (!open || !close || open === close) return null;
-  const from = open.to;
-  const to = close.from;
-  if (from >= to) return null;
-  return { parser, overlay: [{ from, to }] };
+  const span = blockBodySpan(input, node.from, node.to);
+  if (!span) return null;
+  return { parser, overlay: [span] };
 });
 
 /**
