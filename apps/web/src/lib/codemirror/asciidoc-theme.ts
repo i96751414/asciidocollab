@@ -86,7 +86,7 @@ export const asciidocHighlightStyle = HighlightStyle.define([
   // Links / macros / cross-references
   { tag: [t.link, t.url], color: c("--syntax-link"), textDecoration: "underline" },
   // Document attributes & block metadata  (:toc:, [source,ruby], author line)
-  { tag: [t.meta, t.attributeName, t.annotation, t.docComment], color: c("--syntax-attr") },
+  { tag: [t.meta, t.attributeName, t.annotation, t.docComment, t.macroName], color: c("--syntax-attr") },
   // Admonition labels, list markers, structural keywords  (NOTE:, *, .)
   { tag: [t.keyword, t.labelName, t.processingInstruction], color: c("--syntax-keyword"), fontWeight: "600" },
   { tag: [t.list, t.quote], color: c("--syntax-link") },

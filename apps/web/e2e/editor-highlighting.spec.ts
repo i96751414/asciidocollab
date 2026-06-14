@@ -78,6 +78,8 @@ test.describe('US7 highlighting coverage (live editor)', () => {
       '',
       '[[[biblio-ref]]] Acme (C) brand a &amp; b.',
       '',
+      'Press kbd:[Ctrl+S] and see stem:[x^2] inline.',
+      '',
       'puts value <1>',
       '',
       "'''",
@@ -94,6 +96,7 @@ test.describe('US7 highlighting coverage (live editor)', () => {
     await expect(content).toContainText('+literal+');
     await expect(content).toContainText('[[inline-anchor]]');
     await expect(content).toContainText('[[[biblio-ref]]]');
+    await expect(content).toContainText('kbd:[Ctrl+S]');
 
     // The passthrough/anchor line and the thematic-break line must render styled spans.
     const passLine = page.locator('.cm-line', { hasText: '+literal+' }).first();

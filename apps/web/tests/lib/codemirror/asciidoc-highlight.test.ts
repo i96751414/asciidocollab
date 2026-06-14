@@ -74,6 +74,8 @@ describe('AsciiDoc highlight consistency', () => {
     ['Acme (C) co\n', 5, 'replacement'],
     ['a &amp; b\n', 2, 'entity'],
     ['code <1>\n', 5, 'callout'],
+    ['press kbd:[Esc] x\n', 8, 'ui macro'],
+    ['see stem:[x^2] y\n', 6, 'inline stem'],
     ["'''\n", 0, 'thematic break'],
     ['<<<\n', 0, 'page break'],
   ])('%j (offset %i) is highlighted as a %s', (source, offset) => {

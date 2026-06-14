@@ -68,6 +68,28 @@ describe('US7 inline — code callouts (FR-027)', () => {
   });
 });
 
+describe('US7 inline — UI & math macros (FR-052)', () => {
+  test.each(['kbd:[Ctrl+S]', 'btn:[OK]'])('recognises %s as a UiMacro', (macro) => {
+    expect(hasToken(`press ${macro} now\n`, 'UiMacro')).toBe(true);
+  });
+
+  test.each(['stem:[x^2]', String.raw`latexmath:[\sqrt{n}]`, 'asciimath:[a/b]'])(
+    'recognises %s as an InlineStem',
+    (macro) => {
+      expect(hasToken(`see ${macro} here\n`, 'InlineStem')).toBe(true);
+    },
+  );
+
+  test('a bare word "keyboard" is not a UiMacro', () => {
+    expect(hasToken('keyboard layout\n', 'UiMacro')).toBe(false);
+    expect(tokensOfType('keyboard layout\n', 'Paragraph')).toHaveLength(1);
+  });
+
+  test('kbd:[x] works at the very start of a line', () => {
+    expect(hasToken('kbd:[Esc] cancels\n', 'UiMacro')).toBe(true);
+  });
+});
+
 describe('US7 block — thematic & page breaks (FR-028)', () => {
   test("recognises ''' as a ThematicBreak", () => {
     expect(hasToken("'''\n", 'ThematicBreak')).toBe(true);

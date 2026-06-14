@@ -130,6 +130,7 @@ inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
   Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
+  UiMacro | InlineStem |
   inlineWord | spaceTok | punctFallback | ltFallback
 }
 
@@ -159,8 +160,15 @@ BiblioAnchor  { biblioMark }
 Replacement   { replacementMark }
 Entity        { entityMark }
 Callout       { calloutMark }
+UiMacro       { uiMacroMark }
+InlineStem    { stemMark }
 
 @tokens {
+  // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
+  // order. Precedence only applies when the macro token actually matches its full `name:[…]`
+  // shape; a plain word that merely starts with the same letters still falls to `inlineWord`.
+  @precedence { stemMark, uiMacroMark, inlineWord }
+
   // Raw body line — any non-empty line inside delimited blocks
   rawBodyLine { ![\n]+ "\n" }
 
@@ -190,6 +198,12 @@ Callout       { calloutMark }
   replacementMark { "(C)" | "(R)" | "(TM)" }
   entityMark      { "&" $[a-zA-Z0-9#]+ ";" }
   calloutMark     { "<" $[0-9]+ ">" }
+
+  // Inline UI / math macros with an immediate `[` (kbd/btn, stem/latexmath/asciimath).
+  // `inlineWord` stops at the `[`, so these always win by longest match (no precedence) and
+  // never collide with the external inline-macro path (which skips an immediate `[`).
+  uiMacroMark { ("kbd:" | "btn:") "[" ![\]\n]+ "]" }
+  stemMark    { ("stem:" | "latexmath:" | "asciimath:") "[" ![\]\n]* "]" }
 
   // Lone narrowed-out starter chars that began no construct — kept as plain text so prose
   // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`).

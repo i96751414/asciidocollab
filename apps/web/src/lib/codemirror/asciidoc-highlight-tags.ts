@@ -53,6 +53,8 @@ export const asciidocHighlightTags = styleTags({
   Replacement:        t.character,
   Entity:             t.special(t.character),
   Callout:            t.special(t.number),
+  UiMacro:            t.macroName,
+  InlineStem:         t.special(t.macroName),
   BlockTitle:         t.annotation,
   OrderedListItem:    t.list,
   UnorderedListItem:  t.list,
