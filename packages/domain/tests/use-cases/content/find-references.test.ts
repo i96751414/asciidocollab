@@ -80,6 +80,29 @@ describe('FindReferencesUseCase', () => {
     expect(result.value[0].path).toBe('book.adoc');
   });
 
+  it('restricts results to the selected kind when an id and an attribute share a name', async () => {
+    // Bug repro: `intro` is both a section id (`[[intro]]` + `<<intro>>`) and an attribute
+    // (`:intro:` + `{intro}`). Selecting "id / anchor" must NOT list the attribute usages.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('= Book\n\n[[intro]]\n== Intro\n\n:intro: value\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('See <<intro>>.\n\nAlso {intro} here.\n'));
+
+    const anchors = await useCase.execute(actorId, projectId, 'intro', 'anchor');
+    expect(anchors.success).toBe(true);
+    if (!anchors.success) return;
+    expect(anchors.value.map((u) => u.kind).toSorted()).toEqual(['definition', 'xref']);
+
+    const attributes = await useCase.execute(actorId, projectId, 'intro', 'attribute');
+    expect(attributes.success).toBe(true);
+    if (!attributes.success) return;
+    expect(attributes.value.map((u) => u.kind).toSorted()).toEqual(['attributeRef', 'definition']);
+
+    // No kind → both families, preserving the original (unfiltered) behavior.
+    const both = await useCase.execute(actorId, projectId, 'intro');
+    expect(both.success).toBe(true);
+    if (!both.success) return;
+    expect(both.value.map((u) => u.kind).toSorted()).toEqual(['attributeRef', 'definition', 'definition', 'xref']);
+  });
+
   it('returns no usages for a name that appears nowhere', async () => {
     const result = await useCase.execute(actorId, projectId, 'totally-absent');
     expect(result.success).toBe(true);

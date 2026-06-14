@@ -19,6 +19,13 @@ import { resolveFileContent, liveContentDeps } from './live-content';
 /** The kind of a usage: a reference macro, or the symbol's own definition site. */
 export type UsageKind = Reference['kind'] | 'definition';
 
+/**
+ * Which family of symbol to find: an id/anchor (matched by `[[id]]` definitions
+ * and `<<id>>`/`xref:…#id` references) or an attribute (`:attr:` definitions and
+ * `{attr}` references). When omitted, both families are returned.
+ */
+export type FindSymbolKind = 'anchor' | 'attribute';
+
 /** A single usage of a symbol within a project file (FR-065 find-usages). */
 export interface ReferenceUsage {
   /** The file containing the usage. */
@@ -64,6 +71,9 @@ export class FindReferencesUseCase {
    * @param actorId - The user requesting usages (must be a project member).
    * @param projectId - The project to scan.
    * @param symbolName - The section id / anchor / attribute name to find.
+   * @param symbolKind - Restrict results to ids/anchors or attributes; when
+   *   omitted, both families are returned (so an id and an attribute that share
+   *   a name both appear).
    * @returns The matching usages (ascending by file then offset), or
    *   `PermissionDeniedError` when the actor is not a project member.
    */
@@ -71,6 +81,7 @@ export class FindReferencesUseCase {
     actorId: UserId,
     projectId: ProjectId,
     symbolName: string,
+    symbolKind?: FindSymbolKind,
   ): Promise<Result<ReferenceUsage[], DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
@@ -84,6 +95,10 @@ export class FindReferencesUseCase {
 
     const target = symbolName.toLowerCase();
     const usages: ReferenceUsage[] = [];
+
+    // The requested family is constant for the whole scan, so resolve it once up front.
+    const wantAnchor = symbolKind === undefined || symbolKind === 'anchor';
+    const wantAttribute = symbolKind === undefined || symbolKind === 'attribute';
 
     const contentDeps = this.contentDeps(); // build once; reused for every file in the scan
     for (const node of documents) {
@@ -99,8 +114,8 @@ export class FindReferencesUseCase {
       // not (yet) referenced still shows up — otherwise find-usages reports "not found" for it.
       for (const symbol of extractSymbols(node.id.value, content)) {
         const defines =
-          (symbol.kind === 'anchor' && symbol.name === symbolName) ||
-          (symbol.kind === 'attribute' && symbol.name.toLowerCase() === target);
+          (wantAnchor && symbol.kind === 'anchor' && symbol.name === symbolName) ||
+          (wantAttribute && symbol.kind === 'attribute' && symbol.name.toLowerCase() === target);
         if (defines) {
           inFile.push({ fileNodeId: node.id, path, kind: 'definition', range: symbol.range });
         }
@@ -108,8 +123,8 @@ export class FindReferencesUseCase {
 
       for (const reference of extractReferences(node.id.value, content)) {
         const matches =
-          (reference.kind === 'xref' && xrefAnchorId(reference.target) === symbolName) ||
-          (reference.kind === 'attributeRef' && reference.target.toLowerCase() === target);
+          (wantAnchor && reference.kind === 'xref' && xrefAnchorId(reference.target) === symbolName) ||
+          (wantAttribute && reference.kind === 'attributeRef' && reference.target.toLowerCase() === target);
         if (matches) {
           inFile.push({ fileNodeId: node.id, path, kind: reference.kind, range: reference.range });
         }

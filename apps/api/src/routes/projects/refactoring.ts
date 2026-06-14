@@ -27,7 +27,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
     timeWindow: app.config.project.refactoring.rateLimitWindow,
   };
 
-  app.get<{ Params: { projectId: string }; Querystring: { name: string } }>(
+  app.get<{ Params: { projectId: string }; Querystring: { name: string; kind?: 'anchor' | 'attribute' } }>(
     '/projects/:projectId/symbol-usages',
     {
       config: { rateLimit },
@@ -36,7 +36,10 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         querystring: {
           type: 'object',
           required: ['name'],
-          properties: { name: { type: 'string', minLength: 1, maxLength: 200 } },
+          properties: {
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            kind: { type: 'string', enum: ['anchor', 'attribute'] },
+          },
         },
       },
     },
@@ -55,7 +58,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         requestLogger(request),
       );
 
-      const result = await useCase.execute(actorId, projectId, request.query.name);
+      const result = await useCase.execute(actorId, projectId, request.query.name, request.query.kind);
       if (!result.success) {
         if (result.error instanceof PermissionDeniedError) {
           return reply.status(403).send({ error: { code: 'FORBIDDEN', message: result.error.message } });

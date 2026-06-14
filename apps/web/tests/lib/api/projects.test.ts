@@ -74,6 +74,14 @@ describe('findSymbolUsages', () => {
     expect(result).toEqual(usages);
   });
 
+  test('appends the kind query param when a symbol kind is given', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ data: { usages: [] } }) });
+    await findSymbolUsages('p1', 'intro', 'attribute');
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('name=intro');
+    expect(url).toContain('kind=attribute');
+  });
+
   test('throws with status + code on a 403', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,

@@ -182,11 +182,17 @@ function refactoringError(response: Response, body: { error?: { message?: string
  *
  * @param projectId - The project to scan.
  * @param name - The section id / anchor / attribute name to find.
+ * @param kind - Restrict results to ids/anchors or attributes; omit for both.
  * @returns The matching usages across the project's files.
  */
-export async function findSymbolUsages(projectId: string, name: string): Promise<SymbolUsage[]> {
+export async function findSymbolUsages(
+  projectId: string,
+  name: string,
+  kind?: RenameSymbolKind,
+): Promise<SymbolUsage[]> {
+  const kindParameter = kind ? `&kind=${kind}` : '';
   const response = await fetch(
-    `${API_BASE_URL}/projects/${projectId}/symbol-usages?name=${encodeURIComponent(name)}`,
+    `${API_BASE_URL}/projects/${projectId}/symbol-usages?name=${encodeURIComponent(name)}${kindParameter}`,
     { credentials: 'include' },
   );
   if (!response.ok) {

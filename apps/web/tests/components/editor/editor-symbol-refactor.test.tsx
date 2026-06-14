@@ -52,7 +52,7 @@ describe('EditorSymbolRefactor', () => {
 
   test('auto-lists usages for the seeded symbol on open', async () => {
     const { findUsages } = setup();
-    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'intro'));
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'intro', 'anchor'));
     expect(await screen.findByText('book.adoc')).toBeInTheDocument();
     expect(screen.getByText('chapter.adoc')).toBeInTheDocument();
   });
@@ -123,7 +123,15 @@ describe('EditorSymbolRefactor', () => {
     const { findUsages } = setup({ initial: null });
     fireEvent.change(screen.getByLabelText('Symbol name'), { target: { value: 'glossary' } });
     fireEvent.click(screen.getByRole('button', { name: /find usages/i }));
-    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'glossary'));
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'glossary', 'anchor'));
+  });
+
+  test('Find usages restricts to the attribute kind when the kind is switched', async () => {
+    const { findUsages } = setup({ initial: null });
+    fireEvent.change(screen.getByLabelText('Symbol kind'), { target: { value: 'attribute' } });
+    fireEvent.change(screen.getByLabelText('Symbol name'), { target: { value: 'revision' } });
+    fireEvent.click(screen.getByRole('button', { name: /find usages/i }));
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'revision', 'attribute'));
   });
 
   test('Enter in the name field triggers a find; Enter in the new-name field triggers a rename', async () => {
@@ -131,7 +139,7 @@ describe('EditorSymbolRefactor', () => {
     const nameInput = screen.getByLabelText('Symbol name');
     fireEvent.change(nameInput, { target: { value: 'intro' } });
     fireEvent.keyDown(nameInput, { key: 'Enter' });
-    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'intro'));
+    await waitFor(() => expect(findUsages).toHaveBeenCalledWith('p1', 'intro', 'anchor'));
     await screen.findByText('book.adoc');
 
     const newNameInput = screen.getByLabelText('New name');

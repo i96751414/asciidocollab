@@ -94,6 +94,39 @@ describe('GET /projects/:projectId/symbol-usages', () => {
     expect(response.statusCode).toBe(400);
     await app.close();
   });
+
+  test('kind=anchor excludes attribute usages that share the name', async () => {
+    const store = new Map<string, string>([
+      ['/book.adoc', '[[intro]]\n== Intro\n\n:intro: value\n'],
+      ['/chapter.adoc', 'See <<intro>> and {intro}.\n'],
+    ]);
+    const { app } = await buildServer({ store });
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro&kind=anchor` });
+    expect(response.statusCode).toBe(200);
+    const { usages } = response.json().data;
+    expect(usages.map((u: { kind: string }) => u.kind).toSorted()).toEqual(['definition', 'xref']);
+    await app.close();
+  });
+
+  test('kind=attribute returns only the attribute definition and {attr} usages', async () => {
+    const store = new Map<string, string>([
+      ['/book.adoc', '[[intro]]\n== Intro\n\n:intro: value\n'],
+      ['/chapter.adoc', 'See <<intro>> and {intro}.\n'],
+    ]);
+    const { app } = await buildServer({ store });
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro&kind=attribute` });
+    expect(response.statusCode).toBe(200);
+    const { usages } = response.json().data;
+    expect(usages.map((u: { kind: string }) => u.kind).toSorted()).toEqual(['attributeRef', 'definition']);
+    await app.close();
+  });
+
+  test('400 — invalid kind query parameter', async () => {
+    const { app } = await buildServer();
+    const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro&kind=bogus` });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
 });
 
 function rename(app: FastifyInstance, body: unknown) {

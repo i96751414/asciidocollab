@@ -15,8 +15,8 @@ interface EditorSymbolRefactorProperties {
   canEdit: boolean;
   /** Pre-fills the target from the symbol at the cursor; blank when opened cold. */
   initial?: { kind: RenameSymbolKind; name: string } | null;
-  // Lists every cross-file usage of a symbol name (FR-065).
-  findUsages: (projectId: string, name: string) => Promise<SymbolUsage[]>;
+  // Lists every cross-file usage of a symbol name, restricted to the kind (FR-065).
+  findUsages: (projectId: string, name: string, kind: RenameSymbolKind) => Promise<SymbolUsage[]>;
   // Renames the symbol across the project (FR-064).
   renameSymbol: (
     projectId: string,
@@ -59,14 +59,14 @@ export function EditorSymbolRefactor({
   const findToken = useRef(0);
 
   const runFind = useCallback(
-    async (target: string) => {
+    async (target: string, targetKind: RenameSymbolKind) => {
       if (target.trim() === '') return;
       findToken.current += 1;
       const token = findToken.current;
       setLoading(true);
       setError(null);
       try {
-        const found = await findUsages(projectId, target.trim());
+        const found = await findUsages(projectId, target.trim(), targetKind);
         if (token !== findToken.current) return;
         setUsages(found);
       } catch (error_) {
@@ -83,13 +83,14 @@ export function EditorSymbolRefactor({
   // Seed from the cursor symbol and auto-list its usages each time the dialog opens.
   useEffect(() => {
     if (!open) return;
-    setKind(initial?.kind ?? 'anchor');
+    const seededKind = initial?.kind ?? 'anchor';
+    setKind(seededKind);
     setName(initial?.name ?? '');
     setNewName(initial?.name ?? '');
     setUsages(null);
     setError(null);
     setResult(null);
-    if (initial?.name) void runFind(initial.name);
+    if (initial?.name) void runFind(initial.name, seededKind);
   }, [open, initial, runFind]);
 
   if (!open) return null;
@@ -127,7 +128,7 @@ export function EditorSymbolRefactor({
           error={error}
           onKindChange={setKind}
           onNameChange={setName}
-          onFind={(target) => void runFind(target)}
+          onFind={(target) => void runFind(target, kind)}
           onNavigate={onNavigate}
           onClose={onClose}
         />
