@@ -103,7 +103,11 @@ jobs:
 
       - name: Collab unit tests with coverage
         working-directory: apps/collab
-        run: npx jest --coverage --coverageReporters=text lcov
+        # The collab suite runs under ESM (ts-jest emits ESM; `jest.unstable_mockModule` + top-level
+        # `await import()` need it), so it requires --experimental-vm-modules — exactly what the
+        # package's own `test` script sets. Without it the ESM specs silently fail to run and drag
+        # coverage under threshold.
+        run: NODE_OPTIONS=--experimental-vm-modules npx jest --coverage --coverageReporters=text lcov
 
       - name: Web unit tests with coverage
         working-directory: apps/web

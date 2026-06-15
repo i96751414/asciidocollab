@@ -12,17 +12,23 @@ cd "$ROOT"
 step "Building packages (generates Prisma client + declaration files) …"
 pnpm -r build
 
-step "Shared unit tests …"
-pnpm --filter @asciidocollab/shared test
+# Run coverage for EVERY package, matching the CI unit job exactly (it enforces the 90% global
+# threshold per package). Running fewer here — or without coverage — lets a per-package coverage
+# regression pass locally and only fail in CI, which is what previously slipped through.
+
+step "Shared unit tests with coverage …"
+(cd packages/shared && npx jest --coverage --coverageReporters=text lcov)
 
 step "Domain unit tests with coverage …"
 (cd packages/domain && npx jest --coverage --coverageReporters=text lcov)
 
-step "API unit tests …"
-pnpm --filter @asciidocollab/api test
+step "API unit tests with coverage …"
+(cd apps/api && npx jest --coverage --coverageReporters=text lcov)
 
-step "Collaboration server unit tests …"
-pnpm --filter @asciidocollab/collab test
+# The collab suite runs under ESM, so it needs --experimental-vm-modules (its own `test` script sets
+# it); pass it here too since we invoke jest directly for coverage.
+step "Collaboration server unit tests with coverage …"
+(cd apps/collab && NODE_OPTIONS=--experimental-vm-modules npx jest --coverage --coverageReporters=text lcov)
 
 step "Web unit tests with coverage …"
 pnpm --filter @asciidocollab/web test:ci
