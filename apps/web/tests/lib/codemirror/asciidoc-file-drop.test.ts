@@ -21,6 +21,21 @@ describe('buildFileMacro', () => {
   it('handles a path with no extension (treated as include)', () => {
     expect(buildFileMacro('Makefile')).toBe('include::Makefile[]');
   });
+
+  it('relativizes the target to the authoring file so a same-folder include omits the folder', () => {
+    expect(buildFileMacro('New Folder/new-document.adoc', 'New Folder/new-document-2.adoc')).toBe(
+      'include::new-document.adoc[]',
+    );
+  });
+
+  it('writes an image target as a project-root-relative path (independent of the authoring file)', () => {
+    expect(buildFileMacro('assets/pic.png', 'chapters/intro.adoc')).toBe('image::assets/pic.png[pic]');
+  });
+
+  it('authors an image target relative to imagesdir when it is defined', () => {
+    const attributes = new Map([['imagesdir', 'assets']]);
+    expect(buildFileMacro('assets/pic.png', 'chapters/intro.adoc', attributes)).toBe('image::pic.png[pic]');
+  });
 });
 
 describe('macroFromDropPayload', () => {
@@ -42,6 +57,12 @@ describe('macroFromDropPayload', () => {
 
   it('returns null when path is not a string', () => {
     expect(macroFromDropPayload(JSON.stringify({ path: 42 }))).toBeNull();
+  });
+
+  it('relativizes the dropped target against the authoring file path', () => {
+    expect(
+      macroFromDropPayload(JSON.stringify({ path: 'New Folder/new-document.adoc' }), 'New Folder/new-document-2.adoc'),
+    ).toBe('include::new-document.adoc[]');
   });
 });
 

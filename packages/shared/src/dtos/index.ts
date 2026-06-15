@@ -37,6 +37,6 @@ export type {
 } from './admin.dto';
 export type { FileTreeEventDto } from './file-tree-event.dto';
 export type { KeyBindingDto } from './key-binding.dto';
-export type { EditorPreferencesDto } from './editor-preferences.dto';
+export type { EditorPreferencesDto, SpellcheckLanguageDto } from './editor-preferences.dto';
 export type { AuditLogDto, AuditLogPageDto } from './audit-log.dto';
 export type { CollabAuthRole, CollabDocumentAuthResponse, CollabPresenceAuthResponse, CollabDocumentInfo } from './collab.dto';

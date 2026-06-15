@@ -1,13 +1,13 @@
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { MimeType } from '../../value-objects/mime-type';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { MimeType } from '../../value-objects/files/mime-type';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AssetRepository } from '../../ports/file-tree/asset.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
-import { ContentNotFoundError } from '../../errors/content-not-found';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
+import { ContentNotFoundError } from '../../errors/content/content-not-found';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 

@@ -1,5 +1,5 @@
 import { PasswordResetToken } from '../../entities/password-reset-token';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 
 /**
  * Repository interface for managing PasswordResetToken persistence.

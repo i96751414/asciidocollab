@@ -1,7 +1,7 @@
 import { Project } from '../../src/entities/project';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { ProjectName } from '../../src/value-objects/project-name';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { ProjectName } from '../../src/value-objects/project/project-name';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
 
 describe('Project entity', () => {
   const projectId = ProjectId.create('550e8400-e29b-41d4-a716-446655440000');
@@ -54,5 +54,24 @@ describe('Project entity', () => {
     expect(project.archivedAt).toBeInstanceOf(Date);
 
     expect(() => project.archive()).toThrow();
+  });
+
+  test('language defaults to null and can be set or cleared via update', () => {
+    const project = new Project(projectId, projectName, null, [], null);
+    expect(project.language).toBeNull();
+
+    project.update({ language: 'pt' });
+    expect(project.language).toBe('pt');
+
+    project.update({ language: null });
+    expect(project.language).toBeNull();
+  });
+
+  test('rejects an unsupported language', () => {
+    const project = new Project(projectId, projectName, null, [], null);
+    expect(() => project.update({ language: 'klingon' as 'en' })).toThrow();
+    expect(
+      () => new Project(projectId, projectName, null, [], null, undefined, null, null, 'klingon' as 'en'),
+    ).toThrow();
   });
 });

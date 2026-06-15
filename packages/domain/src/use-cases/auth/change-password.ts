@@ -1,11 +1,11 @@
 import { User } from '../../entities/user';
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { UserRepository } from '../../ports/user/user.repository';
 import { DomainError } from '../../errors/domain-error';
-import { InvalidPasswordError } from '../../errors/invalid-password';
-import { PasswordReuseError } from '../../errors/password-reuse';
-import { ValidationError } from '../../errors/validation-error';
-import { PasswordPolicy, validatePassword } from '../../value-objects/password-policy';
+import { InvalidPasswordError } from '../../errors/auth/invalid-password';
+import { PasswordReuseError } from '../../errors/auth/password-reuse';
+import { ValidationError } from '../../errors/common/validation-error';
+import { PasswordPolicy, validatePassword } from '../../value-objects/identity/password-policy';
 import { Result } from '../../types/result';
 import { PasswordHasher } from '../../services/password-hasher';
 import { BreachChecker } from '../../services/breach-checker';

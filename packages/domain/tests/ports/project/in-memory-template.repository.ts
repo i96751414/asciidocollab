@@ -1,5 +1,5 @@
 import { Template } from '../../../src/entities/template';
-import { TemplateId } from '../../../src/value-objects/template-id';
+import { TemplateId } from '../../../src/value-objects/ids/template-id';
 import { TemplateRepository } from '../../../src/ports/project/template.repository';
 
 /** In-memory implementation of TemplateRepository for use in tests. */

@@ -3,11 +3,11 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemorySessionRepository } from '../../ports/user/in-memory-session.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { CannotModifySelfAdminError } from '../../../src/errors/cannot-modify-self-admin';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { CannotModifySelfAdminError } from '../../../src/errors/members/cannot-modify-self-admin';
 import { randomUUID } from 'crypto';
 
 function makeUser(isAdmin = false): User {

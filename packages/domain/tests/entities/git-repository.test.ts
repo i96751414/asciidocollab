@@ -1,7 +1,7 @@
 import { GitRepository } from '../../src/entities/git-repository';
-import { GitRepositoryId } from '../../src/value-objects/git-repository-id';
-import { ProjectId } from '../../src/value-objects/project-id';
-import { GitProvider } from '../../src/value-objects/git-provider';
+import { GitRepositoryId } from '../../src/value-objects/ids/git-repository-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
+import { GitProvider } from '../../src/value-objects/project/git-provider';
 
 describe('GitRepository entity', () => {
   const repoId = GitRepositoryId.create('550e8400-e29b-41d4-a716-446655440000');

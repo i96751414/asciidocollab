@@ -1,5 +1,5 @@
 import { EmailVerificationToken } from '../../../src/entities/email-verification-token';
-import { UserId } from '../../../src/value-objects/user-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
 import { EmailVerificationTokenRepository } from '../../../src/ports/auth-tokens/email-verification-token.repository';
 
 export class InMemoryEmailVerificationTokenRepository implements EmailVerificationTokenRepository {

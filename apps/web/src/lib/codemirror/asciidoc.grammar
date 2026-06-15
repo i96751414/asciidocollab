@@ -14,10 +14,14 @@
   blockMacroToken,
   descListToken,
   listingDelim, literalDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
+  csvTableDelim, dsvTableDelim,
   stemAttrToken, admonAttrToken,
+  conditionalToken, blockAttrToken,
   checklistMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
   blockTitleToken,
+  thematicBreakToken, pageBreakToken,
+  hardBreakToken,
   continuationLineToken,
   paragraphLineToken
 }
@@ -38,6 +42,12 @@ block {
   OpenBlock |
   AdmonitionBlock |
   TableBlock |
+  CsvTableBlock |
+  DsvTableBlock |
+  Conditional |
+  BlockAttributeLine |
+  ThematicBreak |
+  PageBreak |
   BlockTitle |
   BlockMacro |
   ChecklistItem |
@@ -62,6 +72,10 @@ AdmonitionParagraph { admonitionLineToken }
 BlockMacro        { blockMacroToken }
 DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
+Conditional       { conditionalToken }
+BlockAttributeLine { blockAttrToken }
+ThematicBreak     { thematicBreakToken }
+PageBreak         { pageBreakToken }
 
 // ── List items ────────────────────────────────────────────────────────────────
 // A list item's / description entry's principal text may wrap onto following non-blank
@@ -90,6 +104,8 @@ StemBlock        { stemAnnotation   passthroughDelim blockBody passthroughDelim 
 AdmonitionBlock  { admonAnnotation  exampleDelim     blockBody exampleDelim }
 
 TableBlock       { tableDelim tableBody tableDelim }
+CsvTableBlock    { csvTableDelim blockBody csvTableDelim }
+DsvTableBlock    { dsvTableDelim blockBody dsvTableDelim }
 
 stemAnnotation  { stemAttrToken }
 admonAnnotation { admonAttrToken }
@@ -111,10 +127,19 @@ Paragraph             { inlineContent nl ParagraphContinuation* }
 ParagraphContinuation { paragraphLineToken }
 inlineContent { inline+ }
 
+// CONSTRAINED-FORMATTING NOTE: like the long-standing Bold/Italic/Monospace marks, the
+// inline constructs below match by SHAPE and do NOT enforce AsciiDoc's "constrained"
+// word-boundary rule (a mark must abut whitespace/punctuation, not be embedded in a word).
+// So `a*b*c`→Bold, `a+b+c`→Passthrough, `Vec<3>`→Callout, `a&b;`→Entity all tokenize even
+// though Asciidoctor would render them literally. This is an intentional, consistent
+// highlighter tradeoff (a full fix needs lookbehind, i.e. an external-tokenizer rewrite of
+// ALL inline marks); accept these prose false-positives rather than fix one mark in isolation.
 inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
   AttributeReference | CrossReference | Footnote | InlineMacro |
-  inlineWord | spaceTok
+  Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
+  UiMacro | InlineStem | Link | SmartQuote | HardBreak |
+  inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback
 }
 
 Bold       { boldDoubleMark   innerContent boldDoubleMark   |
@@ -126,14 +151,41 @@ Highlight  { hashMark         innerContent hashMark }
 Subscript  { tildeMark        innerContent tildeMark }
 Superscript { caretMark       innerContent caretMark }
 
-innerContent { (inlineWord | spaceTok)+ }
+innerContent { (inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback)+ }
 
 AttributeReference { attrRef }
 CrossReference     { xref }
-Footnote           { footnoteToken }
-InlineMacro        { inlineMacroToken }
+// The external tokenizer only fires at line start, so footnotes / inline macros that appear
+// MID-line are recognised by the `@token` alternatives below (FR-026/052). At line start the
+// external token wins (it runs first); mid-line it declines and the `@token` matches — both
+// produce the same node, so highlighting is identical wherever the construct appears.
+Footnote           { footnoteToken | footnoteMark }
+InlineMacro        { inlineMacroToken | inlineMacroMark }
+
+// Inline constructs gated by dedicated higher-priority tokens (T019 / grammar-tokens.md).
+// Each only matches its full shape; an unmatched lone starter char falls through to
+// `punctFallback` / `ltFallback` so ordinary prose (arithmetic, parentheses, `Q&A`,
+// comparisons) still tokenizes without parser errors.
+Passthrough   { passMark }
+InlineAnchor  { anchorMark }
+BiblioAnchor  { biblioMark }
+Replacement   { replacementMark }
+Entity        { entityMark }
+Callout       { calloutMark }
+UiMacro       { uiMacroMark }
+InlineStem    { stemMark }
+Link          { bareUrl }
+SmartQuote    { smartDoubleQuote | smartSingleQuote }
+// Trailing " +" before a line end. Emitted by the external tokenizer (it needs the
+// preceding-space + following-newline lookahead that `@tokens` cannot express).
+HardBreak     { hardBreakToken }
 
 @tokens {
+  // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
+  // order. Precedence only applies when the macro token actually matches its full `name:[…]`
+  // shape; a plain word that merely starts with the same letters still falls to `inlineWord`.
+  @precedence { footnoteMark, stemMark, uiMacroMark, inlineMacroMark, bareUrl, inlineWord }
+
   // Raw body line — any non-empty line inside delimited blocks
   rawBodyLine { ![\n]+ "\n" }
 
@@ -154,8 +206,47 @@ InlineMacro        { inlineMacroToken }
   attrRef { "{" $[a-zA-Z0-9_] $[a-zA-Z0-9_-]* "}" }
   xref    { "<<" ![\n>]* ">>" }
 
+  // Inline constructs (T019). Each is a single token spanning its full shape so a partial
+  // match (e.g. a lone starter char) never leaks a stray sub-token into surrounding prose.
+  // passMark's inner run forbids spaces so spaced arithmetic (`1 + 2`) is not a passthrough.
+  passMark        { "+" ![+ \t\n]+ "+" }
+  biblioMark      { "[[[" ![\]\n]+ "]]]" }
+  anchorMark      { "[[" ![\]\n]+ "]]" }
+  replacementMark { "(C)" | "(R)" | "(TM)" }
+  entityMark      { "&" $[a-zA-Z0-9#]+ ";" }
+  calloutMark     { "<" $[0-9]+ ">" }
+
+  // Inline UI / math macros with an immediate `[` (kbd/btn, stem/latexmath/asciimath).
+  // `inlineWord` stops at the `[`, so these always win by longest match (no precedence) and
+  // never collide with the external inline-macro path (which skips an immediate `[`).
+  uiMacroMark { ("kbd:" | "btn:") "[" ![\]\n]+ "]" }
+  stemMark    { ("stem:" | "latexmath:" | "asciimath:") "[" ![\]\n]* "]" }
+
+  // Bare auto-linked URL. The `://` scheme discriminator makes the `@precedence` over
+  // `inlineWord` safe — a plain word that merely contains a colon never matches.
+  bareUrl { ("https://" | "http://" | "ftp://" | "irc://") ![ \t\n\[\]<>]+ }
+
+  // Generic mid-line inline macro `name:target[args]` (link/mailto/menu/xref/image/…). A SINGLE
+  // colon after the name (the char after it is not `:`/`[`/space) keeps block macros (`name::`)
+  // and the immediate-`[` UI/math macros out; it requires `[args]` so a plain `note:foo` stays text.
+  inlineMacroMark { $[a-zA-Z] $[a-zA-Z0-9-]* ":" ![:\[ \t\n] ![\[\n]* "[" ![\]\n]* "]" }
+  // Mid-line footnote `footnote:[…]`.
+  footnoteMark { "footnote:[" ![\]\n]* "]" }
+
+  // Smart typographic quotes — AsciiDoc curly-quote syntax `"`…`"` / `'`…`'` (a straight
+  // quote immediately wrapping a backtick pair). Self-contained tokens, so they win over the
+  // bare quote/backtick by longest match; a plain `"hello"` or apostrophe never matches.
+  smartDoubleQuote { "\"`" ![`\n]+ "`\"" }
+  smartSingleQuote { "'`" ![`\n]+ "`'" }
+
+  // Lone narrowed-out starter chars that began no construct — kept as plain text so prose
+  // tokenizes without parser errors (`1 + 2`, `f(x)`, `Q&A`, `a < b`, `[note]`, `don't`, `"x"`).
+  punctFallback { $[+\[(&] }
+  ltFallback    { "<" }
+  quoteFallback { $["'] }
+
   // Generic inline word — excludes markup starters, whitespace, newlines
-  inlineWord { ![\n *\t_`#~^{<\\]+ }
+  inlineWord { ![\n *\t_`#~^{<\\+\[(&"']+ }
   spaceTok   { $[ \t]+ }
 
   nl { "\n" }

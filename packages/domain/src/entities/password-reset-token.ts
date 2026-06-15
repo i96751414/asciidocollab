@@ -1,5 +1,5 @@
-import { PasswordResetTokenId } from '../value-objects/password-reset-token-id';
-import { UserId } from '../value-objects/user-id';
+import { PasswordResetTokenId } from '../value-objects/ids/password-reset-token-id';
+import { UserId } from '../value-objects/ids/user-id';
 
 /**
  * Represents a password reset token for a user.

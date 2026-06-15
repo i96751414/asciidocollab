@@ -1,8 +1,8 @@
 import { AuthAttemptTelemetryRepository } from '../../ports/admin/auth-attempt-telemetry.repository';
 import { AuthAttemptEventType } from '../../entities/auth-attempt-telemetry';
-import { Email } from '../../value-objects/email';
+import { Email } from '../../value-objects/identity/email';
 import { RequestContext } from '../../types/request-context';
-import { ValidationError } from '../../errors/validation-error';
+import { ValidationError } from '../../errors/common/validation-error';
 
 /** Sentinel stored when a request origin IP is unavailable (keeps the coalescing key total). */
 export const UNKNOWN_IP = 'unknown';

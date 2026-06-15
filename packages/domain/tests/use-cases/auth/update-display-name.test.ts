@@ -1,9 +1,9 @@
 // T022: Failing domain unit tests for UpdateDisplayNameUseCase
 import { UpdateDisplayNameUseCase } from '../../../src/use-cases/auth/update-display-name';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { UserRepository } from '../../../src/ports/user/user.repository';
 
 function createTestUser(displayName = 'Original Name'): User {

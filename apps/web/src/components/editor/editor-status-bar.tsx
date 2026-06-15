@@ -20,15 +20,33 @@ interface EditorStatusBarProperties {
   totalLines: number;
   saveState: EditorSaveState;
   onRetry: () => void;
+  /** Live word count (US11/FR-044); omitted ⇒ not shown. */
+  wordCount?: number;
+  /** Estimated reading time in minutes (US11/FR-044); omitted ⇒ not shown. */
+  readingTimeMin?: number;
 }
 
-/** Compact status bar showing cursor position and document save state. */
-export function EditorStatusBar({ line, col, totalLines, saveState, onRetry }: EditorStatusBarProperties) {
+/** Compact status bar showing cursor position, document metrics, and save state. */
+export function EditorStatusBar({
+  line, col, totalLines, saveState, onRetry, wordCount, readingTimeMin,
+}: EditorStatusBarProperties) {
   return (
     <div className="flex items-center gap-3 px-3 py-1 text-xs text-muted-foreground border-t bg-background select-none">
       <span>Ln {line}, Col {col}</span>
       <span className="text-muted-foreground/50">|</span>
       <span>{totalLines} lines</span>
+      {wordCount !== undefined && (
+        <>
+          <span className="text-muted-foreground/50">|</span>
+          <span data-testid="editor-word-count">{wordCount} words</span>
+        </>
+      )}
+      {readingTimeMin !== undefined && (
+        <>
+          <span className="text-muted-foreground/50">|</span>
+          <span data-testid="editor-reading-time">{readingTimeMin} min read</span>
+        </>
+      )}
       <span className="flex-1" />
       <span className={STATE_CLASSES[saveState]}>
         {STATE_LABELS[saveState]}

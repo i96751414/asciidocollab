@@ -3,17 +3,17 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryPasswordResetTokenRepository } from '../../ports/auth-tokens/in-memory-password-reset-token.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { PasswordResetToken } from '../../../src/entities/password-reset-token';
-import { PasswordResetTokenId } from '../../../src/value-objects/password-reset-token-id';
+import { PasswordResetTokenId } from '../../../src/value-objects/ids/password-reset-token-id';
 import { PasswordHasher } from '../../../src/services/password-hasher';
-import { PasswordPolicy } from '../../../src/value-objects/password-policy';
+import { PasswordPolicy } from '../../../src/value-objects/identity/password-policy';
 import type { TokenGenerator } from '../../../src/services/token-generator';
-import { InvalidTokenError } from '../../../src/errors/invalid-token';
-import { ValidationError } from '../../../src/errors/validation-error';
-import { PasswordReuseError } from '../../../src/errors/password-reuse';
+import { InvalidTokenError } from '../../../src/errors/auth/invalid-token';
+import { ValidationError } from '../../../src/errors/common/validation-error';
+import { PasswordReuseError } from '../../../src/errors/auth/password-reuse';
 import { randomUUID } from 'crypto';
 
 const VALID_PASSWORD = 'NewP@ssw0rd123!';

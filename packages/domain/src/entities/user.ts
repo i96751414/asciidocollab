@@ -1,6 +1,6 @@
-import { UserId } from '../value-objects/user-id';
-import { Email } from '../value-objects/email';
-import { Timestamps } from '../value-objects/timestamps';
+import { UserId } from '../value-objects/ids/user-id';
+import { Email } from '../value-objects/identity/email';
+import { Timestamps } from '../value-objects/common/timestamps';
 import type { RegistrationMethod } from '../types/registration-method';
 
 /**

@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module';
+import * as Y from 'yjs';
 import { PersistenceExtension } from '../../src/extensions/persistence';
 import type {
   YjsStateStore,
@@ -19,20 +19,6 @@ import {
   FileNodeType,
   Timestamps,
 } from '@asciidocollab/domain';
-
-const Y = createRequire(__filename)('yjs') as {
-  Doc: new () => YDocument;
-  applyUpdate(document: YDocument, update: Uint8Array): void;
-  encodeStateAsUpdate(document: YDocument): Uint8Array;
-};
-
-interface YText {
-  insert(index: number, content: string): void;
-  toString(): string;
-}
-interface YDocument {
-  getText(name: string): YText;
-}
 
 function makeDocument() {
   return new Y.Doc();

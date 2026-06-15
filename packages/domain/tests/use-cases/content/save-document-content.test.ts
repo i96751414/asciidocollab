@@ -5,24 +5,24 @@ import { InMemoryDocumentRepository } from '../../ports/file-tree/in-memory-docu
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
-import { ActiveCollaborationSessionError } from '../../../src/errors/active-collaboration-session';
+import { ActiveCollaborationSessionError } from '../../../src/errors/content/active-collaboration-session';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
 import { Document } from '../../../src/entities/document';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { DocumentId } from '../../../src/value-objects/document-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { MimeType } from '../../../src/value-objects/mime-type';
-import { ContentId } from '../../../src/value-objects/content-id';
-import { YjsStateId } from '../../../src/value-objects/yjs-state-id';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { DocumentId } from '../../../src/value-objects/ids/document-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { MimeType } from '../../../src/value-objects/files/mime-type';
+import { ContentId } from '../../../src/value-objects/ids/content-id';
+import { YjsStateId } from '../../../src/value-objects/ids/yjs-state-id';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../../src/errors/file-tree/file-node-not-found';
 
 describe('SaveDocumentContentUseCase', () => {
   let projectRepo: InMemoryProjectRepository;

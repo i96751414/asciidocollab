@@ -65,7 +65,13 @@ function makeBlock(options: {
   return block as ReturnType<typeof jest.fn> & typeof block;
 }
 
-function sendMessage(data: { requestId: number; content: string; imagesDir?: string }) {
+function sendMessage(data: {
+  requestId: number;
+  content: string;
+  imagesDir?: string;
+  mainPath?: string;
+  files?: Record<string, string>;
+}) {
   if (onMessageHandler) {
     onMessageHandler({ data } as MessageEvent);
   } else {
@@ -180,8 +186,8 @@ describe('asciidoc-render.worker', () => {
     expect(html).not.toContain('&#10063;');
   });
 
-  // (e) include:: directives are not resolved (safe mode) — literal text in output
-  it('includes include:: directive as literal text in safe mode', () => {
+  // (e) include:: directives are not resolved when no files/mainPath are supplied (open-file render)
+  it('includes include:: directive as literal text when no assembly inputs are given', () => {
     const htmlWithInclude = '<p>include::some-file.adoc[]</p>';
     mockConvert.mockReturnValueOnce(htmlWithInclude);
     mockFindBy.mockReturnValueOnce([]); // no blocks with source lines
@@ -191,6 +197,38 @@ describe('asciidoc-render.worker', () => {
     const result = postMessageMock.mock.calls[0][0];
     expect(result.ok).toBe(true);
     expect(result.html).toBe(htmlWithInclude);
+    // The open-file path renders `content` verbatim — no assembly.
+    expect(mockLoad.mock.calls[0][0]).toBe('include::some-file.adoc[]');
+  });
+
+  // (e1) when files + mainPath are supplied, includes are assembled (sandbox-confined) before render
+  it('assembles in-sandbox includes from the main file before rendering (FR-068)', () => {
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({
+      requestId: 60,
+      content: 'unused when assembling',
+      mainPath: 'main.adoc',
+      files: { 'main.adoc': '= Book\n\ninclude::ch.adoc[]\n', 'ch.adoc': '== Chapter\n' },
+    });
+    const rendered = mockLoad.mock.calls[0][0] as string;
+    expect(rendered).toContain('== Chapter');
+    expect(rendered).not.toContain('include::');
+  });
+
+  // (e1b) a traversal target is never read; Asciidoctor receives an "Unresolved directive" marker
+  it('rejects an out-of-sandbox include target during assembly (Constitution IX)', () => {
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({
+      requestId: 61,
+      content: '',
+      mainPath: 'main.adoc',
+      files: { 'main.adoc': 'include::../secret.adoc[]\n', '../secret.adoc': 'TOP SECRET' },
+    });
+    const rendered = mockLoad.mock.calls[0][0] as string;
+    expect(rendered).toContain('Unresolved directive');
+    expect(rendered).not.toContain('TOP SECRET');
   });
 
   // (f) blocks without an existing ID get a synthetic __src_<context>_<line> ID

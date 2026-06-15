@@ -106,6 +106,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
           owners,
           tags: [...project.tags],
           rootFolderId: project.rootFolderId?.value ?? null,
+          mainFileNodeId: project.mainFileNodeId?.value ?? null,
+          language: project.language,
           archivedAt: project.archivedAt?.toISOString() ?? null,
           memberCount,
           fileCount,
@@ -168,6 +170,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         owners,
         tags: [...project.tags],
         rootFolderId: project.rootFolderId?.value ?? null,
+        mainFileNodeId: project.mainFileNodeId?.value ?? null,
+        language: project.language,
         archivedAt: project.archivedAt?.toISOString() ?? null,
         role: userMembership.role.value,
         createdAt: project.createdAt.toISOString(),
@@ -227,6 +231,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         description: description || null,
         tags: tags || [],
         rootFolderId: result.value.rootFolderId.value,
+        language: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -236,7 +241,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   /**
    * PATCH /api/projects/:id - Update a project.
    */
-  app.patch<{ Params: { id: string }; Body: { name?: string; description?: string; tags?: string[] } }>("/api/projects/:id", {
+  app.patch<{ Params: { id: string }; Body: { name?: string; description?: string; tags?: string[]; language?: string | null } }>("/api/projects/:id", {
     schema: {
       params: {
         type: "object",
@@ -253,12 +258,16 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
             items: { type: "string", maxLength: 50 },
             maxItems: 10,
           },
+          language: {
+            type: ["string", "null"],
+            enum: ["en", "es", "fr", "pt", "de", "it", "uk", "pl", "tr", null],
+          },
         },
       },
     },
   }, async (request, reply) => {
     const { id } = request.params;
-    const { name, description, tags } = request.body;
+    const { name, description, tags, language } = request.body;
 
     const userId = getAuthenticatedUserId(request);
 
@@ -276,6 +285,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         name,
         description: description === undefined ? undefined : description,
         tags,
+        language,
       },
       requestContextFrom(request),
     );
@@ -293,6 +303,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         name: result.value.name.value,
         description: result.value.description,
         tags: [...result.value.tags],
+        language: result.value.language,
         updatedAt: result.value.updatedAt.toISOString(),
       },
     });

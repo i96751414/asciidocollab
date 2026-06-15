@@ -1,8 +1,8 @@
 import { SaveEditorPreferencesUseCase } from '../../../src/use-cases/settings/save-editor-preferences';
 import { GetEditorPreferencesUseCase } from '../../../src/use-cases/settings/get-editor-preferences';
 import { InMemoryEditorPreferencesRepository } from '../../ports/user/in-memory-editor-preferences.repository';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 
 const userId = UserId.create('550e8400-e29b-41d4-a716-446655440000');
 
@@ -126,5 +126,31 @@ describe('SaveEditorPreferencesUseCase', () => {
     const result = await useCase.execute(userId, { fontSize: 14, theme: 'default', previewStyle: 'neon' });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
+  test('persists the spellcheck enabled flag', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckEnabled: false });
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.spellcheckEnabled).toBe(false);
+    }
+  });
+
+  test('an omitted spellcheck enabled flag preserves the previously saved value', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', spellcheckEnabled: false });
+    await saveUseCase.execute(userId, { fontSize: 16, theme: 'default' });
+
+    const getResult = await getUseCase.execute(userId);
+    if (getResult.success) expect(getResult.value.spellcheckEnabled).toBe(false);
   });
 });

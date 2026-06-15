@@ -9,18 +9,11 @@ import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
+// Re-exported for back-compat: the AsciiDoc file-name rule now lives in lib/asciidoc/file-name
+// (single presentation copy of the domain rule), but existing callers import it from here.
+export { isAsciiDocumentFile as isAsciiDocFile } from '@/lib/asciidoc/file-name';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-const ASCIIDOC_EXTENSIONS = new Set(['.adoc', '.asciidoc', '.asc']);
-
-/** Returns true if the file name has an AsciiDoc extension (.adoc, .asciidoc, .asc). */
-export function isAsciiDocFile(nodeName: string): boolean {
-  const dotIndex = nodeName.lastIndexOf('.');
-  if (dotIndex <= 0) return false;
-  const extension = nodeName.slice(dotIndex).toLowerCase();
-  return ASCIIDOC_EXTENSIONS.has(extension);
-}
 
 function SyncIndicator({ state, isEnabled }: { state: PreviewState; isEnabled: boolean }) {
   if (!isEnabled || state === 'idle') {
@@ -44,6 +37,10 @@ interface AsciiDocPreviewProperties {
   isEnabled: boolean;
   /** Project id, used to resolve the base path for image macros in the preview. */
   projectId: string;
+  /** When set with {@link getFiles}, render the assembled main document with includes inlined (FR-068). */
+  mainPath?: string;
+  /** Returns the path→content snapshot for include assembly; read lazily at render time. */
+  getFiles?: () => Record<string, string>;
   scrollToLine?: ScrollRequest | null;
   /** When provided, a collapse button is rendered in the header. */
   onCollapse?: () => void;
@@ -66,6 +63,8 @@ export function AsciiDocPreview({
   content,
   isEnabled,
   projectId,
+  mainPath,
+  getFiles,
   scrollToLine = null,
   onCollapse,
   scrollSyncEnabled = false,
@@ -76,7 +75,7 @@ export function AsciiDocPreview({
   // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
   // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
   const imagesDirectory = `${API_BASE}/projects/${projectId}/images`;
-  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory });
+  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory, mainPath, getFiles });
 
   return (
     <div className="flex flex-col h-full">

@@ -27,6 +27,7 @@ jest.mock('@codemirror/view', () => {
         (sink['__cmDomHandlers'] ??= []).push(handlers);
         return {};
       };
+      static inputHandler = { of: (function_: unknown) => ({ function_ }) };
 
       constructor({ state, parent }: {
         state: { doc: { toString: () => string }; readOnly?: boolean; _extensions?: unknown[] };
@@ -116,8 +117,15 @@ jest.mock('@codemirror/view', () => {
     foldGutter:            () => ({}),
     crosshairCursor:       () => ({}),
     highlightActiveLineGutter: () => ({}),
+    ViewPlugin:            { fromClass: () => ({}), define: () => ({}) },
+    Decoration:            { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
+    WidgetType:            class {},
   };
 });
+
+jest.mock('@codemirror/language-data', () => ({ languages: [] }));
+
+jest.mock('@codemirror/lint', () => ({ linter: () => ({}), lintGutter: () => ({}) }));
 
 jest.mock('@codemirror/state', () => {
   return {
@@ -139,6 +147,9 @@ jest.mock('@codemirror/state', () => {
     },
     StateField: {
       define: () => ({ field: true }),
+    },
+    Facet: {
+      define: () => ({ of: (value: unknown) => ({ facet: value }) }),
     },
     StateEffect: {
       appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) },
@@ -194,8 +205,14 @@ jest.mock('@codemirror/autocomplete', () => ({
 jest.mock('@/lib/codemirror/asciidoc-completions', () => {
   const noopSource = jest.fn();
   return {
+    createAttributeCompletionSource: jest.fn(() => noopSource),
+    createXrefCompletionSource: jest.fn(() => noopSource),
     attributeCompletionSource: noopSource,
     xrefCompletionSource: noopSource,
+    sourceLanguageCompletionSource: noopSource,
+    tableSnippetCompletionSource: noopSource,
+    tableCellCompletionSource: noopSource,
+    captionCompletionSource: noopSource,
     createIncludeCompletionSource: jest.fn(() => noopSource),
     createImageCompletionSource: jest.fn(() => noopSource),
   };

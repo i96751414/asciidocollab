@@ -16,6 +16,7 @@ const putBodySchema = {
     scrollSyncEnabled: { type: 'boolean' },
     softWrap: { type: 'boolean' },
     previewStyle: { type: 'string', enum: ['asciidocollab', 'asciidoctor'] },
+    spellcheckEnabled: { type: 'boolean' },
   },
   additionalProperties: false,
 };
@@ -40,12 +41,13 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         scrollSyncEnabled: result.value.scrollSyncEnabled,
         softWrap: result.value.softWrap,
         previewStyle: result.value.previewStyle.value,
+        spellcheckEnabled: result.value.spellcheckEnabled,
       };
       return reply.status(200).send(dto);
     }
   );
 
-  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string } }>(
+  app.put<{ Body: { fontSize: number; theme: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellcheckEnabled?: boolean } }>(
     '/auth/me/editor-preferences',
     {
       preHandler: requireAuth,
@@ -60,6 +62,7 @@ export async function editorPreferencesRoutes(app: FastifyInstance): Promise<voi
         scrollSyncEnabled: request.body.scrollSyncEnabled,
         softWrap: request.body.softWrap,
         previewStyle: request.body.previewStyle,
+        spellcheckEnabled: request.body.spellcheckEnabled,
       });
 
       if (!result.success) {

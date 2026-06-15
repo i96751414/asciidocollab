@@ -242,6 +242,7 @@ describe('AsciiDocPreview', () => {
       ['doc.adoc', true],
       ['doc.asciidoc', true],
       ['doc.asc', true],
+      ['doc.ad', true],
       ['DOC.ADOC', true],
       ['doc.txt', false],
       ['doc.json', false],

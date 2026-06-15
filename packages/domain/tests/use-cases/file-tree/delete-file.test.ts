@@ -1,5 +1,5 @@
 import { DeleteFileUseCase } from '../../../src/use-cases/file-tree/delete-file';
-import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
+import { FileNodeNotFoundError } from '../../../src/errors/file-tree/file-node-not-found';
 import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
@@ -12,17 +12,17 @@ import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
 import { Document } from '../../../src/entities/document';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { DocumentId } from '../../../src/value-objects/document-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { MimeType } from '../../../src/value-objects/mime-type';
-import { ContentId } from '../../../src/value-objects/content-id';
-import { YjsStateId } from '../../../src/value-objects/yjs-state-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { DocumentId } from '../../../src/value-objects/ids/document-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { MimeType } from '../../../src/value-objects/files/mime-type';
+import { ContentId } from '../../../src/value-objects/ids/content-id';
+import { YjsStateId } from '../../../src/value-objects/ids/yjs-state-id';
 
 describe('DeleteFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -602,5 +602,62 @@ describe('DeleteFileUseCase — active-session guard', () => {
 
     const result = await useCase.execute(actorG, fileIdG, projectG);
     expect(result.success).toBe(true);
+  });
+});
+
+describe('DeleteFileUseCase — US12 main-file consistency (FR-070)', () => {
+  const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
+  const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
+  const mainId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
+  const otherId = FileNodeId.create('bb0e8400-e29b-41d4-a716-446655440008');
+
+  let memberRepo: InMemoryProjectMemberRepository;
+  let fileNodeRepo: InMemoryFileNodeRepository;
+  let documentRepo: InMemoryDocumentRepository;
+  let auditLogRepo: InMemoryAuditLogRepository;
+  let projectRepo: InMemoryProjectRepository;
+  let projectEntity: Project;
+
+  function buildUseCase(): DeleteFileUseCase {
+    return new DeleteFileUseCase(memberRepo, fileNodeRepo, documentRepo, auditLogRepo, undefined, undefined, undefined, projectRepo);
+  }
+
+  beforeEach(async () => {
+    memberRepo = new InMemoryProjectMemberRepository();
+    fileNodeRepo = new InMemoryFileNodeRepository();
+    documentRepo = new InMemoryDocumentRepository();
+    auditLogRepo = new InMemoryAuditLogRepository();
+    projectRepo = new InMemoryProjectRepository();
+
+    projectEntity = new Project(project, ProjectName.create('Book'), null, [], rootId);
+    await projectRepo.save(projectEntity);
+
+    await fileNodeRepo.save(new FileNode(rootId, project, null, 'Root', FileNodeType.create('folder'), FilePath.create('/')));
+    await fileNodeRepo.save(new FileNode(mainId, project, rootId, 'main.adoc', FileNodeType.create('file'), FilePath.create('/main.adoc')));
+    await fileNodeRepo.save(new FileNode(otherId, project, rootId, 'other.adoc', FileNodeType.create('file'), FilePath.create('/other.adoc')));
+    await memberRepo.addMember(new ProjectMember(project, actor, Role.create('editor')));
+  });
+
+  it('clears the main-file configuration when the configured main file is deleted', async () => {
+    projectEntity.setMainFile(mainId);
+    await projectRepo.save(projectEntity);
+
+    const result = await buildUseCase().execute(actor, mainId, project);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileCleared).toBe(true);
+    const reloaded = await projectRepo.findById(project);
+    expect(reloaded!.mainFileNodeId).toBeNull();
+  });
+
+  it('leaves the main-file configuration intact when a different file is deleted', async () => {
+    projectEntity.setMainFile(mainId);
+    await projectRepo.save(projectEntity);
+
+    const result = await buildUseCase().execute(actor, otherId, project);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileCleared).toBe(false);
+    const reloaded = await projectRepo.findById(project);
+    expect(reloaded!.mainFileNodeId!.value).toBe(mainId.value);
   });
 });

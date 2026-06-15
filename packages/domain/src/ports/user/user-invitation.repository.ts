@@ -1,5 +1,5 @@
 import { UserInvitation } from '../../entities/user-invitation';
-import { Email } from '../../value-objects/email';
+import { Email } from '../../value-objects/identity/email';
 
 /** Repository interface for persisting and retrieving user invitations. */
 export interface UserInvitationRepository {

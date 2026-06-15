@@ -7,16 +7,16 @@ import { InMemoryProjectRepository } from '../../ports/project/in-memory-project
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
-import { FileConflictError } from '../../../src/errors/file-conflict';
-import { CannotDeleteRootFolderError } from '../../../src/errors/cannot-delete-root-folder';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { FileNodeNotFoundError } from '../../../src/errors/file-tree/file-node-not-found';
+import { FileConflictError } from '../../../src/errors/file-tree/file-conflict';
+import { CannotDeleteRootFolderError } from '../../../src/errors/file-tree/cannot-delete-root-folder';
 
 describe('MoveFileUseCase', () => {
   let projectRepo: InMemoryProjectRepository;
@@ -197,5 +197,84 @@ describe('MoveFileUseCase', () => {
     const result = await resilientUseCase.execute(actorId, projectId, fileNodeId, subFolderId);
     expect(result.success).toBe(true);
     expect(logger.warn).toHaveBeenCalled();
+  });
+});
+
+describe('MoveFileUseCase — US12 reference rewrite + main-file consistency', () => {
+  const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
+  const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
+  const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
+  const sharedDirectoryId = FileNodeId.create('880e8400-e29b-41d4-a716-44665544000a');
+  const chaptersDirectoryId = FileNodeId.create('990e8400-e29b-41d4-a716-446655440005');
+  const bookId = FileNodeId.create('aa0e8400-e29b-41d4-a716-446655440006');
+  const introId = FileNodeId.create('bb0e8400-e29b-41d4-a716-446655440007');
+
+  const BOOK = '= Book\n\ninclude::chapters/intro.adoc[]\n\nSee xref:chapters/intro.adoc#start[Intro].\n';
+
+  let memberRepo: InMemoryProjectMemberRepository;
+  let fileNodeRepo: InMemoryFileNodeRepository;
+  let fileStore: InMemoryProjectFileStore;
+  let auditLogRepo: InMemoryAuditLogRepository;
+  let projectRepo: InMemoryProjectRepository;
+  let projectEntity: Project;
+
+  function buildUseCase(): MoveFileUseCase {
+    return new MoveFileUseCase(memberRepo, fileNodeRepo, fileStore, auditLogRepo);
+  }
+
+  beforeEach(async () => {
+    memberRepo = new InMemoryProjectMemberRepository();
+    fileNodeRepo = new InMemoryFileNodeRepository();
+    fileStore = new InMemoryProjectFileStore();
+    auditLogRepo = new InMemoryAuditLogRepository();
+    projectRepo = new InMemoryProjectRepository();
+
+    projectEntity = new Project(project, ProjectName.create('Book'), null, [], rootId);
+    await projectRepo.save(projectEntity);
+
+    await fileNodeRepo.save(new FileNode(rootId, project, null, 'Root', FileNodeType.create('folder'), FilePath.create('/')));
+    await fileNodeRepo.save(new FileNode(chaptersDirectoryId, project, rootId, 'chapters', FileNodeType.create('folder'), FilePath.create('/chapters')));
+    await fileNodeRepo.save(new FileNode(sharedDirectoryId, project, rootId, 'shared', FileNodeType.create('folder'), FilePath.create('/shared')));
+    await fileNodeRepo.save(new FileNode(bookId, project, rootId, 'book.adoc', FileNodeType.create('file'), FilePath.create('/book.adoc')));
+    await fileNodeRepo.save(new FileNode(introId, project, chaptersDirectoryId, 'intro.adoc', FileNodeType.create('file'), FilePath.create('/chapters/intro.adoc')));
+    await fileStore.write(project, FilePath.create('/book.adoc'), Buffer.from(BOOK));
+    await fileStore.write(project, FilePath.create('/chapters/intro.adoc'), Buffer.from('[[start]]\n= Intro\n'));
+    await fileStore.createDirectory(project, FilePath.create('/shared'));
+    await memberRepo.addMember(new ProjectMember(project, actor, Role.create('editor')));
+  });
+
+  it('rewrites include:: and xref: paths in other files when a referenced file moves', async () => {
+    const useCase = await buildUseCase();
+    const result = await useCase.execute(actor, project, introId, sharedDirectoryId);
+    expect(result.success).toBe(true);
+
+    const book = (await fileStore.read(project, FilePath.create('/book.adoc')))!.toString('utf8');
+    expect(book).toContain('include::shared/intro.adoc[]');
+    expect(book).toContain('xref:shared/intro.adoc#start[Intro]');
+    expect(book).not.toContain('chapters/intro.adoc');
+  });
+
+  it('keeps the project main-file configuration pointing at the moved file (FR-070)', async () => {
+    projectEntity.setMainFile(introId);
+    await projectRepo.save(projectEntity);
+
+    const useCase = await buildUseCase();
+    const result = await useCase.execute(actor, project, introId, sharedDirectoryId);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.mainFileCleared).toBe(false);
+
+    const reloaded = await projectRepo.findById(project);
+    expect(reloaded!.mainFileNodeId!.value).toBe(introId.value);
+  });
+
+  it('rewrites references with the default constructor (no separate opt-in)', async () => {
+    // The structural rules are domain-owned and always available, so a plain
+    // MoveFileUseCase (no extra dependencies) rewrites references too.
+    const plain = new MoveFileUseCase(memberRepo, fileNodeRepo, fileStore, auditLogRepo);
+    const result = await plain.execute(actor, project, introId, sharedDirectoryId);
+    expect(result.success).toBe(true);
+    const book = (await fileStore.read(project, FilePath.create('/book.adoc')))!.toString('utf8');
+    expect(book).toContain('include::shared/intro.adoc[]');
+    expect(book).not.toContain('chapters/intro.adoc');
   });
 });

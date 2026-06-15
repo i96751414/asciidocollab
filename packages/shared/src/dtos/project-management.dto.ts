@@ -24,6 +24,8 @@ export interface UpdateProjectDto {
   description?: string | null;
   /** New project tags. */
   tags?: string[];
+  /** New document/spellcheck language (ISO 639-1), or null to clear it. */
+  language?: string | null;
 }
 
 /**
@@ -62,6 +64,10 @@ export interface ProjectDto {
   tags: string[];
   /** Root folder identifier. */
   rootFolderId: string | null;
+  /** Configured main AsciiDoc file node id (FR-045); null ⇒ current-file-only resolution. */
+  mainFileNodeId: string | null;
+  /** Document/spellcheck language (ISO 639-1); null ⇒ editor uses its default. */
+  language: string | null;
   /** Archive timestamp, null if not archived. */
   archivedAt: string | null;
   /** Number of project members. */

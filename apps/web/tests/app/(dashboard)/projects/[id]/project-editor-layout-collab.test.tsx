@@ -86,6 +86,7 @@ const defaultProps = {
   projectId: 'p1',
   projectName: 'Proj',
   projectDescription: null,
+  mainFileNodeId: null,
   canManage: false,
   canEdit: true,
   userId: 'u-test',
@@ -149,5 +150,23 @@ describe('ProjectEditorLayout — mid-session role demotion (T046)', () => {
       expect(screen.getByTestId('editor')).toHaveAttribute('data-collab-role', 'observer');
     });
     expect(mockGetCollabInfo).toHaveBeenCalledWith('p1', 'n1');
+  });
+
+  test('a failed role re-check on reconnect keeps the current role (server still rejects observer writes)', async () => {
+    mockConnectionState = 'synced';
+    mockCollabRole = 'editor';
+    mockGetCollabInfo.mockRejectedValue(new Error('network'));
+
+    const { rerender } = render(<ProjectEditorLayout {...defaultProps} />);
+    expect(screen.getByTestId('editor')).toHaveAttribute('data-collab-role', 'editor');
+
+    mockConnectionState = 'reconnecting';
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+    mockConnectionState = 'synced';
+    rerender(<ProjectEditorLayout {...defaultProps} />);
+
+    await waitFor(() => expect(mockGetCollabInfo).toHaveBeenCalledWith('p1', 'n1'));
+    // The re-check rejected, so the role is unchanged (the editor stays editable).
+    expect(screen.getByTestId('editor')).toHaveAttribute('data-collab-role', 'editor');
   });
 });

@@ -1,5 +1,5 @@
 import { EmailChangeToken } from '../../../src/entities/email-change-token';
-import { UserId } from '../../../src/value-objects/user-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
 import { EmailChangeTokenRepository } from '../../../src/ports/auth-tokens/email-change-token.repository';
 
 /** In-memory implementation of EmailChangeTokenRepository for use in unit tests. */

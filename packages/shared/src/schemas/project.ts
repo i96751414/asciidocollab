@@ -1,6 +1,18 @@
 import { z } from "zod";
 
 /**
+ * Selectable document/spellcheck language codes (ISO 639-1) — the dictionary-backed
+ * set, mirroring the domain's `SPELLCHECK_LANGUAGES`. The language is a project-level
+ * setting that drives the editor's spellchecker.
+ */
+export const PROJECT_LANGUAGES = [
+  "en", "es", "fr", "pt", "de", "it", "uk", "pl", "tr",
+] as const;
+
+/** Zod schema for an optional, nullable project language. */
+export const projectLanguageSchema = z.enum(PROJECT_LANGUAGES).nullable().optional();
+
+/**
  * Schema for validating project creation requests.
  */
 export const createProjectSchema = z.object({
@@ -18,6 +30,7 @@ export const createProjectSchema = z.object({
     .max(10, "Maximum 10 tags allowed")
     .optional()
     .default([]),
+  language: projectLanguageSchema,
 });
 
 /**
@@ -38,6 +51,7 @@ export const updateProjectSchema = z.object({
     .array(z.string().max(50, "Tag must be 50 characters or less"))
     .max(10, "Maximum 10 tags allowed")
     .optional(),
+  language: projectLanguageSchema,
 });
 
 /**

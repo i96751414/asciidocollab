@@ -7,12 +7,16 @@ import { LRLanguage, LanguageSupport } from '@codemirror/language';
 import {
   attributeCompletionSource,
   xrefCompletionSource,
+  createXrefCompletionSource,
+  createAttributeCompletionSource,
   createIncludeCompletionSource,
   tableSnippetCompletionSource,
   tableCellCompletionSource,
   captionCompletionSource,
   createImageCompletionSource,
+  sourceLanguageCompletionSource,
 } from '@/lib/codemirror/asciidoc-completions';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
 const grammarPath = path.resolve(__dirname, '../../../src/lib/codemirror/asciidoc.grammar');
@@ -117,6 +121,18 @@ describe('AsciiDoc Completion Sources', () => {
       const documentContent = 'include::';
       const result = await getCompletions(source, documentContent, documentContent.length);
       expect(result?.options.length).toBe(0);
+    });
+
+    test('offers paths relative to the authoring file so the inserted target resolves', async () => {
+      const source = createIncludeCompletionSource(
+        ['New Folder/new-document.adoc', 'a-new-document.adoc'],
+        () => 'New Folder/new-document-2.adoc',
+      );
+      const documentContent = 'include::';
+      const result = await getCompletions(source, documentContent, documentContent.length);
+      const labels = result?.options.map((option) => option.label);
+      expect(labels).toContain('new-document.adoc'); // same folder → no prefix
+      expect(labels).toContain('../a-new-document.adoc'); // project root → climb out
     });
 
     // Issue 10: xrefCompletionSource must serialise the document only once per
@@ -313,6 +329,18 @@ describe('AsciiDoc Completion Sources', () => {
       expect(result?.options.some((o) => o.label.includes('intro.adoc'))).toBe(false);
     });
 
+    test('offers image paths relative to imagesdir (project-root based)', async () => {
+      const source = createImageCompletionSource(
+        ['assets/logo.png', 'assets/sub/icon.png'],
+        () => new Map([['imagesdir', 'assets']]),
+      );
+      const document = 'image::';
+      const result = await getCompletions(source, document, document.length);
+      const labels = result?.options.map((o) => o.label);
+      expect(labels).toContain('logo.png'); // assets/logo.png relative to imagesdir "assets"
+      expect(labels).toContain('sub/icon.png');
+    });
+
     test('triggers after image: (single colon) and returns image files', async () => {
       const paths = ['images/photo.jpg', 'docs/readme.adoc'];
       const source = createImageCompletionSource(paths);
@@ -493,12 +521,62 @@ describe('AsciiDoc Completion Sources', () => {
   });
 });
 
+  describe('sourceLanguageCompletionSource (US8/FR-031)', () => {
+    test('triggers inside [source, and returns matching language tokens', async () => {
+      const document = '[source,ja';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.some((o) => o.label === 'java' || o.label === 'javascript')).toBe(true);
+    });
+
+    test('lists every language when the prefix is empty', async () => {
+      const document = '[source,';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect((result?.options.length ?? 0)).toBeGreaterThan(0);
+    });
+
+    test('tolerates whitespace after the comma and lower-cases the prefix', async () => {
+      const document = '[source, JA';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).not.toBeNull();
+      expect(result?.options.every((o) => o.label.startsWith('ja'))).toBe(true);
+    });
+
+    test('returns no options for a prefix that matches no language', async () => {
+      const document = '[source,zzzznotalang';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result?.options.length ?? 0).toBe(0);
+    });
+
+    test('does not trigger outside a [source, context', async () => {
+      const document = 'just prose';
+      const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
+      expect(result).toBeNull();
+    });
+  });
+
 describe('completion source guard and tree-path branches', () => {
   test('xref returns [#id] style anchors (second capture group)', async () => {
     const documentContent = '[#my-id]\nSome text\n\nSee <<';
     const result = await getCompletions(xrefCompletionSource, documentContent, documentContent.length);
     expect(result).not.toBeNull();
     expect(result?.options.some((o) => o.label === 'my-id')).toBe(true);
+  });
+
+  test('xref anchor capture mirrors the index grammar: no junk ids from role/option shorthand', async () => {
+    // `[#multi,role1,role2]` / `[#withopt%opt]` carry roles/options after the id with separators
+    // (`,`, `%`) that are not valid id chars. The symbol index's anchor grammar (`[A-Za-z][\w:.-]*`
+    // with a closing `]` right after) does not recognize these forms, so completion must not offer
+    // the raw bracket contents as an id — that would suggest an xref the index can never resolve. A
+    // plain `[#clean]` and a dotted `[[dotted.id]]` (legal id chars) are still offered.
+    const documentContent = '[#multi,role1,role2]\n[#withopt%opt]\n[#clean]\n[[dotted.id]]\n\nSee <<';
+    const result = await getCompletions(xrefCompletionSource, documentContent, documentContent.length);
+    const labels = result?.options.map((o) => o.label) ?? [];
+    expect(labels).toContain('clean');
+    expect(labels).toContain('dotted.id');
+    expect(labels).not.toContain('multi,role1,role2');
+    expect(labels).not.toContain('withopt%opt');
   });
 
   test('include source returns null when the cursor is not after include::', async () => {
@@ -517,6 +595,37 @@ describe('completion source guard and tree-path branches', () => {
 
   test('caption source returns null when the cursor is not after a dot', async () => {
     expect(await getCompletions(captionCompletionSource, 'no dot here', 'no dot here'.length)).toBeNull();
+  });
+
+  test('an open table drives the text-based column-count fallback', async () => {
+    // Unclosed table (no TableBlock node) → getTableColumnCount takes its
+    // text-scanning fallback path, walking from the last top-level |=== opener.
+    const documentContent = '|===\n|x |y |z\n\n|';
+    const result = await getCompletions(tableCellCompletionSource, documentContent, documentContent.length);
+    expect(result).not.toBeNull();
+    let insertedText = '';
+    const mockView = {
+      dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+    };
+    (result!.options[0].apply as (...arguments_: unknown[]) => void)(mockView, result!.options[0], documentContent.length - 1, documentContent.length);
+    expect((insertedText.match(/\|/g) ?? []).length).toBe(3);
+  });
+
+  test('column-count text fallback skips a non-pipe line before the first cell row', async () => {
+    // Unclosed table (text-fallback path). The line immediately after the |===
+    // opener is prose, not a |cell row, so getTableColumnCount's scan must skip it
+    // (the `line.startsWith('|')` guard is false) and keep looking for the real
+    // header row before deriving the column count.
+    const documentContent = '|===\nsome prose line\n|a |b\n\n|';
+    const result = await getCompletions(tableCellCompletionSource, documentContent, documentContent.length);
+    expect(result).not.toBeNull();
+    let insertedText = '';
+    const mockView = {
+      dispatch: jest.fn((tr: { changes: { insert: string } }) => { insertedText = tr.changes.insert; }),
+    };
+    (result!.options[0].apply as (...arguments_: unknown[]) => void)(mockView, result!.options[0], documentContent.length - 1, documentContent.length);
+    // The real header row "|a |b" has 2 cells, so the inserted row has 2 pipes.
+    expect((insertedText.match(/\|/g) ?? []).length).toBe(2);
   });
 
   test('table cell completion uses the syntax tree for a complete table', async () => {
@@ -560,5 +669,37 @@ describe('completion apply callbacks dispatch editor changes', () => {
   test('caption completion inserts the caption label', async () => {
     const result = await getCompletions(captionCompletionSource, '.', 1);
     expect(applyFirstFunction(result?.options).changes.insert.length).toBeGreaterThan(0);
+  });
+
+  describe('cross-file completion via the symbol index (US8/FR-029/030)', () => {
+    const fakeIndex = {
+      symbols: [
+        { kind: 'anchor', name: 'shared-anchor', fileId: 'other', range: { from: 0, to: 0 } },
+        { kind: 'section', name: '_other_section', fileId: 'other', range: { from: 0, to: 0 } },
+        { kind: 'attribute', name: 'product-name', fileId: 'other', range: { from: 0, to: 0 } },
+      ],
+    } as unknown as ProjectSymbolIndex;
+
+    test('xref completion offers anchors/sections defined in other files', async () => {
+      const source = createXrefCompletionSource(() => fakeIndex);
+      const result = await getCompletions(source, '<<', 2);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).toContain('shared-anchor');
+      expect(labels).toContain('_other_section');
+    });
+
+    test('attribute completion offers attributes defined in other files', async () => {
+      const source = createAttributeCompletionSource(() => fakeIndex);
+      const result = await getCompletions(source, '{', 1);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).toContain('product-name');
+    });
+
+    test('with no index, the factory behaves like the current-file source', async () => {
+      const source = createXrefCompletionSource(() => null);
+      const result = await getCompletions(source, '<<', 2);
+      const labels = result?.options.map((option) => option.label) ?? [];
+      expect(labels).not.toContain('shared-anchor');
+    });
   });
 });

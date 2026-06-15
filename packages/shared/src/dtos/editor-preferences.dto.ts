@@ -10,4 +10,13 @@ export interface EditorPreferencesDto {
   softWrap?: boolean;
   /** Preview rendering style token. Defaults to 'asciidocollab'. */
   previewStyle?: 'asciidocollab' | 'asciidoctor';
+  /** When false, spellcheck is disabled. The language is a project-level setting. Defaults to true. */
+  spellcheckEnabled?: boolean;
 }
+
+/**
+ * Selectable spellcheck/document languages — the dictionary-backed set (mirrors the domain's
+ * SPELLCHECK_LANGUAGES). The spellcheck language is configured per project, not per user.
+ */
+export type SpellcheckLanguageDto =
+  | 'en' | 'es' | 'fr' | 'pt' | 'de' | 'it' | 'uk' | 'pl' | 'tr';

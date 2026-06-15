@@ -48,3 +48,6 @@ apps/web/public/workers/
 # Isolated e2e shared file storage (scripts/ci/e2e-local.sh) + divergence-test roots
 .e2e-storage/
 .e2e-storage-*/
+
+# Generated spell-check dictionary assets (copied from dictionary-en at build)
+apps/web/public/dictionaries/

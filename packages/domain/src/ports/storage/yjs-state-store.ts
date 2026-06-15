@@ -1,5 +1,5 @@
-import { ProjectId } from '../../value-objects/project-id';
-import { YjsStateId } from '../../value-objects/yjs-state-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { YjsStateId } from '../../value-objects/ids/yjs-state-id';
 
 /** Port for persisting Yjs CRDT binary states per project document. */
 export interface YjsStateStore {

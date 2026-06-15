@@ -1,5 +1,5 @@
-import { ProjectId } from '../../value-objects/project-id';
-import { DocumentId } from '../../value-objects/document-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { DocumentId } from '../../value-objects/ids/document-id';
 import { CollaborationSessionRepository } from '../../ports/project/collaboration-session.repository';
 import { Result } from '../../types/result';
 

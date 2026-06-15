@@ -521,6 +521,85 @@ describe('FileTreeNode — Download as ZIP (root project node)', () => {
     expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
   });
 
+  it('ignores an OS-file drag-over so it bubbles to the DragDropZone (no preventDefault path)', () => {
+    const onFolderDrop = jest.fn();
+    render(
+      <FileTreeNode
+        node={folderNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        onFolderDrop={onFolderDrop}
+      />,
+    );
+    const row = screen.getByTestId('tree-node-src');
+    // dragOver/dragEnter carrying the Files type must early-return (no move handling).
+    fireEvent.dragOver(row, { dataTransfer: { types: ['Files'], dropEffect: '' } });
+    fireEvent.dragEnter(row, { dataTransfer: { types: ['Files'], dropEffect: '' } });
+    fireEvent.drop(row, { dataTransfer: { types: ['Files'], getData: () => '' } });
+    expect(onFolderDrop).not.toHaveBeenCalled();
+  });
+
+  it('renders the open-by-others marker for a file other users have open', () => {
+    const presenceByFile = new Map([
+      ['file-1', [{ clientId: 1, userId: 'u1', name: 'Ada', color: '#f00', colorLight: '#fcc' }]],
+    ]);
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        presenceByFile={presenceByFile}
+      />,
+    );
+    expect(screen.getByTestId('open-by-others-marker')).toBeInTheDocument();
+  });
+
+  it('renders no marker for a file with a presence map but no entry for this node', () => {
+    render(
+      <FileTreeNode
+        node={fileNode}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        presenceByFile={new Map()}
+      />,
+    );
+    expect(screen.queryByTestId('open-by-others-marker')).not.toBeInTheDocument();
+  });
+
+  it('expands a nested child folder according to expandedState', () => {
+    const grandchild = { id: 'gc', name: 'deep.adoc', type: 'file' as const, path: '/src/sub/deep.adoc', parentId: 'sub', children: [] };
+    const childFolder = { id: 'sub', name: 'sub', type: 'folder' as const, path: '/src/sub', parentId: 'folder-1', children: [grandchild] };
+    const parent = { ...folderNode, children: [childFolder] };
+    render(
+      <FileTreeNode
+        node={parent}
+        depth={0}
+        projectId="proj-1"
+        canEdit={false}
+        selectedNodeId={null}
+        onSelect={jest.fn()}
+        onContextMenu={jest.fn()}
+        isExpanded
+        onToggle={jest.fn()}
+        expandedState={new Map([['sub', true]])}
+      />,
+    );
+    // The nested folder is expanded via expandedState → its grandchild renders.
+    expect(screen.getByText('deep.adoc')).toBeInTheDocument();
+  });
+
   it('renders folder children with a collapsed default when no expandedState is supplied', () => {
     render(
       <FileTreeNode

@@ -241,6 +241,20 @@ describe('continueList — G6 suppress in verbatim blocks (ancestor walk)', () =
     expect(r.handled).toBe(false);
     expect(h.transactions).toHaveLength(0);
   });
+
+  test('inside a ,=== CSV table → plain newline, no list marker injected', () => {
+    const h = setup(',===\n* x\n,===\n', 6); // cursor on the `* x` cell line
+    const r = run(h);
+    expect(r.handled).toBe(false);
+    expect(h.transactions).toHaveLength(0);
+  });
+
+  test('inside a :=== DSV table → plain newline, no list marker injected', () => {
+    const h = setup(':===\n* x\n:===\n', 6);
+    const r = run(h);
+    expect(r.handled).toBe(false);
+    expect(h.transactions).toHaveLength(0);
+  });
 });
 
 describe('continueList — G7 single-step undo', () => {

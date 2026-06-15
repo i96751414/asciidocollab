@@ -18,8 +18,8 @@ const EDITOR_THEMES: { value: EditorThemeValue; label: string }[] = [
 /** Card exposing editor font size, theme, scroll sync, and soft wrap preferences. */
 export function EditorPreferencesCard() {
   const {
-    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle,
-    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle,
+    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle, spellcheckEnabled,
+    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, setSpellcheckEnabled,
   } = useEditorPreferences();
 
   return (
@@ -89,6 +89,19 @@ export function EditorPreferencesCard() {
             />
             <Label htmlFor="softWrap">Soft Wrap</Label>
           </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="spellcheckEnabled"
+              checked={spellcheckEnabled}
+              onChange={(event) => setSpellcheckEnabled(event.target.checked)}
+              className="h-4 w-4 rounded border"
+            />
+            <Label htmlFor="spellcheckEnabled">Spell Check</Label>
+          </div>
+          <CardDescription>
+            The spell-check language is configured per project in its settings.
+          </CardDescription>
         </div>
       </CardContent>
     </Card>

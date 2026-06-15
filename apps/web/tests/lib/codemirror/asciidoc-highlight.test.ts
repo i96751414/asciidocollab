@@ -63,4 +63,25 @@ describe('AsciiDoc highlight consistency', () => {
     expect(semicolonClass).not.toBe('');
     expect(semicolonClass).toBe(colonClass);
   });
+
+  // T020 — every new US7 inline/break construct must resolve to a non-empty highlight class
+  // through the production highlight style (so all five themes colour it). The offset points
+  // inside the construct on each sample line.
+  test.each([
+    ['a +literal+ b\n', 3, 'passthrough'],
+    ['x [[anchor]] y\n', 3, 'inline anchor'],
+    ['[[[ref]]] z\n', 0, 'bibliography anchor'],
+    ['Acme (C) co\n', 5, 'replacement'],
+    ['a &amp; b\n', 2, 'entity'],
+    ['code <1>\n', 5, 'callout'],
+    ['press kbd:[Esc] x\n', 8, 'ui macro'],
+    ['see stem:[x^2] y\n', 6, 'inline stem'],
+    ['go https://x.com now\n', 5, 'bare url'],
+    ['a "`smart`" quote\n', 2, 'smart quote'],
+    ['line one +\ntwo\n', 9, 'hard break'],
+    ["'''\n", 0, 'thematic break'],
+    ['<<<\n', 0, 'page break'],
+  ])('%j (offset %i) is highlighted as a %s', (source, offset) => {
+    expect(classAt(source, offset)).not.toBe('');
+  });
 });

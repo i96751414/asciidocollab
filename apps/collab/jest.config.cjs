@@ -9,6 +9,8 @@ const config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  // Native ESM does not inject the `jest` global — expose it for all specs (see jest-setup.ts).
+  setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       useESM: true,

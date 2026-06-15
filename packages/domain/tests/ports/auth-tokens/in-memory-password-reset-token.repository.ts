@@ -1,5 +1,5 @@
 import { PasswordResetToken } from '../../../src/entities/password-reset-token';
-import { UserId } from '../../../src/value-objects/user-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
 import { PasswordResetTokenRepository } from '../../../src/ports/auth-tokens/password-reset-token.repository';
 
 /**

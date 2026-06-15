@@ -1,6 +1,6 @@
 import { EmailVerificationToken } from '../../src/entities/email-verification-token';
-import { EmailVerificationTokenId } from '../../src/value-objects/email-verification-token-id';
-import { UserId } from '../../src/value-objects/user-id';
+import { EmailVerificationTokenId } from '../../src/value-objects/ids/email-verification-token-id';
+import { UserId } from '../../src/value-objects/ids/user-id';
 import { randomUUID } from 'crypto';
 
 function makeToken(overrides?: Partial<{

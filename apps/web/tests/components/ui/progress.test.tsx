@@ -13,5 +13,27 @@ describe('Progress', () => {
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '50');
     expect(bar).toHaveClass('custom-bar');
+    expect(bar.firstElementChild).toHaveStyle({ transform: 'translateX(-50%)' });
+  });
+
+  test('treats an explicit undefined value as 0', () => {
+    render(<Progress value={undefined} />);
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '0');
+    expect(bar.firstElementChild).toHaveStyle({ transform: 'translateX(-100%)' });
+  });
+
+  test('renders a full bar at 100', () => {
+    render(<Progress value={100} />);
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '100');
+    expect(bar.firstElementChild).toHaveStyle({ transform: 'translateX(-0%)' });
+  });
+
+  test('forwards a ref and spreads extra props', () => {
+    const ref = React.createRef<HTMLDivElement>();
+    render(<Progress ref={ref} value={25} data-testid="prog" />);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
+    expect(screen.getByTestId('prog')).toBe(screen.getByRole('progressbar'));
   });
 });

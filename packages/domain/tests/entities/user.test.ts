@@ -1,7 +1,7 @@
 import { User } from '../../src/entities/user';
-import { UserId } from '../../src/value-objects/user-id';
-import { Email } from '../../src/value-objects/email';
-import { Timestamps } from '../../src/value-objects/timestamps';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { Email } from '../../src/value-objects/identity/email';
+import { Timestamps } from '../../src/value-objects/common/timestamps';
 
 describe('User entity', () => {
   const userId = UserId.create('550e8400-e29b-41d4-a716-446655440000');

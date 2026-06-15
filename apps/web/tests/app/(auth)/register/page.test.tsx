@@ -254,20 +254,92 @@ describe('RegisterForm (first-run setup)', () => {
       expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(true);
     });
   });
+
+  test('shows a display-name error after blurring the empty field', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fireEvent.blur(screen.getByLabelText(/display name/i));
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/display name is required/i);
+    });
+  });
+
+  test('shows an email error after blurring an invalid email', async () => {
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'bad' } });
+    fireEvent.blur(screen.getByLabelText(/email/i));
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.some((a) => /valid email address/i.test(a.textContent ?? ''))).toBe(true);
+    });
+  });
+
+  test('shows the pending label while the request is in flight', () => {
+    const { authApi } = require('@/lib/api');
+    authApi.register.mockImplementation(() => new Promise(() => {}));
+    render(<RegisterForm isFirstRun={true} passwordPolicy={defaultPolicy} />);
+    fillValidForm();
+    fireEvent.submit(screen.getByRole('form'));
+    expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled();
+  });
 });
 
 describe('RegisterPage redirect behavior', () => {
-  test('redirects to /login when the system is already configured', async () => {
-    const { authApi } = require('@/lib/api');
-    const { getSession } = require('@/lib/auth');
-    const { redirect } = require('next/navigation');
-    const { default: RegisterPage } = require('@/app/(auth)/register/page');
+  const { authApi, adminApi } = require('@/lib/api');
+  const { getSession } = require('@/lib/auth');
+  const { redirect } = require('next/navigation');
+  const { default: RegisterPage } = require('@/app/(auth)/register/page');
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('redirects authenticated users to /dashboard', async () => {
+    (getSession as jest.Mock).mockResolvedValue({ userId: 'u1' });
+
+    await RegisterPage();
+
+    expect(redirect).toHaveBeenCalledWith('/dashboard');
+  });
+
+  test('redirects to /login when configured and open registration is disabled', async () => {
     (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: true, passwordPolicy: defaultPolicy });
     (getSession as jest.Mock).mockResolvedValue(null);
+    (adminApi.getOpenRegistrationStatus as jest.Mock).mockResolvedValue({ openRegistration: false });
 
-    await RegisterPage({ searchParams: Promise.resolve({}) });
+    await RegisterPage();
 
     expect(redirect).toHaveBeenCalledWith('/login');
+  });
+
+  test('falls back to closed registration when the status lookup fails', async () => {
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: true, passwordPolicy: defaultPolicy });
+    (getSession as jest.Mock).mockResolvedValue(null);
+    (adminApi.getOpenRegistrationStatus as jest.Mock).mockRejectedValue(new Error('boom'));
+
+    await RegisterPage();
+
+    expect(redirect).toHaveBeenCalledWith('/login');
+  });
+
+  test('renders the non-first-run form when open registration is enabled', async () => {
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: true, passwordPolicy: defaultPolicy });
+    (getSession as jest.Mock).mockResolvedValue(null);
+    (adminApi.getOpenRegistrationStatus as jest.Mock).mockResolvedValue({ openRegistration: true });
+
+    const element = await RegisterPage();
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(element.props.isFirstRun).toBe(false);
+    expect(element.props.passwordPolicy).toBe(defaultPolicy);
+  });
+
+  test('renders the first-run form when the system is not yet configured', async () => {
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({ configured: false, passwordPolicy: defaultPolicy });
+    (getSession as jest.Mock).mockResolvedValue(null);
+
+    const element = await RegisterPage();
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(element.props.isFirstRun).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
-import { TemplateId } from '../value-objects/template-id';
-import { TemplateCategory } from '../value-objects/template-category';
-import { ProjectId } from '../value-objects/project-id';
+import { TemplateId } from '../value-objects/ids/template-id';
+import { TemplateCategory } from '../value-objects/project/template-category';
+import { ProjectId } from '../value-objects/ids/project-id';
 
 /**
  * Represents a project template used for bootstrapping new projects.

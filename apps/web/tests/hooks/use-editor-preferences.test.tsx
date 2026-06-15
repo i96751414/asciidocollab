@@ -410,6 +410,22 @@ test('setPreviewStyle updates state and includes previewStyle in the PUT payload
   }
 });
 
+test('setSpellcheckEnabled toggles the flag and persists it', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  await act(async () => {
+    result.current.setSpellcheckEnabled(false);
+  });
+  await waitFor(() => expect(result.current.spellcheckEnabled).toBe(false));
+  expect(JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}').spellcheckEnabled).toBe(false);
+});
+
+test('spellcheckEnabled is seeded from the GET response', async () => {
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ spellcheckEnabled: false }) });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(result.current.spellcheckEnabled).toBe(false));
+});
+
 test('localStorage cache updated when previewStyle changes', async () => {
   const { result } = renderHook(() => useEditorPreferences());
   await waitFor(() => expect(mockFetch).toHaveBeenCalled());
@@ -458,4 +474,127 @@ test('isPreviewStyleValue validates the supported tokens', () => {
   expect(isPreviewStyleValue('asciidoctor')).toBe(true);
   expect(isPreviewStyleValue('Asciidocollab')).toBe(false);
   expect(isPreviewStyleValue('')).toBe(false);
+});
+
+// ── scrollSyncEnabled ───────────────────────────────────────────────────────────
+
+test('setScrollSyncEnabled updates state and persists to localStorage', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.setScrollSyncEnabled(true));
+  expect(result.current.scrollSyncEnabled).toBe(true);
+  expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+    LS_KEY,
+    expect.stringContaining('"scrollSyncEnabled":true'),
+  );
+});
+
+test('setScrollSyncEnabled includes scrollSyncEnabled in the debounced PUT payload', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setScrollSyncEnabled(true);
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCall = mockFetch.mock.calls.find((c: unknown[]) => {
+    const options = c[1] as { method?: string };
+    return options?.method === 'PUT';
+  });
+  expect(putCall).toBeDefined();
+  if (putCall) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).toHaveProperty('scrollSyncEnabled', true);
+  }
+});
+
+test('scrollSyncEnabled included in initial GET response', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', scrollSyncEnabled: true }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(result.current.scrollSyncEnabled).toBe(true));
+});
+
+// ── addSpellIgnore ──────────────────────────────────────────────────────────────
+
+test('spellIgnore defaults to an empty array', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.spellIgnore).toEqual([]);
+});
+
+test('addSpellIgnore appends the word and persists to localStorage', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.addSpellIgnore('asciidoc'));
+  expect(result.current.spellIgnore).toEqual(['asciidoc']);
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.spellIgnore).toEqual(['asciidoc']);
+});
+
+test('addSpellIgnore is a no-op when the word is already present', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.addSpellIgnore('asciidoc'));
+  mockLocalStorage.setItem.mockClear();
+  act(() => result.current.addSpellIgnore('asciidoc'));
+  // Still a single entry and no re-persist happened for the duplicate.
+  expect(result.current.spellIgnore).toEqual(['asciidoc']);
+  expect(mockLocalStorage.setItem).not.toHaveBeenCalled();
+});
+
+test('addSpellIgnore includes spellIgnore in the debounced PUT payload', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.addSpellIgnore('codeblock');
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCall = mockFetch.mock.calls.find((c: unknown[]) => {
+    const options = c[1] as { method?: string };
+    return options?.method === 'PUT';
+  });
+  expect(putCall).toBeDefined();
+  if (putCall) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body.spellIgnore).toContain('codeblock');
+  }
+});
+
+test('spellIgnore is seeded from localStorage and merged from the GET response', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({
+    fontSize: 14, theme: 'default', spellIgnore: ['fromcache'],
+  });
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', spellIgnore: ['fromserver'] }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  // Seeded immediately from localStorage.
+  expect(result.current.spellIgnore).toEqual(['fromcache']);
+  // Then overwritten by the server list.
+  await waitFor(() => expect(result.current.spellIgnore).toEqual(['fromserver']));
+});
+
+test('GET response with a non-array spellIgnore keeps the previous list', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({
+    fontSize: 14, theme: 'default', spellIgnore: ['keepme'],
+  });
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', spellIgnore: 'not-an-array' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  expect(result.current.spellIgnore).toEqual(['keepme']);
+});
+
+test('a stored spellIgnore list drops non-string entries on load', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({
+    fontSize: 14, theme: 'default', spellIgnore: ['ok', 7, null, 'fine'],
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.spellIgnore).toEqual(['ok', 'fine']);
 });

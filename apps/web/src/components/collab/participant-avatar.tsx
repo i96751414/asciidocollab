@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 
 /** First letter of a display name, used as the avatar fallback. */
@@ -17,8 +18,18 @@ export function initialOf(name: string): string {
  */
 export function ParticipantAvatar({ participant, size, className = '' }: { participant: ParticipantPresence; size: number; className?: string }) {
   if (participant.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={participant.avatarUrl} alt="" width={size} height={size} className={`rounded-full ${className}`} />;
+    // `unoptimized`: avatar URLs are arbitrary external hosts (not enumerable in next.config
+    // `images.remotePatterns`), so bypass the optimizer — same convention as image-preview.tsx.
+    return (
+      <Image
+        src={participant.avatarUrl}
+        alt=""
+        width={size}
+        height={size}
+        unoptimized
+        className={`rounded-full ${className}`}
+      />
+    );
   }
   return (
     <span

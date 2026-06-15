@@ -1,6 +1,6 @@
-import { UserInvitationId } from '../value-objects/user-invitation-id';
-import { Email } from '../value-objects/email';
-import { UserId } from '../value-objects/user-id';
+import { UserInvitationId } from '../value-objects/ids/user-invitation-id';
+import { Email } from '../value-objects/identity/email';
+import { UserId } from '../value-objects/ids/user-id';
 
 /** Domain entity representing a pending registration invitation sent to an email address. */
 export class UserInvitation {

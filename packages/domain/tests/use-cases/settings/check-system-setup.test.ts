@@ -1,9 +1,9 @@
 import { CheckSystemSetupUseCase } from '../../../src/use-cases/settings/check-system-setup';
 import { InMemoryUserRepository } from '../../ports/user/in-memory-user.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { randomUUID } from 'crypto';
 
 describe('CheckSystemSetupUseCase', () => {

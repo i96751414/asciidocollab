@@ -1,28 +1,47 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.0.0 → 2.1.0 (MINOR — five new principles added, none removed/redefined)
+Version change: 2.2.0 → 2.3.0 (MINOR — Principle II clarified: performance/load tests are opt-in,
+not added unless explicitly requested. No principle removed or redefined; functional TDD unchanged.)
 
-Modified principles: none renamed or redefined (I–III unchanged)
+Rationale (2.3.0): the TDD mandate was being read to require performance/benchmark tests by default;
+that is now scoped out — functional tests remain NON-NEGOTIABLE, but performance/load/benchmark tests
+are added only when the feature spec explicitly requests them.
 
-Added sections / principles:
-- IV. Reuse Before Rebuild
-- V. Theming via Design Tokens
-- VI. Style Isolation
-- VII. Per-User Preferences, Shared Content Immutability
-- VIII. Editor Pipeline Integrity (Sanitization & Scroll-Sync)
+--- prior change (2.1.0 → 2.2.0) retained for context ---
+MINOR — one new principle added (IX); Principle VIII materially expanded; Principles IV and VII
+clarified. Rationale: feature 026 (AsciiDoc editor enhancements) was being scoped DOWN to avoid
+Principle VIII, and IV/VII were ambiguous for (a) extending the in-repo Lezer grammar and (b)
+project-shared configuration — UNBLOCKED while STRENGTHENING the security boundary.
+
+Modified principles (2.3.0):
+- II. Test-Driven Development — clarified: performance/load/benchmark tests are OPT-IN (only when the
+  spec explicitly requests them); functional red-green-refactor remains NON-NEGOTIABLE and unchanged.
+
+Modified principles (2.2.0):
+- IV. Reuse Before Rebuild — clarified: "reuse" presupposes a *compatible* asset; extending an existing
+  in-repo asset is permitted when no vendorable-compatible equivalent exists (documented).
+- VII. Per-User Preferences, Shared Content Immutability — clarified: governs *personal preferences*;
+  project-scoped, permission-governed configuration (e.g. a designated main document) is permitted and
+  is NOT a user preference.
+- VIII. Editor Pipeline Integrity — expanded: resolving/assembling additional content into a render path
+  (e.g. expanding includes, embedding source languages or imported markup) IS permitted when it passes
+  UNCHANGED through the existing sanitizer and satisfies Principle IX. Sanitization MUST NOT be weakened.
+
+Added principle:
+- IX. Untrusted Input Boundary (NON-NEGOTIABLE) — all externally-sourced content entering the editor or
+  render pipeline (pasted/dropped content, resolved includes, embedded languages, attribute-substituted
+  paths) MUST be validated, sandbox-confined, and sanitized before insertion or rendering.
 
 Removed sections: none
 
 Templates requiring updates:
-- ✅ .specify/templates/plan-template.md — Constitution Check is generic
-  ("[Gates determined based on constitution file]"); no hardcoded principle list to edit.
+- ✅ .specify/templates/plan-template.md — Constitution Check is generic; no hardcoded principle list.
 - ✅ .specify/templates/spec-template.md — no constitution-coupled mandatory sections changed.
 - ✅ .specify/templates/tasks-template.md — task categories remain principle-agnostic.
-- ✅ .specify/memory/architecture_constitution.md — new principles VI/VIII complement existing
-  layering rules; no conflict.
-- ✅ .specify/memory/security_constitution.md — principle IV (vendoring) aligns with dependency
-  scanning; no conflict.
+- ✅ .specify/memory/architecture_constitution.md — no conflict.
+- ✅ .specify/memory/security_constitution.md — new Principle IX reinforces it (sandbox + sanitization);
+  no conflict. Dependency scanning still applies to all new/vendored deps.
 
 Follow-up TODOs: none. Ratification date retained from original adoption.
 -->
@@ -63,6 +82,11 @@ No production code MAY be written without a corresponding failing test first.
   not mocks, not stubs. This keeps tests fast, honest, and decoupled from infrastructure.
 - Infrastructure adapters MUST use integration tests against real dependencies (database
   via testcontainers, filesystem via temp directories).
+- **Performance, load, and benchmark tests are OPT-IN.** This TDD mandate covers *functional*
+  correctness only. Performance/load/benchmark tests (and the latency/throughput targets they assert)
+  MUST NOT be added unless the feature specification explicitly requests them. Their absence is never a
+  coverage gap and MUST NOT be raised as one (e.g. by `/speckit-analyze`). When a spec does request
+  them, they follow the same red-green discipline as functional tests.
 - A test that never failed is not a valid test.
 - Commit only after Green phase. Never commit with failing tests.
 
@@ -96,8 +120,14 @@ Well-licensed open-source assets MUST be preferred over re-deriving equivalent w
 - Vendored assets MUST remain **re-syncable**: record the upstream source and version/commit,
   and apply local adaptations (e.g., scoping, generation) via a documented, repeatable build
   step rather than in-place edits.
+- "Reuse" presupposes a **compatible** asset. Where no maintained asset exists in a form compatible
+  with the target runtime and license (e.g. no Lezer/CodeMirror-compatible grammar exists to vendor),
+  **extending an existing in-repo asset** is preferred over re-deriving from scratch, PROVIDED the
+  decision and the absence of a vendorable-compatible equivalent are documented in the plan's research.
+  This is not a license to hand-fork a vendored file — it applies to assets the project already owns.
 - Rationale: re-deriving existing work invites drift, bugs, and licensing risk; verbatim
-  vendoring keeps fidelity and makes upstream updates a mechanical re-sync.
+  vendoring keeps fidelity and makes upstream updates a mechanical re-sync. But "reuse" must not be
+  weaponized to block extending a first-party asset when nothing compatible exists to vendor.
 
 ---
 
@@ -142,8 +172,14 @@ User preferences MUST be scoped to the individual user and MUST NOT mutate share
   other user sees in their own view.
 - One user's preference MUST NOT affect a concurrent collaborator's rendering of the same
   document.
+- This principle governs **personal preferences**. **Project-scoped configuration** — owned by a
+  project, governed by that project's edit permissions, and intentionally shared across the project's
+  collaborators (e.g. a designated main/master document that roots cross-file resolution) — is NOT a
+  user preference and is permitted. Such configuration MUST be stored on the project (not as a per-user
+  preference), MUST be permission-gated, and MUST NOT silently rewrite document source.
 - Rationale: conflating personal preference with shared state breaks collaboration guarantees
-  and silently corrupts documents.
+  and silently corrupts documents; conversely, legitimate project configuration must not be mistaken
+  for a forbidden mutation of shared content.
 
 ---
 
@@ -154,12 +190,47 @@ behavior.
 
 - Preview content sanitization MUST remain intact and unchanged for all rendering paths; new
   features MUST NOT widen what is rendered without an explicit, reviewed security decision.
+- **Assembling or resolving additional content into a rendering path IS permitted** — e.g. expanding
+  `include::` directives so the preview renders the configured main document, embedding a source
+  language's highlighting, or rendering imported markup. Such a feature MUST NOT be scoped away merely
+  to avoid this principle. The permission is conditional: the assembled/resolved content MUST pass
+  **unchanged through the existing sanitizer** (the same boundary, re-applied to more inputs — never a
+  relaxed or bypassed one) and MUST satisfy **Principle IX** (sandbox confinement + validation). The
+  sanitizer MUST NOT be weakened, widened, or forked to accommodate new content.
 - Scroll-synchronization behavior MUST be preserved; changes that touch the sync seam MUST be
   covered by tests proving no regression.
 - Any change that necessarily affects either path MUST be called out in the plan's
-  Constitution Check and justified.
+  Constitution Check and justified, including the security argument for any newly-resolved content.
 - Rationale: sanitization is a security boundary and scroll-sync is a core UX guarantee;
-  silent regressions in either are high-cost and hard to detect.
+  silent regressions in either are high-cost and hard to detect. The boundary exists to be *enforced
+  on all inputs*, not to forbid features — so features may add inputs, but never escape the boundary.
+
+---
+
+### IX. Untrusted Input Boundary (NON-NEGOTIABLE)
+
+All externally-sourced content entering the editor or the render pipeline MUST be validated,
+sandbox-confined, and sanitized before it is inserted into a document or rendered.
+
+- "Externally-sourced content" includes, at minimum: pasted or dropped clipboard data (HTML, images,
+  files), content pulled in by `include::` resolution, embedded source-language content, and any path
+  produced by attribute substitution or user input.
+- **Sandbox confinement:** file/path resolution (includes, images, link targets) MUST resolve only
+  within the owning project's storage sandbox. Path traversal (`..`, absolute paths, symlink escape)
+  and remote/external fetches (URLs, network includes, SSRF vectors) MUST be rejected unless an
+  explicit, reviewed allow-list decision is recorded.
+- **Sanitization:** imported markup (e.g. pasted HTML converted to AsciiDoc, or resolved content fed to
+  the preview) MUST be sanitized through the project's existing sanitizer before insertion/rendering;
+  no feature MAY introduce a parallel or relaxed sanitization path.
+- **Validation:** uploaded/dropped binary content MUST be validated (type, size) at the boundary;
+  embedding a source language for highlighting MUST treat the embedded text as **inert data** (it is
+  never executed or evaluated).
+- **No silent bypass:** any feature that needs an exception MUST record it in the plan's Constitution
+  Check with a security justification and reference the `security_constitution.md`.
+- Rationale: every feature in this spec that "unblocks" richer content (paste-HTML, image paste/drop,
+  cross-file include resolution, attribute-substituted paths, embedded languages) is also a potential
+  injection or SSRF vector. Centralizing the rule as a NON-NEGOTIABLE boundary lets features grow
+  without each one re-litigating security — they inherit one enforced gate.
 
 ---
 
@@ -245,4 +316,4 @@ document (including CLAUDE.md, AGENTS.md, or template files), this Constitution 
   intentional and justified, it MUST be documented in the PR description and the plan's
   complexity tracking section.
 
-**Version**: 2.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-10
+**Version**: 2.3.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-13

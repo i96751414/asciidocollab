@@ -1,5 +1,5 @@
 import type { EditorPreferences } from '../../../src/entities/editor-preferences';
-import type { UserId } from '../../../src/value-objects/user-id';
+import type { UserId } from '../../../src/value-objects/ids/user-id';
 import type { EditorPreferencesRepository } from '../../../src/ports/user/editor-preferences.repository';
 
 export class InMemoryEditorPreferencesRepository implements EditorPreferencesRepository {

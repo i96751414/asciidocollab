@@ -1,12 +1,16 @@
-import { EditorPreferencesId } from '../value-objects/editor-preferences-id';
-import { EditorTheme } from '../value-objects/editor-theme';
-import { PreviewStyle } from '../value-objects/preview-style';
-import { UserId } from '../value-objects/user-id';
-import { Timestamps } from '../value-objects/timestamps';
-import { ValidationError } from '../errors/validation-error';
-import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../constants/editor-preferences';
+import { EditorPreferencesId } from '../value-objects/ids/editor-preferences-id';
+import { EditorTheme } from '../value-objects/editor/editor-theme';
+import { PreviewStyle } from '../value-objects/editor/preview-style';
+import { UserId } from '../value-objects/ids/user-id';
+import { Timestamps } from '../value-objects/common/timestamps';
+import { ValidationError } from '../errors/common/validation-error';
+import {
+  FONT_SIZE_MIN,
+  FONT_SIZE_MAX,
+  DEFAULT_SPELLCHECK_ENABLED,
+} from '../constants/editor-preferences';
 
-/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style). */
+/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style, spellcheck toggle). */
 export class EditorPreferences {
   public readonly timestamps: Timestamps;
 
@@ -19,6 +23,8 @@ export class EditorPreferences {
    * @param timestamps - Optional creation/update timestamps; defaults to now.
    * @param softWrap - When true, the editor wraps long lines instead of scrolling horizontally.
    * @param previewStyle - Selected preview rendering style; defaults to the brand look.
+   * @param spellcheckEnabled - When false, spellcheck produces no diagnostics. The
+   *  spellcheck language is a project-level setting, not a user preference.
    */
   constructor(
     public readonly id: EditorPreferencesId,
@@ -29,6 +35,7 @@ export class EditorPreferences {
     timestamps?: Timestamps,
     public readonly softWrap: boolean = true,
     public readonly previewStyle: PreviewStyle = PreviewStyle.default(),
+    public readonly spellcheckEnabled: boolean = DEFAULT_SPELLCHECK_ENABLED,
   ) {
     if (fontSize < FONT_SIZE_MIN || fontSize > FONT_SIZE_MAX) {
       throw new ValidationError(

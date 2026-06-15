@@ -1,6 +1,6 @@
-import { CannotRemoveLastAdminError } from '../src/errors/cannot-remove-last-admin';
-import { InvalidProjectNameError } from '../src/errors/invalid-project-name';
-import { PermissionDeniedError } from '../src/errors/permission-denied';
+import { CannotRemoveLastAdminError } from '../src/errors/members/cannot-remove-last-admin';
+import { InvalidProjectNameError } from '../src/errors/project/invalid-project-name';
+import { PermissionDeniedError } from '../src/errors/common/permission-denied';
 
 describe('CannotRemoveLastAdminError', () => {
   it('uses system-level message when no context is provided', () => {

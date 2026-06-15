@@ -1,8 +1,8 @@
 import { OpenCollaborationSessionUseCase } from '../../../src/use-cases/project/open-collaboration-session';
 import { CloseCollaborationSessionUseCase } from '../../../src/use-cases/project/close-collaboration-session';
 import { InMemoryCollaborationSessionRepository } from '../../ports/project/in-memory-collaboration-session-repository';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { DocumentId } from '../../../src/value-objects/document-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { DocumentId } from '../../../src/value-objects/ids/document-id';
 
 describe('CollaborationSession use cases', () => {
   let repo: InMemoryCollaborationSessionRepository;

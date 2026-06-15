@@ -1,7 +1,7 @@
 import { Document } from '../../../src/entities/document';
-import { DocumentId } from '../../../src/value-objects/document-id';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { YjsStateId } from '../../../src/value-objects/yjs-state-id';
+import { DocumentId } from '../../../src/value-objects/ids/document-id';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { YjsStateId } from '../../../src/value-objects/ids/yjs-state-id';
 import { DocumentRepository } from '../../../src/ports/file-tree/document.repository';
 
 /** In-memory implementation of DocumentRepository for use in tests. */

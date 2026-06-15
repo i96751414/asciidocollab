@@ -1,5 +1,5 @@
-import { FileNodeId } from '../value-objects/file-node-id';
-import { MimeType } from '../value-objects/mime-type';
+import { FileNodeId } from '../value-objects/ids/file-node-id';
+import { MimeType } from '../value-objects/files/mime-type';
 
 /**
  * Represents a binary file asset linked to a FileNode.

@@ -3,16 +3,16 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryUserInvitationRepository } from '../../ports/user/in-memory-user-invitation.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { DuplicateEmailError } from '../../../src/errors/duplicate-email';
-import { InvitationAlreadyPendingError } from '../../../src/errors/invitation-already-pending';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { DuplicateEmailError } from '../../../src/errors/auth/duplicate-email';
+import { InvitationAlreadyPendingError } from '../../../src/errors/members/invitation-already-pending';
 import type { TokenGenerator, PasswordResetTokenData } from '../../../src/services/token-generator';
 import type { RegistrationInvitationNotifier } from '../../../src/services/registration-invitation-notifier';
 import { UserInvitation } from '../../../src/entities/user-invitation';
-import { UserInvitationId } from '../../../src/value-objects/user-invitation-id';
+import { UserInvitationId } from '../../../src/value-objects/ids/user-invitation-id';
 import { randomUUID } from 'crypto';
 
 const mockToken: PasswordResetTokenData = {

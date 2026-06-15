@@ -93,6 +93,8 @@ export async function compositionRoot() {
     prisma,
     collaborationSessionRepo,
     documentRepository,
+    // Exposed so the internal edit server's read endpoint can decode a dormant room's persisted state.
+    yjsStateStore,
     openCollaborationSessionUseCase,
     closeCollaborationSessionUseCase,
     config,

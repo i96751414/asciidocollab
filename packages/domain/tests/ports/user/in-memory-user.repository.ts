@@ -1,7 +1,7 @@
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { ProjectId } from '../../../src/value-objects/project-id';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
 import { UserRepository } from '../../../src/ports/user/user.repository';
 
 /** In-memory implementation of UserRepository for use in tests. */

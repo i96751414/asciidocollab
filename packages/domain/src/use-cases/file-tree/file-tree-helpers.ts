@@ -1,7 +1,7 @@
 import { FileNode } from '../../entities/file-node';
-import { Timestamps } from '../../value-objects/timestamps';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { FilePath } from '../../value-objects/file-path';
+import { Timestamps } from '../../value-objects/common/timestamps';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { FilePath } from '../../value-objects/files/file-path';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 
 /**

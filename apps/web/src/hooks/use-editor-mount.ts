@@ -1,31 +1,21 @@
 'use client';
 import { useEffect, useRef, useCallback } from 'react';
-import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip } from '@codemirror/view';
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { search, searchKeymap } from '@codemirror/search';
-import { autocompletion } from '@codemirror/autocomplete';
-import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
-import { showMinimap } from '@replit/codemirror-minimap';
-import { asciidoc } from '@/lib/codemirror/asciidoc-language';
-import { macroFromDropPayload, padBlockMacro, macroPathRange } from '@/lib/codemirror/asciidoc-file-drop';
-import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
-import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
-import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import {
-  attributeCompletionSource,
-  xrefCompletionSource,
-  createIncludeCompletionSource,
-  createImageCompletionSource,
-  tableSnippetCompletionSource,
-  tableCellCompletionSource,
-  captionCompletionSource,
-} from '@/lib/codemirror/asciidoc-completions';
-import { createLinkHandler } from '@/lib/codemirror/asciidoc-link-handler';
+import { EditorState, Compartment, type Extension } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
+import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-fold';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
+import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
-import { tableContextField } from '@/lib/codemirror/asciidoc-table-context';
-import { listContinuationKeymap } from '@/lib/codemirror/asciidoc-list-continuation';
+import { buildEditorExtensions } from '@/lib/codemirror/editor-extensions';
+import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linter';
+import {
+  createLineClickHandler,
+  createFileDropHandler,
+  createCtrlClickTooltip,
+  wireScrollSync,
+} from '@/lib/codemirror/editor-dom-handlers';
 
 /**
  * Clamps a remembered 1-based line number to the document's valid range — the FR-005 "closest
@@ -39,17 +29,55 @@ function clampToValidLine(line: number, totalLines: number): number {
   return Math.min(Math.max(line, 1), totalLines);
 }
 
+/** Stable empty default for the inherited-attributes prop (avoids a new map identity per render). */
+const EMPTY_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
+
 interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
   softWrap?: boolean;
+  /** Persistence key for per-file fold state (US10); omitted ⇒ folds not persisted. */
+  foldStorageKey?: string;
+  /** Per-user spell-check ignore list (US9/FR-063). */
+  spellIgnore?: string[];
+  /** Document language for spell-check (ISO 639-1); defaults to 'en'. */
+  spellcheckLanguage?: string;
+  /** When false, spell-check produces no diagnostics regardless of language. Defaults to true. */
+  spellcheckEnabled?: boolean;
+  /**
+   * Uploads a pasted/dropped image (US9/FR-040).
+   *
+   * @param file - The image file to upload.
+   * @returns The inserted project-relative path, or null on failure.
+   */
+  uploadImage?: (file: File) => Promise<string | null>;
   includePaths: string[];
   imagePaths?: string[];
+  /**
+   * Live accessor for the cross-file project symbol index (US8). Diagnostics and
+   * xref/attribute completion consult it for cross-file targets; null ⇒ current-file
+   * scope (FR-047). The getter is captured once at mount and always returns the latest index.
+   */
+  getProjectIndex?: () => ProjectSymbolIndex | null;
   onDocChange: (content: string) => void;
   onCursorChange: (pos: { line: number; col: number; totalLines: number }) => void;
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
+  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  onNavigateToXref?: (target: XrefTarget) => void;
+  /**
+   * Include-path level offset inherited by the open file from its ancestors (US3/FR-071). A change
+   * to it after a main-file reconfiguration re-evaluates heading levels without a document edit
+   * (FR-045a).
+   */
+  inheritedOffset?: number;
+  /**
+   * Attributes the open file inherits from the documents that include it (US8/FR-045a). They seed
+   * the `{attr}` collapse-to-value display so cross-document references resolve; a change after the
+   * symbol index rebuilds re-evaluates the display without a document edit.
+   */
+  inheritedAttributes?: ReadonlyMap<string, string>;
   onLineClick?: (line: number) => void;
   /**
    * Called with the 1-based line at the top of the editor viewport as the user scrolls.
@@ -62,6 +90,11 @@ interface UseEditorMountOptions {
    * to the current document's line count ("closest valid line"); ignored when not provided.
    */
   initialLine?: number;
+  /**
+   * Live request to reveal a 1-based line in the already-mounted editor (same-file go-to-definition,
+   * FR-049). Each distinct `nonce` triggers one cursor move + scroll-into-view; clamped to the doc.
+   */
+  revealRequest?: { line: number; nonce: number } | null;
   /**
    * Collaboration binding extension (yCollab) for the collab path. When provided the editor
    * mounts with an EMPTY document and is populated from Yjs sync (FR-004); native CodeMirror
@@ -80,16 +113,26 @@ export function useEditorMount({
   content,
   canEdit,
   softWrap = true,
+  foldStorageKey,
+  spellIgnore,
+  spellcheckLanguage = 'en',
+  spellcheckEnabled = true,
+  uploadImage,
   includePaths,
   imagePaths = [],
+  getProjectIndex,
   onDocChange,
   onCursorChange,
   onOutlineChange,
   onNavigateToFile,
   onOpenUrl,
+  onNavigateToXref,
+  inheritedOffset = 0,
+  inheritedAttributes = EMPTY_INHERITED_ATTRIBUTES,
   onLineClick,
   onScrollLine,
   initialLine,
+  revealRequest,
   collabExtension,
   remountKey,
 }: UseEditorMountOptions) {
@@ -97,6 +140,9 @@ export function useEditorMount({
   const containerReference = useRef<HTMLDivElement>(null);
   const viewReference = useRef<EditorView | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
+  const languageCompartment = useRef(new Compartment());
+  const lineWrapCompartment = useRef(new Compartment());
+  const spellcheckCompartment = useRef(new Compartment());
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
@@ -105,6 +151,26 @@ export function useEditorMount({
   useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
   const onScrollLineReference = useRef(onScrollLine);
   useEffect(() => { onScrollLineReference.current = onScrollLine; }, [onScrollLine]);
+  const getProjectIndexReference = useRef(getProjectIndex);
+  useEffect(() => { getProjectIndexReference.current = getProjectIndex; }, [getProjectIndex]);
+  const projectIndexAccessor = (): ProjectSymbolIndex | null => getProjectIndexReference.current?.() ?? null;
+  // The open file's project-relative path (from the symbol index), used to write include::/image::
+  // targets relative to the authoring file — AsciiDoc resolves directives relative to it, not the root.
+  const currentFilePath = (): string | null => {
+    const index = projectIndexAccessor();
+    return index ? index.pathOf(index.activeFileId) : null;
+  };
+  // Attribute map in scope for the open file (its own definitions plus those inherited from the
+  // files that include it) — for `{attr}` / `imagesdir` substitution in this file's macro targets.
+  const currentAttributes = (): ReadonlyMap<string, string> => {
+    const index = projectIndexAccessor();
+    return index ? index.effectiveAttributes(index.activeFileId) : new Map();
+  };
+  const inheritedOffsetReference = useRef(inheritedOffset);
+  useEffect(() => { inheritedOffsetReference.current = inheritedOffset; }, [inheritedOffset]);
+  // Attributes inherited from including documents, seeding the `{attr}` collapse-to-value display.
+  const inheritedAttributesReference = useRef(inheritedAttributes);
+  useEffect(() => { inheritedAttributesReference.current = inheritedAttributes; }, [inheritedAttributes]);
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
   const collabLineRestoredReference = useRef(false);
 
@@ -152,109 +218,40 @@ export function useEditorMount({
       onCursorChange({ line: line.number, col: head - line.from + 1, totalLines: update.state.doc.lines });
     });
 
-    const lineClickHandler = EditorView.domEventHandlers({
-      mousedown(event, view) {
-        if (!onLineClickReference.current) return;
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (pos === null) return;
-        const lineNumber = view.state.doc.lineAt(pos).number;
-        onLineClickReference.current(lineNumber);
-      },
-    });
-
-    // Dropping a file from the tree inserts a macro: image:: for images, include:: otherwise.
-    // The tree sets the project-relative path on a custom dataTransfer type (see file-tree.tsx).
-    const fileDropHandler = EditorView.domEventHandlers({
-      drop(event, view) {
-        const raw = event.dataTransfer?.getData('application/x-asciidoc-node');
-        if (!raw) return false; // not a tree-file drag — let CodeMirror handle it normally
-        if (!view.state.facet(EditorView.editable)) return false; // read-only
-        event.preventDefault();
-        const macro = macroFromDropPayload(raw);
-        if (macro === null) return true;
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
-        const { doc } = view.state;
-        const charBefore = pos > 0 ? doc.sliceString(pos - 1, pos) : null;
-        const charAfter = pos < doc.length ? doc.sliceString(pos, pos + 1) : null;
-        const insert = padBlockMacro(macro, charBefore, charAfter);
-        view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
-        view.focus();
-        return true;
-      },
-    });
-
-    // Hover tooltip over include::/image:: paths advertising the Ctrl+click affordance.
-    const ctrlClickTooltip = hoverTooltip((view, pos) => {
-      const line = view.state.doc.lineAt(pos);
-      const range = macroPathRange(line.text);
-      if (!range) return null;
-      const start = line.from + range.start;
-      const end = line.from + range.end;
-      if (pos < start || pos > end) return null;
-      return {
-        pos: start,
-        end,
-        above: true,
-        create() {
-          const dom = document.createElement('div');
-          dom.textContent = `${navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}+click to open in the file tree`;
-          dom.style.padding = '2px 6px';
-          dom.style.fontSize = '12px';
-          return { dom };
-        },
-      };
-    });
+    // DOM-level handlers + Ctrl+click hover tooltip. Each closes over a live ref accessor so it
+    // always observes the latest prop without rebinding (see editor-dom-handlers.ts).
+    const lineClickHandler = createLineClickHandler(() => onLineClickReference.current);
+    const fileDropHandler = createFileDropHandler(currentFilePath, currentAttributes);
+    const ctrlClickTooltip = createCtrlClickTooltip(projectIndexAccessor);
 
     const state = EditorState.create({
       // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
       doc: collabActive ? '' : content,
-      extensions: [
-        asciidoc(),
-        syntaxHighlighting(asciidocHighlightStyle),
-        syntaxHighlighting(defaultHighlightStyle),
-        // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
-        ...(collabActive ? [] : [history()]),
-        // List auto-continuation Enter command — registered before defaultKeymap (and at
-        // Prec.high) so it handles list lines first and all other lines fall through (FR-011).
-        listContinuationKeymap,
-        keymap.of([...defaultKeymap, ...(collabActive ? [] : historyKeymap), ...searchKeymap]),
-        search({ top: true }),
-        // readOnly blocks user input but not programmatic Yjs-applied updates, so observers
-        // still see live remote edits (research D8); editable.of(false) also drops the caret/
-        // contenteditable so there is no misleading editable affordance.
-        readOnlyCompartment.current.of([
-          EditorState.readOnly.of(!canEdit),
-          EditorView.editable.of(canEdit),
-        ]),
-        lineNumbers(),
-        highlightActiveLine(),
-        asciidocFold,
-        foldGutter(),
-        outlineField,
-        tableContextField,
-        showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),
-        autocompletion({
-          override: [
-            attributeCompletionSource,
-            xrefCompletionSource,
-            createIncludeCompletionSource(() => includePathsReference.current),
-            createImageCompletionSource(() => imagePathsReference.current),
-            tableSnippetCompletionSource,
-            tableCellCompletionSource,
-            captionCompletionSource,
-          ],
-        }),
-        ...(collabExtension ? [collabExtension] : []),
-        updateListener,
-        lineClickHandler,
-        fileDropHandler,
-        ctrlClickTooltip,
-        // Brand editor theme (chrome + syntax via --syntax-* vars), following light/dark
-        // automatically. Prec.highest so its highlight wins over the highlighters above:
-        // CodeMirror mounts higher-precedence style modules last, so they win the cascade.
-        Prec.highest(asciidocTheme),
-        ...(softWrap ? [EditorView.lineWrapping] : []),
-      ],
+      extensions: buildEditorExtensions({
+        compartments: {
+          readOnly: readOnlyCompartment.current,
+          language: languageCompartment.current,
+          lineWrap: lineWrapCompartment.current,
+          spellcheck: spellcheckCompartment.current,
+        },
+        canEdit,
+        softWrap,
+        foldStorageKey: foldStorageKey ?? null,
+        getSpellIgnore: () => spellIgnore ?? [],
+        spellcheckLanguage,
+        spellcheckEnabled,
+        uploadImage,
+        getIncludePaths: () => includePathsReference.current,
+        getImagePaths: () => imagePathsReference.current,
+        getCurrentFilePath: currentFilePath,
+        getCurrentAttributes: currentAttributes,
+        getInheritedAttributes: () => inheritedAttributesReference.current,
+        projectIndexAccessor,
+        getInheritedOffset: () => inheritedOffsetReference.current,
+        collabActive,
+        collabExtension,
+        hookExtensions: [updateListener, lineClickHandler, fileDropHandler, ctrlClickTooltip],
+      }),
     });
 
     const view = new EditorView({ state, parent: containerReference.current });
@@ -272,37 +269,25 @@ export function useEditorMount({
     }
 
     // Scroll sync: fire onScrollLine with the 1-based line at the top of the viewport.
-    let scrollDebounce: ReturnType<typeof setTimeout> | null = null;
-    const handleEditorScroll = () => {
-      if (!onScrollLineReference.current) return;
-      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
-      scrollDebounce = setTimeout(() => {
-        scrollDebounce = null;
-        const rect = view.scrollDOM.getBoundingClientRect();
-        const pos = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 });
-        if (pos !== null) {
-          onScrollLineReference.current?.(view.state.doc.lineAt(pos).number);
-        }
-      }, 50);
-    };
-    view.scrollDOM.addEventListener('scroll', handleEditorScroll, { passive: true });
+    const teardownScrollSync = wireScrollSync(view, () => onScrollLineReference.current);
 
     const linkHandler = createLinkHandler(
       {
         onNavigateToFile,
         onOpenUrl,
+        onNavigateToXref,
         onUnresolvedPath: (path) => {
           globalThis.dispatchEvent(new CustomEvent('editor:unresolved-path', { detail: path }));
         },
       },
       () => includePathsReference.current,
+      projectIndexAccessor,
     );
     const mousedownFunction = (event: MouseEvent) => linkHandler.handleMousedown(event, view);
     view.dom.addEventListener('mousedown', mousedownFunction);
 
     return () => {
-      if (scrollDebounce !== null) clearTimeout(scrollDebounce);
-      view.scrollDOM.removeEventListener('scroll', handleEditorScroll);
+      teardownScrollSync();
       view.dom.removeEventListener('mousedown', mousedownFunction);
       view.destroy();
       viewReference.current = null;
@@ -312,6 +297,29 @@ export function useEditorMount({
     // switch). content/canEdit changes are handled by their own effects below. Other closure
     // values are intentionally captured at (re)mount time.
   }, [remountKey]);
+
+  // Live reveal: move the cursor to a requested line and scroll it into view (same-file
+  // go-to-definition, FR-049). Runs on the already-mounted view; each new nonce reveals once.
+  const revealedNonceReference = useRef<number | null>(null);
+  useEffect(() => {
+    const view = viewReference.current;
+    if (!view || !revealRequest || revealRequest.nonce === revealedNonceReference.current) return;
+    revealedNonceReference.current = revealRequest.nonce;
+    const targetLine = clampToValidLine(revealRequest.line, view.state.doc.lines);
+    view.dispatch({ selection: { anchor: view.state.doc.line(targetLine).from }, scrollIntoView: true });
+  }, [revealRequest]);
+
+  // Re-evaluate heading levels when the inherited include-path offset changes (e.g. the project
+  // main file was reconfigured) — no document edit occurs, so the plugin needs an explicit nudge.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: refreshHeadingLevelsEffect.of() });
+  }, [inheritedOffset]);
+
+  // Re-evaluate the `{attr}` collapse-to-value display when the inherited attributes change (e.g. a
+  // parent file's content loaded into the index) — no document edit occurs, so nudge the plugin.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: refreshAttributeFoldEffect.of() });
+  }, [inheritedAttributes]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).
@@ -334,6 +342,25 @@ export function useEditorMount({
       ]),
     });
   }, [canEdit]);
+
+  // Sync the soft-wrap preference live via its Compartment (US2/FR-007).
+  useEffect(() => {
+    if (!viewReference.current) return;
+    viewReference.current.dispatch({
+      effects: lineWrapCompartment.current.reconfigure(softWrap ? [EditorView.lineWrapping] : []),
+    });
+  }, [softWrap]);
+
+  // Sync the spell-check language / enabled preference live via its Compartment (US9/FR-063) —
+  // a fresh lint source bound to the new language+enabled, so changes apply without a remount.
+  useEffect(() => {
+    if (!viewReference.current) return;
+    viewReference.current.dispatch({
+      effects: spellcheckCompartment.current.reconfigure(
+        createSpellcheckLinter(() => spellIgnore ?? [], spellcheckLanguage, spellcheckEnabled),
+      ),
+    });
+  }, [spellcheckLanguage, spellcheckEnabled, spellIgnore]);
 
   return { containerReference, viewReference, handleHeadingClick };
 }

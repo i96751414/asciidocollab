@@ -1,8 +1,8 @@
 import { RequestPasswordResetUseCase } from '../../../src/use-cases/auth/request-password-reset';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { UserRepository } from '../../../src/ports/user/user.repository';
 import { TokenGenerator } from '../../../src/services/token-generator';
 import { PasswordResetNotifier } from '../../../src/services/password-reset-notifier';

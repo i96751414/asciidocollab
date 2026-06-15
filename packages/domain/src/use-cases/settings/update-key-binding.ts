@@ -1,7 +1,7 @@
 import { KeyBindingRepository } from '../../ports/user/key-binding.repository';
 import { DEFAULT_KEY_BINDINGS, RESERVED_KEY_COMBOS } from '../../constants/key-bindings';
-import { KeyBindingConflictError } from '../../errors/key-binding-conflict';
-import { ValidationError } from '../../errors/validation-error';
+import { KeyBindingConflictError } from '../../errors/editor/key-binding-conflict';
+import { ValidationError } from '../../errors/common/validation-error';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 

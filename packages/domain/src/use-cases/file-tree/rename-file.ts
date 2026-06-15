@@ -1,23 +1,33 @@
 import { FileNode } from '../../entities/file-node';
-import { Timestamps } from '../../value-objects/timestamps';
+import { Timestamps } from '../../value-objects/common/timestamps';
 import { cascadePathUpdate } from './file-tree-helpers';
-import { UserId } from '../../value-objects/user-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FilePath } from '../../value-objects/file-path';
-import { FileName } from '../../value-objects/file-name';
+import { UserId } from '../../value-objects/ids/user-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FilePath } from '../../value-objects/files/file-path';
+import { FileName } from '../../value-objects/files/file-name';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
+import { DocumentRepository } from '../../ports/file-tree/document.repository';
+import { CollaborativeContentEditor } from '../../ports/storage/collaborative-content-editor';
+import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { Logger } from '../../ports/observability/logger';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { AUDIT_FILE_RENAMED } from '../../audit-actions';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
+import { ProjectRepository } from '../../ports/project/project.repository';
+import {
+  rewriteReferencesForPathChanges,
+  capturePathChanges,
+  clearMainFileIfMatches,
+} from './reference-rewrite';
+import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 
 /**
  * Renames a file or folder within a project and records an audit log entry.
@@ -31,6 +41,15 @@ export class RenameFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly logger?: Logger,
+    // Optional: maintains the project main-file configuration on rename (FR-070).
+    private readonly projectRepo?: ProjectRepository,
+    // Optional pair: when both are supplied, references in a file that is a collaborative Document
+    // are rewritten through the Yjs source of truth instead of the file store (avoids live-clobber).
+    private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
+    private readonly collaborativeContentEditor?: CollaborativeContentEditor,
+    // Optional: lets the reference-rewrite SCAN read a referencing file's live Yjs content so an
+    // unsaved reference is still found and corrected (mirrors the symbol-rename scan).
+    private readonly collaborativeContentReader?: CollaborativeContentReader,
   ) {}
 
   /**
@@ -50,7 +69,7 @@ export class RenameFileUseCase {
     newName: string,
     projectId: ProjectId,
     context?: RequestContext,
-  ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath }, DomainError>> {
+  ): Promise<Result<{ fileNodeId: FileNodeId; newName: string; newPath: FilePath; mainFileCleared: boolean }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       await recordAuthorizationDenial(this.auditLogRepo, {
@@ -75,6 +94,13 @@ export class RenameFileUseCase {
     const lastSlash = pathString.lastIndexOf('/');
     const parentPath = pathString.slice(0, lastSlash + 1);
     const newPath = FilePath.create(parentPath + newName);
+
+    // Capture the old → new path map BEFORE the cascade rewrites descendant paths
+    // (FR-066). For a file it is a single entry; for a folder, every descendant file.
+    // The rewrite needs the file store to read/write content, so it is skipped when absent.
+    const pathChanges = this.fileStore
+      ? await capturePathChanges(this.fileNodeRepo, fileNode, newPath)
+      : new Map<string, string>();
 
     if (this.fileStore) {
       const moveResult = await this.fileStore.move(projectId, fileNode.path, newPath);
@@ -111,6 +137,39 @@ export class RenameFileUseCase {
       throw error;
     }
 
+    if (this.fileStore) {
+      // Best-effort (FR-066): the rename has already persisted, so a reference-rewrite
+      // I/O failure must not fail the rename — log and continue (as audit writes do).
+      try {
+        await rewriteReferencesForPathChanges(
+          {
+            fileNodeRepo: this.fileNodeRepo,
+            fileStore: this.fileStore,
+            ...(this.documentRepo && { documentRepo: this.documentRepo }),
+            ...(this.collaborativeContentEditor && { collaborativeContentEditor: this.collaborativeContentEditor }),
+            ...(this.collaborativeContentReader && { collaborativeContentReader: this.collaborativeContentReader }),
+            ...(this.logger && { logger: this.logger }),
+          },
+          projectId,
+          pathChanges,
+        );
+      } catch (error) {
+        this.logger?.warn('Cross-file reference rewrite failed after rename', { error, fileNodeId: fileNodeId.value });
+      }
+    }
+
+    // FR-070: if the renamed node is the configured main file and its new name is
+    // no longer an AsciiDoc document, the configuration can no longer point at a
+    // valid main file — clear it (resolution falls back to current-file-only).
+    let mainFileCleared = false;
+    if (this.projectRepo && fileNode.type.value === 'file' && !isAsciiDocumentFileName(newName)) {
+      mainFileCleared = await clearMainFileIfMatches(
+        this.projectRepo,
+        projectId,
+        (mainFileNodeId) => mainFileNodeId.value === fileNodeId.value,
+      );
+    }
+
     await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
@@ -123,7 +182,7 @@ export class RenameFileUseCase {
 
     return {
       success: true,
-      value: { fileNodeId, newName, newPath },
+      value: { fileNodeId, newName, newPath, mainFileCleared },
     };
   }
 }

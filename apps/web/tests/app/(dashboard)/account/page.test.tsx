@@ -1,7 +1,7 @@
 // AccountPage server component redirect behavior.
 // Verifies that an unauthenticated user is redirected even when authApi.setupStatus() throws.
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 jest.mock('@/lib/auth', () => ({
   getProfile: jest.fn(),
@@ -100,6 +100,51 @@ describe('AccountPage redirect behavior', () => {
     await AccountPage({ searchParams: Promise.resolve({}) });
 
     expect(redirect).not.toHaveBeenCalled();
+  });
+
+  test('shows the email-updated banner when confirmed=email is present', async () => {
+    const { getProfile } = require('@/lib/auth');
+    const { authApi } = require('@/lib/api');
+    const { default: AccountPage } = require('@/app/(dashboard)/dashboard/account/page');
+
+    (getProfile as jest.Mock).mockResolvedValue({
+      userId: 'user-1',
+      displayName: 'Alice',
+      email: 'alice@example.com',
+      avatarKey: null,
+    });
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({
+      configured: true,
+      passwordPolicy: defaultPolicy,
+    });
+
+    const jsx = await AccountPage({ searchParams: Promise.resolve({ confirmed: 'email' }) });
+    render(jsx);
+
+    expect(screen.getByText(/email address updated successfully/i)).toBeInTheDocument();
+  });
+
+  test('omits the email-updated banner when confirmed is not "email"', async () => {
+    const { getProfile } = require('@/lib/auth');
+    const { authApi } = require('@/lib/api');
+    const { default: AccountPage } = require('@/app/(dashboard)/dashboard/account/page');
+
+    (getProfile as jest.Mock).mockResolvedValue({
+      userId: 'user-1',
+      displayName: 'Alice',
+      email: 'alice@example.com',
+      avatarKey: null,
+    });
+    (authApi.setupStatus as jest.Mock).mockResolvedValue({
+      configured: true,
+      passwordPolicy: defaultPolicy,
+    });
+
+    const jsx = await AccountPage({ searchParams: Promise.resolve({ confirmed: 'other' }) });
+    render(jsx);
+
+    expect(screen.queryByText(/email address updated successfully/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Account' })).toBeInTheDocument();
   });
 
   test('passes avatarKey from profile to DisplayNameCard', async () => {

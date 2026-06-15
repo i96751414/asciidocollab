@@ -6,7 +6,7 @@ import {
   ListOrdered, List, ListChecks, ListTree,
   SquareCode, Box, PanelRight, Quote,
   Info, Lightbulb, TriangleAlert, AlertCircle, Flame, Sigma, MessageSquare,
-  Table, Captions, Link, ArrowRightLeft, Asterisk, Image, Settings,
+  Table, Captions, Link, ArrowRightLeft, Asterisk, Image, Settings, Replace,
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { EditorView } from '@codemirror/view';
@@ -14,14 +14,22 @@ import { EditorToolbarButton } from './editor-toolbar-button';
 import { EditorSettingsPanel } from './editor-settings-panel';
 import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
 import { TABLE_SKELETON } from '@/lib/codemirror/asciidoc-completions';
+import { symbolAtCursor, type CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 
 interface EditorToolbarProperties {
   view: EditorView | null;
   canEdit?: boolean;
   fontSize?: number;
   theme?: EditorThemeValue;
+  softWrap?: boolean;
   setFontSize?: (size: number) => void;
   setTheme?: (theme: EditorThemeValue) => void;
+  setSoftWrap?: (enabled: boolean) => void;
+  /** Opens the Go to Symbol palette (FR-061); omitted hides the button. */
+  onGoToSymbol?: () => void;
+  // Opens the refactor dialog (US12), seeded with the symbol under the cursor (or null when the
+  // cursor is not on one); omitted hides the button.
+  onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
 // Wrap selected text or insert at cursor
@@ -51,6 +59,21 @@ function insertSnippetAt(view: EditorView, snippet: string, cursorOffset: number
   view.dispatch({
     changes: { from, to: from, insert: snippet },
     selection: { anchor: from + cursorOffset },
+  });
+  view.focus();
+}
+
+// Insert a source-code block declaration with the language placeholder selected
+// (US6/FR-020–022): `[source,<lang>]` + listing delimiters, cursor on the language
+// so the author types it immediately; the body sits between the `----` fences.
+function insertSourceBlock(view: EditorView) {
+  const { from } = view.state.selection.main;
+  const before = '[source,';
+  const languagePlaceholder = 'language';
+  const insert = `${before}${languagePlaceholder}]\n----\n\n----\n`;
+  view.dispatch({
+    changes: { from, to: from, insert },
+    selection: { anchor: from + before.length, head: from + before.length + languagePlaceholder.length },
   });
   view.focus();
 }
@@ -106,7 +129,7 @@ const STRUCTURE: ToolbarAction[] = [
 ];
 
 const BLOCKS: ToolbarAction[] = [
-  { label: 'Code Block',    shortcut: '', icon: SquareCode, action: (v) => insertSnippet(v, '----\n\n----\n') },
+  { label: 'Code Block',    shortcut: '', icon: SquareCode, action: (v) => insertSourceBlock(v) },
   { label: 'Example Block', shortcut: '', icon: Box,        action: (v) => insertSnippet(v, '====\n\n====\n') },
   { label: 'Sidebar',       shortcut: '', icon: PanelRight, action: (v) => insertSnippet(v, '****\n\n****\n') },
   { label: 'Blockquote',    shortcut: '', icon: Quote,      action: (v) => insertSnippet(v, '____\n\n____\n') },
@@ -167,8 +190,12 @@ export function EditorToolbar({
   canEdit = true,
   fontSize = 14,
   theme = 'default',
+  softWrap,
   setFontSize = () => {},
   setTheme = () => {},
+  setSoftWrap,
+  onGoToSymbol,
+  onRefactor,
 }: EditorToolbarProperties) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -187,7 +214,23 @@ export function EditorToolbar({
             <ToolbarGroup label="Inline/References"  actions={INLINE_REFS}     view={view} />
           </>
         )}
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center gap-0.5">
+          {onGoToSymbol && (
+            <EditorToolbarButton
+              icon={<ListTree className="h-4 w-4" />}
+              label="Go to Symbol"
+              shortcut="Ctrl+Shift+O"
+              onClick={onGoToSymbol}
+            />
+          )}
+          {onRefactor && (
+            <EditorToolbarButton
+              icon={<Replace className="h-4 w-4" />}
+              label="Refactor"
+              shortcut="Ctrl+Shift+R"
+              onClick={() => onRefactor(view ? symbolAtCursor(view) : null)}
+            />
+          )}
           <EditorToolbarButton
             icon={<Settings className="h-4 w-4" />}
             label="Editor settings"
@@ -201,8 +244,10 @@ export function EditorToolbar({
           <EditorSettingsPanel
             fontSize={fontSize}
             theme={theme}
+            softWrap={softWrap}
             setFontSize={setFontSize}
             setTheme={setTheme}
+            setSoftWrap={setSoftWrap}
           />
         </div>
       )}

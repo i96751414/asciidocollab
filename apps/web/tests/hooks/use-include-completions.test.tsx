@@ -84,6 +84,30 @@ describe('useIncludeCompletions', () => {
     const { result } = renderHook(() => useIncludeCompletions('proj-1'));
     expect(result.current).toEqual([]);
   });
+
+  test('keeps paths empty when the response is not ok', async () => {
+    mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve(pathsToTree(['a.adoc'])) });
+    const { result } = renderHook(() => useIncludeCompletions('proj-1'));
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
+  });
+
+  test('swallows fetch rejection and keeps paths empty', async () => {
+    mockFetch.mockRejectedValue(new Error('network down'));
+    const { result } = renderHook(() => useIncludeCompletions('proj-1'));
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
+  });
+
+  test('returns empty array for a tree with no files', async () => {
+    mockFetch.mockResolvedValue(treeResponse([]));
+    const { result } = renderHook(() => useIncludeCompletions('proj-1'));
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
+  });
 });
 
 describe('useImagePaths', () => {

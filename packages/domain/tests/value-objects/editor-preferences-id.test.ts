@@ -1,5 +1,5 @@
-import { EditorPreferencesId } from '../../src/value-objects/editor-preferences-id';
-import { ValidationError } from '../../src/errors/validation-error';
+import { EditorPreferencesId } from '../../src/value-objects/ids/editor-preferences-id';
+import { ValidationError } from '../../src/errors/common/validation-error';
 
 describe('EditorPreferencesId', () => {
   test('constructs from a valid UUID v4', () => {

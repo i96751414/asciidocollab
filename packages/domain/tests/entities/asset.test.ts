@@ -1,6 +1,6 @@
 import { Asset } from '../../src/entities/asset';
-import { FileNodeId } from '../../src/value-objects/file-node-id';
-import { MimeType } from '../../src/value-objects/mime-type';
+import { FileNodeId } from '../../src/value-objects/ids/file-node-id';
+import { MimeType } from '../../src/value-objects/files/mime-type';
 
 describe('Asset entity', () => {
   const fileNodeId = FileNodeId.create('550e8400-e29b-41d4-a716-446655440000');

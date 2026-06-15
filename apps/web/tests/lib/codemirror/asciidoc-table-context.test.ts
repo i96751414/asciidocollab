@@ -2,8 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { buildParser } from '@lezer/generator';
 import type { LRParser } from '@lezer/lr';
+import { EditorState } from '@codemirror/state';
+import { LRLanguage, LanguageSupport, ensureSyntaxTree } from '@codemirror/language';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
-import { parseTableContext } from '@/lib/codemirror/asciidoc-table-context';
+import { parseTableContext, tableContextField } from '@/lib/codemirror/asciidoc-table-context';
 import {
   parseTable,
   addRow,
@@ -25,6 +27,23 @@ try {
   }) as LRParser;
 } catch {
   parser = null as unknown as LRParser;
+}
+
+const asciidocLanguage = LRLanguage.define({ name: 'asciidoc', parser });
+const languageExtension = new LanguageSupport(asciidocLanguage);
+
+// Builds a state, force-parses it so the lazy headless parser produces a real
+// syntax tree, then dispatches a selection move so the StateField update() runs
+// against that tree. Returns the resolved field value for the moved cursor.
+function fieldContextAt(documentContent: string, cursorOffset: number) {
+  const state = EditorState.create({
+    doc: documentContent,
+    extensions: [languageExtension, tableContextField],
+    selection: { anchor: 0 },
+  });
+  ensureSyntaxTree(state, documentContent.length, 5000);
+  const transaction = state.update({ selection: { anchor: cursorOffset } });
+  return transaction.state.field(tableContextField);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -585,5 +604,146 @@ describe('Remove Column from header row', () => {
     expect(parsed.headerRows[0].cells[0]).toBe('H1');
     expect(parsed.bodyRows[0].cells).toHaveLength(1);
     expect(parsed.bodyRows[0].cells[0]).toBe('B1');
+  });
+});
+
+// ── parseTableContext: [cols=...] attribute line ──────────────────────────────
+// A leading line that starts with '[' marks a column spec (hasColSpec) and shifts
+// the delimiter scan start by one line.
+
+describe('parseTableContext: leading [cols=...] spec line', () => {
+  const TABLE_WITH_SPEC = '[cols="1,1"]\n|===\n|A |B\n|===\n';
+
+  test('hasColSpec is true when the first line starts with [', () => {
+    const context = parseTableContext(TABLE_WITH_SPEC, TABLE_WITH_SPEC.indexOf('|A') + 1);
+    expect(context).not.toBeNull();
+    expect(context!.hasColSpec).toBe(true);
+  });
+
+  test('still detects the body row past the spec and delimiter lines', () => {
+    const context = parseTableContext(TABLE_WITH_SPEC, TABLE_WITH_SPEC.indexOf('|A') + 1);
+    expect(context).not.toBeNull();
+    expect(context!.rowCount).toBe(1);
+    expect(context!.columnCount).toBe(2);
+    expect(context!.isInHeader).toBe(false);
+  });
+
+  test('hasColSpec is false for a plain table without a spec line', () => {
+    const context = parseTableContext(DOC_TWO_BODY, OFFSET_TWO_ROW0);
+    expect(context).not.toBeNull();
+    expect(context!.hasColSpec).toBe(false);
+  });
+});
+
+// ── parseTableContext: null / edge-case returns ───────────────────────────────
+
+describe('parseTableContext: edge cases', () => {
+  test('returns null when the table has no content rows (only delimiters)', () => {
+    const emptyTable = '|===\n|===\n';
+    expect(parseTableContext(emptyTable, 5)).toBeNull();
+  });
+
+  test('cursor on the |=== delimiter line keeps column index at 0', () => {
+    const context = parseTableContext(DOC_TWO_BODY, 0);
+    expect(context).not.toBeNull();
+    expect(context!.cursorColumnIndex).toBe(0);
+    expect(context!.cursorRowIndex).toBe(0);
+  });
+
+  test('cursor before any pipe on a body row clamps column index to 0', () => {
+    // A body line beginning with text rather than a pipe → pipe count - 1 < 0.
+    const noLeadingPipe = '|===\nplain text\n|===\n';
+    const context = parseTableContext(noLeadingPipe, noLeadingPipe.indexOf('plain') + 1);
+    expect(context).not.toBeNull();
+    expect(context!.cursorColumnIndex).toBe(0);
+  });
+
+  test('cursor at the very end of the table text resolves a context', () => {
+    const context = parseTableContext(DOC_TWO_BODY, DOC_TWO_BODY.length);
+    expect(context).not.toBeNull();
+  });
+});
+
+// ── tableContextField: StateField create() and update() ───────────────────────
+
+describe('tableContextField', () => {
+  test('create() returns null for a fresh state', () => {
+    const state = EditorState.create({
+      doc: DOC_HEADER_BODY,
+      extensions: [languageExtension, tableContextField],
+    });
+    expect(state.field(tableContextField)).toBeNull();
+  });
+
+  test('update() populates the context when the cursor moves into a table body', () => {
+    const context = fieldContextAt(DOC_HEADER_BODY, OFFSET_BODY_ROW0);
+    expect(context).not.toBeNull();
+    expect(context!.tableFrom).toBe(0);
+    expect(context!.tableTo).toBeGreaterThan(OFFSET_BODY_ROW0);
+    expect(context!.cursorRowIndex).toBe(0);
+    expect(context!.isInHeader).toBe(false);
+    expect(context!.rowCount).toBe(1);
+    expect(context!.columnCount).toBe(2);
+  });
+
+  test('update() reports isInHeader when the cursor is in a header row', () => {
+    const context = fieldContextAt(DOC_HEADER_BODY, OFFSET_HEADER_ROW);
+    expect(context).not.toBeNull();
+    expect(context!.isInHeader).toBe(true);
+  });
+
+  test('update() returns null when the cursor is outside any table', () => {
+    const documentContent = 'Just a paragraph.\n\n' + DOC_HEADER_BODY;
+    const context = fieldContextAt(documentContent, 3);
+    expect(context).toBeNull();
+  });
+
+  test('update() returns null when the cursor sits in a non-table block', () => {
+    // A listing block precedes the table; cursor inside the listing block must
+    // not match the TableBlock node (wrong-table / descend-skip branches).
+    const documentContent = '----\ncode\n----\n\n' + DOC_TWO_BODY;
+    const listingInside = documentContent.indexOf('code') + 1;
+    expect(fieldContextAt(documentContent, listingInside)).toBeNull();
+  });
+
+  test('update() preserves the previous value when neither doc nor selection changes', () => {
+    const state = EditorState.create({
+      doc: DOC_TWO_BODY,
+      extensions: [languageExtension, tableContextField],
+    });
+    ensureSyntaxTree(state, DOC_TWO_BODY.length, 5000);
+    // A transaction with no selection and no doc change must short-circuit and
+    // return the prior field value (null here).
+    const transaction = state.update({ scrollIntoView: true });
+    expect(transaction.state.field(tableContextField)).toBeNull();
+  });
+
+  test('update() stays null when the matched table has no body rows', () => {
+    // The cursor is inside a TableBlock node, but parseTableContext returns null
+    // for a body-less table, so the field's `if (context)` guard is false.
+    const documentContent = '|===\n|===\n';
+    const state = EditorState.create({
+      doc: documentContent,
+      extensions: [languageExtension, tableContextField],
+      selection: { anchor: 0 },
+    });
+    ensureSyntaxTree(state, documentContent.length, 5000);
+    const transaction = state.update({ selection: { anchor: 5 } });
+    expect(transaction.state.field(tableContextField)).toBeNull();
+  });
+
+  test('update() recomputes when the document changes', () => {
+    const state = EditorState.create({
+      doc: DOC_TWO_BODY,
+      extensions: [languageExtension, tableContextField],
+      selection: { anchor: OFFSET_TWO_ROW0 },
+    });
+    ensureSyntaxTree(state, DOC_TWO_BODY.length, 5000);
+    const transaction = state.update({
+      changes: { from: OFFSET_TWO_ROW0, insert: 'X' },
+    });
+    const context = transaction.state.field(tableContextField);
+    expect(context).not.toBeNull();
+    expect(context!.tableFrom).toBe(0);
   });
 });

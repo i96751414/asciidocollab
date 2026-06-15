@@ -81,4 +81,35 @@ describe('ProjectCard', () => {
     expect(screen.queryByRole('button', { name: /project options/i })).not.toBeInTheDocument();
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
+
+  test('falls back to "No description" when none is set', () => {
+    render(<ProjectCard project={makeProject({ description: '' })} />);
+    expect(screen.getByText('No description')).toBeInTheDocument();
+  });
+
+  test('hides the role badge when role is absent', () => {
+    render(<ProjectCard project={makeProject({ role: undefined })} />);
+    expect(screen.queryByRole('button', { name: /project options/i })).not.toBeInTheDocument();
+  });
+
+  test('omits file and member counts when undefined', () => {
+    render(
+      <ProjectCard project={makeProject({ fileCount: undefined, memberCount: undefined })} />,
+    );
+    expect(screen.queryByText(/files?$/)).not.toBeInTheDocument();
+  });
+
+  test('renders the navigating stretched link to the project', () => {
+    const { container } = render(<ProjectCard project={makeProject({ id: '42', name: 'Alpha' })} />);
+    expect(container.querySelector('a[href="/dashboard/projects/42"]')).toBeInTheDocument();
+  });
+
+  test('stops propagation when the options button is clicked', () => {
+    render(<ProjectCard project={makeProject({ role: 'owner' })} />);
+    const optionsButton = screen.getByRole('button', { name: /project options/i });
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    const stopPropagation = jest.spyOn(event, 'stopPropagation');
+    optionsButton.dispatchEvent(event);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+  });
 });

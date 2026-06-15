@@ -60,7 +60,18 @@ Internet → Load Balancer (TLS) → Fastify API → Domain Use Cases → Infras
 
 ## API & Integration Security
 
-- Rate limiting on all public endpoints.
+- **Rate limiting — a deliberate, configurable decision per route (not blanket).** The global limiter is
+  registered with `global: false`, so rate limiting is opt-in per route; it is NOT required on every
+  endpoint. The rule is that the decision MUST NOT be forgotten:
+  - **MUST rate-limit:** unauthenticated endpoints, authentication / credential / account-recovery flows,
+    and any endpoint that is expensive, abuse-prone, or **amplifies load** (e.g. search, downloads,
+    fan-out/bulk reads).
+  - **MAY skip:** cheap, authenticated, low-amplification routes where another control already bounds abuse
+    — but the reason MUST be recorded at the route or in its contract (as the collab-auth routes already do).
+    Silently omitting a limit is the only violation; an explicit, justified "no limit" is compliant.
+  - **When limited, the limit MUST be configurable, never a hardcoded literal:** a `rateLimitMax` +
+    `rateLimitWindow` pair defined in `apps/api/src/config/schema.ts`, bound to environment variables with a
+    documented default. The route's contract MUST note the limit and its `429` response.
 - CORS configured for allowed origins only.
 - Request size limits enforced at the Fastify level.
 - No direct database access from the frontend — all data flows through the API layer.
@@ -95,4 +106,15 @@ Internet → Load Balancer (TLS) → Fastify API → Domain Use Cases → Infras
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-28
+**Version**: 1.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-13
+
+<!--
+AMENDMENT 1.0.0 → 1.1.0 (2026-06-13, MINOR): "API & Integration Security" rate-limiting rule expanded.
+The prior "Rate limiting on all public endpoints" was literally inaccurate (the limiter runs `global: false`
+and some authenticated/internal routes are intentionally unlimited). Reframed as a deliberate, documented,
+*configurable* per-route decision: abuse-prone/unauthenticated/amplifying routes MUST be limited; cheap
+authenticated routes MAY skip with a recorded reason; limits MUST be config/env-driven, never hardcoded.
+No principle removed; guidance strengthened so the decision (and its config options) cannot be silently
+forgotten.
+-->
+

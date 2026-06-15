@@ -1,5 +1,5 @@
-import { AuthAttemptTelemetryId } from '../value-objects/auth-attempt-telemetry-id';
-import { ValidationError } from '../errors/validation-error';
+import { AuthAttemptTelemetryId } from '../value-objects/ids/auth-attempt-telemetry-id';
+import { ValidationError } from '../errors/common/validation-error';
 
 /** Coalesced failed sign-in attempts (FR-025). */
 export const AUTH_ATTEMPT_FAILED_SIGN_IN = 'failed_sign_in';

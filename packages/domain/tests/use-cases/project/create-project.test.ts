@@ -3,9 +3,9 @@ import { InMemoryProjectRepository } from '../../ports/project/in-memory-project
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { InvalidProjectNameError } from '../../../src/errors/invalid-project-name';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { InvalidProjectNameError } from '../../../src/errors/project/invalid-project-name';
 
 describe('CreateProjectUseCase', () => {
   let projectRepo: InMemoryProjectRepository;

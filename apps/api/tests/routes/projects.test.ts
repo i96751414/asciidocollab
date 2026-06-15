@@ -272,6 +272,31 @@ describe('PATCH /api/projects/:id', () => {
     expect(JSON.parse(response.body).data.name).toBe('Updated Name');
   });
 
+  it('forwards language to the use case and echoes it in the response', async () => {
+    const executeSpy = jest.spyOn(UpdateProjectUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: {
+        id: { value: PROJECT_ID },
+        name: { value: 'Doc' },
+        description: null,
+        tags: [],
+        language: 'pt',
+        updatedAt: new Date('2024-06-01T00:00:00.000Z'),
+      } as never,
+    });
+
+    const app = buildTestServer();
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${PROJECT_ID}`,
+      payload: { language: 'pt' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.language).toBe('pt');
+    expect(executeSpy.mock.calls.at(-1)?.[2]).toMatchObject({ language: 'pt' });
+  });
+
   it('returns 403 when actor lacks permission', async () => {
     jest.spyOn(UpdateProjectUseCase.prototype, 'execute').mockResolvedValue({
       success: false,

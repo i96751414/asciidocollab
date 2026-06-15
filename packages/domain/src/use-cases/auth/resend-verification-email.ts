@@ -1,6 +1,6 @@
 import { EmailVerificationToken } from '../../entities/email-verification-token';
-import { EmailVerificationTokenId } from '../../value-objects/email-verification-token-id';
-import { UserId } from '../../value-objects/user-id';
+import { EmailVerificationTokenId } from '../../value-objects/ids/email-verification-token-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { UserRepository } from '../../ports/user/user.repository';
 import { EmailVerificationTokenRepository } from '../../ports/auth-tokens/email-verification-token.repository';
 import { TokenGenerator } from '../../services/token-generator';

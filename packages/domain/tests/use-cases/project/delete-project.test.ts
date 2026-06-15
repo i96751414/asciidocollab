@@ -4,16 +4,16 @@ import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-p
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryYjsStateStore } from '../../ports/storage/in-memory-yjs-state-store';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { YjsStateId } from '../../../src/value-objects/yjs-state-id';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { YjsStateId } from '../../../src/value-objects/ids/yjs-state-id';
 import { Project } from '../../../src/entities/project';
 import { ProjectMember } from '../../../src/entities/project-member';
-import { UserId } from '../../../src/value-objects/user-id';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { Role } from '../../../src/value-objects/role';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { ProjectNotFoundError } from '../../../src/errors/project-not-found';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { Role } from '../../../src/value-objects/identity/role';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { ProjectNotFoundError } from '../../../src/errors/project/project-not-found';
 
 describe('DeleteProjectUseCase', () => {
   let projectRepo: InMemoryProjectRepository;

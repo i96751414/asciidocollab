@@ -1,0 +1,6 @@
+[[chapter-two-details]]
+= Chapter Two
+
+Details that cross-reference <<chapter-one-intro>> from another file.
+
+image::diagram.png[A diagram]

@@ -3,20 +3,20 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemoryUserInvitationRepository } from '../../ports/user/in-memory-user-invitation.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
 import { UserInvitation } from '../../../src/entities/user-invitation';
-import { UserInvitationId } from '../../../src/value-objects/user-invitation-id';
-import { Email } from '../../../src/value-objects/email';
-import { UserId } from '../../../src/value-objects/user-id';
-import { InvalidTokenError } from '../../../src/errors/invalid-token';
-import { DuplicateEmailError } from '../../../src/errors/duplicate-email';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { UserInvitationId } from '../../../src/value-objects/ids/user-invitation-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { InvalidTokenError } from '../../../src/errors/auth/invalid-token';
+import { DuplicateEmailError } from '../../../src/errors/auth/duplicate-email';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 import type { PasswordHasher } from '../../../src/services/password-hasher';
-import type { PasswordPolicy } from '../../../src/value-objects/password-policy';
+import type { PasswordPolicy } from '../../../src/value-objects/identity/password-policy';
 import type { BreachChecker } from '../../../src/services/breach-checker';
 import type { CommonPasswordChecker } from '../../../src/services/common-password-checker';
 import type { TokenGenerator, PasswordResetTokenData } from '../../../src/services/token-generator';
 import { randomUUID } from 'crypto';
 import { User } from '../../../src/entities/user';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 
 const RAW_TOKEN = 'my-raw-token';
 const HASHED_TOKEN = 'hashed:my-raw-token';

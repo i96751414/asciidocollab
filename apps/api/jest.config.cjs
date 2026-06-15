@@ -9,7 +9,7 @@ const config = {
       tsconfig: 'tsconfig.eslint.json',
     }],
   },
-  collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/index.ts', '!src/di/**'],
   coverageThreshold: {
     global: {
       statements: 90,

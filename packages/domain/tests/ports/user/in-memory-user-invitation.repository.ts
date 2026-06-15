@@ -1,5 +1,5 @@
 import { UserInvitation } from '../../../src/entities/user-invitation';
-import { Email } from '../../../src/value-objects/email';
+import { Email } from '../../../src/value-objects/identity/email';
 import { UserInvitationRepository } from '../../../src/ports/user/user-invitation.repository';
 
 export class InMemoryUserInvitationRepository implements UserInvitationRepository {

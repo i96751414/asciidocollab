@@ -170,6 +170,42 @@ describe('useAsciidocPreview', () => {
     expect(lastWorker().postMessage.mock.calls[0][0].content).toBe('abcd');
   });
 
+  // (d2) include assembly (FR-068): mainPath + files are forwarded when the root content is present
+  it('forwards mainPath + files to the worker when the main file content is available', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '= Book\n\ninclude::ch.adoc[]\n',
+        isEnabled: true,
+        scrollToLine: null,
+        mainPath: 'main.adoc',
+        getFiles: () => ({ 'main.adoc': '= Book\n\ninclude::ch.adoc[]\n', 'ch.adoc': '== Ch\n' }),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    expect(message.mainPath).toBe('main.adoc');
+    expect(message.files).toMatchObject({ 'main.adoc': expect.any(String) });
+  });
+
+  // (d3) guard: when getFiles lacks the root path (tree not loaded yet), assembly is skipped so the
+  // preview renders the open file's content instead of blanking.
+  it('skips assembly (no mainPath/files in the message) when the root content is not yet available', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '= Book',
+        isEnabled: true,
+        scrollToLine: null,
+        mainPath: 'main.adoc',
+        getFiles: () => ({}),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    expect(message.mainPath).toBeUndefined();
+    expect(message.files).toBeUndefined();
+    expect(message.content).toBe('= Book');
+  });
+
   // (e) scrollToLine calls querySelector and scrollIntoView
   it('scrolls to the element matching data-source-line when scrollToLine changes', () => {
     const mockScrollIntoView = jest.fn();

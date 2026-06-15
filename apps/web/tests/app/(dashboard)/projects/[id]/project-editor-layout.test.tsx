@@ -49,6 +49,11 @@ const mockUseFileTreeEvents = jest.fn();
 jest.mock('@/hooks/use-file-tree-events', () => ({
   useFileTreeEvents: (...arguments_: unknown[]) => mockUseFileTreeEvents(...arguments_),
 }));
+// The cross-file symbol index has its own tests and registers its own useFileTreeEvents
+// consumer; stub it here so it doesn't interfere with the file-tree SSE assertions below.
+jest.mock('@/hooks/use-project-symbol-index', () => ({
+  useProjectSymbolIndex: () => ({ index: null, getIndex: () => null }),
+}));
 
 jest.mock('@/hooks/use-file-selection', () => ({
   useFileSelection: jest.fn(() => ({
@@ -113,6 +118,7 @@ const defaultProps = {
   projectId: 'p1',
   projectName: 'My Project',
   projectDescription: null,
+  mainFileNodeId: null,
   canManage: true,
   canEdit: true,
   userId: 'user-1',

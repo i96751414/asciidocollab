@@ -16,6 +16,7 @@ jest.mock('@codemirror/view', () => ({
     static lineWrapping = {};
     static editable = { of: (value: unknown) => ({ editable: value }) };
     static domEventHandlers = (_handlers: unknown) => ({});
+    static inputHandler = { of: (function_: unknown) => ({ function_ }) };
 
     constructor({ state, parent }: {
       state: { doc: { toString: () => string }; readOnly?: boolean };
@@ -39,7 +40,14 @@ jest.mock('@codemirror/view', () => ({
   highlightActiveLine: () => ({}),
   highlightSpecialChars: () => ({}),
   foldGutter: () => ({}),
+  ViewPlugin: { fromClass: () => ({}), define: () => ({}) },
+  Decoration: { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
+  WidgetType: class {},
 }));
+
+jest.mock('@codemirror/language-data', () => ({ languages: [] }));
+
+jest.mock('@codemirror/lint', () => ({ linter: () => ({}), lintGutter: () => ({}) }));
 
 jest.mock('@codemirror/state', () => ({
   EditorState: {
@@ -50,6 +58,7 @@ jest.mock('@codemirror/state', () => ({
     readOnly: { of: () => ({}) },
   },
   StateField: { define: () => ({ field: true }) },
+  Facet: { define: () => ({ of: (v: unknown) => ({ facet: v }) }) },
   StateEffect: { appendConfig: { of: (extension: unknown) => ({ appendConfig: extension }) }, define: () => ({ of: (v: unknown) => ({ value: v }) }) },
   Compartment: class { of(extension: unknown) { return extension; } reconfigure(extension: unknown) { return extension; } },
   Prec: { highest: (extension: unknown) => extension, high: (extension: unknown) => extension, default: (extension: unknown) => extension, low: (extension: unknown) => extension, lowest: (extension: unknown) => extension },
@@ -79,7 +88,21 @@ jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: t
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));
-jest.mock('@/lib/codemirror/asciidoc-completions', () => ({ attributeCompletionSource: () => null, xrefCompletionSource: () => null, createIncludeCompletionSource: () => jest.fn(), createImageCompletionSource: () => jest.fn() }));
+jest.mock('@/lib/codemirror/asciidoc-completions', () => {
+  const noopSource = jest.fn();
+  return {
+    createAttributeCompletionSource: () => noopSource,
+    createXrefCompletionSource: () => noopSource,
+    attributeCompletionSource: noopSource,
+    xrefCompletionSource: noopSource,
+    sourceLanguageCompletionSource: noopSource,
+    tableSnippetCompletionSource: noopSource,
+    tableCellCompletionSource: noopSource,
+    captionCompletionSource: noopSource,
+    createIncludeCompletionSource: () => jest.fn(),
+    createImageCompletionSource: () => jest.fn(),
+  };
+});
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
 jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));

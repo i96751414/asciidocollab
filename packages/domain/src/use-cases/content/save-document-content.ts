@@ -1,19 +1,19 @@
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { ContentId } from '../../value-objects/content-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { ContentId } from '../../value-objects/ids/content-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { CollaborationSessionRepository } from '../../ports/project/collaboration-session.repository';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
 import { requireMemberAndFileNode } from './content-helpers';
-import { ActiveCollaborationSessionError } from '../../errors/active-collaboration-session';
+import { ActiveCollaborationSessionError } from '../../errors/content/active-collaboration-session';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { Document } from '../../entities/document';
-import { Timestamps } from '../../value-objects/timestamps';
+import { Timestamps } from '../../value-objects/common/timestamps';
 import { randomUUID } from 'crypto';
 
 /** Atomically saves updated AsciiDoc content for a document a project member can edit. */

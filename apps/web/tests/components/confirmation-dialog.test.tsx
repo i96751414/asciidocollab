@@ -59,4 +59,72 @@ describe('ConfirmationDialog', () => {
     );
     expect(screen.queryByText('Hidden title')).not.toBeInTheDocument();
   });
+
+  test('renders custom confirm and cancel labels', () => {
+    render(
+      <ConfirmationDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        title="Archive"
+        description="Archive it?"
+        confirmLabel="Archive now"
+        cancelLabel="Keep it"
+        onConfirm={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Archive now' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeInTheDocument();
+  });
+
+  test('shows a loading label and disables both buttons while loading', () => {
+    render(
+      <ConfirmationDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        title="Delete"
+        description="Permanent."
+        confirmLabel="Delete"
+        onConfirm={jest.fn()}
+        loading={true}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Loading…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  test('prevents closing on escape key and outside pointer-down', async () => {
+    const onOpenChange = jest.fn();
+    render(
+      <ConfirmationDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        title="Sticky"
+        description="Stays open."
+        onConfirm={jest.fn()}
+      />,
+    );
+    // Radix attaches its outside-pointer listener on a 0ms timeout; let it register.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent(document.body, new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+    // The guard handlers preventDefault, so onOpenChange is never asked to close.
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  test('awaits an async onConfirm handler', async () => {
+    const onConfirm = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ConfirmationDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        title="Delete"
+        description="Permanent."
+        variant="default"
+        onConfirm={onConfirm}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
 });

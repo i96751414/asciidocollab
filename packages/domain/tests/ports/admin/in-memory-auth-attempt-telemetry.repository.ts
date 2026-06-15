@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { AuthAttemptTelemetry } from '../../../src/entities/auth-attempt-telemetry';
-import { AuthAttemptTelemetryId } from '../../../src/value-objects/auth-attempt-telemetry-id';
+import { AuthAttemptTelemetryId } from '../../../src/value-objects/ids/auth-attempt-telemetry-id';
 import { PaginationOptions, PagedResult } from '../../../src/ports/admin/audit-log.repository';
 import {
   AuthAttemptTelemetryRepository,

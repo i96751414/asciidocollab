@@ -3,17 +3,17 @@ import { InMemoryUserRepository } from '../../ports/user/in-memory-user.reposito
 import { InMemorySystemSettingRepository } from '../../ports/admin/in-memory-system-setting.repository';
 import { InMemoryEmailVerificationTokenRepository } from '../../ports/auth-tokens/in-memory-email-verification-token.repository';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
-import { Email } from '../../../src/value-objects/email';
-import { PasswordPolicy } from '../../../src/value-objects/password-policy';
+import { Email } from '../../../src/value-objects/identity/email';
+import { PasswordPolicy } from '../../../src/value-objects/identity/password-policy';
 import { PasswordHasher } from '../../../src/services/password-hasher';
 import { BreachChecker } from '../../../src/services/breach-checker';
 import { CommonPasswordChecker } from '../../../src/services/common-password-checker';
 import type { TokenGenerator, PasswordResetTokenData } from '../../../src/services/token-generator';
 import type { EmailVerificationNotifier } from '../../../src/services/email-verification-notifier';
-import { RegistrationClosedError } from '../../../src/errors/registration-closed';
+import { RegistrationClosedError } from '../../../src/errors/auth/registration-closed';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Timestamps } from '../../../src/value-objects/timestamps';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
 import { randomUUID } from 'crypto';
 
 const tokenData: PasswordResetTokenData = {

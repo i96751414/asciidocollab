@@ -1,6 +1,6 @@
 import { GitRepository } from '../../entities/git-repository';
-import { GitRepositoryId } from '../../value-objects/git-repository-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { GitRepositoryId } from '../../value-objects/ids/git-repository-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 
 /**
  * Repository interface for managing GitRepository persistence.

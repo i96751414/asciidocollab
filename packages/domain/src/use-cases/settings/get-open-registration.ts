@@ -1,10 +1,10 @@
-import { UserId } from '../../value-objects/user-id';
+import { UserId } from '../../value-objects/ids/user-id';
 import { AuditLog } from '../../entities/audit-log';
-import { AuditLogId } from '../../value-objects/audit-log-id';
+import { AuditLogId } from '../../value-objects/ids/audit-log-id';
 import { SystemSettingRepository } from '../../ports/admin/system-setting.repository';
 import { UserRepository } from '../../ports/user/user.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
-import { PermissionDeniedError } from '../../errors/permission-denied';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { randomUUID } from 'crypto';

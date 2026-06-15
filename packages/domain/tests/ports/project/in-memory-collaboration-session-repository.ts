@@ -1,6 +1,6 @@
 import { CollaborationSessionRepository } from '../../../src/ports/project/collaboration-session.repository';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { DocumentId } from '../../../src/value-objects/document-id';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { DocumentId } from '../../../src/value-objects/ids/document-id';
 
 /** In-memory implementation of CollaborationSessionRepository for use in tests. */
 export class InMemoryCollaborationSessionRepository implements CollaborationSessionRepository {

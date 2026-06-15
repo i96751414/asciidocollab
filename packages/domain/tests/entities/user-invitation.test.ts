@@ -1,6 +1,6 @@
 import { UserInvitation } from '../../src/entities/user-invitation';
-import { UserInvitationId } from '../../src/value-objects/user-invitation-id';
-import { Email } from '../../src/value-objects/email';
+import { UserInvitationId } from '../../src/value-objects/ids/user-invitation-id';
+import { Email } from '../../src/value-objects/identity/email';
 import { randomUUID } from 'crypto';
 
 function makeInvitation(overrides?: Partial<{

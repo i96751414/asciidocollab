@@ -1,7 +1,7 @@
 import { UpdateKeyBindingUseCase } from '../../../src/use-cases/settings/update-key-binding';
 import { InMemoryKeyBindingRepository } from '../../ports/user/in-memory-key-binding.repository';
-import { KeyBindingConflictError } from '../../../src/errors/key-binding-conflict';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { KeyBindingConflictError } from '../../../src/errors/editor/key-binding-conflict';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 
 const userId = '550e8400-e29b-41d4-a716-446655440001';
 

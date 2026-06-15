@@ -1,10 +1,10 @@
 import { ChangePasswordUseCase } from '../../../src/use-cases/auth/change-password';
 import { UserRepository } from '../../../src/ports/user/user.repository';
 import { User } from '../../../src/entities/user';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Email } from '../../../src/value-objects/email';
-import { Timestamps } from '../../../src/value-objects/timestamps';
-import { PasswordPolicy } from '../../../src/value-objects/password-policy';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Email } from '../../../src/value-objects/identity/email';
+import { Timestamps } from '../../../src/value-objects/common/timestamps';
+import { PasswordPolicy } from '../../../src/value-objects/identity/password-policy';
 import { PasswordHasher } from '../../../src/services/password-hasher';
 import { BreachChecker } from '../../../src/services/breach-checker';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';

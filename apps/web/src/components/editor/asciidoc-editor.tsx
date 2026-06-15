@@ -7,7 +7,6 @@ import type { Awareness } from 'y-protocols/awareness';
 import type { CollabAuthRole } from '@asciidocollab/shared';
 import type { ConnectionState } from '@/hooks/use-collab-document';
 import { collabExtensions } from './editor-collab-extensions';
-import { CollabPresenceBar } from './collab-presence-bar';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
@@ -15,13 +14,14 @@ import { useEditorMount } from '@/hooks/use-editor-mount';
 import { useTableContext } from '@/hooks/use-table-context';
 import { OFFLINE_QUEUE_KEY_PREFIX } from '@/lib/editor-config';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
+import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
+import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
-import { EditorToolbar } from './editor-toolbar';
-import { EditorTableContextToolbar } from './editor-table-context-toolbar';
-import { EditorSectionOutline } from './editor-section-outline';
-import { ResizeHandle } from '@/components/ui/resize-handle';
-import { usePanelResize } from '@/hooks/use-panel-resize';
+import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
+import { EditorChrome } from './editor-chrome';
+import { EditorOutlinePanel } from './editor-outline-panel';
 
 interface AsciiDocEditorProperties {
   content: string;
@@ -37,8 +37,24 @@ interface AsciiDocEditorProperties {
   isAsciiDoc?: boolean;
   /** When true (default), enables line wrapping in the editor. */
   softWrap?: boolean;
+  /**
+   * Project document language (ISO 639-1) driving the spellchecker, or null when the project has
+   * none configured (the editor then falls back to its default). Spellcheck language is a
+   * project-level setting; whether spellcheck runs at all stays a per-user preference.
+   */
+  spellcheckLanguage?: string | null;
+  // Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion.
+  getProjectIndex?: () => ProjectSymbolIndex | null;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
+  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  onNavigateToXref?: (target: XrefTarget) => void;
+  /** Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a). */
+  inheritedOffset?: number;
+  /** Attributes the open file inherits from the documents that include it (US8/FR-045a). */
+  inheritedAttributes?: ReadonlyMap<string, string>;
+  /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
+  revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
   onLineClick?: (line: number) => void;
   /**
@@ -74,6 +90,10 @@ interface AsciiDocEditorProperties {
    * the legacy path would let two clients overwrite each other (no Yjs merge, no session lock).
    */
   collabUnavailable?: boolean;
+  /** Opens the Go to Symbol palette (FR-061) from the toolbar. */
+  onGoToSymbol?: () => void;
+  // Opens the refactor dialog (US12) from the toolbar, seeded with the symbol under the cursor.
+  onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
 /** Live collaboration binding passed to the editor when a file is a collaborative document. */
@@ -105,8 +125,14 @@ export function AsciiDocEditor({
   initialEtag,
   isAsciiDoc = true,
   softWrap: softWrapProperty,
+  spellcheckLanguage,
+  getProjectIndex,
   onChange,
   onNavigateToFile,
+  onNavigateToXref,
+  inheritedOffset,
+  inheritedAttributes,
+  revealRequest,
   onOpenUrl,
   onLineClick,
   onScrollLine,
@@ -115,6 +141,8 @@ export function AsciiDocEditor({
   collab,
   connectionState,
   collabUnavailable = false,
+  onGoToSymbol,
+  onRefactor,
 }: AsciiDocEditorProperties) {
   // The file is on the collab path whenever a binding is present OR a connection state is set —
   // the latter covers the offline read-only fallback, where the binding is dropped but the file
@@ -123,16 +151,18 @@ export function AsciiDocEditor({
   // opened read-only, and the legacy clobbering PUT path must never run for it.
   const onCollabPath = collab != null || connectionState != null || collabUnavailable;
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
+  // Live word count / reading time for the status bar (US11). Seeded from the
+  // initial content and refreshed from each editor change.
+  const [docText, setDocText] = useState(content);
+  const metrics = useMemo(() => computeMetrics(docText), [docText]);
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
-  const [outlineOpen, setOutlineOpen] = useState(true);
-  const outlineResize = usePanelResize({
-    initialWidth: 208, min: 140, max: 400, side: 'end', storageKey: 'asciidoc-outline-width',
-  });
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, setFontSize, setTheme } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
+  // Spellcheck language comes from the project; fall back to English when the project leaves it unset.
+  const effectiveSpellcheckLanguage = spellcheckLanguage ?? 'en';
   const includePaths = useIncludeCompletions(projectId ?? '');
   const imagePaths = useImagePaths(includePaths);
 
@@ -161,6 +191,7 @@ export function AsciiDocEditor({
   const effectiveCanEdit = collab?.role === 'observer' || collabUnavailable ? false : canEdit;
 
   const handleChange = useCallback((value: string) => {
+    setDocText(value);
     if (projectId && fileNodeId) save(value);
     onChange?.(value);
   }, [projectId, fileNodeId, save, onChange]);
@@ -175,16 +206,25 @@ export function AsciiDocEditor({
     content,
     canEdit: effectiveCanEdit,
     softWrap,
+    foldStorageKey: projectId && fileNodeId ? `asciidocollab:folds:${projectId}:${fileNodeId}` : undefined,
+    spellIgnore,
+    spellcheckLanguage: effectiveSpellcheckLanguage,
+    spellcheckEnabled,
     includePaths,
     imagePaths,
     onDocChange: handleChange,
     onCursorChange: handleCursorChange,
     onOutlineChange: setOutlineEntries,
     onNavigateToFile,
+    onNavigateToXref,
+    inheritedOffset,
+    inheritedAttributes,
+    revealRequest,
     onOpenUrl,
     onLineClick,
     onScrollLine,
     initialLine,
+    getProjectIndex,
     collabExtension,
     remountKey: collab?.yjsStateId,
   });
@@ -216,25 +256,21 @@ export function AsciiDocEditor({
       style={editorStyle(fontSize)}
       data-theme={theme}
     >
-      {isAsciiDoc && (
-        <EditorToolbar
-          view={viewReference.current}
-          canEdit={effectiveCanEdit}
-          fontSize={fontSize}
-          theme={theme}
-          setFontSize={setFontSize}
-          setTheme={setTheme}
-        />
-      )}
-      {isAsciiDoc && effectiveCanEdit && tableContext !== null && viewReference.current !== null && (
-        <EditorTableContextToolbar
-          view={viewReference.current}
-          context={tableContext}
-          tableText={viewReference.current.state.doc.sliceString(tableContext.tableFrom, tableContext.tableTo)}
-          tableFrom={tableContext.tableFrom}
-        />
-      )}
-      {collab && <CollabPresenceBar awareness={collab.awareness} />}
+      <EditorChrome
+        view={viewReference.current}
+        isAsciiDoc={isAsciiDoc}
+        canEdit={effectiveCanEdit}
+        fontSize={fontSize}
+        theme={theme}
+        softWrap={softWrap}
+        setFontSize={setFontSize}
+        setTheme={setTheme}
+        setSoftWrap={setSoftWrap}
+        tableContext={tableContext}
+        awareness={collab?.awareness}
+        onGoToSymbol={onGoToSymbol}
+        onRefactor={onRefactor}
+      />
       <EditorBanners
         externalChange={externalChangeBanner}
         draftContent={draftContent}
@@ -247,42 +283,8 @@ export function AsciiDocEditor({
       />
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />
-        {isAsciiDoc && outlineOpen && (
-          <ResizeHandle
-            ariaLabel="Resize outline"
-            onPointerDown={outlineResize.onPointerDown}
-            onKeyDown={outlineResize.onKeyDown}
-            isResizing={outlineResize.isResizing}
-          />
-        )}
-        {isAsciiDoc && outlineOpen && (
-          <div style={{ width: outlineResize.width }} className="shrink-0 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-2 py-1 border-b text-xs text-muted-foreground">
-              <span>Outline</span>
-              <button
-                type="button"
-                aria-label="Collapse outline panel"
-                className="hover:text-foreground"
-                onClick={() => setOutlineOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-            <EditorSectionOutline
-              entries={outlineEntries}
-              onHeadingClick={handleHeadingClick}
-            />
-          </div>
-        )}
-        {isAsciiDoc && !outlineOpen && (
-          <button
-            type="button"
-            aria-label="Expand outline panel"
-            className="w-5 shrink-0 border-l flex items-center justify-center text-muted-foreground hover:text-foreground text-xs"
-            onClick={() => setOutlineOpen(true)}
-          >
-            ≡
-          </button>
+        {isAsciiDoc && (
+          <EditorOutlinePanel entries={outlineEntries} onHeadingClick={handleHeadingClick} />
         )}
       </div>
       {(projectId && fileNodeId) && (
@@ -293,6 +295,8 @@ export function AsciiDocEditor({
             totalLines={cursorPos.totalLines}
             saveState={saveState}
             onRetry={handleRetry}
+            wordCount={metrics.words}
+            readingTimeMin={metrics.readingTimeMin}
           />
         </div>
       )}

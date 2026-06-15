@@ -1,10 +1,10 @@
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
-import { ContentNotFoundError } from '../../errors/content-not-found';
+import { ContentNotFoundError } from '../../errors/content/content-not-found';
 import { requireMemberAndFileNode } from './content-helpers';
 import { DomainError } from '../../errors/domain-error';
 import { toCollabRole } from './collab-role';

@@ -1,7 +1,7 @@
 import { AuditLog } from '../../src/entities/audit-log';
-import { AuditLogId } from '../../src/value-objects/audit-log-id';
-import { UserId } from '../../src/value-objects/user-id';
-import { ProjectId } from '../../src/value-objects/project-id';
+import { AuditLogId } from '../../src/value-objects/ids/audit-log-id';
+import { UserId } from '../../src/value-objects/ids/user-id';
+import { ProjectId } from '../../src/value-objects/ids/project-id';
 
 describe('AuditLog entity', () => {
   const logId = AuditLogId.create('550e8400-e29b-41d4-a716-446655440000');

@@ -1,9 +1,10 @@
-import https from 'node:https';
-import { createMtlsFetch } from '../../src/extensions/mtls-fetch';
+// Native ESM: jest.mock() cannot intercept a static import, so mock the module and import both it
+// and the unit under test dynamically. The mock object is shared by reference, so reassigning
+// mockHttps.Agent / configuring mockHttps.request is visible to createMtlsFetch's default import.
+const mockHttps = { Agent: jest.fn(), request: jest.fn() };
+jest.unstable_mockModule('node:https', () => ({ default: mockHttps }));
 
-jest.mock('node:https');
-
-const mockHttps = https as jest.Mocked<typeof https>;
+const { createMtlsFetch } = await import('../../src/extensions/mtls-fetch');
 
 function makeFakeResponse(statusCode: number, _body: Buffer) {
   const listeners: Record<string, ((...arguments_: unknown[]) => void)[]> = {};

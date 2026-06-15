@@ -1,6 +1,6 @@
 import { AuditLog } from '../../entities/audit-log';
-import { UserId } from '../../value-objects/user-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 
 /** Filters for querying audit log entries. */
 export interface AuditLogFilters {

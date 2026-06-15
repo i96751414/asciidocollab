@@ -1,21 +1,22 @@
-import { UserId } from '../../value-objects/user-id';
-import { FileNodeId } from '../../value-objects/file-node-id';
-import { ProjectId } from '../../value-objects/project-id';
+import { UserId } from '../../value-objects/ids/user-id';
+import { FileNodeId } from '../../value-objects/ids/file-node-id';
+import { ProjectId } from '../../value-objects/ids/project-id';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { YjsStateStore } from '../../ports/storage/yjs-state-store';
-import { YjsStateId } from '../../value-objects/yjs-state-id';
-import { PermissionDeniedError } from '../../errors/permission-denied';
-import { FileNodeNotFoundError } from '../../errors/file-node-not-found';
-import { CannotDeleteRootFolderError } from '../../errors/cannot-delete-root-folder';
+import { YjsStateId } from '../../value-objects/ids/yjs-state-id';
+import { PermissionDeniedError } from '../../errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../errors/file-tree/file-node-not-found';
+import { CannotDeleteRootFolderError } from '../../errors/file-tree/cannot-delete-root-folder';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { Logger } from '../../ports/observability/logger';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
+import { ProjectRepository } from '../../ports/project/project.repository';
 
 /**
  * Deletes a file or folder (and its descendants) from a project.
@@ -32,6 +33,9 @@ export class DeleteFileUseCase {
     private readonly fileStore?: ProjectFileStore,
     private readonly yjsStateStore?: YjsStateStore,
     private readonly logger?: Logger,
+    // Optional: when injected, clears the project main-file configuration if the
+    // deleted file (or a file beneath a deleted folder) was the main file (FR-070).
+    private readonly projectRepo?: ProjectRepository,
   ) {}
 
   /**
@@ -50,7 +54,7 @@ export class DeleteFileUseCase {
     fileNodeId: FileNodeId,
     projectId: ProjectId,
     context?: RequestContext,
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ mainFileCleared: boolean }, DomainError>> {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     if (!member) {
       await recordAuthorizationDenial(this.auditLogRepo, {
@@ -77,6 +81,21 @@ export class DeleteFileUseCase {
     const document = fileNode.type.value === 'file'
       ? await this.documentRepo.findByFileNodeId(fileNodeId)
       : null;
+
+    // FR-070: decide BEFORE deletion whether the configured main file is removed by
+    // this operation (the file itself, or a file beneath a deleted folder), so the
+    // configuration can be cleared rather than left dangling.
+    const projectForMainFile = this.projectRepo ? await this.projectRepo.findById(projectId) : null;
+    let mainFileAffected = false;
+    if (projectForMainFile?.mainFileNodeId) {
+      const mainFileNodeId = projectForMainFile.mainFileNodeId;
+      if (fileNode.type.value === 'file') {
+        mainFileAffected = mainFileNodeId.value === fileNodeId.value;
+      } else {
+        const mainFileNode = await this.fileNodeRepo.findById(mainFileNodeId);
+        mainFileAffected = mainFileNode !== null && mainFileNode.path.value.startsWith(fileNode.path.value + '/');
+      }
+    }
 
     // Note: deletion is allowed even while a collaboration room is open for this file. The
     // CollaborationSession row is removed by the cascade on the deleted Document, and any
@@ -106,6 +125,13 @@ export class DeleteFileUseCase {
       }
     }
 
+    let mainFileCleared = false;
+    if (mainFileAffected && projectForMainFile && this.projectRepo) {
+      projectForMainFile.setMainFile(null);
+      await this.projectRepo.save(projectForMainFile);
+      mainFileCleared = true;
+    }
+
     await recordAuditSuccess(this.auditLogRepo, {
       actorId,
       projectId,
@@ -115,7 +141,7 @@ export class DeleteFileUseCase {
       context,
     }, this.logger);
 
-    return { success: true, value: undefined };
+    return { success: true, value: { mainFileCleared } };
   }
 
   private async deleteFolderRecursively(folderId: FileNodeId, projectId: ProjectId): Promise<void> {

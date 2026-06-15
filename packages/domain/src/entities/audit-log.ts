@@ -1,6 +1,6 @@
-import { AuditLogId } from '../value-objects/audit-log-id';
-import { UserId } from '../value-objects/user-id';
-import { ProjectId } from '../value-objects/project-id';
+import { AuditLogId } from '../value-objects/ids/audit-log-id';
+import { UserId } from '../value-objects/ids/user-id';
+import { ProjectId } from '../value-objects/ids/project-id';
 
 /**
  * Represents an auditable action performed by a user within a project.

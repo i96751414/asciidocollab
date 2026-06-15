@@ -13,8 +13,21 @@ jest.mock('@radix-ui/react-tooltip', () => ({
 }));
 
 jest.mock('@/components/editor/editor-settings-panel', () => ({
-  EditorSettingsPanel: ({ fontSize }: { fontSize: number; theme: string }) => (
-    <div data-testid="settings-panel">font={fontSize}</div>
+  EditorSettingsPanel: ({
+    fontSize,
+    softWrap,
+    setSoftWrap,
+  }: {
+    fontSize: number;
+    theme: string;
+    softWrap?: boolean;
+    setSoftWrap?: (enabled: boolean) => void;
+  }) => (
+    <div data-testid="settings-panel">
+      font={fontSize}
+      <span data-testid="settings-softwrap">{String(softWrap)}</span>
+      <span data-testid="settings-has-setsoftwrap">{String(typeof setSoftWrap === 'function')}</span>
+    </div>
   ),
 }));
 
@@ -88,12 +101,17 @@ describe('EditorToolbar', () => {
     expect(tr.changes.insert).toBe('*hello*');
   });
 
-  test(String.raw`clicking Code Block inserts a ----\n\n---- snippet`, () => {
+  test('clicking Code Block inserts a [source,<lang>] declaration with delimiters, cursor at the language (US6/FR-020-022)', () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /code block/i }));
-    const tr = (view as unknown as { dispatched: Array<{ changes: { insert: string } }> }).dispatched[0];
+    const tr = (view as unknown as {
+      dispatched: Array<{ changes: { insert: string }; selection: { anchor: number; head: number } }>;
+    }).dispatched[0];
+    expect(tr.changes.insert).toContain('[source,');
     expect(tr.changes.insert).toContain('----');
+    // The language placeholder is selected so the author types it immediately.
+    expect(tr.changes.insert.slice(tr.selection.anchor, tr.selection.head)).toBe('language');
   });
 
   test('clicking Heading 2 inserts == prefix at line start', () => {
@@ -185,6 +203,24 @@ describe('EditorToolbar', () => {
       expect(screen.queryByTestId('settings-panel')).toBeNull();
     });
 
+    test('passes softWrap + setSoftWrap to the settings panel so the Soft Wrap control renders (US2/FR-006)', () => {
+      const view = createMockView('');
+      render(
+        <EditorToolbar
+          view={view}
+          fontSize={14}
+          theme="default"
+          softWrap={false}
+          setFontSize={jest.fn()}
+          setTheme={jest.fn()}
+          setSoftWrap={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /editor settings/i }));
+      expect(screen.getByTestId('settings-softwrap')).toHaveTextContent('false');
+      expect(screen.getByTestId('settings-has-setsoftwrap')).toHaveTextContent('true');
+    });
+
     test('action groups are hidden when canEdit is false', () => {
       const view = createMockView('');
       render(<EditorToolbar view={view} canEdit={false} />);
@@ -196,6 +232,48 @@ describe('EditorToolbar', () => {
       const view = createMockView('');
       render(<EditorToolbar view={view} canEdit={true} />);
       expect(screen.getByRole('group', { name: /text formatting/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Go to Symbol / Refactor buttons', () => {
+    test('the buttons are absent when no callbacks are provided', () => {
+      const view = createMockView('');
+      render(<EditorToolbar view={view} />);
+      expect(screen.queryByRole('button', { name: /go to symbol/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /refactor/i })).toBeNull();
+    });
+
+    test('Go to Symbol button fires its callback', () => {
+      const view = createMockView('');
+      const onGoToSymbol = jest.fn();
+      render(<EditorToolbar view={view} onGoToSymbol={onGoToSymbol} />);
+      fireEvent.click(screen.getByRole('button', { name: /go to symbol/i }));
+      expect(onGoToSymbol).toHaveBeenCalledTimes(1);
+    });
+
+    test('Refactor button seeds the dialog with the symbol under the cursor', () => {
+      const view = createMockView('{product}');
+      view.state.selection.main.head = 3; // inside {product}
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={view} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith({ kind: 'attribute', name: 'product' });
+    });
+
+    test('Refactor button passes null when the cursor is not on a symbol', () => {
+      const view = createMockView('plain text');
+      view.state.selection.main.head = 2;
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={view} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith(null);
+    });
+
+    test('Refactor button passes null when there is no view yet', () => {
+      const onRefactor = jest.fn();
+      render(<EditorToolbar view={null} onRefactor={onRefactor} />);
+      fireEvent.click(screen.getByRole('button', { name: /refactor/i }));
+      expect(onRefactor).toHaveBeenCalledWith(null);
     });
   });
 

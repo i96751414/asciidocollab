@@ -1,6 +1,6 @@
 import { PasswordResetToken } from '../../entities/password-reset-token';
-import { PasswordResetTokenId } from '../../value-objects/password-reset-token-id';
-import { Email } from '../../value-objects/email';
+import { PasswordResetTokenId } from '../../value-objects/ids/password-reset-token-id';
+import { Email } from '../../value-objects/identity/email';
 import { UserRepository } from '../../ports/user/user.repository';
 import { PasswordResetTokenRepository } from '../../ports/auth-tokens/password-reset-token.repository';
 import { AuthAttemptTelemetryRepository } from '../../ports/admin/auth-attempt-telemetry.repository';

@@ -1,9 +1,9 @@
-import { DocumentId } from '../value-objects/document-id';
-import { FileNodeId } from '../value-objects/file-node-id';
-import { ContentId } from '../value-objects/content-id';
-import { YjsStateId } from '../value-objects/yjs-state-id';
-import { MimeType } from '../value-objects/mime-type';
-import { Timestamps } from '../value-objects/timestamps';
+import { DocumentId } from '../value-objects/ids/document-id';
+import { FileNodeId } from '../value-objects/ids/file-node-id';
+import { ContentId } from '../value-objects/ids/content-id';
+import { YjsStateId } from '../value-objects/ids/yjs-state-id';
+import { MimeType } from '../value-objects/files/mime-type';
+import { Timestamps } from '../value-objects/common/timestamps';
 
 /**
  * Represents a single AsciiDoc document within a project.

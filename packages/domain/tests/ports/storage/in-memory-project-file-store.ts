@@ -1,8 +1,8 @@
 import { Readable } from 'stream';
 import { ProjectFileStore } from '../../../src/ports/storage/project-file-store';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { FileConflictError } from '../../../src/errors/file-conflict';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { FileConflictError } from '../../../src/errors/file-tree/file-conflict';
 import { Result } from '../../../src/types/result';
 
 /** In-memory implementation of ProjectFileStore for domain unit tests. */

@@ -6,16 +6,16 @@ import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-
 import { Project } from '../../../src/entities/project';
 import { FileNode } from '../../../src/entities/file-node';
 import { ProjectMember } from '../../../src/entities/project-member';
-import { ProjectId } from '../../../src/value-objects/project-id';
-import { ProjectName } from '../../../src/value-objects/project-name';
-import { FileNodeId } from '../../../src/value-objects/file-node-id';
-import { FileNodeType } from '../../../src/value-objects/file-node-type';
-import { FilePath } from '../../../src/value-objects/file-path';
-import { UserId } from '../../../src/value-objects/user-id';
-import { Role } from '../../../src/value-objects/role';
-import { PermissionDeniedError } from '../../../src/errors/permission-denied';
-import { FileNodeNotFoundError } from '../../../src/errors/file-node-not-found';
-import { ValidationError } from '../../../src/errors/validation-error';
+import { ProjectId } from '../../../src/value-objects/ids/project-id';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
+import { FileNodeId } from '../../../src/value-objects/ids/file-node-id';
+import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
+import { FilePath } from '../../../src/value-objects/files/file-path';
+import { UserId } from '../../../src/value-objects/ids/user-id';
+import { Role } from '../../../src/value-objects/identity/role';
+import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
+import { FileNodeNotFoundError } from '../../../src/errors/file-tree/file-node-not-found';
+import { ValidationError } from '../../../src/errors/common/validation-error';
 
 const PROJECT_ID   = '550e8400-e29b-41d4-a716-446655440001';
 const OTHER_PID    = '550e8400-e29b-41d4-a716-446655440002';
