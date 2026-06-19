@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/026-asciidoc-editor-enhancements/plan.md
+Active feature plan: specs/027-cross-document-attributes/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

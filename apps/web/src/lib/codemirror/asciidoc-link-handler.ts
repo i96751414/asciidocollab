@@ -12,6 +12,9 @@ const XREF_MACRO = /xref:([^\s[\]]+)\[[^\]]*\]/g;
 const IMAGE_MACRO = /image::?([^[\n]+)\[/;
 const LINK_MACRO = /link:([^[\n]+)\[/;
 const BARE_URL = /https?:\/\/[^\s[\]<>]+/;
+// An attribute REFERENCE `{name}` (word chars only — never matches a `{set:name:value}` assignment,
+// which contains `:`). Ctrl+clicking one jumps to where the attribute is defined.
+const ATTR_REF = /\{([A-Za-z0-9][\w-]*)\}/g;
 
 /** Callbacks for link navigation events from the editor. */
 export interface LinkHandlerCallbacks {
@@ -73,6 +76,37 @@ function xrefAt(lineText: string, posInLine: number): { target: string; start: n
 function resolveXrefTarget(rawTarget: string, index: ProjectSymbolIndex): XrefTarget | null {
   const id = rawTarget.includes('#') ? rawTarget.slice(rawTarget.lastIndexOf('#') + 1) : rawTarget;
   const symbol = index.resolveXref(id);
+  if (symbol === 'unresolved') return null;
+  return {
+    fileId: symbol.fileId,
+    path: index.pathOf(symbol.fileId),
+    line: index.lineOf(symbol.fileId, symbol.range.from),
+    sameFile: symbol.fileId === index.activeFileId,
+  };
+}
+
+/**
+ * Find the attribute-reference token `{name}` covering `posInLine`, returning the attribute name and
+ * the token's character range within the line, or null. Position-aware so it never shadows other
+ * tokens on the line.
+ */
+function attributeReferenceAt(lineText: string, posInLine: number): { name: string; start: number; end: number } | null {
+  for (const match of lineText.matchAll(new RegExp(ATTR_REF.source, 'g'))) {
+    if (match.index !== undefined && posInLine >= match.index && posInLine < match.index + match[0].length) {
+      return { name: match[1], start: match.index, end: match.index + match[0].length };
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve an attribute reference `{name}` to where it is DEFINED via the index — a `:name:` entry or
+ * an inline `{set:name:…}`, in the current file OR any file in the include tree (FR-020/021).
+ * Reuses {@link XrefTarget} because go-to-definition navigation is identical (open the defining file
+ * if different, reveal the line). Returns null when the attribute is not defined anywhere reachable.
+ */
+function resolveAttributeTarget(name: string, index: ProjectSymbolIndex): XrefTarget | null {
+  const symbol = index.resolveAttribute(name);
   if (symbol === 'unresolved') return null;
   return {
     fileId: symbol.fileId,
@@ -222,6 +256,22 @@ export function createLinkHandler(
         callbacks.onOpenUrl?.(urlMatch[0]);
         event.preventDefault?.();
         return;
+      }
+    }
+
+    // Attribute go-to-definition: Ctrl+click `{name}` jumps to its `:name:` / `{set:name:…}` definition,
+    // in this file or another file in the include tree (FR-020/021). Checked LAST — after the macros —
+    // so a `{attr}` INSIDE an `include::{attr}/x.adoc[]` target still navigates the include (which
+    // substitutes the attribute in its path), not the attribute definition. Position-aware, reusing the
+    // same definition-navigation callback as xrefs.
+    if (index) {
+      const attributeAt = attributeReferenceAt(lineText, posInLine);
+      if (attributeAt) {
+        const target = resolveAttributeTarget(attributeAt.name, index);
+        if (target) {
+          callbacks.onNavigateToXref?.(target);
+          event.preventDefault?.();
+        }
       }
     }
   }

@@ -6,6 +6,16 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
+  // Cap concurrency for the isolated stack: every collab-backed test opens Yjs sync session(s) against
+  // a SINGLE test collaboration server, and collab pair-tests use two browser contexts each. The
+  // default (one worker per CPU core) over-subscribes that server on a many-core machine, so its Yjs
+  // sync lags and content-dependent assertions race an empty pre-sync document. 4 keeps the server
+  // comfortably within sync budget while staying reasonably fast. Override with PLAYWRIGHT_WORKERS.
+  workers: process.env.PLAYWRIGHT_WORKERS
+    ? Number(process.env.PLAYWRIGHT_WORKERS)
+    : (process.env.CI
+      ? 4
+      : undefined),
   reporter: [['line']],
   use: {
     baseURL: WEB_URL,

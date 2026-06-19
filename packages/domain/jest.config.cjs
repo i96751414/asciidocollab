@@ -3,6 +3,10 @@ const config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
+  // Resolve the shared leaf package from its source so domain tests don't require a prior build.
+  moduleNameMapper: {
+    '^@asciidocollab/asciidoc-core$': '<rootDir>/../asciidoc-core/src/index.ts',
+  },
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: 'tsconfig.eslint.json',

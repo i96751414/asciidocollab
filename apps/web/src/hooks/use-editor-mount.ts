@@ -4,6 +4,7 @@ import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
 import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-fold';
+import { refreshCrossDocumentAttributesEffect } from '@/lib/codemirror/cross-document-attributes';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
@@ -31,6 +32,13 @@ function clampToValidLine(line: number, totalLines: number): number {
 
 /** Stable empty default for the inherited-attributes prop (avoids a new map identity per render). */
 const EMPTY_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
+
+/** Lowercase the keys of an attribute map into a name set (Asciidoctor matches names case-insensitively). */
+function toLowercaseNames(scope: ReadonlyMap<string, string>): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const name of scope.keys()) names.add(name.toLowerCase());
+  return names;
+}
 
 interface UseEditorMountOptions {
   content: string;
@@ -78,6 +86,13 @@ interface UseEditorMountOptions {
    * symbol index rebuilds re-evaluates the display without a document edit.
    */
   inheritedAttributes?: ReadonlyMap<string, string>;
+  /**
+   * The open file's RESOLVED cross-document attribute scope (its inherited attributes merged with
+   * its own definitions) — used to highlight `{name}` references that resolve anywhere in the
+   * include tree as known (US6/FR-020). A change after the symbol index rebuilds re-evaluates the
+   * highlighting without a document edit (FR-007a).
+   */
+  resolvedScope?: ReadonlyMap<string, string>;
   onLineClick?: (line: number) => void;
   /**
    * Called with the 1-based line at the top of the editor viewport as the user scrolls.
@@ -129,6 +144,7 @@ export function useEditorMount({
   onNavigateToXref,
   inheritedOffset = 0,
   inheritedAttributes = EMPTY_INHERITED_ATTRIBUTES,
+  resolvedScope = EMPTY_INHERITED_ATTRIBUTES,
   onLineClick,
   onScrollLine,
   initialLine,
@@ -171,6 +187,25 @@ export function useEditorMount({
   // Attributes inherited from including documents, seeding the `{attr}` collapse-to-value display.
   const inheritedAttributesReference = useRef(inheritedAttributes);
   useEffect(() => { inheritedAttributesReference.current = inheritedAttributes; }, [inheritedAttributes]);
+  // Lowercase names known anywhere in the include tree, for known-vs-unknown `{name}` highlighting.
+  // Per FR-020/021 a reference is "known" when the attribute is defined ANYWHERE in the tree — in a
+  // parent/including file (FR-020) OR in an included file (FR-021) — so this uses the index's
+  // project-wide `attributes` view, not the position-aware resolved scope (which omits a descendant's
+  // definitions). Recomputed when the index rebuilds (the resolvedScope prop changes identity then).
+  const knownAttributeNames = (): ReadonlySet<string> => {
+    const index = projectIndexAccessor();
+    return index?.attributes ? toLowercaseNames(index.attributes) : new Set<string>();
+  };
+  const crossDocumentNamesReference = useRef<ReadonlySet<string>>(knownAttributeNames());
+  useEffect(() => { crossDocumentNamesReference.current = knownAttributeNames(); }, [resolvedScope]);
+  // The full resolved cross-document scope (name → value), read by the section outline to resolve
+  // `{attr}` titles and exclude inactive conditional-branch headings (R11/FR-032).
+  const resolvedScopeReference = useRef<ReadonlyMap<string, string>>(resolvedScope);
+  useEffect(() => { resolvedScopeReference.current = resolvedScope; }, [resolvedScope]);
+  // Keep onOutlineChange in a ref so the refresh effects below can re-publish the outline without
+  // listing the callback in their deps (it is captured once at mount for the update listener).
+  const onOutlineChangeReference = useRef(onOutlineChange);
+  useEffect(() => { onOutlineChangeReference.current = onOutlineChange; }, [onOutlineChange]);
   // Tracks whether the collab cursor-line restore has fired for the current (re)mount.
   const collabLineRestoredReference = useRef(false);
 
@@ -246,6 +281,8 @@ export function useEditorMount({
         getCurrentFilePath: currentFilePath,
         getCurrentAttributes: currentAttributes,
         getInheritedAttributes: () => inheritedAttributesReference.current,
+        getCrossDocumentAttributeNames: () => crossDocumentNamesReference.current,
+        getOutlineResolvedScope: () => resolvedScopeReference.current,
         projectIndexAccessor,
         getInheritedOffset: () => inheritedOffsetReference.current,
         collabActive,
@@ -311,8 +348,13 @@ export function useEditorMount({
 
   // Re-evaluate heading levels when the inherited include-path offset changes (e.g. the project
   // main file was reconfigured) — no document edit occurs, so the plugin needs an explicit nudge.
+  // The refresh effect recomputes the outline StateField (effective levels), so re-publish it: the
+  // mount update listener only fires onOutlineChange on a doc edit, not on an out-of-band refresh.
   useEffect(() => {
-    viewReference.current?.dispatch({ effects: refreshHeadingLevelsEffect.of() });
+    const view = viewReference.current;
+    if (!view) return;
+    view.dispatch({ effects: refreshHeadingLevelsEffect.of() });
+    try { onOutlineChangeReference.current(view.state.field(outlineField)); } catch { /* field not installed */ }
   }, [inheritedOffset]);
 
   // Re-evaluate the `{attr}` collapse-to-value display when the inherited attributes change (e.g. a
@@ -320,6 +362,22 @@ export function useEditorMount({
   useEffect(() => {
     viewReference.current?.dispatch({ effects: refreshAttributeFoldEffect.of() });
   }, [inheritedAttributes]);
+
+  // Re-evaluate the cross-document `{name}` known-vs-unknown highlighting when the resolved scope
+  // changes (e.g. a parent/included file's content loaded into the index, or the main file was
+  // reconfigured) — no document edit occurs, so nudge the plugin explicitly (US6/FR-007a). The
+  // section outline also derives from the resolved scope (it resolves `{attr}` titles and excludes
+  // inactive conditional-branch headings), so route the shared refreshHeadingLevelsEffect through it
+  // and re-publish the recomputed outline (R11/FR-007b) — keeping computeHeadingLevels the single
+  // recompute trigger for the outline field.
+  useEffect(() => {
+    const view = viewReference.current;
+    if (!view) return;
+    view.dispatch({
+      effects: [refreshCrossDocumentAttributesEffect.of(), refreshHeadingLevelsEffect.of()],
+    });
+    try { onOutlineChangeReference.current(view.state.field(outlineField)); } catch { /* field not installed */ }
+  }, [resolvedScope]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).

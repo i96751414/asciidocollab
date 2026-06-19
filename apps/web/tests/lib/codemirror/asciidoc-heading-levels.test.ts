@@ -136,6 +136,33 @@ describe('asciidocHeadingLevels — inherited offset', () => {
     const view = mount('== Sub', () => 2);
     expect(lineClasses(view)).toEqual(['cm-line cm-ad-h3']);
   });
+
+  // ── Attribute-form :leveloffset: combined with the inherited include offset (US2/T019) ──
+  test('attribute-form :leveloffset: +1 composes with the inherited offset', () => {
+    // The file is included with an inherited offset of +1; a `== After` heading is effective 2,
+    // and after an attribute-form `:leveloffset: +1` the next heading is effective 3.
+    const view = mount('== Before\n\n:leveloffset: +1\n\n== After', () => 1);
+    expect(lineClasses(view)).toEqual([
+      'cm-line cm-ad-h2', // == Before — raw 1 + inherited 1
+      'cm-line',
+      'cm-line', // :leveloffset: +1
+      'cm-line',
+      'cm-line cm-ad-h3', // == After — raw 1 + inherited 1 + attribute form 1
+    ]);
+  });
+
+  test('attribute-form :leveloffset!: resets to the inherited base, not to zero', () => {
+    const view = mount(':leveloffset: +2\n\n== A\n\n:leveloffset!:\n\n== B', () => 1);
+    expect(lineClasses(view)).toEqual([
+      'cm-line', // :leveloffset: +2
+      'cm-line',
+      'cm-line cm-ad-h4', // == A — raw 1 + inherited 1 + attribute form 2
+      'cm-line',
+      'cm-line', // :leveloffset!:
+      'cm-line',
+      'cm-line cm-ad-h2', // == B — raw 1 + inherited base 1 (reset)
+    ]);
+  });
 });
 
 describe('asciidocHeadingLevels — max-level cutoff (FR-010)', () => {

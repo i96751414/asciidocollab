@@ -15,6 +15,7 @@ import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { useFileHistory } from '@/hooks/use-file-history';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { type ConnectionState } from '@/hooks/use-collab-document';
 
@@ -47,6 +48,8 @@ interface ContentAreaProperties {
   inheritedOffset?: number;
   // Attributes the open file inherits from the documents that include it (US8/FR-045a).
   inheritedAttributes?: ReadonlyMap<string, string>;
+  // The open file's resolved cross-document scope (inherited + own), for `{name}` known highlighting (US6/FR-020).
+  resolvedScope?: ReadonlyMap<string, string>;
   // Live request to reveal a line in the open editor (same-file go-to-definition, FR-049).
   revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
@@ -90,6 +93,7 @@ function ContentArea({
   onNavigateToXref,
   inheritedOffset,
   inheritedAttributes,
+  resolvedScope,
   revealRequest,
   onOpenUrl,
   onChange,
@@ -147,6 +151,7 @@ function ContentArea({
       onNavigateToXref={onNavigateToXref}
       inheritedOffset={inheritedOffset}
       inheritedAttributes={inheritedAttributes}
+      resolvedScope={resolvedScope}
       revealRequest={revealRequest}
       onOpenUrl={onOpenUrl}
       onChange={onChange}
@@ -205,7 +210,7 @@ export function ProjectEditorLayout({
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
   // file changes (FR-045a) and overlays the open file's live content (FR-048).
-  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, refresh: refreshProjectIndex } = useProjectSymbolIndex({
+  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, resolvedScopeOf, refresh: refreshProjectIndex } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
@@ -240,6 +245,12 @@ export function ProjectEditorLayout({
     userId, projectId, selectedFile, contentState, selectFile, clearSelection, pendingXrefLine,
   });
 
+  // Make file selection a real browser navigation: each opened file becomes a history entry, so the
+  // Back/Forward buttons walk the files visited this session and re-open the previous one through the
+  // same selection funnel (remember + cursor restore). Reload restoration stays the localStorage
+  // concern of useEditorRestoration above.
+  useFileHistory({ selectedFile, selectFile: handleSelectFile });
+
   const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle } = useEditorPreferences();
 
   // Reset scroll position whenever a different file is opened.
@@ -256,6 +267,11 @@ export function ProjectEditorLayout({
   // display so cross-document references render their value.
   const editorInheritedAttributes =
     projectIndex && selectedFile ? projectIndex.inheritedAttributes(selectedFile.nodeId) : undefined;
+  // The open file's RESOLVED cross-document scope (inherited + own definitions): drives the editor's
+  // known-vs-unknown `{name}` highlighting so a reference resolving in a parent/included file marks
+  // as known (US6/FR-020). Recomputed when the index rebuilds (live, FR-007a).
+  const editorResolvedScope =
+    projectIndex && selectedFile ? resolvedScopeOf(selectedFile.nodeId) : undefined;
   // Render the assembled main document (includes inlined, FR-068) only while the open file IS the
   // configured main file. Editing an included child still previews that child standalone with exact
   // source-line scroll-sync. (When the main file itself has content after an include, scroll-sync to
@@ -264,6 +280,13 @@ export function ProjectEditorLayout({
   const previewMainPath = mainFile && selectedFile?.nodeId === mainFile && projectIndex
     ? (projectIndex.pathOf(mainFile) ?? undefined)
     : undefined;
+
+  // Cross-document attribute resolution (US1/FR-002a): when a main file is configured and the open
+  // file is NOT it, the preview resolves the open file's `{name}` references against the scope it
+  // inherits under the main-file root. Paths key the worker's resolution model (matching getFiles).
+  const previewRootPath = mainFile && projectIndex ? (projectIndex.pathOf(mainFile) ?? undefined) : undefined;
+  const previewOpenPath =
+    selectedFile && projectIndex ? (projectIndex.pathOf(selectedFile.nodeId) ?? undefined) : undefined;
 
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
@@ -363,6 +386,7 @@ export function ProjectEditorLayout({
               onNavigateToXref={handleNavigateToXref}
               inheritedOffset={editorInheritedOffset}
               inheritedAttributes={editorInheritedAttributes}
+              resolvedScope={editorResolvedScope}
               revealRequest={revealRequest}
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}
@@ -391,6 +415,8 @@ export function ProjectEditorLayout({
                   projectId={projectId}
                   mainPath={previewMainPath}
                   getFiles={getProjectFiles}
+                  rootFilePath={previewRootPath}
+                  openFilePath={previewOpenPath}
                   scrollToLine={scrollRequest}
                   onCollapse={togglePreview}
                   scrollSyncEnabled={scrollSyncEnabled}

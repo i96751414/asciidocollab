@@ -7,6 +7,7 @@
 ```
 apps/           ← Delivery (Fastify API, Next.js frontend)
 packages/
+  asciidoc-core/ ← Pure AsciiDoc language kernel (zero-dep innermost ring; domain + web depend on it)
   domain/       ← Business logic, entities, use cases, port interfaces (repositories + storage)
   application/  ← Orchestration, DTOs, service coordination
   infrastructure/ ← Prisma repos, external adapters, Docker wrappers
@@ -86,8 +87,10 @@ Domain ← Application ← Infrastructure ← Delivery
 
 - Each package owns its internal structure. Cross-package access uses public interfaces
   only.
-- `packages/domain` is the dependency root — no other package may inject dependencies
-  into it.
+- `packages/asciidoc-core` is the innermost ring — a zero-dependency AsciiDoc language
+  kernel that MUST import nothing; `domain` and `web` may depend inward on it.
+- `packages/domain` is the application dependency root — apart from `asciidoc-core`, no
+  other package may inject dependencies into it.
 - Feature modules in `apps/` wire everything together at the composition root.
 
 ---

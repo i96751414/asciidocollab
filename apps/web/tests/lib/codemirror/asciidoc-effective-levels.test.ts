@@ -13,8 +13,9 @@ describe('parseLevelOffset', () => {
   test('absolute N', () => {
     expect(parseLevelOffset(':leveloffset: 2')).toEqual({ kind: 'set', value: 2 });
   });
-  test('unset via ! or empty', () => {
+  test('unset via suffix `!`, prefix `!`, or empty value', () => {
     expect(parseLevelOffset(':leveloffset!:')).toEqual({ kind: 'unset' });
+    expect(parseLevelOffset(':!leveloffset:')).toEqual({ kind: 'unset' }); // Asciidoctor prefix-unset form
     expect(parseLevelOffset(':leveloffset:')).toEqual({ kind: 'unset' });
   });
   test('non-leveloffset line → null', () => {
@@ -54,6 +55,37 @@ describe('computeHeadingLevels', () => {
   test('inherited offset is added to every heading', () => {
     const infos = computeHeadingLevels('== A\n', 2);
     expect(infos[0].effectiveLevel).toBe(3);
+  });
+
+  // ── Attribute-form :leveloffset: combined with the inherited include offset (US2/T019) ──
+  // The file's structural understanding must reflect BOTH the offset inherited from ancestor
+  // includes (leveloffset= option / parent attribute form) AND an attribute-form `:leveloffset:`
+  // applied in document order within the file, exactly as the assembled preview renders it.
+
+  test('attribute-form :leveloffset: +1 composes with a non-zero inherited offset', () => {
+    // Inherited +1 (the file was included with leveloffset=+1); a `== After` raw level 1 is
+    // effective 2 before the attribute-form entry, and a further relative `:leveloffset: +1`
+    // makes the next heading effective 3.
+    const source = '== Before\n\n:leveloffset: +1\n\n== After\n';
+    const infos = computeHeadingLevels(source, 1);
+    expect(infos[0].effectiveLevel).toBe(2); // 1 (raw) + 1 (inherited)
+    expect(infos[1].effectiveLevel).toBe(3); // 1 (raw) + 1 (inherited) + 1 (attribute form)
+  });
+
+  test('attribute-form :leveloffset!: resets to the inherited base, not to zero', () => {
+    const source = ':leveloffset: +2\n\n== A\n\n:leveloffset!:\n\n== B\n';
+    const infos = computeHeadingLevels(source, 1);
+    expect(infos[0].effectiveLevel).toBe(4); // 1 (raw) + 1 (inherited) + 2 (attribute form)
+    expect(infos[1].effectiveLevel).toBe(2); // 1 (raw) + 1 (inherited) — reset to the inherited base
+  });
+
+  test('an absolute attribute-form :leveloffset: N ignores the inherited base until unset', () => {
+    // An absolute set replaces the running offset entirely (it does not add to the inherited base);
+    // unsetting then returns to the inherited base.
+    const source = ':leveloffset: 2\n\n== A\n\n:leveloffset!:\n\n== B\n';
+    const infos = computeHeadingLevels(source, 1);
+    expect(infos[0].effectiveLevel).toBe(3); // 1 (raw) + 2 (absolute set)
+    expect(infos[1].effectiveLevel).toBe(2); // 1 (raw) + 1 (inherited base)
   });
 
   test('effective level beyond MAX is flagged (FR-010)', () => {

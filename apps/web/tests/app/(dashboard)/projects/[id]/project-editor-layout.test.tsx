@@ -79,12 +79,18 @@ const mockReadLastSelection = jest.fn(() => null as unknown);
 const mockRememberFile = jest.fn();
 const mockRememberLine = jest.fn();
 const mockClearLastSelection = jest.fn();
+const mockRememberCursorLine = jest.fn();
+const mockReadCursorLine = jest.fn(() => undefined as number | undefined);
+const mockPruneCursor = jest.fn();
 jest.mock('@/hooks/use-last-selection', () => ({
   useLastSelection: jest.fn(() => ({
     readLastSelection: mockReadLastSelection,
     rememberFile: mockRememberFile,
     rememberLine: mockRememberLine,
     clearLastSelection: mockClearLastSelection,
+    rememberCursorLine: mockRememberCursorLine,
+    readCursorLine: mockReadCursorLine,
+    pruneCursor: mockPruneCursor,
   })),
 }));
 
@@ -548,7 +554,7 @@ describe('ProjectEditorLayout', () => {
       }
     });
 
-    it('cancels a pending line-persistence debounce when the file is switched (no cross-file contamination)', async () => {
+    it('flushes a pending line-persistence debounce to the OUTGOING file on switch (no cross-file contamination)', async () => {
       jest.useFakeTimers();
       try {
         const useFileSelection = jest.requireMock('@/hooks/use-file-selection').useFileSelection;
@@ -575,9 +581,12 @@ describe('ProjectEditorLayout', () => {
         });
         rerender(<ProjectEditorLayout {...defaultProps} />);
 
-        act(() => { jest.advanceTimersByTime(500); });
-
-        // The stale timer must NOT write file A's line 10 into file B's entry.
+        // The switch FLUSHES the pending save to file A's PER-FILE entry — its cursor position is
+        // preserved, not dropped (US7/FR-022) — keyed by the captured nodeId so it lands on file A,
+        // never file B. The single last-selection `line` is deliberately NOT written on a switch: it
+        // now belongs to file B, so writing file A's line there would contaminate B's restore.
+        expect(mockRememberCursorLine).toHaveBeenCalledWith('file-a', 10);
+        expect(mockRememberCursorLine).not.toHaveBeenCalledWith('file-b', 10);
         expect(mockRememberLine).not.toHaveBeenCalled();
       } finally {
         jest.useRealTimers();

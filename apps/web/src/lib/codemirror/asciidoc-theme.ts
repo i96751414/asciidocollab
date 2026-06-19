@@ -79,6 +79,22 @@ export const asciidocEditorTheme = EditorView.theme({
     color: c("--syntax-attr"),
     borderBottom: `1px dotted ${c("--syntax-attr")}`,
   },
+  // A {name} reference that resolves in the file's cross-document scope — defined in a parent or an
+  // included file (US6/FR-020). Given the attribute colour + a subtle underline so a known
+  // cross-document reference reads distinctly from an unknown one (which the grammar leaves plain).
+  ".cm-ad-attr-known": {
+    color: c("--syntax-attr"),
+    textDecoration: `underline dotted ${c("--syntax-attr")}`,
+    textUnderlineOffset: "2px",
+  },
+  // Content inside an inactive conditional branch (`ifdef`/`ifndef`/`ifeval` that resolves false for
+  // the current attribute state) is dimmed — reduced opacity so it reads as de-emphasised while
+  // staying visible and editable (US12/FR-032). The opacity is derived from the design-token scale
+  // (a muted-foreground-style fade) rather than a hard-coded colour, so it follows light/dark
+  // automatically (Constitution V).
+  ".cm-ad-conditional-dimmed": {
+    opacity: "0.45",
+  },
   "&.cm-focused": { outline: "none" },
 }, { dark: false });
 

@@ -96,6 +96,85 @@ export function clearLastSelection(userId: string, projectId: string): void {
   } catch { /* localStorage unavailable — nothing to clear */ }
 }
 
+// --- Per-file cursor memory (US7 / FR-022–027) -----------------------------------------------
+//
+// A second, independent store remembers each file's last cursor line — not just the single
+// last-opened file above, but EVERY file the user has visited in the project. Value shape is a
+// `Record<nodeId, { line: number }>` so reopening any file restores its own position.
+
+/** One file's remembered cursor position (1-based line). */
+interface CursorEntry {
+  /** Last cursor line (1-based). */
+  line: number;
+}
+
+/**
+ * Builds the user- and project-scoped key for the per-file cursor map. Scoping mirrors
+ * `lastSelectionKey` so two accounts sharing a browser profile stay isolated (FR-024). Named
+ * helper — no inline string literals.
+ */
+export function fileCursorsKey(userId: string, projectId: string): string {
+  return `asciidocollab:file-cursors:${userId}:${projectId}`;
+}
+
+/** Narrows one untrusted map value to a valid `CursorEntry`, dropping a non-finite or < 1 line. */
+function toCursorEntry(value: unknown): CursorEntry | null {
+  if (!isObject(value)) return null;
+  const { line } = value;
+  if (typeof line !== 'number' || !Number.isFinite(line) || line < 1) return null;
+  return { line };
+}
+
+/** Reads and validates the whole cursor map once; returns an empty object when none/invalid (never throws). */
+function readCursorMap(userId: string, projectId: string): Record<string, CursorEntry> {
+  try {
+    const raw = localStorage.getItem(fileCursorsKey(userId, projectId));
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!isObject(parsed)) return {};
+    const map: Record<string, CursorEntry> = {};
+    for (const [nodeId, entry] of Object.entries(parsed)) {
+      const valid = toCursorEntry(entry);
+      if (valid) map[nodeId] = valid;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+/** Persists the cursor map, replacing the stored value. No-op when localStorage is unavailable. */
+function writeCursorMap(userId: string, projectId: string, map: Record<string, CursorEntry>): void {
+  try {
+    localStorage.setItem(fileCursorsKey(userId, projectId), JSON.stringify(map));
+  } catch { /* localStorage unavailable — feature stays inert */ }
+}
+
+/** Merges one file's cursor line into the map (caller debounces). Ignores a non-finite or < 1 line. */
+export function rememberCursorLine(userId: string, projectId: string, nodeId: string, line: number): void {
+  if (!Number.isFinite(line) || line < 1) return;
+  const map = readCursorMap(userId, projectId);
+  map[nodeId] = { line };
+  writeCursorMap(userId, projectId, map);
+}
+
+/**
+ * Reads one file's remembered 1-based cursor line, or `undefined` when none/invalid (the caller
+ * opens at the top, FR-026). Clamp-to-valid is the caller's concern at restore time, against the
+ * actual document length. Never throws.
+ */
+export function readCursorLine(userId: string, projectId: string, nodeId: string): number | undefined {
+  return readCursorMap(userId, projectId)[nodeId]?.line;
+}
+
+/** Removes a deleted file's entry from the map (edge case). No-op when absent. Never throws. */
+export function pruneCursor(userId: string, projectId: string, nodeId: string): void {
+  const map = readCursorMap(userId, projectId);
+  if (!(nodeId in map)) return;
+  delete map[nodeId];
+  writeCursorMap(userId, projectId, map);
+}
+
 /** Bound read/write/clear helpers for one (user, project), stable across renders. */
 export interface UseLastSelectionResult {
   /** Reads and validates the stored selection (null when none/invalid). */
@@ -114,6 +193,25 @@ export interface UseLastSelectionResult {
   rememberLine: (line: number) => void;
   /** Deletes the stored entry. */
   clearLastSelection: () => void;
+  /**
+   * Merges one file's cursor line into the per-file map (caller debounces).
+   *
+   * @param nodeId - The file node whose position is remembered.
+   * @param line - The 1-based cursor line to remember.
+   */
+  rememberCursorLine: (nodeId: string, line: number) => void;
+  /**
+   * Reads one file's remembered 1-based cursor line, or `undefined` (open at top).
+   *
+   * @param nodeId - The file node whose position to read.
+   */
+  readCursorLine: (nodeId: string) => number | undefined;
+  /**
+   * Removes a deleted file's entry from the per-file map.
+   *
+   * @param nodeId - The file node to forget.
+   */
+  pruneCursor: (nodeId: string) => void;
 }
 
 /** Per-user, per-project last-selection persistence backed by `localStorage`. */
@@ -123,5 +221,8 @@ export function useLastSelection(userId: string, projectId: string): UseLastSele
     rememberFile: (file: RememberedFile) => rememberFile(userId, projectId, file),
     rememberLine: (line: number) => rememberLine(userId, projectId, line),
     clearLastSelection: () => clearLastSelection(userId, projectId),
+    rememberCursorLine: (nodeId: string, line: number) => rememberCursorLine(userId, projectId, nodeId, line),
+    readCursorLine: (nodeId: string) => readCursorLine(userId, projectId, nodeId),
+    pruneCursor: (nodeId: string) => pruneCursor(userId, projectId, nodeId),
   }), [userId, projectId]);
 }

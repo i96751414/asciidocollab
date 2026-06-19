@@ -194,6 +194,7 @@ jest.mock('@/hooks/use-project-symbol-index', () => ({
     getIndex: () => mockIndexValue,
     getFiles: mockGetFiles,
     refresh: mockRefreshIndex,
+    resolvedScopeOf: () => new Map<string, string>(),
   })),
 }));
 
@@ -227,6 +228,9 @@ jest.mock('@/hooks/use-last-selection', () => ({
     rememberFile: jest.fn(),
     rememberLine: jest.fn(),
     clearLastSelection: jest.fn(),
+    rememberCursorLine: jest.fn(),
+    readCursorLine: () => undefined,
+    pruneCursor: jest.fn(),
   }),
 }));
 

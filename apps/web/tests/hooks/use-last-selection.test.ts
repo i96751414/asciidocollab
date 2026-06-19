@@ -12,6 +12,10 @@ import {
   rememberFile,
   rememberLine,
   clearLastSelection,
+  fileCursorsKey,
+  rememberCursorLine,
+  readCursorLine,
+  pruneCursor,
   type LastSelection,
 } from '@/hooks/use-last-selection';
 
@@ -174,5 +178,158 @@ describe('isolation', () => {
     rememberFile('user-b', PROJECT, fileB);
     expect(readLastSelection('user-a', PROJECT)).toEqual(fileA);
     expect(readLastSelection('user-b', PROJECT)).toEqual(fileB);
+  });
+});
+
+// --- Per-file cursor map (US7 / FR-022–027) --------------------------------------------------
+
+describe('fileCursorsKey', () => {
+  it('builds a user- and project-scoped key (FR-024, no magic strings)', () => {
+    expect(fileCursorsKey(USER, PROJECT)).toBe('asciidocollab:file-cursors:user-1:proj-1');
+  });
+
+  it('is distinct from the last-selection key (separate store)', () => {
+    expect(fileCursorsKey(USER, PROJECT)).not.toBe(lastSelectionKey(USER, PROJECT));
+  });
+});
+
+describe('readCursorLine', () => {
+  it('returns undefined when no entry exists (caller opens at top, FR-026)', () => {
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+  });
+
+  it('returns the stored 1-based line for a remembered file', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 42);
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBe(42);
+  });
+
+  it('returns undefined (no throw) when stored JSON is malformed', () => {
+    localStorage.setItem(fileCursorsKey(USER, PROJECT), '{not valid json');
+    expect(() => readCursorLine(USER, PROJECT, 'n1')).not.toThrow();
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+  });
+
+  it('returns undefined when the map is the wrong shape (array / not an object)', () => {
+    localStorage.setItem(fileCursorsKey(USER, PROJECT), JSON.stringify([{ n1: { line: 5 } }]));
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+    localStorage.setItem(fileCursorsKey(USER, PROJECT), JSON.stringify('nope'));
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+  });
+
+  it('drops a non-finite or < 1 line for a single entry without affecting others', () => {
+    rememberCursorLine(USER, PROJECT, 'good', 7);
+    // Hand-craft a map with one corrupt entry alongside a valid one.
+    localStorage.setItem(
+      fileCursorsKey(USER, PROJECT),
+      JSON.stringify({ good: { line: 7 }, bad: { line: 0 }, naned: { line: Number.NaN } }),
+    );
+    expect(readCursorLine(USER, PROJECT, 'good')).toBe(7);
+    expect(readCursorLine(USER, PROJECT, 'bad')).toBeUndefined();
+    expect(readCursorLine(USER, PROJECT, 'naned')).toBeUndefined();
+  });
+
+  it('returns undefined (no throw) when an entry is the wrong shape', () => {
+    localStorage.setItem(
+      fileCursorsKey(USER, PROJECT),
+      JSON.stringify({ n1: 5, n2: { line: 'x' }, n3: null }),
+    );
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+    expect(readCursorLine(USER, PROJECT, 'n2')).toBeUndefined();
+    expect(readCursorLine(USER, PROJECT, 'n3')).toBeUndefined();
+  });
+
+  it('returns undefined (no throw) when localStorage throws', () => {
+    installStorage(throwingStorage);
+    expect(() => readCursorLine(USER, PROJECT, 'n1')).not.toThrow();
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+  });
+});
+
+describe('rememberCursorLine', () => {
+  it('persists a per-file map keyed by nodeId, with the validated line', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 10);
+    expect(JSON.parse(localStorage.getItem(fileCursorsKey(USER, PROJECT))!)).toEqual({ n1: { line: 10 } });
+  });
+
+  it('merges a second file without clobbering the first (two files → distinct entries)', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 10);
+    rememberCursorLine(USER, PROJECT, 'n2', 20);
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBe(10);
+    expect(readCursorLine(USER, PROJECT, 'n2')).toBe(20);
+  });
+
+  it('overwrites the same file with a newer line', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 10);
+    rememberCursorLine(USER, PROJECT, 'n1', 99);
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBe(99);
+  });
+
+  it('does not write a non-finite or < 1 line', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 0);
+    rememberCursorLine(USER, PROJECT, 'n1', Number.NaN);
+    rememberCursorLine(USER, PROJECT, 'n1', Number.POSITIVE_INFINITY);
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+  });
+
+  it('recovers from a corrupt existing map by starting fresh', () => {
+    localStorage.setItem(fileCursorsKey(USER, PROJECT), '{not valid json');
+    rememberCursorLine(USER, PROJECT, 'n1', 5);
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBe(5);
+  });
+
+  it('is a safe no-op when localStorage throws', () => {
+    installStorage(throwingStorage);
+    expect(() => rememberCursorLine(USER, PROJECT, 'n1', 5)).not.toThrow();
+  });
+});
+
+describe('pruneCursor', () => {
+  it('removes a deleted file’s entry, leaving the others', () => {
+    rememberCursorLine(USER, PROJECT, 'n1', 10);
+    rememberCursorLine(USER, PROJECT, 'n2', 20);
+    pruneCursor(USER, PROJECT, 'n1');
+    expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
+    expect(readCursorLine(USER, PROJECT, 'n2')).toBe(20);
+  });
+
+  it('is a no-op when the file was never remembered', () => {
+    rememberCursorLine(USER, PROJECT, 'n2', 20);
+    expect(() => pruneCursor(USER, PROJECT, 'missing')).not.toThrow();
+    expect(readCursorLine(USER, PROJECT, 'n2')).toBe(20);
+  });
+
+  it('is a no-op when no map exists', () => {
+    expect(() => pruneCursor(USER, PROJECT, 'n1')).not.toThrow();
+    expect(localStorage.getItem(fileCursorsKey(USER, PROJECT))).toBeNull();
+  });
+
+  it('is a safe no-op when localStorage throws', () => {
+    installStorage(throwingStorage);
+    expect(() => pruneCursor(USER, PROJECT, 'n1')).not.toThrow();
+  });
+});
+
+describe('cursor-map isolation', () => {
+  it('two projectIds for the same user are independent (FR-024)', () => {
+    rememberCursorLine(USER, 'proj-a', 'n1', 3);
+    rememberCursorLine(USER, 'proj-b', 'n1', 8);
+    expect(readCursorLine(USER, 'proj-a', 'n1')).toBe(3);
+    expect(readCursorLine(USER, 'proj-b', 'n1')).toBe(8);
+  });
+
+  it('two userIds on one browser are independent — user A never reads user B (FR-024)', () => {
+    rememberCursorLine('user-a', PROJECT, 'n1', 3);
+    rememberCursorLine('user-b', PROJECT, 'n1', 8);
+    expect(readCursorLine('user-a', PROJECT, 'n1')).toBe(3);
+    expect(readCursorLine('user-b', PROJECT, 'n1')).toBe(8);
+  });
+
+  it('is independent from the last-selection store (FR-027 coexistence)', () => {
+    rememberFile(USER, PROJECT, FILE);
+    rememberLine(USER, PROJECT, 5);
+    rememberCursorLine(USER, PROJECT, FILE.nodeId, 50);
+    // The single last-selection keeps its own line; the per-file map keeps a distinct one.
+    expect(readLastSelection(USER, PROJECT)).toEqual({ ...FILE, line: 5 });
+    expect(readCursorLine(USER, PROJECT, FILE.nodeId)).toBe(50);
   });
 });

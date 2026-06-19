@@ -3,7 +3,7 @@ import path from 'node:path';
 import { buildParser } from '@lezer/generator';
 import { EditorState } from '@codemirror/state';
 import { LRLanguage, LanguageSupport } from '@codemirror/language';
-import { outlineField } from '@/lib/codemirror/asciidoc-outline';
+import { outlineField, outlineResolvedScopeFacet } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import {
   inheritedHeadingOffsetFacet,
@@ -227,5 +227,108 @@ describe('asciidoc-outline StateField', () => {
     offset = 1;
     const refreshed = initial.update({ effects: refreshHeadingLevelsEffect.of() }).state;
     expect(refreshed.field(outlineField)).toEqual([]);
+  });
+
+  test('resolves {attr} references in a heading title against the resolved scope', () => {
+    const scope = new Map<string, string>([['productname', 'Acme']]);
+    const state = EditorState.create({
+      doc: '== {productName} Guide',
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => scope)],
+    });
+    expect(state.field(outlineField)).toEqual([
+      expect.objectContaining({ title: 'Acme Guide', level: 1 }),
+    ]);
+  });
+
+  test('leaves an unresolved {attr} reference verbatim in the title', () => {
+    const state = EditorState.create({
+      doc: '== {unknown} Guide',
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => new Map())],
+    });
+    expect(state.field(outlineField)).toEqual([
+      expect.objectContaining({ title: '{unknown} Guide' }),
+    ]);
+  });
+
+  test('excludes a heading inside an inactive ifdef branch', () => {
+    const documentContent = [
+      '== Always',
+      '',
+      'ifdef::draft[]',
+      '== Draft Only',
+      'endif::[]',
+      '',
+      '== After',
+      '',
+    ].join('\n');
+    // `draft` is NOT in scope ⇒ the ifdef branch is inactive ⇒ its heading is excluded.
+    const state = EditorState.create({
+      doc: documentContent,
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => new Map())],
+    });
+    expect(state.field(outlineField).map((entry) => entry.title)).toEqual(['Always', 'After']);
+  });
+
+  test('a single-line ifdef::flag[text] (inline content form, no endif) does NOT gate later headings', () => {
+    const documentContent = [
+      'ifdef::draft[Draft watermark]',
+      '',
+      '== Real Section',
+      '',
+      '== Another',
+      '',
+    ].join('\n');
+    // The inline content form has non-empty brackets and no matching `endif`, so it is NOT a region
+    // opener. Treating it as one (the bug) would push an unbalanced inactive frame and drop every
+    // following heading. Both headings must survive — matching what the preview renders.
+    const state = EditorState.create({
+      doc: documentContent,
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => new Map())],
+    });
+    expect(state.field(outlineField).map((entry) => entry.title)).toEqual(['Real Section', 'Another']);
+  });
+
+  test('keeps a heading inside an active ifdef branch', () => {
+    const documentContent = [
+      'ifdef::draft[]',
+      '== Draft Only',
+      'endif::[]',
+      '',
+    ].join('\n');
+    const scope = new Map<string, string>([['draft', '']]);
+    const state = EditorState.create({
+      doc: documentContent,
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => scope)],
+    });
+    expect(state.field(outlineField).map((entry) => entry.title)).toEqual(['Draft Only']);
+  });
+
+  test('excludes a heading inside an active-by-default ifndef branch that resolves inactive', () => {
+    const documentContent = [
+      'ifndef::draft[]',
+      '== Released Only',
+      'endif::[]',
+      '',
+    ].join('\n');
+    // `draft` IS in scope ⇒ the ifndef branch is inactive ⇒ its heading is excluded.
+    const scope = new Map<string, string>([['draft', '']]);
+    const state = EditorState.create({
+      doc: documentContent,
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => scope)],
+    });
+    expect(state.field(outlineField)).toEqual([]);
+  });
+
+  test('recomputes resolved titles/inactive marking when the scope changes out-of-band', () => {
+    let scope: ReadonlyMap<string, string> = new Map();
+    const initial = EditorState.create({
+      doc: ['== {productName}', '', 'ifdef::draft[]', '== Draft', 'endif::[]', ''].join('\n'),
+      extensions: [outlineField, asciidocExtension, outlineResolvedScopeFacet.of(() => scope)],
+    });
+    expect(initial.field(outlineField).map((entry) => entry.title)).toEqual(['{productName}']);
+
+    scope = new Map<string, string>([['productname', 'Acme'], ['draft', '']]);
+    const refreshed = initial.update({ effects: refreshHeadingLevelsEffect.of() }).state;
+    expect(refreshed.field(outlineField).map((entry) => entry.title)).toEqual(['Acme', 'Draft']);
   });
 });

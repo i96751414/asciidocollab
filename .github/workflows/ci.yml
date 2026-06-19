@@ -89,6 +89,10 @@ jobs:
       - name: Build packages (generate Prisma client + declaration files)
         run: pnpm -r build
 
+      - name: Asciidoc-core unit tests with coverage
+        working-directory: packages/asciidoc-core
+        run: npx jest --coverage --coverageReporters=text lcov
+
       - name: Shared unit tests with coverage
         working-directory: packages/shared
         run: npx jest --coverage --coverageReporters=text lcov
@@ -119,6 +123,7 @@ jobs:
         with:
           name: coverage-report
           path: |
+            packages/asciidoc-core/coverage/
             packages/shared/coverage/
             packages/domain/coverage/
             apps/api/coverage/

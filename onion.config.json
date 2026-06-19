@@ -1,5 +1,6 @@
 {
   "layers": {
+    "asciidoc-core": "./packages/asciidoc-core/src",
     "domain": "./packages/domain/src",
     "shared": "./packages/shared/src",
     "infrastructure": "./packages/infrastructure/src",
@@ -8,11 +9,12 @@
     "collab": "./apps/collab/src"
   },
   "rules": [
-    { "from": "domain", "allowedImports": [] },
+    { "from": "asciidoc-core", "allowedImports": [] },
+    { "from": "domain", "allowedImports": ["asciidoc-core"] },
     { "from": "shared", "allowedImports": [] },
     { "from": "infrastructure", "allowedImports": ["domain", "shared"] },
     { "from": "api", "allowedImports": ["domain", "infrastructure", "shared"] },
     { "from": "collab", "allowedImports": ["domain", "infrastructure", "shared"] },
-    { "from": "web", "allowedImports": ["shared"] }
+    { "from": "web", "allowedImports": ["shared", "asciidoc-core"] }
   ]
 }

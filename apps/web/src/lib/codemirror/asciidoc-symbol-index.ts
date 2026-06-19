@@ -2,11 +2,12 @@ import {
   buildIncludeGraphWithInheritance,
   extractSymbols,
   extractReferences,
-  extractAttributeDefinitions,
+  extractOwnAttributes,
   resolveReference,
-  inheritedLevelOffset,
+  effectiveLevelOffset,
 } from '../asciidoc/extraction';
 import { resolveSandboxedPath } from '../asciidoc/sandbox-path';
+import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 import type { DocumentTree, ProjectSymbol, Reference } from '@asciidocollab/shared';
 
 /**
@@ -132,7 +133,10 @@ export function buildProjectSymbolIndex(
   activeFileId: string = rootFileId,
   pathOf: (fileId: string) => string | null = () => null,
 ): ProjectSymbolIndex {
-  const { tree, inheritedAttributes } = buildIncludeGraphWithInheritance(rootFileId, getContent, resolveInclude);
+  // Seed the render intrinsics so the include-graph walk gates conditional includes exactly as the
+  // preview assembler does (e.g. an `ifdef::backend-html5[]` include is active) — keeping the symbol
+  // index's nodes/edges and inherited attributes consistent with what is actually rendered (#4).
+  const { tree, inheritedAttributes } = buildIncludeGraphWithInheritance(rootFileId, getContent, resolveInclude, RENDER_INTRINSIC_ATTRIBUTES);
 
   const symbols: ProjectSymbol[] = [];
   const references: Reference[] = [];
@@ -142,12 +146,21 @@ export function buildProjectSymbolIndex(
     if (content === null) continue;
     symbols.push(...extractSymbols(fileId, content));
     references.push(...extractReferences(fileId, content));
-    for (const definition of extractAttributeDefinitions(content)) attributes.set(definition.name, definition.value);
+    // A file's OWN net attributes (in document order): `:name:` entries AND inline `{set:}`
+    // assignments alike (FR-040), so a `{set:}`-defined name is project-wide known. Later files in
+    // tree-node order win for the project-wide view (a coarse last-wins, as before).
+    for (const [name, value] of extractOwnAttributes(content)) attributes.set(name, value);
   }
 
   const noAttributes: ReadonlyMap<string, string> = new Map();
   const inheritedAttributesOf = (fileId: string): ReadonlyMap<string, string> =>
     inheritedAttributes.get(fileId) ?? noAttributes;
+
+  // `inheritedOffset` re-walks the whole include tree from the root (effectiveLevelOffset reads and
+  // scans every file), and it is read on every editor render. Memoize per file for this index
+  // instance so repeated reads are O(1); the index is rebuilt (new instance, fresh cache) whenever
+  // content changes, so the cache can never go stale (#7).
+  const offsetCache = new Map<string, number>();
 
   return {
     tree,
@@ -159,8 +172,11 @@ export function buildProjectSymbolIndex(
     effectiveAttributes: (fileId) => {
       const effective = new Map(inheritedAttributesOf(fileId));
       const content = getContent(fileId);
+      // Apply the file's OWN definitions on top of what it inherits (own wins): `:name:` entries AND
+      // inline `{set:}` assignments (FR-040), via the same document-order model the inheritance walk
+      // uses — so an own `{set:basedir:...}` folds to its value just like a `:name:` entry.
       if (content !== null) {
-        for (const definition of extractAttributeDefinitions(content)) effective.set(definition.name, definition.value);
+        for (const [name, value] of extractOwnAttributes(content)) effective.set(name, value);
       }
       return effective;
     },
@@ -168,7 +184,19 @@ export function buildProjectSymbolIndex(
       resolveReference({ kind: 'xref', target, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
     resolveAttribute: (name) =>
       resolveReference({ kind: 'attributeRef', target: name, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
-    inheritedOffset: (fileId) => inheritedLevelOffset(tree, fileId),
+    // The offset the editor applies to a non-root file's headings is the EFFECTIVE offset at its
+    // first include point: the include `leveloffset=` options AND the attribute-form `:leveloffset:`
+    // a parent declares above the include, include-scoped (FR-008/FR-009). `computeHeadingLevels`
+    // (the single authority) then composes this base with the file's own attribute-form entries.
+    inheritedOffset: (fileId) => {
+      const cached = offsetCache.get(fileId);
+      if (cached !== undefined) return cached;
+      // Seed the render intrinsics so an include guarded by an Asciidoctor-injected attribute (e.g.
+      // `ifdef::backend-html5[]`) is gated consistently with the preview assembler (FR-029/#3).
+      const offset = effectiveLevelOffset({ rootFileId, fileId, readContent: getContent, resolveInclude, seedAttributes: RENDER_INTRINSIC_ATTRIBUTES });
+      offsetCache.set(fileId, offset);
+      return offset;
+    },
     pathOf,
     lineOf: (fileId, offset) => {
       const content = getContent(fileId);

@@ -19,13 +19,31 @@ export const asciidocHighlightTags = styleTags({
   Highlight:          t.special(t.string),
   Subscript:          t.number,
   Superscript:        t.special(t.number),
+  // A role-based inline span `[.role]#text#` is a styled span. EVERY role span gets this generic
+  // highlight class (FR-021b) — it reuses the highlight/marked-span tag that the theme already
+  // colours, so all five themes show role spans. A KNOWN role earns an ADDITIONAL distinct emphasis
+  // via the registry-driven decoration (`inline-style-registry.ts`), layered on top of this base.
+  RoleSpan:           t.special(t.string),
   CommentLine:        t.lineComment,
   CommentBlock:       t.blockComment,
   AttributeEntry:     t.meta,
   AttributeReference: t.variableName,
+  // An inline `{set:}` assignment is an attribute DEFINITION in body text, so it shares the
+  // attribute-entry colour (`t.meta`) rather than the (theme-unstyled) reference tag.
+  InlineSet:          t.meta,
   BlockMacro:         t.macroName,
   InlineMacro:        t.link,
   CrossReference:     t.link,
+  // A cross-reference's target id reads as a link (the navigation anchor); its optional display
+  // label reads as body text, distinct from the target (FR-045). The `<<`/`>>` delimiters (and the
+  // single guard char the opener consumes) share the target's link colour.
+  xrefOpen:           t.link,
+  xrefClose:          t.link,
+  XrefTarget:         t.link,
+  XrefLabel:          t.string,
+  // A table column-format specifier line `[cols="1,>2"]` — highlighted distinctly from a generic
+  // block-attribute line (FR-046). `t.attributeValue` reads as a value/spec, not plain meta.
+  TableCols:          t.attributeValue,
   Footnote:           t.string,
   ListingBlock:       t.content,
   LiteralBlock:       t.content,

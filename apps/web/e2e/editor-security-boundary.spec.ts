@@ -88,4 +88,69 @@ test.describe('editor security boundary (Constitution IX)', () => {
     await expect(output.locator('script')).toHaveCount(0);
     expect(await page.evaluate(() => (globalThis as unknown as { __xss?: boolean }).__xss)).toBeUndefined();
   });
+
+  // Constitution IX (027): STEM math, conditional, and partial-include paths must not become a
+  // sandbox-escape or script-injection vector. The cross-document feature added these paths; each
+  // still routes through the single DOMPurify boundary, so no `<script>` may execute and no XSS
+  // sentinel may be set, even when the markup is crafted to smuggle one.
+  test('STEM math + conditionals + partial includes never execute injected script', async ({ page }) => {
+    // The main file enables :stem: and gates an included partial on an attribute it sets, then a
+    // tag-filtered include pulls a slice that embeds a crafted stem/passthrough payload. Asciidoctor
+    // emits delimiters as plain text; the worker sanitizes; nothing executable may reach the DOM.
+    const MAIN = [
+      '= Book',
+      ':stem:',
+      ':feature:',
+      '',
+      'stem:[x^2] is inline math.',
+      '',
+      'ifdef::feature[]',
+      'include::gated.adoc[]',
+      'endif::[]',
+      '',
+      'include::partial.adoc[tags=keep]',
+      '',
+    ].join('\n');
+    // A stem block + a passthrough block that tries to smuggle a <script>; both must end up inert.
+    const GATED = [
+      '[stem]',
+      '++++',
+      String.raw`\sqrt{x}`,
+      '++++',
+      '',
+      '++++',
+      '<script>window.__xss = true;</script>',
+      '++++',
+      '',
+      'pass:[<img src=x onerror="window.__xss = true">]',
+      '',
+    ].join('\n');
+    const PARTIAL = [
+      '// tag::keep[]',
+      String.raw`latexmath:[C_1 = \alpha] kept slice.`,
+      '// end::keep[]',
+      'Dropped slice.',
+      '',
+    ].join('\n');
+
+    await createAdocFile(page, projectId, 'main.adoc', MAIN);
+    await createAdocFile(page, projectId, 'gated.adoc', GATED);
+    await createAdocFile(page, projectId, 'partial.adoc', PARTIAL);
+    await setMainFile(page, projectId, await mainFileId(page, projectId, 'main.adoc'));
+
+    await openProject(page, projectId);
+    await openFile(page, 'main.adoc');
+    await expandPreview(page);
+
+    const output = page.getByTestId('asciidoc-output');
+    // The retained (active-branch, in-tag) content renders…
+    await expect(output).toContainText('kept slice.', { timeout: 15_000 });
+    // …while the dropped tag slice never reaches the preview.
+    await expect(output).not.toContainText('Dropped slice.');
+    // No executable script survives the sanitizer on ANY of these paths, and the XSS sentinel that
+    // the smuggled <script>/onerror would have set stays unset — proving no sandbox escape.
+    await expect(output.locator('script')).toHaveCount(0);
+    await expect(output.locator('[onerror]')).toHaveCount(0);
+    expect(await page.evaluate(() => (globalThis as unknown as { __xss?: boolean }).__xss)).toBeUndefined();
+  });
 });

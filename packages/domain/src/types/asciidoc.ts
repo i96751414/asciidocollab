@@ -5,6 +5,12 @@
  * packages independently define the same type (Architecture Constitution).
  */
 
+// The conditional-expression shape lives in the shared zero-dependency authority alongside the
+// parser/evaluator that produce and consume it; imported for use below AND re-exported so it stays
+// part of the domain's cross-boundary type surface (the `@asciidocollab/shared` chain is unchanged).
+import type { ConditionalExpr } from '@asciidocollab/asciidoc-core';
+export type { ConditionalExpr } from '@asciidocollab/asciidoc-core';
+
 /** A half-open text range within a file (document offsets). */
 export interface TextRange {
   /** Start offset (inclusive). */
@@ -64,7 +70,41 @@ export interface IncludeEdge {
   includeDirectiveRange: TextRange;
   /** Level offset declared on the include directive (`leveloffset=`), 0 if none. */
   leveloffset: number;
+  /** Tag filter expression tokens from `tags=` (`null`/absent = no tag filter). */
+  tags?: string[] | null;
+  /** Line ranges from `lines=`; each `[start, end]` with an open-ended end as `null` (`null`/absent = no line filter). */
+  lines?: Array<[number, number | null]> | null;
+  /** Conditional guarding this include, when the directive is wrapped by one (`null`/absent = unconditional). */
+  gatedBy?: ConditionalExpr | null;
 }
+
+/**
+ * The effective attribute values at a position, or for a file's inherited context,
+ * derived by walking the include tree from the project main file (root).
+ */
+export interface ResolvedAttributeScope {
+  /** The file this scope applies to. */
+  fileId: string;
+  /** Attribute name → value in effect. */
+  values: ReadonlyMap<string, string>;
+  /**
+   * How the scope was derived: `root` = the main file itself; `inherited` = from the
+   * main file at this file's first-include point (FR-002a); `standalone` = no main file
+   * configured, so only the file's own attributes resolve (FR-002b).
+   */
+  origin: 'root' | 'inherited' | 'standalone';
+}
+
+/**
+ * An event in document reading order used to resolve attribute state across the include
+ * tree. `attribute` covers `:name:` entries (and `:!name:` unset via `value: null`);
+ * `inline-set` covers `{set:name:value}` / `{set:name!}`; `include` carries the matched
+ * `include::` directive for expansion.
+ */
+export type DocumentOrderEvent =
+  | { kind: 'attribute'; pos: number; name: string; value: string | null; locked?: boolean }
+  | { kind: 'inline-set'; pos: number; name: string; value: string | null }
+  | { kind: 'include'; pos: number; match: RegExpMatchArray };
 
 /** An include target that could not be resolved (drives the unresolved-include diagnostic). */
 export interface UnresolvedInclude {

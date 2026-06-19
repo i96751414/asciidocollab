@@ -23,7 +23,9 @@
   thematicBreakToken, pageBreakToken,
   hardBreakToken,
   continuationLineToken,
-  paragraphLineToken
+  paragraphLineToken,
+  boldMarkToken, italicMarkToken, monoMarkToken,
+  blockColsToken
 }
 
 block {
@@ -45,6 +47,7 @@ block {
   CsvTableBlock |
   DsvTableBlock |
   Conditional |
+  TableCols |
   BlockAttributeLine |
   ThematicBreak |
   PageBreak |
@@ -73,6 +76,10 @@ BlockMacro        { blockMacroToken }
 DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
 Conditional       { conditionalToken }
+// A table column-format specifier line `[cols="1,>2"]` (FR-046). The external tokenizer recognises a
+// `[cols=…]` block-attribute line specifically and emits `blockColsToken` (whole line) so the cols
+// specifier highlights distinctly from a generic `[source,ruby]` block-attribute line.
+TableCols          { blockColsToken }
 BlockAttributeLine { blockAttrToken }
 ThematicBreak     { thematicBreakToken }
 PageBreak         { pageBreakToken }
@@ -127,34 +134,55 @@ Paragraph             { inlineContent nl ParagraphContinuation* }
 ParagraphContinuation { paragraphLineToken }
 inlineContent { inline+ }
 
-// CONSTRAINED-FORMATTING NOTE: like the long-standing Bold/Italic/Monospace marks, the
-// inline constructs below match by SHAPE and do NOT enforce AsciiDoc's "constrained"
-// word-boundary rule (a mark must abut whitespace/punctuation, not be embedded in a word).
-// So `a*b*c`→Bold, `a+b+c`→Passthrough, `Vec<3>`→Callout, `a&b;`→Entity all tokenize even
-// though Asciidoctor would render them literally. This is an intentional, consistent
-// highlighter tradeoff (a full fix needs lookbehind, i.e. an external-tokenizer rewrite of
-// ALL inline marks); accept these prose false-positives rather than fix one mark in isolation.
+// CONSTRAINED-FORMATTING NOTE: Bold / Italic / Monospace are now boundary-aware (US12/FR-044) —
+// emitted as a single span token by the external tokenizer, which applies AsciiDoc's
+// constrained/unconstrained word-boundary rule using lookbehind, so `a*b*c` / `2*3*4` are NOT
+// bolded while genuine `*bold*` / `**bold**` are (SC-016). The OTHER shape-only inline constructs
+// below still match by SHAPE and do not enforce the rule (`a+b+c`→Passthrough, `a&b;`→Entity), an
+// accepted highlighter tradeoff for those marks; `Vec<3>` no longer falsely bolds and its `<3>`
+// matches only the Callout shape, never an xref (`<<` requires a following id char).
 inline {
   Bold | Italic | Monospace | Highlight | Subscript | Superscript |
-  AttributeReference | CrossReference | Footnote | InlineMacro |
+  RoleSpan |
+  InlineSet | AttributeReference | CrossReference | Footnote | InlineMacro |
   Passthrough | BiblioAnchor | InlineAnchor | Replacement | Entity | Callout |
   UiMacro | InlineStem | Link | SmartQuote | HardBreak |
-  inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback
+  inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback | markFallback
 }
 
-Bold       { boldDoubleMark   innerContent boldDoubleMark   |
-             boldSingleMark   innerContent boldSingleMark }
-Italic     { italicDoubleMark innerContent italicDoubleMark |
-             italicSingleMark innerContent italicSingleMark }
-Monospace  { backtickMark     innerContent backtickMark }
+// Bold/Italic/Monospace are emitted as a SINGLE boundary-checked external token spanning the whole
+// `*…*` / `**…**` (etc.) run — the constrained/unconstrained word-boundary rule (FR-044; SC-016)
+// needs lookbehind the `@tokens` DFA cannot express, so the external tokenizer (which sees the
+// preceding char) decides whether a mark opens a span at all. An in-word mark (`a*b*c`, `2*3*4`)
+// emits no token and falls through to plain text. The whole span is one token (no inner nesting),
+// trading nested-construct highlighting for boundary correctness — the chosen tradeoff per SC-016.
+Bold       { boldMarkToken }
+Italic     { italicMarkToken }
+Monospace  { monoMarkToken }
 Highlight  { hashMark         innerContent hashMark }
 Subscript  { tildeMark        innerContent tildeMark }
 Superscript { caretMark       innerContent caretMark }
 
-innerContent { (inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback)+ }
+// Role-based inline span `[.role]#text#` (constrained) or `[.role]##text##` (unconstrained) (US14,
+// FR-021b). One self-contained token so the leading `[` never leaks to `punctFallback`. EVERY role
+// span is tokenised the same way and highlighted generically; the inline-style registry adds a
+// DISTINCT emphasis for KNOWN roles via a decoration (asciidoc-highlight-tags maps the generic tag).
+RoleSpan   { roleSpanMark }
 
+innerContent { (inlineWord | spaceTok | punctFallback | ltFallback | quoteFallback | markFallback)+ }
+
+// Inline attribute assignment `{set:name:value}` / `{set:name!}` (FR-040/FR-042). Highlighted as an
+// attribute construct (same tag as a `{name}` reference). Distinct token so it wins over a `{`-started
+// reference; the `set:` literal makes the discrimination unambiguous.
+InlineSet          { inlineSet }
 AttributeReference { attrRef }
-CrossReference     { xref }
+// A cross-reference `<<target>>` or `<<target,label>>`. The target id and the optional display
+// label are distinct sub-nodes (FR-045) so the theme can colour them differently (target = link,
+// label = body text). The interior tokens come from the scoped `@local tokens` group (below the main
+// `@tokens` block): `xrefChunkChars` is the target (first chunk) or label (after the `,` separator).
+CrossReference     { xrefOpen XrefTarget (xrefSep XrefLabel)? xrefClose }
+XrefTarget         { xrefChunkChars }
+XrefLabel          { xrefChunkChars }
 // The external tokenizer only fires at line start, so footnotes / inline macros that appear
 // MID-line are recognised by the `@token` alternatives below (FR-026/052). At line start the
 // external token wins (it runs first); mid-line it declines and the `@token` matches — both
@@ -184,7 +212,7 @@ HardBreak     { hardBreakToken }
   // UI/math macros share a letter prefix with `inlineWord`, so the DFA needs an explicit
   // order. Precedence only applies when the macro token actually matches its full `name:[…]`
   // shape; a plain word that merely starts with the same letters still falls to `inlineWord`.
-  @precedence { footnoteMark, stemMark, uiMacroMark, inlineMacroMark, bareUrl, inlineWord }
+  @precedence { inlineSet, attrRef, footnoteMark, stemMark, uiMacroMark, inlineMacroMark, bareUrl, inlineWord }
 
   // Raw body line — any non-empty line inside delimited blocks
   rawBodyLine { ![\n]+ "\n" }
@@ -193,18 +221,37 @@ HardBreak     { hardBreakToken }
   tableCellMark { "|" }
 
   // Inline markup delimiters
-  boldDoubleMark   { "**" }
-  boldSingleMark   { "*" }
-  italicDoubleMark { "__" }
-  italicSingleMark { "_" }
-  backtickMark     { "`" }
+  // A lone emphasis-mark char (`*`, `_`, backtick) that the external tokenizer did NOT consume as a
+  // constrained/unconstrained span (FR-044). Kept as plain text so prose with an unpaired/in-word
+  // mark (`a*b`, `f(x)_i`, `` a`b ``) still tokenizes without a parser error. The external span token
+  // wins whenever a valid span exists (external tokens run before `@tokens`).
+  markFallback     { $[*_`] }
   hashMark         { "#" }
   tildeMark        { "~" }
   caretMark        { "^" }
 
+  // Role-based inline span `[.role]#text#` / `[.role]##text##` (FR-021b). The role attribute list is
+  // one or more `.name` segments (`[.role1.role2]`); the body is `#…#` (constrained) or `##…##`
+  // (unconstrained), forbidding a newline so an unterminated span never swallows following lines.
+  // Spans its full shape so the leading `[.` never leaks a stray `[` into prose (it wins over the
+  // `[` `punctFallback` by longest match).
+  roleSpanMark {
+    "[" ("." $[a-zA-Z0-9] $[a-zA-Z0-9_-]*)+ "]"
+    ( "##" ![#\n]+ "##" | "#" ![#\n]+ "#" )
+  }
+
   // Inline construct tokens
   attrRef { "{" $[a-zA-Z0-9_] $[a-zA-Z0-9_-]* "}" }
-  xref    { "<<" ![\n>]* ">>" }
+  // Inline attribute assignment `{set:name:value}` (set) or `{set:name!}` (unset). The `set:` literal
+  // and the `!`/`:`-gated tail keep it from colliding with a plain `{name}` reference (which forbids
+  // `:`). Wins over `attrRef` by the explicit precedence (both begin with `{`).
+  inlineSet { "{set:" $[a-zA-Z0-9_] $[a-zA-Z0-9_-]* ("!" | ":" ![}\n]*) "}" }
+  // Cross-reference opening delimiter (FR-045). The interior (target id, optional `,`-separated
+  // label) and the closing `>>` are matched by a SCOPED `@local tokens` group below so the
+  // comma/target/label tokens never leak into ordinary prose tokenization. The `<<` must be followed
+  // by a non-space, non-`<`/`>` char so a bare `a << b` (space after) or a `<<<` page break stays
+  // plain text via `ltFallback` rather than opening an xref that never closes (a parse error).
+  xrefOpen        { "<<" ![ \t<>\n] }
 
   // Inline constructs (T019). Each is a single token spanning its full shape so a partial
   // match (e.g. a lone starter char) never leaks a stray sub-token into surrounding prose.
@@ -250,4 +297,14 @@ HardBreak     { hardBreakToken }
   spaceTok   { $[ \t]+ }
 
   nl { "\n" }
+}
+
+// Cross-reference interior token set (FR-045) — SCOPED to between `<<` and `>>` so the `,` separator
+// and the target/label runs never affect ordinary prose tokenization (a global `,` token would be a
+// disaster for prose). `xrefClose`/`xrefSep` end a chunk; `@else xrefChunkChars` is the run of any
+// other non-delimiter chars that forms the target (first chunk) or the label (after the comma).
+@local tokens {
+  xrefClose { ">>" }
+  xrefSep   { "," }
+  @else xrefChunkChars
 }

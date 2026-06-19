@@ -242,6 +242,51 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.index).toBe(built); // unchanged by the superseded build
   });
 
+  test('exposes the resolved cross-document attribute scope for the open file (US6/T034)', async () => {
+    // main.adoc defines :productName: before including child.adoc, which references {productName}.
+    // The open file is the child; its resolved scope must inherit productName from the parent.
+    const tree = {
+      ...TREE,
+      children: [
+        { id: 'main', name: 'main.adoc', type: 'file', path: 'main.adoc', parentId: 'root', children: [] },
+        { id: 'child', name: 'child.adoc', type: 'file', path: 'child.adoc', parentId: 'root', children: [] },
+      ],
+    };
+    mockFetchTree.mockResolvedValue(tree as never);
+    const content: Record<string, string> = {
+      main: ':productName: Acme\ninclude::child.adoc[]\n',
+      child: ':edition: Pro\nSee {productName} {edition}.\n',
+    };
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      Promise.resolve(content[fileId] ?? ''),
+    );
+
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'child',
+        liveContent: content.child, // the open file is served from the live overlay (as in the app)
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+
+    const scope = result.current.resolvedScopeOf('child');
+    expect(scope.get('productname')).toBe('Acme'); // inherited from the parent
+    expect(scope.get('edition')).toBe('Pro'); // the child's own definition
+    expect(scope.has('mystery')).toBe(false);
+
+    // Repeated calls for the same file return the SAME Map identity (memoised per index build), so the
+    // editor's `[resolvedScope]` effect does not re-fire on every render. effectiveAttributes() itself
+    // builds a fresh Map each call, so without memoisation these identities would differ.
+    expect(result.current.resolvedScopeOf('child')).toBe(scope);
+  });
+
+  test('resolvedScopeOf returns an empty map before the index has built', () => {
+    const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: null }));
+    expect(result.current.resolvedScopeOf('anything').size).toBe(0);
+  });
+
   test('a build superseded while content fetches are in flight aborts without setting an index', async () => {
     const firstContent = makeDeferred<string>();
     let resumedSecond = false;
