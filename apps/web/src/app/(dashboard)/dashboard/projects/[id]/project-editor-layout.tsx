@@ -443,7 +443,7 @@ export function ProjectEditorLayout({
           </Panel>
           {showPreview && previewOpen && (
             <>
-              <PanelResizeHandle className="group relative z-10 flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
+              <PanelResizeHandle className="group relative z-10 -mx-[3px] flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
                 <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
               </PanelResizeHandle>
               <Panel id="editor-preview" order={2} defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">
