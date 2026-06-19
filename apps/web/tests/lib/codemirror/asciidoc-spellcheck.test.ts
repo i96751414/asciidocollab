@@ -106,7 +106,7 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     expect(SPELLCHECK_SKIP_NODES.has('AttributeEntry')).toBe(true);
     // New non-prose inline nodes (T019) — URLs, macros, math, anchors, callouts,
     // entities, and passthroughs must not be spell-checked as prose.
-    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor']) {
+    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor', 'InlineSet', 'RoleSpan']) {
       expect(SPELLCHECK_SKIP_NODES.has(node)).toBe(true);
     }
     // Prose-bearing nodes are NOT skipped.
@@ -123,6 +123,35 @@ describe('SPELLCHECK_SKIP_NODES', () => {
       const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
       expect(words).not.toContain('exampledomain');
+      view.destroy();
+    });
+  });
+
+  test('role spans and the word fragments they split are not flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // Renders as "Once upon an infinite loop." — `##O##nce` splits "Once"; the role names
+      // (underline/big) are markup, and the `nce` fragment is glued to the span.
+      const view = makeView('[.underline]##O##nce [.big]##upon## an infinite loop.\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('nce');       // fragment glued to the span
+      expect(words).not.toContain('underline'); // role name (markup)
+      expect(words).not.toContain('big');       // role name (markup)
+      view.destroy();
+    });
+  });
+
+  test('the name/value in `{set:name:value}` (InlineSet) are not flagged as misspelled', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('Prose with {set:myyvarvar:myvalue} inside.\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('myyvarvar');
+      expect(words).not.toContain('myvalue');
       view.destroy();
     });
   });

@@ -23,6 +23,10 @@ export const SPELLCHECK_SKIP_NODES = new Set([
   // anchors, callouts, and entities are verbatim/identifier content, not prose.
   'Link', 'InlineStem', 'UiMacro', 'Passthrough', 'InlineAnchor', 'BiblioAnchor',
   'Callout', 'Entity',
+  // `{set:name:value}` — the attribute name and value are identifiers, not prose.
+  'InlineSet',
+  // `[.role]##text##` — the role name is markup (an arbitrary identifier like `[.lead]`), not prose.
+  'RoleSpan',
 ]);
 
 const WORD_RE = /[A-Za-z][A-Za-z']*/g;
@@ -138,8 +142,15 @@ export function asciidocSpellcheckSource(
     tree.cursor().iterate((node) => {
       if (SPELLCHECK_SKIP_NODES.has(node.name)) skip.push({ from: node.from, to: node.to });
     });
+    // A word is not prose-checked when it is inside a skip range OR glued directly to one (no
+    // whitespace). An unconstrained span splits a word across markup — `[.underline]##O##nce` leaves
+    // the fragment `nce` touching the span — so a word abutting a skipped span is a markup fragment,
+    // not a standalone misspelling.
     const isSkipped = (from: number, to: number) =>
-      skip.some((range) => from >= range.from && to <= range.to);
+      skip.some((range) =>
+        (from >= range.from && to <= range.to) || // fully inside a skipped span
+        from === range.to ||                        // glued immediately AFTER a span (e.g. ##O##nce)
+        to === range.from);                         // glued immediately BEFORE a span (e.g. Onc##e##)
 
     for (const token of selectMisspelled(tokenizeWords(text), checker.correct, getIgnore())) {
       if (isSkipped(token.from, token.to)) continue;

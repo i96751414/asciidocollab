@@ -25,7 +25,8 @@
   continuationLineToken,
   paragraphLineToken,
   boldMarkToken, italicMarkToken, monoMarkToken,
-  blockColsToken
+  blockColsToken,
+  blankLineToken
 }
 
 block {
@@ -71,7 +72,12 @@ Heading4          { heading4Token }
 Heading5          { heading5Token }
 AttributeEntry    { attrEntryToken }
 CommentLine       { commentLineToken }
-AdmonitionParagraph { admonitionLineToken }
+// An admonition paragraph absorbs glued following lines like a normal Paragraph (a paragraph runs
+// until a blank line), so a heading/list marker on the next line is plain text, not a new block.
+// Its continuation lines use a DEDICATED node (not the plain `ParagraphContinuation`) so they inherit
+// the admonition highlight — highlightTree does not propagate a parent node's tag to its children.
+AdmonitionParagraph { admonitionLineToken AdmonitionContinuation* }
+AdmonitionContinuation { paragraphLineToken }
 BlockMacro        { blockMacroToken }
 DescriptionList   { descListToken DescriptionContinuation* }
 BlockTitle        { blockTitleToken }
@@ -91,9 +97,12 @@ PageBreak         { pageBreakToken }
 // attach one (Stack.canShift) — keeping plain paragraphs unaffected. Continuation nodes
 // are tagged separately per parent (list vs description) so each inherits the matching
 // highlight colour: highlightTree does not propagate a parent node's tag to child nodes.
-ChecklistItem     { checklistMarker inlineContent nl Continuation* }
-UnorderedListItem { unorderedMarker inlineContent nl Continuation* }
-OrderedListItem   { orderedMarker   inlineContent nl Continuation* }
+// Principal text is OPTIONAL: an empty marker line (`. ` / `* ` with nothing after) is still a list
+// item, and a glued following line is its principal-text continuation — so an empty item never breaks
+// the list (it would otherwise error-recover and drop the rest of the list to a paragraph).
+ChecklistItem     { checklistMarker inlineContent? nl Continuation* }
+UnorderedListItem { unorderedMarker inlineContent? nl Continuation* }
+OrderedListItem   { orderedMarker   inlineContent? nl Continuation* }
 Continuation            { continuationLineToken }
 DescriptionContinuation { continuationLineToken }
 
@@ -123,7 +132,9 @@ bodyLine    { rawBodyLine | blankLine }
 tableBody   { (tableRow | blankLine)* }
 tableRow    { tableCellMark inlineContent nl }
 
-blankLine   { nl }
+// A blank line is a bare newline OR a whitespace-only line (the external tokenizer emits
+// `blankLineToken` for spaces/tabs followed by a newline) — both separate blocks in AsciiDoc.
+blankLine   { nl | blankLineToken }
 
 // ── Paragraphs with inline markup ─────────────────────────────────────────────
 // A paragraph runs until a blank line: every following non-blank line is consumed as a

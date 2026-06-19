@@ -19,9 +19,12 @@ import { canonicalSourceLanguageName, resolveSourceLanguage } from './source-lan
 const loadedParsers = new Map<string, Parser>();
 const loadingLanguages = new Set<string>();
 
-const SOURCE_DECL_RE = /^\s*\[source\s*,\s*([\w+#.-]+)/i;
+// Matches both the explicit `[source,<lang>]` and the `[,<lang>]` shorthand (an empty block style
+// defaults to `source`), so e.g. `[,ruby]` highlights the same as `[source,ruby]`. The style slot
+// accepts only an empty value or `source` — `[quote,…]` and other styles never inject a language.
+const SOURCE_DECL_RE = /^\s*\[(?:source)?\s*,\s*([\w+#.-]+)/i;
 
-/** Extract and resolve the language of a `[source,<lang>]` declaration line, or null. */
+/** Extract and resolve the language of a `[source,<lang>]` (or `[,<lang>]`) declaration line, or null. */
 export function extractSourceLanguage(line: string): string | null {
   const match = SOURCE_DECL_RE.exec(line);
   return match ? canonicalSourceLanguageName(match[1]) : null;
