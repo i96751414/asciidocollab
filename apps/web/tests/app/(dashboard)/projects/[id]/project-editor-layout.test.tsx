@@ -245,13 +245,13 @@ describe('ProjectEditorLayout', () => {
     }
   });
 
-  // T022c: content panel has p-4 class; preview empty-state has text-sm and text-muted-foreground
-  it('T022c: content panel has p-4 class', async () => {
+  // T022c: the content panel is edge-to-edge (no padding) so the editor reaches the panel edges.
+  it('T022c: content panel has no padding', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('content-panel')).toBeInTheDocument());
 
     const contentPanel = screen.getByTestId('content-panel');
-    expect(contentPanel).toHaveClass('p-4');
+    expect(contentPanel).not.toHaveClass('p-4');
   });
 
   // T025: SSE wiring — useFileTreeEvents called with correct projectId and events propagate

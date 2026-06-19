@@ -179,8 +179,9 @@ describe('FileTreeNode', () => {
     expect(screen.getByTestId(`drop-zone-${folderNode.id}`)).toBeInTheDocument();
   });
 
-  // T006 (a): selectedNodeId matches node.id → bg-accent highlight class applied
-  it('applies bg-accent class when selectedNodeId matches node id', () => {
+  // T006 (a): selectedNodeId matches node.id → the active "selected" highlight class is applied
+  // (primary tint, unified with the Outline current row + rail active tab).
+  it('applies the selected highlight class when selectedNodeId matches node id', () => {
     render(
       <FileTreeNode
         node={fileNode}
@@ -193,7 +194,7 @@ describe('FileTreeNode', () => {
       />,
     );
     const nodeElement = screen.getByText('document.adoc').closest('div');
-    expect(nodeElement).toHaveClass('bg-accent');
+    expect(nodeElement).toHaveClass('bg-primary/10', 'text-primary', 'border-primary');
   });
 
   // T006 (b): canEdit=false → no action button rendered

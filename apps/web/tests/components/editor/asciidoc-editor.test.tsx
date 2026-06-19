@@ -379,13 +379,20 @@ describe('AsciiDocEditor', () => {
     expect(() => unmount()).not.toThrow();
   });
 
-  // The editor tracks outline state internally via the CM6 updateListener, so
-  // useSectionOutline is no longer needed or called from the editor component.
-  test('editor renders the outline panel without calling useSectionOutline', () => {
+  // The editor lifts outline state via onOutlineChange (028); it never calls useSectionOutline.
+  test('editor renders without calling useSectionOutline', () => {
     const { useSectionOutline } = jest.requireMock('@/hooks/use-section-outline');
     useSectionOutline.mockClear();
     render(<AsciiDocEditor content="== Heading\n\nBody" canEdit={true} />);
     expect(useSectionOutline).not.toHaveBeenCalled();
+  });
+
+  // 028: the right-hand outline panel was removed; the outline now lives in the left panel, fed by
+  // the lifted onOutlineChange callback.
+  test('does not render an in-editor outline panel (collapse/expand controls absent)', () => {
+    render(<AsciiDocEditor content="== Heading\n\nBody" canEdit={true} />);
+    expect(screen.queryByRole('button', { name: /collapse outline panel/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /expand outline panel/i })).not.toBeInTheDocument();
   });
 
   // Issue 6: canEdit prop changes after mount must update the editor's readOnly state
@@ -485,29 +492,6 @@ describe('AsciiDocEditor', () => {
       });
       rerender(<AsciiDocEditor content="test" canEdit={true} />);
       expect((container.querySelector('.asciidoc-editor') as HTMLElement).style.getPropertyValue('--editor-font-size')).toBe('24px');
-    });
-  });
-
-  describe('outline panel', () => {
-    test('renders the outline panel open by default with a collapse button', () => {
-      render(<AsciiDocEditor content="test" canEdit={true} />);
-      expect(screen.getByRole('button', { name: /collapse outline panel/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /expand outline panel/i })).not.toBeInTheDocument();
-    });
-
-    test('clicking collapse hides the outline and shows the expand button', () => {
-      render(<AsciiDocEditor content="test" canEdit={true} />);
-      fireEvent.click(screen.getByRole('button', { name: /collapse outline panel/i }));
-      expect(screen.queryByRole('button', { name: /collapse outline panel/i })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /expand outline panel/i })).toBeInTheDocument();
-    });
-
-    test('clicking expand after collapse reopens the outline', () => {
-      render(<AsciiDocEditor content="test" canEdit={true} />);
-      fireEvent.click(screen.getByRole('button', { name: /collapse outline panel/i }));
-      fireEvent.click(screen.getByRole('button', { name: /expand outline panel/i }));
-      expect(screen.getByRole('button', { name: /collapse outline panel/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /expand outline panel/i })).not.toBeInTheDocument();
     });
   });
 

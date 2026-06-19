@@ -22,8 +22,8 @@ async function waitCollabSynced(page: Page): Promise<void> {
   await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
 }
 
-// The SELECTED highlight only — a standalone `bg-accent`, not the always-present `hover:bg-accent`.
-const SELECTED = /(?:^|\s)bg-accent(?:\s|$)/;
+// The SELECTED highlight only — the active row's `bg-primary/10` tint, not the hover `bg-accent`.
+const SELECTED = /(?:^|\s)bg-primary\/10(?:\s|$)/;
 
 async function openProject(page: Page, projectId: string): Promise<void> {
   await page.goto(`/dashboard/projects/${projectId}`);

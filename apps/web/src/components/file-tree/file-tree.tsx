@@ -404,8 +404,9 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, pre
       onDragStart={handleTreeDragStart}
       onDragEnd={handleTreeDragEnd}
     >
-      {/* Header row: Files label + root actions (owner-only) + optional collapse button */}
-      <div className="flex items-center justify-between px-2 py-1.5 border-b shrink-0">
+      {/* Header row: Files label + root actions (owner-only) + optional collapse button. Fixed h-9 to
+          match the Outline view's header so the two left-panel views line up. */}
+      <div className="flex items-center justify-between px-2 border-b shrink-0 h-9">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
         <div className="flex items-center gap-0.5">
           {tree && canEdit && (
