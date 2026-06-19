@@ -15,6 +15,7 @@ import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
 import { isImageFile } from '@/lib/codemirror/asciidoc-image-extensions';
 import { useFileSelection } from '@/hooks/use-file-selection';
+import { useFileHistory } from '@/hooks/use-file-history';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { type ConnectionState } from '@/hooks/use-collab-document';
 
@@ -243,6 +244,12 @@ export function ProjectEditorLayout({
   const { handleSelectFile, handleCursorLineChange, initialLine } = useEditorRestoration({
     userId, projectId, selectedFile, contentState, selectFile, clearSelection, pendingXrefLine,
   });
+
+  // Make file selection a real browser navigation: each opened file becomes a history entry, so the
+  // Back/Forward buttons walk the files visited this session and re-open the previous one through the
+  // same selection funnel (remember + cursor restore). Reload restoration stays the localStorage
+  // concern of useEditorRestoration above.
+  useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
   const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle } = useEditorPreferences();
 
