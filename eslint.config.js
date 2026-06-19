@@ -32,6 +32,7 @@ module.exports = tseslint.config(
       parserOptions: {
         project: [
           './tsconfig.json',
+          './packages/asciidoc-core/tsconfig.eslint.json',
           './packages/domain/tsconfig.eslint.json',
           './packages/shared/tsconfig.eslint.json',
           './packages/db/tsconfig.json',

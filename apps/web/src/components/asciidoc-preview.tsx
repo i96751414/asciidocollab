@@ -3,6 +3,7 @@
 // (asciidoc-preview.css) wins on equal specificity for the few rules we deliberately override.
 import '../styles/asciidoctor-style.generated.css';
 import '../styles/asciidoc-preview.css';
+import { useEffect, useMemo, useRef } from 'react';
 import { ArrowUpDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utilities';
@@ -41,6 +42,14 @@ interface AsciiDocPreviewProperties {
   mainPath?: string;
   /** Returns the path→content snapshot for include assembly; read lazily at render time. */
   getFiles?: () => Record<string, string>;
+  /**
+   * Project main-file path (root) for cross-document attribute resolution (US1/FR-002a). When set
+   * with {@link openFilePath} and {@link getFiles}, the open file's `{name}` references resolve to the
+   * value in effect at its include-point under this root. Null/unset ⇒ standalone resolution.
+   */
+  rootFilePath?: string | null;
+  /** Project-relative path of the previewed open file, whose inherited attribute scope is seeded. */
+  openFilePath?: string;
   scrollToLine?: ScrollRequest | null;
   /** When provided, a collapse button is rendered in the header. */
   onCollapse?: () => void;
@@ -65,6 +74,8 @@ export function AsciiDocPreview({
   projectId,
   mainPath,
   getFiles,
+  rootFilePath,
+  openFilePath,
   scrollToLine = null,
   onCollapse,
   scrollSyncEnabled = false,
@@ -75,7 +86,48 @@ export function AsciiDocPreview({
   // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
   // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
   const imagesDirectory = `${API_BASE}/projects/${projectId}/images`;
-  const { html, state, error, previewRef } = useAsciidocPreview({ content, isEnabled, scrollToLine, imagesDir: imagesDirectory, mainPath, getFiles });
+  const { html, state, error, previewRef, mathPresent } = useAsciidocPreview({
+    content,
+    isEnabled,
+    scrollToLine,
+    imagesDir: imagesDirectory,
+    mainPath,
+    getFiles,
+    rootFileId: rootFilePath,
+    openFileId: openFilePath,
+  });
+
+  // Ref to the rendered-output container — the scoped `.asciidoc-preview-content` element whose
+  // sanitized HTML may carry STEM delimiters MathJax typesets in place (US15).
+  const outputReference = useRef<HTMLDivElement | null>(null);
+
+  // Stable `dangerouslySetInnerHTML` payload, keyed on `html`. A fresh `{ __html }` object literal
+  // every render would make React treat the prop as changed and RE-APPLY innerHTML on every re-render
+  // (even an unrelated one, e.g. an editor click), wiping the client-typeset math (`<math>`/
+  // `mjx-container`) that `renderMath` inserted — and since `[html, mathPresent]` are unchanged the
+  // typeset effect would not re-run, leaving the raw `\$…\$` delimiters on screen. Memoizing keeps the
+  // object referentially stable while `html` is unchanged, so React only re-applies innerHTML (and the
+  // effect re-typesets) when the rendered HTML actually changes.
+  const htmlMarkup = useMemo(() => (html === null ? null : { __html: html }), [html]);
+
+  // Render math client-side AFTER the sanitized HTML is committed to the DOM, and only when the
+  // worker flagged in-effect STEM (resolved `:stem:` + stem markup). MathJax is lazy-imported inside
+  // `renderMath`, so its bundle cost is paid only on a math-bearing preview (FR-021d; R5). Re-runs on
+  // html/mathPresent change; `renderMath` clears prior typeset state so re-renders don't double-render.
+  // Output stays within the scoped container (Constitution VI) — we only ever typeset that node.
+  useEffect(() => {
+    if (!mathPresent || html === null) return;
+    const container = outputReference.current;
+    if (!container) return;
+    let cancelled = false;
+    void import('@/components/math/render-math').then(({ renderMath }) => {
+      if (cancelled) return;
+      void renderMath(container);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [html, mathPresent]);
 
   return (
     <div className="flex flex-col h-full">
@@ -129,11 +181,15 @@ export function AsciiDocPreview({
         ) : (
           html !== null && (
             <div
+              ref={outputReference}
               data-testid="asciidoc-output"
               className="asciidoc-preview-content"
               data-preview-style={previewStyle}
-              // dangerouslySetInnerHTML is intentional: content is sanitized by DOMPurify in useAsciidocPreview.
-              dangerouslySetInnerHTML={{ __html: html }}
+              // dangerouslySetInnerHTML is intentional: content is sanitized by DOMPurify in
+              // useAsciidocPreview. The payload is the memoized `htmlMarkup` (stable while `html` is
+              // unchanged) so React does not re-apply innerHTML — and wipe client-typeset math — on
+              // unrelated re-renders. `html !== null` here, so `htmlMarkup` is non-null.
+              dangerouslySetInnerHTML={htmlMarkup ?? undefined}
             />
           )
         )}

@@ -38,38 +38,83 @@ export function useEditorRestoration({
   clearSelection,
   pendingXrefLine,
 }: EditorRestorationOptions): EditorRestoration {
-  const { readLastSelection, rememberFile, rememberLine, clearLastSelection } = useLastSelection(userId, projectId);
+  const {
+    readLastSelection,
+    rememberFile,
+    rememberLine,
+    clearLastSelection,
+    rememberCursorLine,
+    readCursorLine,
+    pruneCursor,
+  } = useLastSelection(userId, projectId);
   // The line to restore, paired with the file it belongs to. Applied only to that file's first
   // (restore) mount; cleared once the user navigates so in-session clicks never re-jump (Decision 4).
   const [restoredLine, setRestoredLine] = useState<{ nodeId: string; line: number } | null>(null);
   const lineDebounceReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The pending (debounced) cursor line, captured with the file it belongs to. Held so a file switch
+  // can FLUSH it instead of dropping it (see the flush effect below).
+  const pendingLineReference = useRef<{ nodeId: string; line: number } | null>(null);
+  // Flush the pending cursor save when the file changes (or on unmount). It writes ONLY the per-file
+  // map entry, keyed by the OUTGOING file's nodeId — never the single last-selection `line`, which by
+  // now belongs to the NEWLY-selected file (rememberLine merges into the current entry, so writing it
+  // here would store the old file's line under the new file). The full update — including the
+  // last-selection line — happens in the debounce timer, which only fires while the file is still open
+  // (a switch clears the timer first). This preserves the just-left cursor without cross-file leakage.
+  const flushPendingLineSave = useCallback(() => {
+    if (lineDebounceReference.current) {
+      clearTimeout(lineDebounceReference.current);
+      lineDebounceReference.current = null;
+    }
+    const pending = pendingLineReference.current;
+    pendingLineReference.current = null;
+    if (pending) rememberCursorLine(pending.nodeId, pending.line);
+  }, [rememberCursorLine]);
 
   // Persist the file on every selection, then delegate to useFileSelection. Folders are
-  // ignored by rememberFile, so only content files are remembered. A user-initiated selection
-  // also ends the restore window, so the remembered line is never re-applied mid-session.
-  // The pending cross-file go-to-definition line (set when an xref targets another file) is consumed
-  // here so the opened file reveals the definition via its mount-time initialLine.
+  // ignored by rememberFile, so only content files are remembered.
+  //
+  // The line to restore is chosen in priority order:
+  //   1. A pending cross-file go-to-definition line (an xref targeting this file), if set.
+  //   2. The file's own per-file remembered cursor line (US7 / FR-023) — so reopening any file,
+  //      even via an in-tree click mid-session, returns the cursor to where it was last left.
+  //   3. None → open at the top (FR-026).
+  // Either way the chosen line reaches the editor via the mount-time `initialLine`, which clamps it
+  // to the nearest valid line against the live document length (use-editor-mount.ts).
   const handleSelectFile = useCallback(
     (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => {
       const xrefLine = pendingXrefLine.current;
       pendingXrefLine.current = null;
-      setRestoredLine(xrefLine === null ? null : { nodeId, line: xrefLine });
+      const line = xrefLine ?? readCursorLine(nodeId);
+      setRestoredLine(line === undefined ? null : { nodeId, line });
       rememberFile({ nodeId, nodeName, nodeType, path: nodePath });
       selectFile(nodeId, nodeName, nodePath, nodeType);
     },
-    [rememberFile, selectFile, pendingXrefLine],
+    [rememberFile, selectFile, pendingXrefLine, readCursorLine],
   );
 
-  // Debounced cursor-line persistence — AsciiDoc files only (FR-006).
+  // Debounced cursor-line persistence — AsciiDoc files only (FR-006). Saves into BOTH the single
+  // last-selection entry (last-opened-file restore) and the per-file cursor map (US7), keyed by the
+  // file that was open when the debounce was scheduled, so a late timer never lands on the wrong file.
   const handleCursorLineChange = useCallback((line: number) => {
     if (!selectedFile || !isAsciiDocFile(selectedFile.nodeName)) return;
+    const { nodeId } = selectedFile;
     if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current);
-    lineDebounceReference.current = setTimeout(() => { rememberLine(line); }, 500);
-  }, [selectedFile, rememberLine]);
+    pendingLineReference.current = { nodeId, line };
+    lineDebounceReference.current = setTimeout(() => {
+      lineDebounceReference.current = null;
+      pendingLineReference.current = null;
+      // The file is still open (a switch would have cleared this timer first): update BOTH the single
+      // last-selection line (last-opened-file restore) and this file's per-file entry (US7).
+      rememberLine(line);
+      rememberCursorLine(nodeId, line);
+    }, 500);
+  }, [selectedFile, rememberLine, rememberCursorLine]);
 
-  // Cancel any pending line-persistence debounce when the open file changes (or on unmount), so a
-  // stale timer from the previous file never merges its line into the newly-selected file's entry.
-  useEffect(() => () => { if (lineDebounceReference.current) clearTimeout(lineDebounceReference.current); }, [selectedFile?.nodeId]);
+  // FLUSH the pending line save when the open file changes (or on unmount). The save captured the
+  // outgoing file's nodeId, so flushing can only write that file's entry — never the newly-selected
+  // file's. Flushing (rather than cancelling) means switching files faster than the 500ms debounce
+  // never DROPS the cursor position the user just left (US7/FR-022).
+  useEffect(() => flushPendingLineSave, [selectedFile?.nodeId, flushPendingLineSave]);
 
   // Restore the last opened file (and its cursor line) on mount. Synchronous localStorage read —
   // never blocks first paint (FR-010); a no-op when nothing is stored.
@@ -82,7 +127,10 @@ export function useEditorRestoration({
   useEffect(() => {
     const stored = readLastSelection();
     if (!stored) return;
-    if (stored.line !== undefined) setRestoredLine({ nodeId: stored.nodeId, line: stored.line });
+    // Prefer the file's own per-file remembered line (US7); fall back to the line stored on the
+    // single last-selection entry for projects last visited before the per-file map existed.
+    const line = readCursorLine(stored.nodeId) ?? stored.line;
+    if (line !== undefined) setRestoredLine({ nodeId: stored.nodeId, line });
     selectFile(stored.nodeId, stored.nodeName, stored.path, stored.nodeType);
   }, []);
 
@@ -92,12 +140,14 @@ export function useEditorRestoration({
     : undefined;
 
   // The selected file is gone (content fetch 404). Clear the stale memory so it is not retried,
-  // and reset to the no-file state — no error is shown (FR-009 / US3).
+  // and reset to the no-file state — no error is shown (FR-009 / US3). Prune the deleted file's
+  // per-file cursor entry too, so a recreated node id never resurrects a stale position (US7 edge case).
   useEffect(() => {
     if (!contentState.notFound) return;
     clearLastSelection();
+    if (selectedFile) pruneCursor(selectedFile.nodeId);
     clearSelection();
-  }, [contentState.notFound, clearLastSelection, clearSelection]);
+  }, [contentState.notFound, clearLastSelection, pruneCursor, clearSelection, selectedFile]);
 
   return { handleSelectFile, handleCursorLineChange, initialLine };
 }

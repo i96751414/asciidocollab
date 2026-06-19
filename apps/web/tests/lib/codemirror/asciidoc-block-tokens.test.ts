@@ -162,6 +162,39 @@ describe('createBlockTokenLogic block detection', () => {
     expect(result.token).toBe('paragraphLineToken');
   });
 
+  // A delimited-block delimiter ends an open paragraph even when a continuation is shiftable
+  // (Asciidoctor `block_terminates_paragraph`): it must NOT be absorbed but emit its delim token.
+  describe('delimited-block delimiter terminates an open paragraph (not absorbed)', () => {
+    const inParagraph = { canShift: (term: number) => term === TERMS.paragraphLineToken };
+    const expectDelim = (line: string, token: string) =>
+      expect(runLogic(line, inParagraph).token).toBe(token);
+
+    test('**** → sidebarDelim', () => expectDelim('****\n', 'sidebarDelim'));
+    test('==== → exampleDelim', () => expectDelim('====\n', 'exampleDelim'));
+    test('---- → listingDelim', () => expectDelim('----\n', 'listingDelim'));
+    test('.... → literalDelim', () => expectDelim('....\n', 'literalDelim'));
+    test('____ → quoteDelim', () => expectDelim('____\n', 'quoteDelim'));
+    test('++++ → passthroughDelim', () => expectDelim('++++\n', 'passthroughDelim'));
+    test('//// → commentBlockDelim', () => expectDelim('////\n', 'commentBlockDelim'));
+    test('-- (open block) → openDelim', () => expectDelim('--\n', 'openDelim'));
+    test('|=== → tableDelim', () => expectDelim('|===\n', 'tableDelim'));
+    test(',=== → csvTableDelim', () => expectDelim(',===\n', 'csvTableDelim'));
+    test(':=== → dsvTableDelim', () => expectDelim(':===\n', 'dsvTableDelim'));
+
+    // A delimiter at EOF (no trailing newline) still terminates the paragraph.
+    test('**** at end of input → sidebarDelim', () => expectDelim('****', 'sidebarDelim'));
+
+    // Look-alikes a paragraph DOES still absorb: a heading (`== `), a too-short run (`===`),
+    // a single dash bullet context, and a `|` that is not a table fence — startsDelimitedBlock
+    // returns false for these, so they stay paragraph continuation text.
+    test('== heading is absorbed (heading does not terminate a paragraph)', () =>
+      expect(runLogic('== Title\n', inParagraph).token).toBe('paragraphLineToken'));
+    test('=== (run < 4, no space) is absorbed', () =>
+      expect(runLogic('===\n', inParagraph).token).toBe('paragraphLineToken'));
+    test('| not followed by === is absorbed', () =>
+      expect(runLogic('| cell only\n', inParagraph).token).toBe('paragraphLineToken'));
+  });
+
   test('blank line at line start with paragraph shiftable is not consumed as paragraph', () => {
     // input.next === NEWLINE so the paragraph branch is skipped.
     expect(

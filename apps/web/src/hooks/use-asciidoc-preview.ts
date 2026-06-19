@@ -13,6 +13,8 @@ interface RenderRequest {
   imagesDir?: string;
   mainPath?: string;
   files?: Record<string, string>;
+  rootFileId?: string | null;
+  openFileId?: string;
 }
 
 interface RenderResult {
@@ -20,6 +22,8 @@ interface RenderResult {
   ok: boolean;
   html: string | null;
   error: string | null;
+  /** True when the worker detected in-effect STEM math (resolved `:stem:` + stem markup, US15). */
+  mathPresent?: boolean;
 }
 
 /**
@@ -51,6 +55,14 @@ export interface UseAsciidocPreviewOptions {
   mainPath?: string;
   /** Returns the path→content snapshot the include assembler needs; read lazily at render time. */
   getFiles?: () => Record<string, string>;
+  /**
+   * Project main-file path (root) for cross-document attribute resolution (US1/FR-002a): the open
+   * file's `{name}` references resolve to the value in effect at its first include-point under this
+   * root. `null`/unset ⇒ standalone resolution (the file's own attributes only, FR-002b).
+   */
+  rootFileId?: string | null;
+  /** The previewed open file's path, whose inherited attribute scope the worker seeds (FR-002a). */
+  openFileId?: string;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -63,6 +75,11 @@ export interface UseAsciidocPreviewResult {
   error: string | null;
   /** Ref to attach to the preview scroll container. */
   previewRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * True when the latest rendered HTML contains in-effect STEM math (US15). The preview uses this to
+   * lazy-load MathJax and typeset the container only when there is math to render (FR-021d).
+   */
+  mathPresent: boolean;
 }
 
 /**
@@ -76,10 +93,13 @@ export function useAsciidocPreview({
   imagesDir,
   mainPath,
   getFiles,
+  rootFileId,
+  openFileId,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mathPresent, setMathPresent] = useState(false);
 
   // Held in a ref so the debounced render always posts the current base path without
   // re-running the debounce effects when it changes (it is stable per editor session).
@@ -90,6 +110,12 @@ export function useAsciidocPreview({
   mainPathReference.current = mainPath;
   const getFilesReference = useRef(getFiles);
   getFilesReference.current = getFiles;
+  // Cross-document attribute-scope inputs (US1/FR-002a), read lazily at render time so editing a
+  // parent's attribute re-resolves on the next debounced render without re-running the debounce effect.
+  const rootFileIdReference = useRef(rootFileId);
+  rootFileIdReference.current = rootFileId;
+  const openFileIdReference = useRef(openFileId);
+  openFileIdReference.current = openFileId;
 
   const workerReference = useRef<Worker | null>(null);
   const requestIdReference = useRef(0);
@@ -108,6 +134,9 @@ export function useAsciidocPreview({
       if (result.ok && result.html !== null) {
         const sanitized = DOMPurify.sanitize(result.html, { USE_PROFILES: { html: true } });
         setHtml(sanitized);
+        // The worker gates this on the resolved `:stem:`; MathJax delimiters (`\(`, `\[`, `\$`) are
+        // plain text and survive DOMPurify, so the sanitized HTML still carries the math to typeset.
+        setMathPresent(result.mathPresent === true);
         setError(null);
         setState('up-to-date');
       } else {
@@ -134,13 +163,25 @@ export function useAsciidocPreview({
       // the root file's content is actually available — otherwise fall back to rendering `content`
       // (the open file = the main file here), so the preview never blanks while the tree loads.
       const mainFilePath = mainPathReference.current;
-      const files = mainFilePath ? getFilesReference.current?.() : undefined;
+      const rootId = rootFileIdReference.current;
+      const openId = openFileIdReference.current;
+      // The files snapshot feeds BOTH include assembly (when this file is the main file) and the
+      // cross-document attribute-scope resolution (when this file is an included child); read it once
+      // whenever either uses it so editing a parent re-resolves the open child live (FR-002a).
+      const needsFiles = mainFilePath !== undefined || (rootId != null && openId !== undefined);
+      const files = needsFiles ? getFilesReference.current?.() : undefined;
       const canAssemble = mainFilePath !== undefined && files !== undefined && files[mainFilePath] !== undefined;
+      // Resolve the inherited scope only when the open file is reachable in the snapshot AND is not
+      // itself the root (the root's own attributes Asciidoctor parses from the source). The worker
+      // still revalidates and falls back to standalone if these inputs are incomplete.
+      const canResolveScope =
+        rootId != null && openId !== undefined && openId !== rootId && files !== undefined && files[rootId] !== undefined;
       workerReference.current?.postMessage({
         requestId: requestIdReference.current,
         content: currentContent,
         imagesDir: imagesDirectoryReference.current,
         ...(canAssemble ? { mainPath: mainFilePath, files } : {}),
+        ...(canResolveScope ? { rootFileId: rootId, openFileId: openId, files } : {}),
       } satisfies RenderRequest);
     }, PREVIEW_DEBOUNCE_MS);
   };
@@ -176,11 +217,14 @@ export function useAsciidocPreview({
   }, [content]);
 
   // Re-render when the assembled-main view is toggled on/off (the open file became, or stopped
-  // being, the configured main file) so the preview switches between assembled and open-file modes.
+  // being, the configured main file) so the preview switches between assembled and open-file modes,
+  // and when the project main-file setting changes the resolution root (rootFileId) so an open CHILD
+  // file re-resolves its inherited cross-document attribute scope under the new root with no document
+  // edit — live re-resolution on main-file change for every open file (FR-007b/SC-009).
   useEffect(() => {
     if (!isEnabled || !content) return;
     scheduleRender(content);
-  }, [mainPath]);
+  }, [mainPath, rootFileId]);
 
   // Scroll to line when scrollToLine changes.
   useEffect(() => {
@@ -205,5 +249,5 @@ export function useAsciidocPreview({
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [scrollToLine]);
 
-  return { html, state, error, previewRef: previewReference };
+  return { html, state, error, previewRef: previewReference, mathPresent };
 }

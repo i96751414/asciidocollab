@@ -41,7 +41,7 @@ jest.mock('@codemirror/view', () => ({
   highlightSpecialChars: () => ({}),
   foldGutter: () => ({}),
   ViewPlugin: { fromClass: () => ({}), define: () => ({}) },
-  Decoration: { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
+  Decoration: { line: () => ({}), replace: () => ({}), mark: () => ({}), set: () => ({}), none: { update: () => ({}) } },
   WidgetType: class {},
 }));
 
@@ -84,7 +84,7 @@ jest.mock('@/components/editor/editor-collab-extensions', () => ({
 }));
 jest.mock('@/lib/codemirror/asciidoc-language', () => ({ asciidoc: () => ({}) }));
 jest.mock('@/hooks/use-section-outline', () => ({ useSectionOutline: () => [] }));
-jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true } }));
+jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true }, outlineResolvedScopeFacet: { of: () => ({}) } }));
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));

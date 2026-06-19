@@ -1,17 +1,20 @@
 import type { InputStream, Stack } from '@lezer/lr';
 
 import {
-  NEWLINE, SPACE, TAB, EQUALS, DASH, STAR, UNDERSCORE,
+  NEWLINE, SPACE, TAB, EQUALS, DASH, STAR, UNDERSCORE, BACKTICK,
   PLUS, SLASH, COLON, PIPE, DOT, LBRACK, SEMICOLON, COMMA,
   APOSTROPHE, LANGLE,
   isBreakLine,
   isBlockAttributeLine,
   startsListMarker,
+  startsDelimitedBlock,
   isLineStart,
   consumeToEOL,
+  consumeAttributeEntry,
   peekString,
   isAlphaNumber,
   isAlphaNumberOrDash,
+  scanInlineMark,
 } from './asciidoc-block-token-helpers';
 
 /**
@@ -54,6 +57,8 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
     blockTitleToken,
     thematicBreakToken, pageBreakToken, hardBreakToken,
     continuationLineToken, paragraphLineToken,
+    boldMarkToken, italicMarkToken, monoMarkToken,
+    blockColsToken,
   } = T;
 
   return (input, stack) => {
@@ -67,13 +72,32 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       return;
     }
 
+    // Inline emphasis marks (`*bold*` / `_italic_` / `` `mono` ``) — emitted as a SINGLE
+    // boundary-checked span token so AsciiDoc's constrained/unconstrained word-boundary rule is
+    // enforced with the lookbehind the `@tokens` DFA cannot express (FR-044; SC-016). Checked before
+    // the line-start gate so it is recognised mid-line; `scanInlineMark` (which sees the preceding
+    // char via `peek(-1)`) returns null for an in-word mark (`a*b*c`, `2*3*4`), leaving the lone mark
+    // to fall through to the grammar's plain-text `markFallback`.
+    if (input.next === STAR || input.next === UNDERSCORE || input.next === BACKTICK) {
+      const span = scanInlineMark(input, input.next, input.peek(-1));
+      if (span !== null) {
+        const token = input.next === STAR ? boldMarkToken : (input.next === UNDERSCORE ? italicMarkToken : monoMarkToken);
+        for (let index = 0; index < span.length; index++) input.advance();
+        input.acceptToken(token);
+        return;
+      }
+    }
+
     if (!isLineStart(input)) return;
     if (input.next === -1) return;
 
     // Mid-paragraph: Asciidoctor consumes every non-blank line into the paragraph until a blank
     // line, so a line that looks like a heading or list marker here is plain text, not a new block.
     // Checked first so it wins over the block branches; `canShift` is true only inside a paragraph.
-    if (input.next !== NEWLINE && stack.canShift(paragraphLineToken)) {
+    // EXCEPTION (Asciidoctor `block_terminates_paragraph`): a delimited-block delimiter still ends the
+    // paragraph with no blank line between them, so `startsDelimitedBlock` lines fall through to the
+    // block branches below instead of being absorbed (e.g. `prose` directly above `****`).
+    if (input.next !== NEWLINE && stack.canShift(paragraphLineToken) && !startsDelimitedBlock(input)) {
       consumeToEOL(input);
       input.acceptToken(paragraphLineToken);
       return;
@@ -214,7 +238,7 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       if (!isAlphaNumber(firstChar)) return;
       offset++;
       while (offset < 200 && isAlphaNumberOrDash(input.peek(offset))) offset++;
-      if (input.peek(offset) === COLON) { consumeToEOL(input); input.acceptToken(attributeEntryToken); return; }
+      if (input.peek(offset) === COLON) { consumeAttributeEntry(input); input.acceptToken(attributeEntryToken); return; }
       return;
     }
 
@@ -258,7 +282,13 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       for (const admonType of admonTypes) {
         if (peekString(input, admonType)) { consumeToEOL(input); input.acceptToken(admonitionAttributeToken); return; }
       }
-      // Generic block-attribute line `[source,ruby]`, `[cols="1,1"]`, `[.lead]`, … (FR-025).
+      // Table column-format specifier line `[cols="1,>2"]` / `[cols=2*]` (FR-046) — emitted as a
+      // distinct token (before the generic block-attribute branch) so the cols spec highlights
+      // distinctly. Matched only when it is a well-formed block-attribute line beginning `[cols`.
+      if ((peekString(input, '[cols=') || peekString(input, '[cols ')) && isBlockAttributeLine(input)) {
+        consumeToEOL(input); input.acceptToken(blockColsToken); return;
+      }
+      // Generic block-attribute line `[source,ruby]`, `[.lead]`, … (FR-025).
       if (isBlockAttributeLine(input)) { consumeToEOL(input); input.acceptToken(blockAttributeToken); return; }
       return;
     }

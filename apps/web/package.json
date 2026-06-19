@@ -5,9 +5,11 @@
   "scripts": {
     "build:worker": "tsc --project src/workers/tsconfig.json",
     "build:asciidoctor-style": "node scripts/build-asciidoctor-style.mjs",
+    "build:mathjax-style": "node scripts/build-mathjax-style.mjs",
+    "build:mathjax-assets": "node scripts/build-mathjax-assets.mjs",
     "build:spellcheck-dictionary": "node scripts/build-spellcheck-dictionary.mjs",
-    "predev": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
-    "prebuild": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "predev": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:mathjax-style && pnpm run build:mathjax-assets && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
+    "prebuild": "pnpm run build:worker && pnpm run build:asciidoctor-style && pnpm run build:mathjax-style && pnpm run build:mathjax-assets && pnpm run build:spellcheck-dictionary && lezer-generator src/lib/codemirror/asciidoc.grammar --output src/lib/codemirror/asciidoc-parser.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -20,6 +22,7 @@
     "mutate": "stryker run"
   },
   "dependencies": {
+    "@asciidocollab/asciidoc-core": "workspace:*",
     "@asciidocollab/shared": "workspace:*",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.3",
@@ -57,6 +60,7 @@
     "dompurify": "^3.2.6",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.17.0",
+    "mathjax": "^3.2.2",
     "next": "16.2.6",
     "nspell": "^2.1.5",
     "react": "^19.0.6",

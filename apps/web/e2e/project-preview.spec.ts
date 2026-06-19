@@ -19,7 +19,20 @@ async function writeFileContent(
   }
 }
 
+/**
+ * The preview renders the collaboratively-synced Yjs document, and the editor content IS that
+ * synced document. Asserting preview/editor content before the collab provider finishes connecting
+ * races an empty pre-sync document. The "connecting" banner is removed once the provider is synced,
+ * so wait for it to clear after selecting a file and before asserting any content.
+ */
+async function waitCollabSynced(page: Parameters<typeof signIn>[0]): Promise<void> {
+  await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
+}
+
 test.describe('AsciiDoc live preview', () => {
+  // Per-test headroom for slow collaborative Yjs sync under heavy parallel CI load.
+  test.describe.configure({ timeout: 60_000 });
+
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -36,13 +49,18 @@ test.describe('AsciiDoc live preview', () => {
   });
 
   test('opening an AsciiDoc file and expanding the preview renders HTML output', async ({ page }) => {
+    // Headroom for the collaborative Yjs sync the preview renders from, under heavy parallel load.
+    test.setTimeout(60_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'hello.adoc');
     await writeFileContent(page, projectId, fileNodeId, '= Hello World\n\nThis is a *test* document.\n');
 
     await page.goto(`/dashboard/projects/${projectId}`);
-    await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 10_000 });
 
     await page.getByTestId('tree-node-hello.adoc').click();
+    // The preview renders the collaboratively-synced editor document. Wait for the sync to finish (the
+    // "connecting" banner clears) before expanding, so it never renders an empty pre-sync document.
+    await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     // The rendered output container must appear — this test failed before the worker was
@@ -50,9 +68,9 @@ test.describe('AsciiDoc live preview', () => {
     await expect(
       page.getByTestId('asciidoc-output'),
       'Preview panel must render AsciiDoc to HTML via the bundled web worker',
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByTestId('asciidoc-output')).toContainText('Hello World');
+    await expect(page.getByTestId('asciidoc-output')).toContainText('Hello World', { timeout: 15_000 });
   });
 
   test('editing the document causes the preview to update (live update)', async ({ page }) => {
@@ -63,10 +81,11 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
     await page.getByTestId('tree-node-live.adoc').click();
+    await waitCollabSynced(page);
     await page.getByRole('button', { name: /expand preview/i }).click();
 
-    await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('asciidoc-output')).toContainText('Initial Title');
+    await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('asciidoc-output')).toContainText('Initial Title', { timeout: 15_000 });
 
     // Type new content into the editor
     const editorContent = page.locator('.cm-editor .cm-content');
@@ -88,6 +107,7 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
     await page.getByTestId('tree-node-sync.adoc').click();
+    await waitCollabSynced(page);
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     const toggle = page.getByTestId('scroll-sync-toggle');
@@ -129,12 +149,13 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
     await page.getByTestId('tree-node-click-scroll.adoc').click();
+    await waitCollabSynced(page);
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     // Wait for the preview to fully render both sections
     const previewOutput = page.getByTestId('asciidoc-output');
-    await expect(previewOutput).toBeVisible({ timeout: 15_000 });
-    await expect(previewOutput).toContainText('First Section');
+    await expect(previewOutput).toBeVisible({ timeout: 20_000 });
+    await expect(previewOutput).toContainText('First Section', { timeout: 15_000 });
     await expect(previewOutput).toContainText('Second Section');
 
     // The second section heading in the preview should have a data-source-line attribute.
@@ -188,11 +209,12 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
     await page.getByTestId('tree-node-ctrl-scroll.adoc').click();
+    await waitCollabSynced(page);
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     const previewOutput = page.getByTestId('asciidoc-output');
-    await expect(previewOutput).toBeVisible({ timeout: 15_000 });
-    await expect(previewOutput).toContainText('Document Title');
+    await expect(previewOutput).toBeVisible({ timeout: 20_000 });
+    await expect(previewOutput).toContainText('Document Title', { timeout: 15_000 });
     await expect(previewOutput).toContainText('Last Section');
 
     const scrollContainer = page.getByTestId('preview-scroll-container');
@@ -248,12 +270,13 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
     await page.getByTestId('tree-node-scroll-sync.adoc').click();
+    await waitCollabSynced(page);
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     // Wait for preview to render
     const previewOutput = page.getByTestId('asciidoc-output');
-    await expect(previewOutput).toBeVisible({ timeout: 15_000 });
-    await expect(previewOutput).toContainText('Remote Section');
+    await expect(previewOutput).toBeVisible({ timeout: 20_000 });
+    await expect(previewOutput).toContainText('Remote Section', { timeout: 15_000 });
 
     // Enable scroll sync
     const toggle = page.getByTestId('scroll-sync-toggle');

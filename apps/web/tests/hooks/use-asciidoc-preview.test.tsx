@@ -206,6 +206,40 @@ describe('useAsciidocPreview', () => {
     expect(message.content).toBe('= Book');
   });
 
+  // (d4) live re-resolution on main-file change (FR-007b/SC-009): changing the resolution root
+  // (rootFileId) for an open CHILD file re-posts the render so its inherited cross-document scope is
+  // re-resolved under the new root — with no document edit.
+  it('re-renders an open child file when the project main file (rootFileId) changes', () => {
+    const childContent = '== Child\n\n{product}\n';
+    const files = {
+      'old-main.adoc': '= Old\n:product: Old\n\ninclude::child.adoc[]\n',
+      'new-main.adoc': '= New\n:product: New\n\ninclude::child.adoc[]\n',
+      'child.adoc': childContent,
+    };
+    const { rerender } = renderHook(
+      ({ rootFileId }: { rootFileId: string }) =>
+        useAsciidocPreview({
+          content: childContent,
+          isEnabled: true,
+          scrollToLine: null,
+          rootFileId,
+          openFileId: 'child.adoc',
+          getFiles: () => files,
+        }),
+      { initialProps: { rootFileId: 'old-main.adoc' } },
+    );
+
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(1);
+    expect(lastWorker().postMessage.mock.calls[0][0].rootFileId).toBe('old-main.adoc');
+
+    // The project main file setting changes → rootFileId changes. The child must re-resolve live.
+    act(() => rerender({ rootFileId: 'new-main.adoc' }));
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(2);
+    expect(lastWorker().postMessage.mock.calls[1][0].rootFileId).toBe('new-main.adoc');
+  });
+
   // (e) scrollToLine calls querySelector and scrollIntoView
   it('scrolls to the element matching data-source-line when scrollToLine changes', () => {
     const mockScrollIntoView = jest.fn();
@@ -680,6 +714,87 @@ describe('useAsciidocPreview', () => {
     // the second element has the same line number and cannot beat it with strict >
     expect(scrollSpyFirst).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     expect(scrollSpySecond).not.toHaveBeenCalled();
+  });
+
+  // (T012, US1/FR-002a) the hook forwards the open file's inherited context (rootFileId/openFileId)
+  // so the worker can resolve cross-document `{attr}` references rooted at the project main file.
+  it('forwards rootFileId and openFileId to the worker', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '{productName}',
+        isEnabled: true,
+        scrollToLine: null,
+        rootFileId: 'main.adoc',
+        openFileId: 'child.adoc',
+        getFiles: () => ({ 'main.adoc': ':productName: Acme\n\ninclude::child.adoc[]\n', 'child.adoc': '{productName}' }),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    expect(message.rootFileId).toBe('main.adoc');
+    expect(message.openFileId).toBe('child.adoc');
+    expect(message.files).toMatchObject({ 'main.adoc': expect.any(String) });
+  });
+
+  // Live re-resolution: when the parent's content changes (so the inherited value changes), the hook
+  // re-posts a fresh RenderRequest carrying the updated files snapshot.
+  it('re-posts to the worker (live) when the files snapshot changes the inherited context', () => {
+    let parentValue = 'Acme';
+    const { rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useAsciidocPreview({
+          content,
+          isEnabled: true,
+          scrollToLine: null,
+          rootFileId: 'main.adoc',
+          openFileId: 'child.adoc',
+          getFiles: () => ({
+            'main.adoc': `:productName: ${parentValue}\n\ninclude::child.adoc[]\n`,
+            'child.adoc': '{productName}',
+          }),
+        }),
+      { initialProps: { content: '{productName}' } },
+    );
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage.mock.calls[0][0].files['main.adoc']).toContain('Acme');
+
+    // Parent edits the value; the open child re-renders and re-posts the fresh snapshot.
+    parentValue = 'Globex';
+    act(() => rerender({ content: '{productName} ' })); // content nudge stands in for the live edit
+    act(() => jest.advanceTimersByTime(200));
+    const lastCall = lastWorker().postMessage.mock.calls.at(-1)?.[0];
+    expect(lastCall.files['main.adoc']).toContain('Globex');
+  });
+
+  // (T042, US8/FR-031) Live conditional re-evaluation: toggling a gating attribute in the main file
+  // re-posts the assembler inputs (mainPath + the fresh files snapshot) so the worker re-assembles and
+  // the include-gating decision is recomputed. The assembler (unit-tested) performs the gating; the
+  // hook only needs to keep feeding it the current snapshot on each debounced edit.
+  it('re-posts mainPath + the fresh files snapshot when a gating attribute toggles (live conditional re-eval)', () => {
+    let flag = ':flag:\n';
+    const main = () => `= Book\n${flag}\nifdef::flag[]\ninclude::ch.adoc[]\nendif::[]\n`;
+    const { rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useAsciidocPreview({
+          content,
+          isEnabled: true,
+          scrollToLine: null,
+          mainPath: 'main.adoc',
+          getFiles: () => ({ 'main.adoc': main(), 'ch.adoc': '== Chapter\n' }),
+        }),
+      { initialProps: { content: '= Book' } },
+    );
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage.mock.calls[0][0].files['main.adoc']).toContain('ifdef::flag[]');
+
+    // Unset the flag in the main file; the next debounced render re-posts the fresh snapshot so the
+    // assembler re-evaluates the conditional and skips the include.
+    flag = ':flag!:\n';
+    act(() => rerender({ content: '= Book ' })); // content nudge stands in for the live edit
+    act(() => jest.advanceTimersByTime(200));
+    const lastCall = lastWorker().postMessage.mock.calls.at(-1)?.[0];
+    expect(lastCall.mainPath).toBe('main.adoc');
+    expect(lastCall.files['main.adoc']).toContain(':flag!:');
   });
 
   it('forwards imagesDir to the worker as the image base path', () => {

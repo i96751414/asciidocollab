@@ -118,7 +118,7 @@ jest.mock('@codemirror/view', () => {
     crosshairCursor:       () => ({}),
     highlightActiveLineGutter: () => ({}),
     ViewPlugin:            { fromClass: () => ({}), define: () => ({}) },
-    Decoration:            { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
+    Decoration:            { line: () => ({}), replace: () => ({}), mark: () => ({}), set: () => ({}), none: { update: () => ({}) } },
     WidgetType:            class {},
   };
 });
@@ -233,6 +233,7 @@ jest.mock('@/hooks/use-section-outline', () => ({
 
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({
   outlineField: { field: true },
+  outlineResolvedScopeFacet: { of: () => ({}) },
 }));
 
 jest.mock('@replit/codemirror-minimap', () => ({

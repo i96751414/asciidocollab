@@ -49,6 +49,9 @@ jest.mock('@/hooks/use-last-selection', () => ({
     rememberFile: jest.fn(),
     rememberLine: jest.fn(),
     clearLastSelection: mockClearLastSelection,
+    rememberCursorLine: jest.fn(),
+    readCursorLine: () => undefined,
+    pruneCursor: jest.fn(),
   }),
 }));
 

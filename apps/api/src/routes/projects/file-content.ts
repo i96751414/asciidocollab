@@ -14,6 +14,7 @@ import {
 import type { CollabDocumentInfo } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
 import { logAuthorizationDenial } from '../audit-log-denial';
+import { requestLogger } from '../../lib/request-logger';
 
 /** Registers GET and PUT routes for reading/writing file content. */
 export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
@@ -30,6 +31,15 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         request.server.repos.document,
         request.server.repos.asset,
         request.server.stores.fileStore,
+        // Read a document's live collaborative text (Hocuspocus/Yjs source of truth) when a session
+        // is open, so cross-document resolution never sees a stale file with unsaved edits.
+        request.server.stores.collaborativeContentEditor,
+        // Gate the live read on an active session so dormant documents skip the collab round-trip
+        // (the file store is already current — the collab server writes back on disconnect).
+        request.server.repos.collaborationSession,
+        // Surface a live-read failure (collab unreachable ⇒ stale file-store fallback) rather than
+        // serving stale content silently.
+        requestLogger(request),
       );
 
       const result = await useCase.execute(actorId, projectId, fileNodeId);

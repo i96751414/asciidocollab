@@ -51,3 +51,6 @@ apps/web/public/workers/
 
 # Generated spell-check dictionary assets (copied from dictionary-en at build)
 apps/web/public/dictionaries/
+
+# Self-hosted MathJax browser bundle (copied from the mathjax package at build)
+apps/web/public/vendor/

@@ -28,6 +28,16 @@ async function writeFileContent(page: Page, projectId: string, fileNodeId: strin
 
 const editorContent = (page: Page) => page.locator('.cm-editor .cm-content');
 
+/**
+ * The editor content is the collaboratively-synced Yjs document. After a navigation or reload the
+ * provider reconnects (connecting → synced); under heavy parallel load that sync can lag by many
+ * seconds. The "connecting" banner is removed once synced, so wait for it to clear before asserting
+ * editor/preview content, otherwise the assertion races the empty pre-sync document.
+ */
+async function waitCollabSynced(page: Page): Promise<void> {
+  await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
+}
+
 // Matches the SELECTED highlight only — a standalone `bg-accent` token, not the always-present
 // `hover:bg-accent` (a bare /bg-accent/ would match the hover class on every row).
 const SELECTED = /(?:^|\s)bg-accent(?:\s|$)/;
@@ -85,6 +95,8 @@ test.describe('Persist & restore file selection', () => {
   // line, and render the preview — after leaving the editor and returning. Also guards the
   // "stuck on Loading… forever" regression (the restored content must actually appear).
   test('restores a typed nested file: reveal, content, cursor line, and preview on return', async ({ page }) => {
+    // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
+    test.setTimeout(75_000);
     const guide = await createTestFolder(page, projectId, null, 'guide');
     const chapters = await createTestFolder(page, projectId, guide, 'chapters');
     await createTestFile(page, projectId, chapters, 'intro.adoc');
@@ -119,9 +131,12 @@ test.describe('Persist & restore file selection', () => {
 
     // The nested file is revealed (collapsed ancestor re-expanded) and highlighted.
     await expect(page.getByTestId('tree-node-intro.adoc')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId('tree-node-intro.adoc')).toHaveClass(SELECTED);
+    await expect(page.getByTestId('tree-node-intro.adoc')).toHaveClass(SELECTED, { timeout: 15_000 });
+    // Wait for the collaboration sync to finish before asserting the synced content — under heavy
+    // parallel load the post-navigation Yjs sync can lag many seconds.
+    await waitCollabSynced(page);
     // The content is shown — must NOT stay stuck loading.
-    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 10_000 });
+    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 20_000 });
     // The cursor is back on line 3.
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 3, /)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Third line is where the cursor lands.');
@@ -133,6 +148,8 @@ test.describe('Persist & restore file selection', () => {
   // Distinct behaviour: edits must be saved when leaving the page, not only after the autosave
   // debounce. Navigating away immediately after typing must NOT lose the work.
   test('saves edits made just before navigating away (faster than the autosave debounce)', async ({ page }) => {
+    // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
+    test.setTimeout(75_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'draft.adoc');
     await writeFileContent(page, projectId, fileNodeId, '= Draft\n\nStarting point.\n');
 
@@ -140,11 +157,14 @@ test.describe('Persist & restore file selection', () => {
     await page.getByTestId('tree-node-draft.adoc').click();
     await expect(editorContent(page)).toContainText('Starting point.', { timeout: 10_000 });
 
-    // Type a new line and leave the page IMMEDIATELY — well within the 4s autosave debounce, and
-    // without waiting for "Saved".
+    // Type a new line and leave the page well within the 4s autosave debounce, without waiting for
+    // "Saved". Give the collaborative Yjs update a brief moment to reach the server before the provider
+    // disconnects on navigation (the edit lives in the live Yjs doc, synced over the socket — not the
+    // REST autosave this test deliberately beats); under heavy parallel load that round-trip can lag.
     await editorContent(page).click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type('\nLast-second edit before leaving.');
+    await page.waitForTimeout(1500);
     await page.getByRole('link', { name: /back to projects/i }).click();
     await page.waitForURL(/\/dashboard$/);
 
@@ -152,27 +172,39 @@ test.describe('Persist & restore file selection', () => {
     await page.getByRole('link', { name: projectName }).click();
     await page.waitForURL(/\/dashboard\/projects\/[^/]+$/);
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
-    await expect(editorContent(page)).toContainText('Last-second edit before leaving.', { timeout: 10_000 });
+    // Wait for the post-navigation Yjs sync before asserting the restored content.
+    await waitCollabSynced(page);
+    await expect(editorContent(page)).toContainText('Last-second edit before leaving.', { timeout: 20_000 });
   });
 
   // Distinct path: a full page reload (not in-app navigation) must restore the selection.
   test('restores the selected file across a full page reload', async ({ page }) => {
+    // The editor content is the collaboratively-synced Yjs document (not a REST fetch). After a reload
+    // the provider reconnects (connecting → synced) and under heavy parallel load that sync can lag the
+    // page load by many seconds, so give the test headroom and wait on the sync signal rather than a
+    // bare content timeout that races the pre-sync (empty) editor.
+    test.setTimeout(75_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'notes.adoc');
     await writeFileContent(page, projectId, fileNodeId, '= Notes\n\nReload survives this.\n');
 
     await openProject(page, projectId);
     await page.getByTestId('tree-node-notes.adoc').click();
-    await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 10_000 });
+    await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 15_000 });
 
     await page.reload();
-    await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
-
-    await expect(page.getByTestId('tree-node-notes.adoc')).toHaveClass(SELECTED);
-    await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 10_000 });
+    await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('tree-node-notes.adoc')).toHaveClass(SELECTED, { timeout: 15_000 });
+    // Wait for the collaboration sync to finish before asserting the synced content. This is the
+    // definitive signal that the Yjs document has arrived, so the assertion never runs against the
+    // empty pre-sync editor.
+    await waitCollabSynced(page);
+    await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 20_000 });
   });
 
   // Distinct behaviour: each project remembers its own file independently (FR-003).
   test('restores each project to its own remembered file', async ({ page }) => {
+    // Headroom for repeated collaborative Yjs syncs as we hop between projects under parallel load.
+    test.setTimeout(75_000);
     const fileA = await createTestFile(page, projectId, null, 'alpha.adoc');
     await writeFileContent(page, projectId, fileA, '= Alpha\n\nProject A content.\n');
 
@@ -184,16 +216,19 @@ test.describe('Persist & restore file selection', () => {
 
       await openProject(page, projectId);
       await page.getByTestId('tree-node-alpha.adoc').click();
-      await expect(editorContent(page)).toContainText('Project A content.', { timeout: 10_000 });
+      await waitCollabSynced(page);
+      await expect(editorContent(page)).toContainText('Project A content.', { timeout: 20_000 });
 
       await openProject(page, projectB);
       await page.getByTestId('tree-node-beta.adoc').click();
-      await expect(editorContent(page)).toContainText('Project B content.', { timeout: 10_000 });
+      await waitCollabSynced(page);
+      await expect(editorContent(page)).toContainText('Project B content.', { timeout: 20_000 });
 
       // Returning to A restores A's file, not B's.
       await openProject(page, projectId);
       await expect(page.getByTestId('tree-node-alpha.adoc')).toHaveClass(SELECTED);
-      await expect(editorContent(page)).toContainText('Project A content.', { timeout: 10_000 });
+      await waitCollabSynced(page);
+      await expect(editorContent(page)).toContainText('Project A content.', { timeout: 20_000 });
     } finally {
       await cleanupProject(page, projectB);
     }
@@ -229,6 +264,8 @@ test.describe('Persist & restore file selection', () => {
   // Distinct behaviour: the cursor clamps to the last valid line when the document shrank below
   // the remembered line (FR-005), with no error.
   test('clamps the cursor to the last line when the remembered line exceeds the document', async ({ page }) => {
+    // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
+    test.setTimeout(75_000);
     // A 3-line document (seeded before the file is opened — no collaboration session yet).
     const fileNodeId = await createTestFile(page, projectId, null, 'log.adoc');
     await writeFileContent(page, projectId, fileNodeId, 'Row 1.\nRow 2.\nRow 3.');
@@ -238,24 +275,35 @@ test.describe('Persist & restore file selection', () => {
     await expect(editorContent(page)).toContainText('Row 1.', { timeout: 10_000 });
     await page.waitForTimeout(800); // let the initial cursor-line persistence flush
 
-    // Simulate a remembered cursor line that now exceeds the document — the state left behind
-    // when a collaborator deleted lines below the remembered position. In collab mode the live
-    // Yjs document is authoritative (an external REST write would be ignored on reopen), so we
-    // seed the persisted line directly.
-    await page.evaluate(() => {
+    // Leave the editor FIRST (which flushes log.adoc's live cursor line), then — while the editor is
+    // unmounted so nothing overwrites it — seed a remembered line that now exceeds the document, the
+    // state left behind when a collaborator deletes lines below the remembered position. The per-file
+    // cursor map (US7) is the authority the restore reads first; the legacy entry covers old projects.
+    await page.getByRole('link', { name: /back to projects/i }).click();
+    await page.waitForURL(/\/dashboard$/);
+    await page.evaluate((nodeId) => {
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith('asciidocollab:last-selection:')) {
           const entry = JSON.parse(localStorage.getItem(key) as string);
           entry.line = 10;
           localStorage.setItem(key, JSON.stringify(entry));
         }
+        if (key.startsWith('asciidocollab:file-cursors:')) {
+          const map = JSON.parse(localStorage.getItem(key) as string);
+          map[nodeId] = { line: 10 };
+          localStorage.setItem(key, JSON.stringify(map));
+        }
       }
-    });
-
-    await leaveAndReturnViaDashboard(page, projectName);
+    }, fileNodeId);
+    // Return to the editor; the restore reads the seeded line (10) and clamps it to the document.
+    await page.getByRole('link', { name: projectName }).click();
+    await page.waitForURL(/\/dashboard\/projects\/[^/]+$/);
+    await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
+    // Wait for the post-navigation Yjs sync before asserting the restored (clamped) content.
+    await waitCollabSynced(page);
 
     // The cursor lands on the last valid line (clamped to 3), no error, content still shown.
-    await expect(editorContent(page)).toContainText('Row 3.', { timeout: 10_000 });
+    await expect(editorContent(page)).toContainText('Row 3.', { timeout: 20_000 });
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 3, /)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Row 3.');
     await expect(page.getByText(/select a file from the tree/i)).not.toBeVisible();

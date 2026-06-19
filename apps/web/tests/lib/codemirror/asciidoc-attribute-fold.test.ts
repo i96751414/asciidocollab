@@ -119,6 +119,25 @@ describe('computeAttributeReplacements (FR-057)', () => {
     const inherited = new Map([['v', 'parent']]);
     expect(computeAttributeReplacements(':v!:\n{v}\n', inherited)).toHaveLength(0);
   });
+
+  test('collapses a reference to an attribute defined inline with `{set:name:value}` (FR-040)', () => {
+    // The bug: an own-file `{set:basedir:src/main}` definition was not recognized, so `{basedir}`
+    // never folded to its value. An inline set must define the attribute exactly like `:name:`.
+    const source = '{set:basedir:src/main}\n\nBuilt in {basedir}.\n';
+    const [replacement] = computeAttributeReplacements(source);
+    expect(replacement.value).toBe('src/main');
+    expect(source.slice(replacement.from, replacement.to)).toBe('{basedir}');
+  });
+
+  test('an inline `{set:name!}` unset hides the value from its line onward', () => {
+    const source = ':x: 1\n{set:x!}\nValue {x}.\n';
+    expect(computeAttributeReplacements(source)).toHaveLength(0);
+  });
+
+  test('an inline `{set:}` does not affect references ABOVE it (document order)', () => {
+    const source = 'See {basedir}.\n{set:basedir:src}\n';
+    expect(computeAttributeReplacements(source)).toHaveLength(0);
+  });
 });
 
 describe('asciidocAttributeFold ViewPlugin', () => {

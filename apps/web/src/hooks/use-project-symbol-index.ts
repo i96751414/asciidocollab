@@ -13,6 +13,9 @@ import { getDocumentContent } from '@/lib/api/file-content';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 
+/** Shared, stable empty scope returned before the index has built (avoids a new identity per call). */
+const EMPTY_RESOLVED_SCOPE: ReadonlyMap<string, string> = new Map();
+
 /** Options for {@link useProjectSymbolIndex}. */
 interface UseProjectSymbolIndexOptions {
   /** The project whose files form the include tree. */
@@ -38,6 +41,17 @@ interface UseProjectSymbolIndexResult {
    * @returns A path→content map covering the files fetched so far.
    */
   getFiles: () => Record<string, string>;
+  /**
+   * The resolved cross-document attribute scope for a file: the attributes it inherits from the
+   * documents that include it (its ancestors along the include path from the root) merged with its
+   * own definitions, with the file's own winning. This is the scope the editor uses to decide which
+   * `{name}` references resolve cross-document and should highlight as known (US6/FR-020). Empty
+   * before the index has built or when the file is unreachable from the root.
+   *
+   * @param fileId - Identifier of the file whose resolved scope is wanted.
+   * @returns The resolved attribute map (lowercase name → value); empty when none.
+   */
+  resolvedScopeOf: (fileId: string) => ReadonlyMap<string, string>;
   /**
    * Force a full rebuild from the server, discarding the cached file contents and
    * tree. This is needed after an operation that rewrites persisted content
@@ -73,6 +87,14 @@ export function useProjectSymbolIndex({
   const idByPath = useRef<Map<string, string>>(new Map());
   const treeLoaded = useRef(false);
   const buildToken = useRef(0);
+  // Memoises resolved scopes per (index identity, fileId): `effectiveAttributes` builds a fresh Map on
+  // every call, so without this cache `resolvedScopeOf(fileId)` would return a new identity each render
+  // and the editor's `[resolvedScope]` effect would re-dispatch CodeMirror effects + re-publish the
+  // outline on every parent re-render (keystroke/cursor move). Invalidated whenever the index rebuilds.
+  const scopeCache = useRef<{ index: ProjectSymbolIndex | null; byFile: Map<string, ReadonlyMap<string, string>> }>({
+    index: null,
+    byFile: new Map(),
+  });
 
   // Hold the live overlay in a ref so a rebuild reads the latest text without re-subscribing.
   const liveOverlay = useRef<{ id: string | null; text: string | null }>({
@@ -151,6 +173,19 @@ export function useProjectSymbolIndex({
     return () => clearTimeout(handle);
   }, [liveContent, openFileId, build]);
 
+  // When the open file changes, drop the file we just switched AWAY from out of the content cache.
+  // That file may have unsaved edits that were only ever held in its live overlay (now gone), so its
+  // cached copy is stale; the next rebuild re-fetches its CURRENT text from the content endpoint —
+  // which serves the live collaborative (Hocuspocus/Yjs) state for a file with an open session — so
+  // a child's cross-document resolution reflects a parent's just-typed, unsaved edits (FR-007a).
+  const previousOpenFileId = useRef<string | null>(openFileId ?? null);
+  useEffect(() => {
+    const previous = previousOpenFileId.current;
+    const current = openFileId ?? null;
+    if (previous !== null && previous !== current) contentCache.current.delete(previous);
+    previousOpenFileId.current = current;
+  }, [openFileId]);
+
   // Invalidate on file-tree SSE: structural change ⇒ path maps + the affected file's cache are stale.
   const handleEvent = useCallback(
     (event: FileTreeEventDto) => {
@@ -176,6 +211,27 @@ export function useProjectSymbolIndex({
   }, [build]);
 
   const getIndex = useCallback(() => indexReference.current, []);
+  // The resolved cross-document scope (inherited from ancestors + the file's own definitions, the
+  // file's own winning) drives the editor's known-vs-unknown `{name}` highlighting (US6/FR-020).
+  // `effectiveAttributes` already composes inheritance with the file's own entries — the same
+  // result `resolveAttributeScope` produces against the project main file as root. The result is
+  // cached per (index, fileId) so the returned Map keeps a STABLE identity across renders until the
+  // index rebuilds — otherwise the editor re-runs its `[resolvedScope]` effect on every render.
+  const resolvedScopeOf = useCallback((fileId: string): ReadonlyMap<string, string> => {
+    const current = indexReference.current;
+    if (current === null) return EMPTY_RESOLVED_SCOPE;
+    const cache = scopeCache.current;
+    if (cache.index !== current) {
+      cache.index = current;
+      cache.byFile = new Map();
+    }
+    let scope = cache.byFile.get(fileId);
+    if (scope === undefined) {
+      scope = current.effectiveAttributes(fileId);
+      cache.byFile.set(fileId, scope);
+    }
+    return scope;
+  }, []);
   const getFiles = useCallback((): Record<string, string> => {
     const files: Record<string, string> = {};
     for (const [id, path] of pathById.current) {
@@ -184,5 +240,5 @@ export function useProjectSymbolIndex({
     }
     return files;
   }, [readContent]);
-  return { index, getIndex, getFiles, refresh };
+  return { index, getIndex, getFiles, resolvedScopeOf, refresh };
 }

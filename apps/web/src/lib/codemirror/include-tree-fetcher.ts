@@ -1,4 +1,5 @@
 import { buildIncludeGraph } from '../asciidoc/extraction';
+import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 
 /** Cap on concurrent content fetches while assembling the include tree (FR-073/SC-025). */
 export const MAX_CONCURRENT_FETCHES = 6;
@@ -58,7 +59,10 @@ export async function fetchReachableContent({
   isCancelled,
 }: FetchReachableContentOptions): Promise<boolean> {
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {
-    const tree = buildIncludeGraph(rootFileId, readContent, resolveInclude);
+    // Seed the render intrinsics so conditional includes are gated exactly as the symbol index,
+    // effective-offset walk, and preview assembler gate them (e.g. an `ifdef::backend-html5[]` include
+    // is reachable) — otherwise an intrinsic-gated file is never fetched yet wanted by every consumer.
+    const tree = buildIncludeGraph(rootFileId, readContent, resolveInclude, RENDER_INTRINSIC_ATTRIBUTES);
     const missing = tree.nodes.filter((id) => id !== overlayFileId && !cache.has(id));
     if (missing.length === 0) break;
     for (let start = 0; start < missing.length; start += MAX_CONCURRENT_FETCHES) {

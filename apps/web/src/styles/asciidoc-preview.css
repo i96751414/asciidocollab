@@ -419,3 +419,52 @@
 .asciidoc-preview-content[data-preview-style="asciidoctor"] .checklist-box--checked::before {
   content: "\2713\00A0";
 }
+
+/* Built-in inline-style role spans `[.role]#text#` (US14, FR-021a). Native Asciidoctor emits
+   <span class="role">…</span>; the faithful Asciidoctor style already covers these via its vendored
+   stylesheet, so reproduce the same built-in roles for the brand (default) style. All rules are scoped
+   to the preview content container so role classes never leak to app chrome (Constitution VI). */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .underline { text-decoration: underline; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .line-through { text-decoration: line-through; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .big { font-size: larger; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .small { font-size: smaller; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .nowrap,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .nobreak { white-space: nowrap; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .pre-wrap { white-space: pre-wrap; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .paragraph.lead > p,
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) p .lead {
+  font-size: 1.21875em;
+  line-height: 1.6;
+}
+/* Built-in foreground colour roles. */
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .aqua { color: #00bfbf; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .black { color: #000; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .blue { color: #0000bf; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .fuchsia { color: #bf00bf; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .gray { color: #606060; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .green { color: #006000; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .lime { color: #00bf00; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .maroon { color: #600000; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .navy { color: #000060; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .olive { color: #606000; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .purple { color: #600060; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .red { color: #bf0000; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .silver { color: #909090; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .teal { color: #006060; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .white { color: #fff; }
+.asciidoc-preview-content:not([data-preview-style="asciidoctor"]) .yellow { color: #bfbf00; }
+
+/* ── Page break (`<<<`, FR-050) ───────────────────────────────────────────────
+   Asciidoctor emits a page break as a `<div style="page-break-after: always">`.
+   `page-break-after` only affects paged (print) media, so on the screen preview
+   it is invisible. Render a visible boundary from it, scoped to the preview
+   container (Constitution VI — never restyle app chrome). Targeted by the inline
+   style attribute (the div carries no class); applies to both preview styles
+   since a page break is structural, not a brand-vs-faithful look choice. */
+.asciidoc-preview-content [style*="page-break-after"] {
+  display: block;
+  height: 0;
+  margin: 1.75em 0;
+  border: 0;
+  border-top: 2px dashed hsl(var(--border));
+}

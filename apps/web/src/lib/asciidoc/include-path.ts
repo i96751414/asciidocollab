@@ -1,4 +1,9 @@
 import { resolveSandboxedPath, type SandboxedPathResult } from './sandbox-path';
+// `{ref}` expansion is the shared zero-dependency authority so the editor and server resolve targets
+// identically; imported for use below AND re-exported so existing editor consumers keep importing it
+// from this module.
+import { substitutePathAttributes } from '@asciidocollab/asciidoc-core';
+export { substitutePathAttributes } from '@asciidocollab/asciidoc-core';
 
 /**
  * Centralized AsciiDoc include/image path logic for the in-browser editor — BOTH
@@ -15,7 +20,6 @@ import { resolveSandboxedPath, type SandboxedPathResult } from './sandbox-path';
  * relativizer; a server round-trip per keystroke is not viable. Keep them in sync.
  */
 
-const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
 // A target naming its own scheme/root (URL, data URI, absolute path): `imagesdir` is never prepended.
 const REMOTE_OR_ABSOLUTE_RE = /^(?:[a-z][a-z0-9+.-]*:\/\/|data:|[/\\]|[A-Za-z]:[/\\])/i;
 
@@ -25,35 +29,6 @@ export const NO_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 // A synthetic file whose directory is the project root, used as the base for image resolution
 // (images resolve relative to the project root + imagesdir, not the folder of the macro's file).
 const PROJECT_ROOT = '_root_';
-
-/**
- * Replace `{name}` attribute references in a macro target with their values,
- * resolving nested references up to `maxDepth` passes. Names are case-insensitive;
- * unknown references are left verbatim so the target simply fails to resolve.
- *
- * @param target - The raw macro target.
- * @param attributes - Attribute name (lowercase) → value map.
- * @param maxDepth - Maximum expansion passes (default 10).
- * @returns The target with all known attribute references expanded.
- */
-export function substitutePathAttributes(
-  target: string,
-  attributes: ReadonlyMap<string, string>,
-  maxDepth = 10,
-): string {
-  let result = target;
-  for (let depth = 0; depth < maxDepth; depth += 1) {
-    let changed = false;
-    result = result.replaceAll(ATTR_REF_RE, (whole, name: string) => {
-      const value = attributes.get(name.toLowerCase());
-      if (value === undefined) return whole;
-      changed = true;
-      return value;
-    });
-    if (!changed) break;
-  }
-  return result;
-}
 
 /**
  * The effective `:imagesdir:` (attribute-expanded, trimmed, trailing-slash-free),

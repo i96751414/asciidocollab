@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
+    '@asciidocollab/asciidoc-core',
     '@asciidocollab/shared',
     '@dicebear/core',
     '@dicebear/styles',

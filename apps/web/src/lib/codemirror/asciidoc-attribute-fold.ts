@@ -20,6 +20,10 @@ import { RangeSetBuilder, StateEffect, type Extension } from '@codemirror/state'
 
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):(?:\s+(.*))?$/;
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
+// Inline attribute assignment in body text: `{set:name:value}` (set) or `{set:name!}` (unset). A set
+// defines/overrides the attribute from this point onward; an unset removes it — exactly like a
+// `:name:` / `:name!:` entry (FR-040), so an own `{set:}`-defined `{name}` later folds to its value.
+const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:([^}]*))\}/g;
 const NO_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 
 /**
@@ -76,11 +80,32 @@ export function computeAttributeReplacements(
       continue;
     }
 
-    for (const match of line.matchAll(ATTR_REF_RE)) {
-      const value = defined.get(match[1].toLowerCase());
+    // Inline `{set:}` assignments and `{ref}` references interleave on the same line, so process them
+    // in column order: a `{set:name:value}` to the LEFT of a `{name}` reference defines it in time
+    // for that reference, mirroring Asciidoctor's left-to-right inline substitution (FR-040). The
+    // `{set:...}` token itself is never a foldable reference (ATTR_REF_RE cannot match it).
+    const sets = [...line.matchAll(INLINE_SET_RE)].map((m) => ({
+      index: m.index ?? 0,
+      name: m[1].toLowerCase(),
+      value: m[2],
+    }));
+    const references = [...line.matchAll(ATTR_REF_RE)].map((m) => ({
+      index: m.index ?? 0,
+      length: m[0].length,
+      name: m[1].toLowerCase(),
+    }));
+    const events = [...sets.map((s) => ({ kind: 'set' as const, ...s })), ...references.map((r) => ({ kind: 'ref' as const, ...r }))]
+      .toSorted((a, b) => a.index - b.index);
+    for (const event of events) {
+      if (event.kind === 'set') {
+        if (event.value === undefined) defined.delete(event.name);
+        else defined.set(event.name, substitute(event.value, defined));
+        continue;
+      }
+      const value = defined.get(event.name);
       if (value === undefined) continue;
-      const from = cursor + (match.index ?? 0);
-      replacements.push({ from, to: from + match[0].length, value });
+      const from = cursor + event.index;
+      replacements.push({ from, to: from + event.length, value });
     }
     cursor += line.length + 1;
   }

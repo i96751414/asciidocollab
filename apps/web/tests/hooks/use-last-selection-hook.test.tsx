@@ -30,6 +30,21 @@ describe('useLastSelection (bound helpers)', () => {
     expect(localStorage.getItem(lastSelectionKey(USER, PROJECT))).toBeNull();
   });
 
+  it('round-trips a per-file cursor line and prunes it (US7)', () => {
+    const { result } = renderHook(() => useLastSelection(USER, PROJECT));
+
+    expect(result.current.readCursorLine('n1')).toBeUndefined();
+
+    act(() => { result.current.rememberCursorLine('n1', 12); });
+    act(() => { result.current.rememberCursorLine('n2', 34); });
+    expect(result.current.readCursorLine('n1')).toBe(12);
+    expect(result.current.readCursorLine('n2')).toBe(34);
+
+    act(() => { result.current.pruneCursor('n1'); });
+    expect(result.current.readCursorLine('n1')).toBeUndefined();
+    expect(result.current.readCursorLine('n2')).toBe(34);
+  });
+
   it('returns a stable helper object while userId/projectId are unchanged', () => {
     const { result, rerender } = renderHook(({ u, p }) => useLastSelection(u, p), {
       initialProps: { u: USER, p: PROJECT },

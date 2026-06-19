@@ -6,10 +6,19 @@ export {
   extractReferences,
   extractSymbols,
   extractAttributeDefinitions,
+  extractOwnAttributes,
   resolveReference,
   buildIncludeGraph,
+  buildIncludeGraphWithInheritance,
   inheritedLevelOffset,
+  effectiveLevelOffset,
+  resolveAttributeScope,
+  parseIncludeTags,
+  parseIncludeLines,
+  parseConditional,
+  evaluateConditional,
 } from './asciidoc-extraction';
+export type { IncludeGraphResult } from './asciidoc-extraction';
 // Centralized include/image target resolution (attribute substitution + imagesdir + sandbox).
 export {
   substitutePathAttributes,

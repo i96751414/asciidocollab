@@ -22,6 +22,8 @@ const sharedTransform = {
 
 const sharedModuleNameMapper = {
   '^@/(.*)$': '<rootDir>/src/$1',
+  // Resolve the shared AsciiDoc leaf package from its source so unit tests don't require a prior build.
+  '^@asciidocollab/asciidoc-core$': '<rootDir>/../../packages/asciidoc-core/src/index.ts',
   '\\.css$': '<rootDir>/tests/__mocks__/fileMock.cjs',
 };
 
@@ -54,7 +56,12 @@ const config = {
     {
       displayName: 'node',
       testEnvironment: 'node',
+      // Exclude `*.integration.test.ts`: those load the REAL self-hosted MathJax bundle, which
+      // pollutes the shared worker's module/global state and collides with the unit suites that
+      // VIRTUAL-mock the same `mathjax/es5/*` paths. They run in their own project (below) so the
+      // two never share a worker.
       testMatch: ['**/tests/**/*.test.ts'],
+      testPathIgnorePatterns: ['/node_modules/', '\\.integration\\.test\\.ts$'],
       transform: sharedTransform,
       moduleNameMapper: sharedModuleNameMapper,
       // Also loaded for node-project tests so the editor `.test.ts` files that opt
@@ -68,6 +75,19 @@ const config = {
       displayName: 'jsdom',
       testEnvironment: 'jsdom',
       testMatch: ['**/tests/**/*.test.tsx'],
+      transform: sharedTransform,
+      moduleNameMapper: sharedModuleNameMapper,
+      setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
+      collectCoverageFrom,
+      coveragePathIgnorePatterns,
+    },
+    {
+      // Integration suites that load the REAL self-hosted MathJax bundle (no mock) to validate the
+      // actual delimiter→input-jax wiring. Isolated in their own project so the real bundle's global
+      // side effects never leak into the virtual-mocked unit suites.
+      displayName: 'integration',
+      testEnvironment: 'jsdom',
+      testMatch: ['**/tests/**/*.integration.test.ts'],
       transform: sharedTransform,
       moduleNameMapper: sharedModuleNameMapper,
       setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],

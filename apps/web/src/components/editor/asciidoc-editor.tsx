@@ -53,6 +53,8 @@ interface AsciiDocEditorProperties {
   inheritedOffset?: number;
   /** Attributes the open file inherits from the documents that include it (US8/FR-045a). */
   inheritedAttributes?: ReadonlyMap<string, string>;
+  /** The open file's resolved cross-document attribute scope (inherited + own), for `{name}` known highlighting (US6/FR-020). */
+  resolvedScope?: ReadonlyMap<string, string>;
   /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
   revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
@@ -132,6 +134,7 @@ export function AsciiDocEditor({
   onNavigateToXref,
   inheritedOffset,
   inheritedAttributes,
+  resolvedScope,
   revealRequest,
   onOpenUrl,
   onLineClick,
@@ -219,6 +222,7 @@ export function AsciiDocEditor({
     onNavigateToXref,
     inheritedOffset,
     inheritedAttributes,
+    resolvedScope,
     revealRequest,
     onOpenUrl,
     onLineClick,

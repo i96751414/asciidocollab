@@ -376,6 +376,75 @@ describe('useEditorMount inherited heading offset (US3/FR-071)', () => {
   });
 });
 
+describe('useEditorMount inline-style emphasis (US14/FR-021c)', () => {
+  test('marks a known-role span [.role]#…# with the distinct-emphasis class in the live editor', () => {
+    const rendered = mount(baseOptions({ content: 'a [.underline]#styled# b\n' }));
+    // The emphasis decoration is a mark whose class flags known roles; it must reach the DOM so the
+    // theme can style it. (`underline` is a built-in known role.)
+    expect(rendered.getView().dom.querySelector('.cm-ad-inline-style-known')).not.toBeNull();
+    rendered.unmount();
+  });
+
+  test('does NOT mark an unknown-role span (it stays generically highlighted only)', () => {
+    const rendered = mount(baseOptions({ content: 'a [.totallycustom]#styled# b\n' }));
+    expect(rendered.getView().dom.querySelector('.cm-ad-inline-style-known')).toBeNull();
+    rendered.unmount();
+  });
+});
+
+describe('useEditorMount outline resolved scope (R11/FR-007b)', () => {
+  test('resolves {attr} heading titles against the installed resolved-scope facet', () => {
+    const onOutlineChange = jest.fn();
+    const rendered = mount(baseOptions({
+      content: '== {product} Guide\n',
+      resolvedScope: new Map([['product', 'Acme']]),
+      onOutlineChange,
+    }));
+
+    const entries = onOutlineChange.mock.calls.at(-1)?.[0] as { title: string }[];
+    expect(entries).toEqual([expect.objectContaining({ title: 'Acme Guide' })]);
+    rendered.unmount();
+  });
+
+  test('re-publishes the outline with re-resolved titles when resolvedScope changes (main-file change)', () => {
+    const onOutlineChange = jest.fn();
+    const rendered = mount(baseOptions({
+      content: '== {product} Guide\n',
+      resolvedScope: new Map([['product', 'Acme']]),
+      onOutlineChange,
+    }));
+    onOutlineChange.mockClear();
+
+    // A main-file change re-resolves the scope with a new value; the outline must re-publish live
+    // (no document edit) with the freshly resolved title.
+    act(() => {
+      rendered.rerender(baseOptions({
+        content: '== {product} Guide\n',
+        resolvedScope: new Map([['product', 'Globex']]),
+        onOutlineChange,
+      }));
+    });
+
+    const entries = onOutlineChange.mock.calls.at(-1)?.[0] as { title: string }[];
+    expect(entries).toEqual([expect.objectContaining({ title: 'Globex Guide' })]);
+    rendered.unmount();
+  });
+
+  test('excludes headings inside an inactive conditional branch resolved against the scope (FR-032)', () => {
+    const onOutlineChange = jest.fn();
+    const rendered = mount(baseOptions({
+      content: '== Visible\n\nifdef::flag[]\n== Hidden\nendif::[]\n',
+      resolvedScope: new Map(),
+      onOutlineChange,
+    }));
+
+    const titles = (onOutlineChange.mock.calls.at(-1)?.[0] as { title: string }[]).map((entry) => entry.title);
+    expect(titles).toContain('Visible');
+    expect(titles).not.toContain('Hidden');
+    rendered.unmount();
+  });
+});
+
 describe('useEditorMount revealRequest (FR-049)', () => {
   test('moves the caret to the requested line and dedupes by nonce', () => {
     const rendered = mount(baseOptions({ content: 'a\nb\nc\nd\n', revealRequest: null }));

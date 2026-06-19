@@ -52,7 +52,9 @@ export type LevelOffsetOp =
     };
 
 const HEADING_RE = /^(={1,6})\s+\S/;
-const LEVELOFFSET_RE = /^:leveloffset(!?):\s*(.*?)\s*$/;
+// Asciidoctor unsets an attribute with either the prefix form (`:!leveloffset:`) or the suffix form
+// (`:leveloffset!:`); group 1 = prefix `!`, group 2 = suffix `!`, group 3 = the value.
+const LEVELOFFSET_RE = /^:(!?)leveloffset(!?):\s*(.*?)\s*$/;
 // A delimiter line opens/closes a delimited block whose body is not scanned for headings
 // (mirrors the grammar — Heading nodes never appear inside block bodies).
 const DELIMITER_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,}|={4,}|\*{4,}|_{4,}|--|\|===|,===|:===)$/;
@@ -89,8 +91,8 @@ export function isBoundaryBlockConstruct(trimmedLine: string): boolean {
 export function parseLevelOffset(line: string): LevelOffsetOp | null {
   const match = LEVELOFFSET_RE.exec(line);
   if (!match) return null;
-  const bang = match[1] === '!';
-  const raw = match[2];
+  const bang = match[1] === '!' || match[2] === '!';
+  const raw = match[3];
   if (bang || raw === '') return { kind: 'unset' };
   if (raw.startsWith('+') || raw.startsWith('-')) {
     const delta = Number.parseInt(raw, 10);

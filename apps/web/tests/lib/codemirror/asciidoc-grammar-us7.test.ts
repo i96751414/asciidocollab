@@ -21,12 +21,18 @@ describe('US7 grammar — conditional directives (FR-051)', () => {
 describe('US7 grammar — generic block-attribute line (FR-025)', () => {
   test.each([
     '[source,ruby]\n',
-    '[cols="1,1"]\n',
     '[%header]\n',
     '[.lead]\n',
     '[quote, Author]\n',
   ])('recognises %j as a BlockAttributeLine', (input) => {
     expect(hasToken(input, 'BlockAttributeLine')).toBe(true);
+  });
+
+  // A `[cols="…"]` line now routes to the distinct TableCols node (FR-046, US12), NOT the generic
+  // block-attribute line — the cols specifier is highlighted distinctly.
+  test('[cols="1,1"] routes to a TableCols node, not the generic block-attribute line', () => {
+    expect(hasToken('[cols="1,1"]\n', 'TableCols')).toBe(true);
+    expect(hasToken('[cols="1,1"]\n', 'BlockAttributeLine')).toBe(false);
   });
 
   test('[stem] still routes to StemBlock, not the generic block-attribute line', () => {

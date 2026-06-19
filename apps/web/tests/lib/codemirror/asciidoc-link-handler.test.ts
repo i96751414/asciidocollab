@@ -573,3 +573,77 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
     expect(preview?.text).toBe('Definition · line 2');
   });
 });
+
+describe('createLinkHandler — attribute go-to-definition (FR-020/021)', () => {
+  // `:localvar:` + `{set:setvar:…}` are defined in the open file; `:remotevar:` only in the included
+  // file. Ctrl+clicking each `{name}` reference must jump to where it is defined.
+  const FILES: Record<string, { path: string; content: string }> = {
+    open: {
+      path: 'open.adoc',
+      content: ':localvar: L\n{set:setvar:S}\ninclude::other.adoc[]\n\nUse {localvar} {remotevar} {setvar} {nope}.\n',
+    },
+    other: { path: 'other.adoc', content: ':remotevar: R\n' },
+  };
+  const PATH_OF: Record<string, string> = { open: 'open.adoc', other: 'other.adoc' };
+  const PATH_TO_ID: Record<string, string> = { 'open.adoc': 'open', 'other.adoc': 'other' };
+
+  const openIndex = () =>
+    buildProjectSymbolIndex(
+      'open',
+      (id) => FILES[id]?.content ?? null,
+      makeIncludeResolver((id) => PATH_OF[id] ?? null, (p) => PATH_TO_ID[p] ?? null),
+      'open',
+      (id) => PATH_OF[id] ?? null,
+    );
+
+  function clickAttribute(marker: string, onNavigateToXref: jest.Mock, getIndex = openIndex) {
+    const content = FILES.open.content;
+    const handler = createLinkHandler({ onNavigateToXref }, undefined, getIndex);
+    handler.handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      // index the LAST occurrence (the reference in the body, not a definition) + 3 (inside the token).
+      createMockView(content, content.lastIndexOf(marker) + 3),
+    );
+  }
+
+  test('Ctrl+click on {localvar} reveals the same-file `:name:` definition (line 1)', () => {
+    const onNavigateToXref = jest.fn();
+    clickAttribute('{localvar}', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'open', sameFile: true, line: 1 }));
+  });
+
+  test('Ctrl+click on {remotevar} switches to the INCLUDED file where it is defined (FR-021)', () => {
+    const onNavigateToXref = jest.fn();
+    clickAttribute('{remotevar}', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: 'other', path: 'other.adoc', sameFile: false, line: 1 }),
+    );
+  });
+
+  test('Ctrl+click on a {set:}-defined attribute reference resolves to its inline-set definition', () => {
+    const onNavigateToXref = jest.fn();
+    clickAttribute('{setvar}', onNavigateToXref);
+    expect(onNavigateToXref).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'open', sameFile: true, line: 2 }));
+  });
+
+  test('Ctrl+click on an undefined attribute reference is a no-op', () => {
+    const onNavigateToXref = jest.fn();
+    clickAttribute('{nope}', onNavigateToXref);
+    expect(onNavigateToXref).not.toHaveBeenCalled();
+  });
+
+  test('attribute click is case-insensitive (a {MyVar} ref resolves to a `:myvar:` definition)', () => {
+    const files: Record<string, string> = { m: ':myvar: V\n\nUse {MyVar} here.\n' };
+    const index = () =>
+      buildProjectSymbolIndex('m', (id) => files[id] ?? null,
+        makeIncludeResolver((id) => ({ m: 'm.adoc' })[id] ?? null, (p) => ({ 'm.adoc': 'm' })[p] ?? null),
+        'm', (id) => ({ m: 'm.adoc' })[id] ?? null);
+    const onNavigateToXref = jest.fn();
+    const content = files.m;
+    createLinkHandler({ onNavigateToXref }, undefined, index).handleMousedown(
+      { ctrlKey: true, clientX: 0, clientY: 0, preventDefault: jest.fn() } as unknown as MouseEvent,
+      createMockView(content, content.indexOf('{MyVar}') + 3),
+    );
+    expect(onNavigateToXref).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'm', sameFile: true }));
+  });
+});

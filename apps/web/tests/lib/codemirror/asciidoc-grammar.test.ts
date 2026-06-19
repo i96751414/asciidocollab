@@ -134,6 +134,41 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
+  // ── Constrained / unconstrained boundary rules (US12/FR-044) ────────────────────
+  describe('Constrained boundary rules', () => {
+    test('`a*b*c` does NOT form a Bold node (mark embedded in a word)', () => {
+      expect(hasNode(parseDocument('a*b*c\n'), 'Bold')).toBe(false);
+    });
+
+    test('`2*3*4` does NOT form a Bold node', () => {
+      expect(hasNode(parseDocument('2*3*4\n'), 'Bold')).toBe(false);
+    });
+
+    test('`x_y_z` does NOT form an Italic node', () => {
+      expect(hasNode(parseDocument('x_y_z\n'), 'Italic')).toBe(false);
+    });
+
+    test('`a*b* c` with a trailing space inside still does not bold (opener abuts a word char)', () => {
+      expect(hasNode(parseDocument('a*b* c\n'), 'Bold')).toBe(false);
+    });
+
+    test('genuine `*bold*` at a word boundary forms a Bold node', () => {
+      expect(hasNode(parseDocument('a *bold* b\n'), 'Bold')).toBe(true);
+    });
+
+    test('unconstrained `a**b**c` forms a Bold node even mid-word', () => {
+      expect(hasNode(parseDocument('a**b**c\n'), 'Bold')).toBe(true);
+    });
+
+    test('unconstrained `un__der__score` forms an Italic node mid-word', () => {
+      expect(hasNode(parseDocument('un__der__score\n'), 'Italic')).toBe(true);
+    });
+
+    test('a constrained Bold with no closing mark does not bold the rest of the line', () => {
+      expect(hasNode(parseDocument('a *unterminated word\n'), 'Bold')).toBe(false);
+    });
+  });
+
   describe('Monospace', () => {
     test('recognises monospace `code`', () => {
       const tree = parseDocument('Run `command` now\n');
@@ -145,6 +180,33 @@ describe('AsciiDoc Lezer Grammar', () => {
     test('recognises highlight #text#', () => {
       const tree = parseDocument('This is #important# text\n');
       expect(hasNode(tree, 'Highlight')).toBe(true);
+    });
+  });
+
+  describe('RoleSpan', () => {
+    test('recognises a constrained role span [.lead]#text#', () => {
+      const tree = parseDocument('A [.lead]#styled# span\n');
+      expect(hasNode(tree, 'RoleSpan')).toBe(true);
+    });
+
+    test('recognises an unconstrained role span [.lead]##text##', () => {
+      const tree = parseDocument('A [.lead]##styled##span\n');
+      expect(hasNode(tree, 'RoleSpan')).toBe(true);
+    });
+
+    test('recognises a multi-role span [.role1.role2]#text#', () => {
+      const tree = parseDocument('A [.big.red]#x# span\n');
+      expect(hasNode(tree, 'RoleSpan')).toBe(true);
+    });
+
+    test('RoleSpan is positioned at the opening bracket', () => {
+      const tree = parseDocument('A [.lead]#x# span\n');
+      expect(nodeAt(tree, 'RoleSpan', 2)).toBe(true);
+    });
+
+    test('a plain `[note]` block-attr-looking fragment is NOT a RoleSpan', () => {
+      const tree = parseDocument('see [note] here\n');
+      expect(hasNode(tree, 'RoleSpan')).toBe(false);
     });
   });
 
@@ -214,6 +276,38 @@ describe('AsciiDoc Lezer Grammar', () => {
       const tree = parseDocument('****\ncontent\n****\n');
       expect(hasNode(tree, 'SidebarBlock')).toBe(true);
     });
+
+    // Reported bug: a sidebar delimiter glued directly under a prose line (NO blank line) must still
+    // open the block. Asciidoctor's `block_terminates_paragraph` rule ends the paragraph at the `****`
+    // delimiter (verified: `sdfsdf\n****\n…` renders a <p> followed by a separate <div class=
+    // "sidebarblock">), so the editor must not absorb the delimiter into the paragraph.
+    test('recognises a **** sidebar block glued to a preceding prose line (no blank line)', () => {
+      const tree = parseDocument('sdfsdf\n****\nSidebar block\n****\n');
+      expect(hasNode(tree, 'SidebarBlock')).toBe(true);
+    });
+  });
+
+  // A delimited-block delimiter terminates an open paragraph even with no blank line between them
+  // (Asciidoctor `block_terminates_paragraph`). Unlike a section heading or list marker — which a
+  // paragraph DOES absorb — these fenced delimiters always start their block.
+  describe('delimited block terminates a preceding paragraph (no blank line)', () => {
+    const cases: Array<[string, string]> = [
+      ['ExampleBlock', 'prose\n====\nbody\n====\n'],
+      ['ListingBlock', 'prose\n----\nbody\n----\n'],
+      ['LiteralBlock', 'prose\n....\nbody\n....\n'],
+      ['QuoteBlock', 'prose\n____\nbody\n____\n'],
+      ['PassthroughBlock', 'prose\n++++\nbody\n++++\n'],
+      ['OpenBlock', 'prose\n--\nbody\n--\n'],
+      ['CommentBlock', 'prose\n////\nhidden\n////\n'],
+      ['TableBlock', 'prose\n|===\n| a | b\n|===\n'],
+      ['CsvTableBlock', 'prose\n,===\na,b\n,===\n'],
+      ['DsvTableBlock', 'prose\n:===\na:b\n:===\n'],
+    ];
+    for (const [node, source] of cases) {
+      test(`${node} opens when glued under prose`, () => {
+        expect(hasNode(parseDocument(source), node)).toBe(true);
+      });
+    }
   });
 
   describe('Quote block', () => {
@@ -343,6 +437,40 @@ describe('AsciiDoc Lezer Grammar', () => {
     test('CrossReference is positioned at <<', () => {
       const tree = parseDocument('See <<intro>>\n');
       expect(nodeAt(tree, 'CrossReference', 4)).toBe(true);
+    });
+
+    test('a labelled xref distinguishes target from label sub-nodes (US12/FR-045)', () => {
+      const source = 'See <<intro,Introduction>>\n';
+      const tree = parseDocument(source);
+      // Target sub-node covers the tail of `intro` (offset 8 — the opener consumes `<<` + the first
+      // id char as a guard); label sub-node covers `Introduction`.
+      expect(nodeAt(tree, 'XrefTarget', 8)).toBe(true);
+      expect(nodeAt(tree, 'XrefLabel', source.indexOf('Introduction'))).toBe(true);
+    });
+
+    test('a bare xref has a target sub-node and no label sub-node', () => {
+      const tree = parseDocument('See <<intro>>\n');
+      expect(nodeAt(tree, 'XrefTarget', 8)).toBe(true);
+      expect(hasNode(tree, 'XrefLabel')).toBe(false);
+    });
+  });
+
+  // ── Table column specifiers (US12/FR-046) ──────────────────────────────────────
+  describe('Table cols specifier', () => {
+    test('`[cols="1,>2"]` tokenizes a TableCols sub-node', () => {
+      const tree = parseDocument('[cols="1,>2"]\n');
+      expect(hasNode(tree, 'TableCols')).toBe(true);
+    });
+
+    test('the TableCols sub-node covers the cols value', () => {
+      const source = '[cols="1,1,1"]\n';
+      const tree = parseDocument(source);
+      // The value `1,1,1` begins at offset 7 (after `[cols="`).
+      expect(nodeAt(tree, 'TableCols', 8)).toBe(true);
+    });
+
+    test('a non-cols block-attribute line has no TableCols node', () => {
+      expect(hasNode(parseDocument('[source,ruby]\n'), 'TableCols')).toBe(false);
     });
   });
 
