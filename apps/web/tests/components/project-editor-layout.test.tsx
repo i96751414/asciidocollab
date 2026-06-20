@@ -10,17 +10,12 @@ jest.mock('@/contexts/current-user-context', () => ({
 jest.mock('@/components/file-tree/file-tree', () => ({
   FileTree: ({
     onSelectFile,
-    onCollapse,
   }: {
     onSelectFile?: (id: string, name: string, path: string, type: 'file' | 'folder') => void;
-    onCollapse?: () => void;
   }) => (
     <div data-testid="file-tree">
       {onSelectFile && (
         <button data-testid="file-tree-select" onClick={() => onSelectFile('n1', 'doc.adoc', '/doc.adoc', 'file')} />
-      )}
-      {onCollapse && (
-        <button data-testid="file-tree-collapse" onClick={onCollapse} />
       )}
     </div>
   ),
@@ -357,7 +352,7 @@ describe('ProjectEditorLayout — sidebar', () => {
     render(<ProjectEditorLayout {...defaultProps} />);
 
     // Collapse the sidebar via FileTree's onCollapse button
-    fireEvent.click(screen.getByTestId('file-tree-collapse'));
+    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
 
     // Expand button should now be visible
     expect(screen.getByRole('button', { name: /expand sidebar/i })).toBeInTheDocument();
@@ -372,7 +367,7 @@ describe('ProjectEditorLayout — sidebar', () => {
 
     render(<ProjectEditorLayout {...defaultProps} />);
 
-    fireEvent.click(screen.getByTestId('file-tree-collapse'));
+    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
     fireEvent.click(screen.getByRole('button', { name: /expand sidebar/i }));
 
     expect(screen.queryByRole('button', { name: /expand sidebar/i })).not.toBeInTheDocument();

@@ -29,7 +29,7 @@ const langExtension = new LanguageSupport(LRLanguage.define({ name: 'asciidoc', 
 const FAKE_AFF = String.raw`SET UTF-8
 TRY esianrtolcdugmphbyfvkwz
 `;
-const FAKE_DIC = ['5', 'hello', 'world', 'code', 'title', 'good'].join('\n') + '\n';
+const FAKE_DIC = ['6', 'hello', 'world', 'code', 'title', 'good', 'once'].join('\n') + '\n';
 
 /** Response stand-in for a successful same-origin dictionary fetch. */
 function okResponse(body: string): Partial<Response> {
@@ -106,9 +106,11 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     expect(SPELLCHECK_SKIP_NODES.has('AttributeEntry')).toBe(true);
     // New non-prose inline nodes (T019) — URLs, macros, math, anchors, callouts,
     // entities, and passthroughs must not be spell-checked as prose.
-    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor']) {
+    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor', 'InlineSet']) {
       expect(SPELLCHECK_SKIP_NODES.has(node)).toBe(true);
     }
+    // RoleSpan is NOT a full skip node — only its `[.role]` name is markup; the body is prose.
+    expect(SPELLCHECK_SKIP_NODES.has('RoleSpan')).toBe(false);
     // Prose-bearing nodes are NOT skipped.
     expect(SPELLCHECK_SKIP_NODES.has('Paragraph')).toBe(false);
     expect(SPELLCHECK_SKIP_NODES.has('Heading1')).toBe(false);
@@ -123,6 +125,88 @@ describe('SPELLCHECK_SKIP_NODES', () => {
       const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
       const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
       expect(words).not.toContain('exampledomain');
+      view.destroy();
+    });
+  });
+
+  test('role spans and the word fragments they split are not flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // Renders as "Once upon an infinite loop." — `##O##nce` splits "Once"; the role names
+      // (underline/big) are markup, and the `nce` fragment is glued to the span.
+      const view = makeView('[.underline]##O##nce [.big]##upon## an infinite loop.\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('nce');       // fragment glued to the span
+      expect(words).not.toContain('underline'); // role name (markup)
+      expect(words).not.toContain('big');       // role name (markup)
+      view.destroy();
+    });
+  });
+
+  test('an unconstrained span splitting a VALID word (`[.underline]##O##nce` → "Once") is not flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('[.underline]##O##nce\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      expect(diagnostics).toHaveLength(0); // reconstructs to "Once", which is in the dictionary
+      view.destroy();
+    });
+  });
+
+  test('an unconstrained span splitting a MISSPELLED word (`[.underline]##O##nceasa` → "Onceasa") is flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('[.underline]##O##nceasa\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      expect(diagnostics.length).toBeGreaterThan(0); // reconstructs to "Onceasa", not a word
+      // The diagnostic underlines the visible (mis)spelled word, including the dropped `##` delimiters.
+      expect(diagnostics.some((d) => view.state.sliceDoc(d.from, d.to).includes('nceasa'))).toBe(true);
+      view.destroy();
+    });
+  });
+
+  test('a misspelled word inside a role-span BODY is still flagged (only the role name is markup)', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // The role name `[.lead]` is markup, but the span body `Wrold` is ordinary prose and must be
+      // checked — otherwise spell-check is silently disabled for every `[.role]#…#` body.
+      const view = makeView('[.lead]#Wrold#\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).toContain('Wrold');    // body prose IS checked
+      expect(words).not.toContain('lead'); // role name is markup
+      view.destroy();
+    });
+  });
+
+  test('a misspelled word glued to a non-span skip node (Entity) is still flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // The glued-fragment rule is for word-splitting role spans only; a standalone word glued to an
+      // entity/link/macro is real prose, not a markup fragment, so it must still be checked.
+      const view = makeView('Tom &amp;wrold here\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).toContain('wrold');
+      view.destroy();
+    });
+  });
+
+  test('the name/value in `{set:name:value}` (InlineSet) are not flagged as misspelled', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('Prose with {set:myyvarvar:myvalue} inside.\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).not.toContain('myyvarvar');
+      expect(words).not.toContain('myvalue');
       view.destroy();
     });
   });

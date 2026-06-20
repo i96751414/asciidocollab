@@ -21,7 +21,6 @@ import { EditorBanners } from './editor-banners';
 import { EditorStatusBar } from './editor-status-bar';
 import { computeMetrics } from '@/lib/codemirror/asciidoc-metrics';
 import { EditorChrome } from './editor-chrome';
-import { EditorOutlinePanel } from './editor-outline-panel';
 
 interface AsciiDocEditorProperties {
   content: string;
@@ -87,6 +86,13 @@ interface AsciiDocEditorProperties {
    */
   onCursorLineChange?: (line: number) => void;
   /**
+   * Reports the live section outline up to the layout so it can drive the left-panel Outline view
+   * (028). Fires on every doc edit / out-of-band heading refresh with the full entry list.
+   *
+   * @param entries - The current section outline entries, including the level-0 title.
+   */
+  onOutlineChange?: (entries: SectionOutlineEntry[]) => void;
+  /**
    * True when this is editable text with no collaborative document (GET /collab 404). The editor
    * opens read-only with a banner and the REST autosave stays disabled — silently writing through
    * the legacy path would let two clients overwrite each other (no Yjs merge, no session lock).
@@ -141,6 +147,7 @@ export function AsciiDocEditor({
   onScrollLine,
   initialLine,
   onCursorLineChange,
+  onOutlineChange,
   collab,
   connectionState,
   collabUnavailable = false,
@@ -158,7 +165,6 @@ export function AsciiDocEditor({
   // initial content and refreshed from each editor change.
   const [docText, setDocText] = useState(content);
   const metrics = useMemo(() => computeMetrics(docText), [docText]);
-  const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
 
@@ -205,7 +211,12 @@ export function AsciiDocEditor({
     onCursorLineChange?.(pos.line);
   }, [onCursorLineChange]);
 
-  const { containerReference, viewReference, handleHeadingClick } = useEditorMount({
+  // Lift the live outline to the layout (028); the outline now lives in the left panel, not here.
+  const handleOutlineChange = useCallback((entries: SectionOutlineEntry[]) => {
+    onOutlineChange?.(entries);
+  }, [onOutlineChange]);
+
+  const { containerReference, viewReference } = useEditorMount({
     content,
     canEdit: effectiveCanEdit,
     softWrap,
@@ -217,7 +228,7 @@ export function AsciiDocEditor({
     imagePaths,
     onDocChange: handleChange,
     onCursorChange: handleCursorChange,
-    onOutlineChange: setOutlineEntries,
+    onOutlineChange: handleOutlineChange,
     onNavigateToFile,
     onNavigateToXref,
     inheritedOffset,
@@ -287,9 +298,6 @@ export function AsciiDocEditor({
       />
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerReference} className="flex-1 overflow-auto" />
-        {isAsciiDoc && (
-          <EditorOutlinePanel entries={outlineEntries} onHeadingClick={handleHeadingClick} />
-        )}
       </div>
       {(projectId && fileNodeId) && (
         <div className="border-t">

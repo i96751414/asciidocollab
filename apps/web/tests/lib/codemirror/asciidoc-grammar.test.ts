@@ -310,6 +310,139 @@ describe('AsciiDoc Lezer Grammar', () => {
     }
   });
 
+  // A line containing ONLY whitespace (spaces/tabs) is a blank line in AsciiDoc — it separates
+  // blocks exactly like a truly empty line. Reported bug: trailing whitespace on the separating line
+  // was absorbed as paragraph text, so the following block (admonition, stem, list, delimited block…)
+  // did not start a new block.
+  // An empty list item (`. ` / `* ` with no text on the marker line) must not break the list: the
+  // glued following line is the item's principal-text continuation, not a new paragraph.
+  describe('empty list item keeps the list (continuation, not a paragraph)', () => {
+    test('an ordered list survives an empty `. ` item and continues', () => {
+      const tree = parseDocument('. part of list\n. \nstill part of list\n');
+      expect(collectNodes(tree, 'OrderedListItem')).toHaveLength(2);
+      expect(hasNode(tree, 'Continuation')).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+
+    test('an unordered list survives an empty `* ` item and continues', () => {
+      const tree = parseDocument('* part of list\n* \nstill part of list\n');
+      expect(collectNodes(tree, 'UnorderedListItem')).toHaveLength(2);
+      expect(hasNode(tree, 'Continuation')).toBe(true);
+      expect(hasNode(tree, 'Paragraph')).toBe(false);
+    });
+  });
+
+  // An admonition paragraph (`NOTE: …`) absorbs glued following lines like any paragraph, so a
+  // heading marker on the next line (no blank between) is plain admonition text, NOT a section title.
+  describe('admonition paragraph absorbs glued continuation lines', () => {
+    test('glued lines under NOTE: are admonition continuation, not a heading', () => {
+      const tree = parseDocument('NOTE: One of five built-in admonition block types.\n== This is not a title yet\nanother line\n');
+      expect(hasNode(tree, 'Heading1')).toBe(false);
+      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      // The glued lines belong to the admonition (their own node so they inherit the admonition tag),
+      // not the plain ParagraphContinuation — so the whole NOTE block highlights as one admonition.
+      expect(collectNodes(tree, 'AdmonitionContinuation')).toHaveLength(2);
+      expect(hasNode(tree, 'ParagraphContinuation')).toBe(false);
+    });
+
+    test('a heading after a BLANK line below NOTE: is still a heading', () => {
+      expect(hasNode(parseDocument('NOTE: an admonition.\n\n== A Real Title\n'), 'Heading1')).toBe(true);
+    });
+
+    test('a delimited block glued under NOTE: still opens (block terminates paragraph)', () => {
+      expect(hasNode(parseDocument('NOTE: an admonition.\n----\ncode\n----\n'), 'ListingBlock')).toBe(true);
+    });
+  });
+
+  // Heading markers are 1–6 `=` (levels 0–5). A run of 7+ `=` then space+text is NOT a heading — it
+  // is plain text. Reported regression: `=================== Not a Section` was tokenized as Heading5.
+  describe('a run of 7+ equals is not a heading', () => {
+    test('19 equals + text is a Paragraph, not a heading', () => {
+      const tree = parseDocument('=================== Not a Section\n');
+      expect(hasNode(tree, 'Heading5')).toBe(false);
+      expect(hasNode(tree, 'DocumentTitle')).toBe(false);
+      expect(hasNode(tree, 'Paragraph')).toBe(true);
+    });
+
+    test('7 equals + text is a Paragraph, not a heading', () => {
+      const tree = parseDocument('======= Too deep to be a section\n');
+      expect(hasNode(tree, 'Heading5')).toBe(false);
+      expect(hasNode(tree, 'Paragraph')).toBe(true);
+    });
+
+    test('exactly 6 equals + text is still a level-5 heading (no regression)', () => {
+      expect(hasNode(parseDocument('====== Deep section\n'), 'Heading5')).toBe(true);
+    });
+
+    test('a bare run of 4+ equals (no text) is still an example-block delimiter', () => {
+      expect(hasNode(parseDocument('====\nbody\n====\n'), 'ExampleBlock')).toBe(true);
+    });
+  });
+
+  // A section title must have actual title text. `== ` with an empty (or whitespace-only) title is a
+  // paragraph in Asciidoctor, and the outline's HEADING_RE (`^(={1,6})\s+\S`) already omits it — the
+  // tokenizer must agree so the editor highlight and the Outline panel never disagree.
+  describe('an empty-title heading marker is not a heading', () => {
+    test('`== ` with no title text is a Paragraph, not a Heading1', () => {
+      const tree = parseDocument('== \n');
+      expect(hasNode(tree, 'Heading1')).toBe(false);
+    });
+
+    test('`= ` with no title text is not a DocumentTitle', () => {
+      expect(hasNode(parseDocument('= \n'), 'DocumentTitle')).toBe(false);
+    });
+
+    test('`==   ` with only whitespace after the marker is not a Heading1', () => {
+      expect(hasNode(parseDocument('==   \n'), 'Heading1')).toBe(false);
+    });
+
+    test('`== Real` with title text is still a Heading1 (no regression)', () => {
+      expect(hasNode(parseDocument('== Real\n'), 'Heading1')).toBe(true);
+    });
+
+    test('`==   Spaced` with extra leading spaces before the title is still a Heading1', () => {
+      expect(hasNode(parseDocument('==   Spaced\n'), 'Heading1')).toBe(true);
+    });
+
+    // The marker may be separated from the title by a TAB as well as a space (Asciidoctor `[ \t]+`),
+    // matching the outline's `\s+` so the editor highlight and the Outline panel agree.
+    test('`==\\tTabbed` with a tab after the marker is a Heading1', () => {
+      expect(hasNode(parseDocument('==\tTabbed\n'), 'Heading1')).toBe(true);
+    });
+
+    test('`=\\tTitle` with a tab after the marker is a DocumentTitle', () => {
+      expect(hasNode(parseDocument('=\tTitle\n'), 'DocumentTitle')).toBe(true);
+    });
+
+    test('`==\\t` with only a tab and no title text is not a Heading1', () => {
+      expect(hasNode(parseDocument('==\t\n'), 'Heading1')).toBe(false);
+    });
+  });
+
+  describe('whitespace-only line is a blank line (block separator)', () => {
+    const cases: Array<[string, string]> = [
+      ['AdmonitionParagraph', 'Intro.\n   \nNOTE: an admonition follows a spaces-only line.\n'],
+      ['AdmonitionParagraph (tab)', 'Intro.\n\t\nNOTE: an admonition follows a tab-only line.\n'],
+      ['InlineStem', 'Intro.\n   \nEuler: stem:[e^(i*pi) + 1 = 0].\n'],
+      ['UnorderedListItem', 'Intro.\n   \n* a list item after a spaces-only line\n'],
+      ['ListingBlock', 'Intro.\n   \n----\ncode\n----\n'],
+    ];
+    for (const [label, source] of cases) {
+      test(`${label} starts after a whitespace-only line`, () => {
+        const node = label.split(' ')[0];
+        expect(hasNode(parseDocument(source), node)).toBe(true);
+      });
+    }
+
+    test('a truly empty line still separates blocks (no regression)', () => {
+      expect(hasNode(parseDocument('Intro.\n\nNOTE: still an admonition.\n'), 'AdmonitionParagraph')).toBe(true);
+    });
+
+    test('an INDENTED non-empty line is NOT treated as blank (stays a paragraph)', () => {
+      expect(hasNode(parseDocument('   indented prose, not a blank line\n'), 'Paragraph')).toBe(true);
+    });
+  });
+
   describe('Quote block', () => {
     test('recognises ____ delimited quote block', () => {
       const tree = parseDocument('____\nquoted text\n____\n');

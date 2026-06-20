@@ -83,4 +83,34 @@ describe('EditorSectionOutline', () => {
     const memoSymbol = Symbol.for('react.memo');
     expect((EditorSectionOutline as unknown as { $$typeof?: symbol }).$$typeof).toBe(memoSymbol);
   });
+
+  // 028 (T009): level 0 (title) is flush; deeper levels step in. paddingLeft = level*12 + 8.
+  test('indents rows by level: 0 flush, deeper levels progressively', () => {
+    const entries: SectionOutlineEntry[] = [
+      { level: 0, title: 'Doc Title', line: 1, from: 0 },
+      { level: 1, title: 'Section', line: 3, from: 20 },
+      { level: 2, title: 'Sub', line: 5, from: 40 },
+    ];
+    render(<EditorSectionOutline entries={entries} onHeadingClick={jest.fn()} />);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0]).toHaveStyle({ paddingLeft: '8px' });
+    expect(buttons[1]).toHaveStyle({ paddingLeft: '20px' });
+    expect(buttons[2]).toHaveStyle({ paddingLeft: '32px' });
+  });
+
+  // 028 (T019): the row at currentIndex is marked aria-current; exactly one.
+  test('marks the row at currentIndex with aria-current and no other', () => {
+    render(<EditorSectionOutline entries={sampleEntries} currentIndex={1} onHeadingClick={jest.fn()} />);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[1]).toHaveAttribute('aria-current', 'true');
+    expect(buttons[0]).not.toHaveAttribute('aria-current');
+    expect(buttons[2]).not.toHaveAttribute('aria-current');
+  });
+
+  test('marks no row when currentIndex is -1 or omitted', () => {
+    render(<EditorSectionOutline entries={sampleEntries} currentIndex={-1} onHeadingClick={jest.fn()} />);
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).not.toHaveAttribute('aria-current');
+    }
+  });
 });

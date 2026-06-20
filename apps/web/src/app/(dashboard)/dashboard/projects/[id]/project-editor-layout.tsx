@@ -1,5 +1,5 @@
 'use client';
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -19,6 +19,9 @@ import { useFileHistory } from '@/hooks/use-file-history';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { type ConnectionState } from '@/hooks/use-collab-document';
 
+import { LeftPanel } from '@/components/editor/left-panel';
+import { OutlineView } from '@/components/editor/outline-view';
+import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
@@ -63,6 +66,12 @@ interface ContentAreaProperties {
    * @param line - The 1-based line the cursor is on.
    */
   onCursorLineChange?: (line: number) => void;
+  /**
+   * Reports the live section outline up so the left-panel Outline view can render it (028).
+   *
+   * @param entries - The current section outline entries, including the level-0 title.
+   */
+  onOutlineChange?: (entries: SectionOutlineEntry[]) => void;
   /** Live collaboration binding for the selected file, or null on the legacy path. */
   collab?: CollabBinding | null;
   /** True when the file is collaborative but the provider/Y.Doc is not ready yet. */
@@ -99,6 +108,7 @@ function ContentArea({
   onChange,
   initialLine,
   onCursorLineChange,
+  onOutlineChange,
   collab,
   collabPending,
   connectionState,
@@ -157,6 +167,7 @@ function ContentArea({
       onChange={onChange}
       initialLine={initialLine}
       onCursorLineChange={onCursorLineChange}
+      onOutlineChange={onOutlineChange}
       collab={collab}
       connectionState={connectionState}
       collabUnavailable={collabUnavailable}
@@ -233,7 +244,7 @@ export function ProjectEditorLayout({
   // File + cross-reference navigation, the go-to-symbol palette, and the refactor dialog.
   const {
     scrollRequest, resetScroll, revealRequest, openPathRequest, pendingXrefLine,
-    handleScrollLine, handleLineClick, handleNavigateToFile, handleNavigateToXref, handleOpenUrl,
+    handleScrollLine, handleLineClick, revealLine, handleNavigateToFile, handleNavigateToXref, handleOpenUrl,
     goToSymbolOpen, setGoToSymbolOpen, symbolPathOf, handleSelectSymbol,
     refactorOpen, setRefactorOpen, refactorInitial, openRefactor,
     handleNavigateToUsage, handleSymbolRenamed,
@@ -251,12 +262,31 @@ export function ProjectEditorLayout({
   // concern of useEditorRestoration above.
   useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
-  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle } = useEditorPreferences();
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab } = useEditorPreferences();
 
-  // Reset scroll position whenever a different file is opened.
-  // useLayoutEffect prevents a one-frame flash of the old scroll position.
+  // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
+  // used to mark the current section. Held here so the panel is fed without remounting the editor.
+  const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
+  const [currentLine, setCurrentLine] = useState<number | null>(null);
+  // Outline navigation reuses the existing same-file reveal seam: `revealLine` moves the EDITOR cursor
+  // to the heading's line, and — exactly like clicking a line in the editor — `handleLineClick` scrolls
+  // the open preview to match even when scroll-sync is OFF (an outline click is an explicit navigation,
+  // not passive cursor tracking). When scroll-sync is ON we skip it: the cursor move already drives the
+  // preview via the scroll-sync handler, so issuing a second scroll would be a redundant double-scroll.
+  const handleOutlineHeadingClick = useCallback(
+    (entry: SectionOutlineEntry) => {
+      revealLine(entry.line);
+      if (previewOpen && !scrollSyncEnabled) handleLineClick(entry.line);
+    },
+    [revealLine, handleLineClick, previewOpen, scrollSyncEnabled],
+  );
+
+  // Reset the scroll position AND the current-section marker whenever a different file is opened, so the
+  // Outline never highlights a row using the previous file's cursor line before the new editor reports
+  // its cursor. useLayoutEffect prevents a one-frame flash of the old scroll position / stale highlight.
   useLayoutEffect(() => {
     resetScroll();
+    setCurrentLine(null);
   }, [selectedFile?.nodeId, resetScroll]);
 
   // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
@@ -291,7 +321,11 @@ export function ProjectEditorLayout({
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
   return (
-    <div className="flex flex-col h-full">
+    // The editor is full-bleed: it cancels the dashboard <main>'s `p-6` with a negative margin and adds
+    // that padding back to its height so the rail, editor, and preview reach every edge of the viewport.
+    // COUPLED to `<main className="…p-6">` in `(dashboard)/layout.tsx`: `-m-6` cancels its padding and
+    // `3rem` re-adds the top+bottom (2 × the 1.5rem `p-6`). If that padding changes, update BOTH here.
+    <div className="flex flex-col h-[calc(100%+3rem)] -m-6">
       {/* Header */}
       <div className="flex items-center gap-3 h-14 px-3 border-b shrink-0">
         <BackButton href="/dashboard" label="Back to projects" />
@@ -328,16 +362,30 @@ export function ProjectEditorLayout({
         <div
           data-testid="file-tree-panel"
           style={sidebarOpen ? { width: sidebarResize.width } : undefined}
-          className={sidebarOpen ? 'shrink-0 overflow-y-auto' : 'hidden'}
+          className={sidebarOpen ? 'shrink-0 overflow-hidden' : 'hidden'}
         >
-          <FileTree
-            projectId={projectId}
-            canEdit={canEdit}
-            onSelectFile={handleSelectFile}
-            selectedNodeId={selectedFile?.nodeId ?? null}
-            presenceByFile={presenceByFile}
+          <LeftPanel
+            activeTab={leftPanelTab}
+            onTabChange={setLeftPanelTab}
             onCollapse={() => setSidebarOpen(false)}
-            openPathRequest={openPathRequest}
+            filesSlot={
+              <FileTree
+                projectId={projectId}
+                canEdit={canEdit}
+                onSelectFile={handleSelectFile}
+                selectedNodeId={selectedFile?.nodeId ?? null}
+                presenceByFile={presenceByFile}
+                openPathRequest={openPathRequest}
+              />
+            }
+            outlineSlot={
+              <OutlineView
+                entries={outlineEntries}
+                currentLine={currentLine}
+                hasDocument={selectedFile !== null && isAsciiDocFile(selectedFile.nodeName)}
+                onHeadingClick={handleOutlineHeadingClick}
+              />
+            }
           />
         </div>
         {sidebarOpen && (
@@ -371,7 +419,7 @@ export function ProjectEditorLayout({
             order={1}
             defaultSize={showPreview && previewOpen ? 50 : 100}
             minSize={20}
-            className="overflow-hidden flex flex-col p-4"
+            className="overflow-hidden flex flex-col"
             data-testid="content-panel"
           >
             <ContentArea
@@ -391,7 +439,8 @@ export function ProjectEditorLayout({
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}
               initialLine={initialLine}
-              onCursorLineChange={handleCursorLineChange}
+              onCursorLineChange={(line) => { setCurrentLine(line); handleCursorLineChange(line); }}
+              onOutlineChange={setOutlineEntries}
               collab={editorCollab}
               collabPending={editorPending}
               connectionState={editorConnectionState}
@@ -404,7 +453,7 @@ export function ProjectEditorLayout({
           </Panel>
           {showPreview && previewOpen && (
             <>
-              <PanelResizeHandle className="group relative z-10 flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
+              <PanelResizeHandle className="group relative z-10 -mx-[3px] flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
                 <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
               </PanelResizeHandle>
               <Panel id="editor-preview" order={2} defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">

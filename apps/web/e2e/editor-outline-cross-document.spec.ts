@@ -18,9 +18,19 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-/** The section-outline navigation in the right-hand panel. */
+/** The section-outline navigation in the left panel's Outline view (028). */
 function outline(page: import('@playwright/test').Page) {
   return page.getByRole('navigation', { name: 'Section outline' });
+}
+
+/**
+ * Activate the left panel's Outline view (028): the outline lives behind a rail tab and Files is the
+ * default view, so its `navigation` is rendered `hidden` until the Outline tab is selected. The tab
+ * preference is persisted, but this is idempotent — safe to call again after a reload.
+ */
+async function showOutline(page: import('@playwright/test').Page) {
+  await page.getByRole('tab', { name: /outline/i }).click();
+  await expect(outline(page)).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe('editor outline cross-document consistency', () => {
@@ -55,6 +65,7 @@ test.describe('editor outline cross-document consistency', () => {
 
     await openProject(page, projectId);
     await openFile(page, 'chapter.adoc');
+    await showOutline(page);
 
     // The outline shows the RESOLVED title (the raw `{productName}` is replaced by "Acme").
     const entry = outline(page).getByRole('button', { name: 'Acme Guide' });
@@ -78,6 +89,7 @@ test.describe('editor outline cross-document consistency', () => {
 
     await openProject(page, projectId);
     await openFile(page, 'chapter.adoc');
+    await showOutline(page);
 
     // Standalone root: raw level 1, title unresolved (no cross-document scope yet).
     const rawEntry = outline(page).getByRole('button', { name: '{productName} Guide' });
@@ -90,7 +102,11 @@ test.describe('editor outline cross-document consistency', () => {
     const mainId = await fileId(page, projectId, 'main.adoc');
     await setMainFile(page, projectId, mainId);
     await page.reload();
+    // The Outline tab selected above is persisted, so after the reload the file tree is hidden; switch
+    // back to Files to open the chapter, then re-activate Outline to assert the re-resolved entry.
+    await page.getByRole('tab', { name: /files/i }).click();
     await openFile(page, 'chapter.adoc');
+    await showOutline(page);
 
     const resolvedEntry = outline(page).getByRole('button', { name: 'Acme Guide' });
     await expect(resolvedEntry).toBeVisible({ timeout: 15_000 });

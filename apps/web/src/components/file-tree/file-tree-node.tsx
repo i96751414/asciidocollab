@@ -88,8 +88,11 @@ export function FileTreeNode({ node, depth, projectId, canEdit, selectedNodeId, 
       aria-current={isSelected ? 'true' : undefined}
       draggable
       className={cn(
-        'group flex items-center gap-1 py-0.5 px-2 cursor-pointer hover:bg-accent rounded-sm select-none',
-        isSelected && 'bg-accent',
+        // Selected uses the panel-wide "active" language (primary tint + text + 2px left accent bar),
+        // matching the Outline's current row and the rail's active tab. border-l-2 is always present
+        // (transparent when unselected) so selecting never shifts the row.
+        'group flex items-center gap-1 py-0.5 px-2 cursor-pointer rounded-sm select-none border-l-2',
+        isSelected ? 'bg-primary/10 text-primary border-primary' : 'border-transparent hover:bg-accent',
       )}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
       onClick={handleClick}

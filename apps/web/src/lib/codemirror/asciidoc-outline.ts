@@ -10,7 +10,7 @@ import { substitutePathAttributes } from '@/lib/asciidoc/include-path';
 
 /** An entry in the section outline panel. */
 export interface SectionOutlineEntry {
-  /** Effective heading level (1–5) — the raw marker level shifted by `:leveloffset:`. */
+  /** Effective heading level (0–5, 0 = document title) — the raw marker level shifted by `:leveloffset:`. */
   level: number;
   /** Heading title text, with `{attr}` references resolved against the file's cross-document scope. */
   title: string;
@@ -83,8 +83,9 @@ function computeInactiveLines(documentText: string, scope: ReadonlyMap<string, s
  * Derives the section outline from {@link computeHeadingLevels} — the single editor authority for
  * effective heading levels — so it stays consistent with the heading highlight and section folding.
  * Headings whose effective level (raw + `:leveloffset:` + inherited offset) exceeds the max are not
- * headings (FR-010) and are excluded, as are `[discrete]`/`[float]` headings (FR-072) and the
- * document title (effective level 0). Titles have their `{attr}` references resolved against the
+ * headings (FR-010) and are excluded, as are `[discrete]`/`[float]` headings (FR-072). The
+ * document title (effective level 0) IS included (FR-028) so it anchors the outline tree. Titles
+ * have their `{attr}` references resolved against the
  * file's cross-document scope, and headings inside an inactive conditional branch are excluded so
  * the outline matches the rendered preview (R11/FR-032).
  */
@@ -95,8 +96,9 @@ function extractHeadings(state: EditorState): SectionOutlineEntry[] {
   const inactiveLines = computeInactiveLines(documentText, scope);
 
   for (const info of computeHeadingLevels(documentText, inheritedOffset(state))) {
-    // beyondMax ⇒ not a heading; discrete ⇒ styled but excluded; level < 1 ⇒ document title.
-    if (info.beyondMax || info.discrete || info.effectiveLevel < 1) continue;
+    // beyondMax ⇒ not a heading; discrete ⇒ styled but excluded. Level 0 (the document title) IS
+    // kept (FR-028) so it anchors the outline tree; only a negative effective level is skipped.
+    if (info.beyondMax || info.discrete || info.effectiveLevel < 0) continue;
     // A heading inside a conditional branch that resolves inactive is excluded — it would not render
     // in the preview, so showing it in the outline would mislead navigation (R11/FR-032).
     if (inactiveLines[info.line]) continue;

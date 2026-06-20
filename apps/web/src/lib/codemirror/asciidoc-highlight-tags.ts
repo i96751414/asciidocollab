@@ -54,6 +54,9 @@ export const asciidocHighlightTags = styleTags({
   OpenBlock:          t.labelName,
   StemBlock:          t.special(t.keyword),
   AdmonitionParagraph: t.keyword,
+  // Glued continuation lines of an admonition paragraph share its colour so the whole NOTE/TIP/…
+  // block reads as one admonition (see AdmonitionContinuation in the grammar).
+  AdmonitionContinuation: t.keyword,
   AdmonitionBlock:    t.keyword,
   TableBlock:         t.className,
   CsvTableBlock:      t.className,

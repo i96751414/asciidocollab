@@ -48,13 +48,11 @@ jest.mock('@/components/editor/asciidoc-editor', () => ({
 }));
 
 jest.mock('@/components/file-tree/file-tree', () => ({
-  FileTree: ({ onSelectFile, onCollapse, openPathRequest }: {
+  FileTree: ({ onSelectFile, openPathRequest }: {
     onSelectFile?: (id: string, name: string, path: string, type: 'file' | 'folder') => void;
-    onCollapse?: () => void;
     openPathRequest?: { path: string; nonce: number } | null;
   }) => (
     <div data-testid="file-tree" data-open-path={openPathRequest?.path ?? ''}>
-      <button onClick={() => onCollapse?.()}>collapse sidebar</button>
       <button onClick={() => onSelectFile?.('picked', 'picked.adoc', '/picked.adoc', 'file')}>pick file</button>
     </div>
   ),

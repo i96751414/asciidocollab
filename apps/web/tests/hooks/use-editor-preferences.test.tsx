@@ -598,3 +598,77 @@ test('a stored spellIgnore list drops non-string entries on load', () => {
   const { result } = renderHook(() => useEditorPreferences());
   expect(result.current.spellIgnore).toEqual(['ok', 'fine']);
 });
+
+// ── leftPanelTab (028: client-only, localStorage, never synced to the account) ──
+
+test('leftPanelTab defaults to files', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.leftPanelTab).toBe('files');
+});
+
+test('setLeftPanelTab round-trips through localStorage', async () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.setLeftPanelTab('outline'));
+  expect(result.current.leftPanelTab).toBe('outline');
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.leftPanelTab).toBe('outline');
+});
+
+test('a stored outline leftPanelTab is seeded on load', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', leftPanelTab: 'outline' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.leftPanelTab).toBe('outline');
+});
+
+test('an invalid stored leftPanelTab falls back to files', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', leftPanelTab: 'banana' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.leftPanelTab).toBe('files');
+});
+
+test('leftPanelTab is NOT sent in any PUT body (client-only preference)', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+  // Toggle the tab (must not be in any PUT) then change another pref so a PUT fires.
+  act(() => result.current.setLeftPanelTab('outline'));
+  act(() => result.current.setFontSize(18));
+  await act(async () => {
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCalls = mockFetch.mock.calls.filter((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  expect(putCalls.length).toBeGreaterThan(0);
+  for (const putCall of putCalls) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).not.toHaveProperty('leftPanelTab');
+  }
+});
+
+test('setLeftPanelTab does not trigger any PUT on its own', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockClear();
+  await act(async () => {
+    result.current.setLeftPanelTab('outline');
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCalls = mockFetch.mock.calls.filter((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  expect(putCalls).toHaveLength(0);
+});
+
+test('a GET response carrying leftPanelTab does not overwrite the local value', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', leftPanelTab: 'outline' });
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', leftPanelTab: 'files' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(result.current.leftPanelTab).toBe('outline');
+});

@@ -22,6 +22,14 @@ export function isEditorThemeValue(value: string): value is EditorThemeValue {
   return VALID_THEMES.includes(value);
 }
 
+/** Which view the editor's left panel shows (028). Persisted client-only, never synced to the account. */
+export type LeftPanelTab = 'files' | 'outline';
+
+/** Returns true when `value` is a recognised LeftPanelTab. */
+function isLeftPanelTab(value: unknown): value is LeftPanelTab {
+  return value === 'files' || value === 'outline';
+}
+
 const LS_KEY = 'asciidocollab:editor-preferences';
 const DEBOUNCE_MS = 500;
 
@@ -33,11 +41,19 @@ interface EditorPrefs {
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
   spellcheckEnabled: boolean;
+  /** 028: the active left-panel view. Client-only — kept in localStorage, never PUT to the account. */
+  leftPanelTab: LeftPanelTab;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files' };
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean } {
+// Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
+// PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
+// leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
+// hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
+const CLIENT_ONLY_KEYS = ['leftPanelTab'] as const satisfies readonly (keyof EditorPrefs)[];
+
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -61,6 +77,7 @@ function loadFromStorage(): EditorPrefs {
           previewStyle: typeof rawPreviewStyle === 'string' && isPreviewStyleValue(rawPreviewStyle) ? rawPreviewStyle : DEFAULT_PREFS.previewStyle,
           spellIgnore: toStringArray(parsed.spellIgnore),
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
+          leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
         };
       }
     }
@@ -77,6 +94,7 @@ interface UseEditorPreferencesResult {
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
   spellcheckEnabled: boolean;
+  leftPanelTab: LeftPanelTab;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
@@ -84,6 +102,7 @@ interface UseEditorPreferencesResult {
   setPreviewStyle: (style: PreviewStyleValue) => void;
   addSpellIgnore: (word: string) => void;
   setSpellcheckEnabled: (enabled: boolean) => void;
+  setLeftPanelTab: (tab: LeftPanelTab) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -104,18 +123,25 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
+        // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
+        // the local value — the server response can never overwrite the chosen view.
+        leftPanelTab: previous.leftPanelTab,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
 
   function schedulePut(next: EditorPrefs) {
     if (debounceTimerReference.current) clearTimeout(debounceTimerReference.current);
+    // Strip every client-only key from the account payload (no server DTO change needed; the chosen
+    // view never leaves this browser). Driven by CLIENT_ONLY_KEYS so a new client-only pref can't leak.
+    const serverPayload: Partial<EditorPrefs> = { ...next };
+    for (const key of CLIENT_ONLY_KEYS) delete serverPayload[key];
     debounceTimerReference.current = setTimeout(() => {
       void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
+        body: JSON.stringify(serverPayload),
       }).catch(() => {
         // Transient save failure (e.g. offline): the change still applies for the current
         // session (state + localStorage) and is reconciled on the next successful save.
@@ -187,5 +213,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled };
+  // Client-only setter (028): persists the chosen view to localStorage but never schedules a PUT, so
+  // the value stays on this device and is excluded from the account preferences.
+  const setLeftPanelTab = useCallback((leftPanelTab: LeftPanelTab) => {
+    setPrefs((previous) => {
+      const next = { ...previous, leftPanelTab };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab };
 }

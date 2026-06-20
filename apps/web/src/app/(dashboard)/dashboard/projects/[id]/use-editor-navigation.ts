@@ -32,6 +32,9 @@ interface EditorNavigation {
   handleScrollLine: (line: number) => void;
   // Line-click handler: always fires, even for the same line clicked twice.
   handleLineClick: (line: number) => void;
+  // Moves the EDITOR cursor to a 1-based line and scrolls it into view (same-file reveal, e.g. an
+  // Outline heading click). Reuses the revealRequest seam; the preview follows via scroll-sync.
+  revealLine: (line: number) => void;
   // Ctrl+click on a macro path: asks the file tree to reveal + select that file.
   handleNavigateToFile: (path: string) => void;
   // Cross-reference go-to-definition (FR-049): same-file reveal or cross-file switch.
@@ -92,6 +95,14 @@ export function useEditorNavigation({
   // No dedup — the user intentionally clicked, so we always issue a fresh scroll.
   const handleLineClick = useCallback((line: number) => {
     setScrollRequest({ line });
+  }, []);
+
+  // Moves the editor cursor to a line and scrolls it into view (same-file reveal). Bumps the nonce so
+  // each click reveals afresh; the editor (use-editor-mount revealRequest effect) dispatches the
+  // selection + scrollIntoView, and the existing scroll-sync carries the preview when enabled.
+  const revealLine = useCallback((line: number) => {
+    revealNonce.current += 1;
+    setRevealRequest({ line, nonce: revealNonce.current });
   }, []);
 
   // Ctrl+click on a macro path asks the file tree to reveal + select that file. A bumped nonce
@@ -190,6 +201,7 @@ export function useEditorNavigation({
     pendingXrefLine,
     handleScrollLine,
     handleLineClick,
+    revealLine,
     handleNavigateToFile,
     handleNavigateToXref,
     handleOpenUrl,

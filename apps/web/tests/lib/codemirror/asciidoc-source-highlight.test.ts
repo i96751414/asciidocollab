@@ -180,6 +180,13 @@ describe('extractSourceLanguage (FR-017/018)', () => {
     expect(extractSourceLanguage('[source,python]')).toBe('Python');
   });
 
+  test('resolves the [,lang] shorthand (empty style ⇒ source)', () => {
+    // `[,ruby]` is AsciiDoc shorthand for `[source,ruby]`; it must highlight the same.
+    expect(extractSourceLanguage('[,ruby]')).toBe('Ruby');
+    expect(extractSourceLanguage('[, js]')).toBe('JavaScript');
+    expect(extractSourceLanguage('[,python]')).toBe('Python');
+  });
+
   test('returns null for an unknown language (no injection)', () => {
     expect(extractSourceLanguage('[source,cobol]')).toBeNull();
   });

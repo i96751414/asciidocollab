@@ -201,9 +201,17 @@ describe('asciidoc-outline StateField', () => {
     expect(outline.map((entry) => entry.title)).toEqual(['Section Foo']);
   });
 
-  test('excludes the document title (effective level 0)', () => {
-    const outline = getOutline('= Document Title\n\n== Section\n');
-    expect(outline.map((entry) => entry.title)).toEqual(['Section']);
+  test('includes the document title at level 0, in document order before sections (FR-028)', () => {
+    const outline = getOutline('= Title\n\n== Section\n');
+    expect(outline).toEqual([
+      expect.objectContaining({ title: 'Title', level: 0 }),
+      expect.objectContaining({ title: 'Section', level: 1 }),
+    ]);
+  });
+
+  test('still excludes a [discrete] heading even though the title (level 0) is now kept', () => {
+    const outline = getOutline('= Title\n\n[discrete]\n== Discrete\n\n== Real\n');
+    expect(outline.map((entry) => entry.title)).toEqual(['Title', 'Real']);
   });
 
   test('applies the inherited include-path offset from the facet', () => {
