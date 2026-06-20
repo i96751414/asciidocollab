@@ -270,14 +270,15 @@ export function ProjectEditorLayout({
   const [currentLine, setCurrentLine] = useState<number | null>(null);
   // Outline navigation reuses the existing same-file reveal seam: `revealLine` moves the EDITOR cursor
   // to the heading's line, and — exactly like clicking a line in the editor — `handleLineClick` scrolls
-  // the open preview to match. The preview follow is independent of the scroll-sync toggle because an
-  // outline click is an explicit navigation, not passive cursor tracking.
+  // the open preview to match even when scroll-sync is OFF (an outline click is an explicit navigation,
+  // not passive cursor tracking). When scroll-sync is ON we skip it: the cursor move already drives the
+  // preview via the scroll-sync handler, so issuing a second scroll would be a redundant double-scroll.
   const handleOutlineHeadingClick = useCallback(
     (entry: SectionOutlineEntry) => {
       revealLine(entry.line);
-      if (previewOpen) handleLineClick(entry.line);
+      if (previewOpen && !scrollSyncEnabled) handleLineClick(entry.line);
     },
-    [revealLine, handleLineClick, previewOpen],
+    [revealLine, handleLineClick, previewOpen, scrollSyncEnabled],
   );
 
   // Reset the scroll position AND the current-section marker whenever a different file is opened, so the

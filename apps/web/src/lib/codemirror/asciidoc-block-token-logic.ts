@@ -140,12 +140,13 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       while (input.peek(count) === EQUALS) count++;
       const afterEquals = input.peek(count);
 
-      if (afterEquals === SPACE) {
+      if (afterEquals === SPACE || afterEquals === TAB) {
         const afterSpace = input.peek(count + 1);
-        // A section title must have actual title text: skip the run of spaces/tabs after the marker
-        // and require a non-whitespace char before the line ends. `== ` (empty) / `==   ` (whitespace
-        // only) is a paragraph, matching Asciidoctor and the outline's `HEADING_RE` (`^(={1,6})\s+\S`),
-        // so the editor highlight and the Outline panel can never disagree on what is a heading.
+        // The marker is separated from the title by a space OR a tab (Asciidoctor `[ \t]+`). A section
+        // title must have actual title text: skip the run of spaces/tabs after the marker and require a
+        // non-whitespace char before the line ends. `== ` (empty) / `==   ` (whitespace only) is a
+        // paragraph, matching Asciidoctor and the outline's `HEADING_RE` (`^(={1,6})\s+\S`), so the
+        // editor highlight and the Outline panel can never disagree on what is a heading.
         let titlePos = count + 1;
         while (input.peek(titlePos) === SPACE || input.peek(titlePos) === TAB) titlePos++;
         const titleChar = input.peek(titlePos);

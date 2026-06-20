@@ -48,8 +48,9 @@ interface EditorPrefs {
 const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files' };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
-// merge-from-server and the PUT-payload strip both derive from this one list, so adding a new client-
-// only preference is a single edit here and it can never leak to the server by omission (028).
+// PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
+// leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
+// hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
 const CLIENT_ONLY_KEYS = ['leftPanelTab'] as const satisfies readonly (keyof EditorPrefs)[];
 
 function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown } {

@@ -140,12 +140,16 @@ export function asciidocSpellcheckSource(
     const diagnostics: Diagnostic[] = [];
     const text = view.state.doc.toString();
 
-    // Classify every document char so prose is checked on the word the READER sees. Role-span MARKUP
-    // (`[.role]` and the `#`/`##` delimiters) is DROPped so the styled body rejoins the prose glued
-    // around it into one word — `[.underline]##O##nce` → `Once` (a valid word, not flagged), while
+    // Classify every document char so a role-span body is checked as the word it renders to. Role-span
+    // MARKUP (`[.role]` and the `#`/`##` delimiters) is DROPped so the styled body rejoins the prose
+    // glued around it into one word — `[.underline]##O##nce` → `Once` (a valid word, not flagged), while
     // `[.underline]##O##nceasa` → `Onceasa` (flagged). Every other non-prose node (verbatim blocks,
     // links, entities, macros, `{set:…}`) becomes a BOUNDARY so its text is never checked AND a word
     // glued to it stays a separate, checkable word (`&amp;wrold` still checks `wrold`).
+    // NOTE: only RoleSpan is reconstructed here. Unconstrained bold/italic (`a**b**c`, `un__der__score`)
+    // split a word across markup the same way but are not skip nodes, so their `*`/`_` marks are treated
+    // as ordinary punctuation by WORD_RE (each fragment checked separately) — a known, separate gap; the
+    // general fix is one "rendered inline text" model that drops every inline-formatting delimiter.
     const KEEP = 0, DROP = 1, BOUNDARY = 2;
     const cls = new Uint8Array(text.length);
     tree.cursor().iterate((node) => {

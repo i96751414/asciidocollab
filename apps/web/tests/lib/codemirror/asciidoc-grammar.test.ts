@@ -403,6 +403,20 @@ describe('AsciiDoc Lezer Grammar', () => {
     test('`==   Spaced` with extra leading spaces before the title is still a Heading1', () => {
       expect(hasNode(parseDocument('==   Spaced\n'), 'Heading1')).toBe(true);
     });
+
+    // The marker may be separated from the title by a TAB as well as a space (Asciidoctor `[ \t]+`),
+    // matching the outline's `\s+` so the editor highlight and the Outline panel agree.
+    test('`==\\tTabbed` with a tab after the marker is a Heading1', () => {
+      expect(hasNode(parseDocument('==\tTabbed\n'), 'Heading1')).toBe(true);
+    });
+
+    test('`=\\tTitle` with a tab after the marker is a DocumentTitle', () => {
+      expect(hasNode(parseDocument('=\tTitle\n'), 'DocumentTitle')).toBe(true);
+    });
+
+    test('`==\\t` with only a tab and no title text is not a Heading1', () => {
+      expect(hasNode(parseDocument('==\t\n'), 'Heading1')).toBe(false);
+    });
   });
 
   describe('whitespace-only line is a blank line (block separator)', () => {
