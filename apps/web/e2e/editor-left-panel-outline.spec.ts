@@ -168,11 +168,15 @@ test.describe('Editor left panel: Outline view (028)', () => {
 
   // US5: file create/options actions show only while Files is active.
   test('file actions are present on Files and absent on Outline', async ({ page }) => {
-    const fileNodeId = await createTestFile(page, projectId, null, 'actions.adoc');
-    await writeFileContent(page, projectId, fileNodeId, '= Actions\n\n== Heading\n');
+    // The document title MUST NOT be "Actions": this test matches the file-tree ⋯ control by its
+    // accessible name (`aria-label="actions"`), and an outline entry renders a button named after the
+    // heading. A "= Actions" title would surface an "Actions" outline entry that collides with that
+    // name, so the `toHaveCount(0)` assertion below would (racily) see the outline button instead.
+    const fileNodeId = await createTestFile(page, projectId, null, 'sample.adoc');
+    await writeFileContent(page, projectId, fileNodeId, '= Sample Doc\n\n== Heading\n');
 
     await openProject(page, projectId);
-    await page.getByTestId('tree-node-actions.adoc').click();
+    await page.getByTestId('tree-node-sample.adoc').click();
     await waitCollabSynced(page);
 
     // Files view (default): the file-tree "actions" (⋯) control is visible.

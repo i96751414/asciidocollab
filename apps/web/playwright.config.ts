@@ -8,14 +8,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // Cap concurrency for the isolated stack: every collab-backed test opens Yjs sync session(s) against
   // a SINGLE test collaboration server, and collab pair-tests use two browser contexts each. The
-  // default (one worker per CPU core) over-subscribes that server on a many-core machine, so its Yjs
-  // sync lags and content-dependent assertions race an empty pre-sync document. 4 keeps the server
-  // comfortably within sync budget while staying reasonably fast. Override with PLAYWRIGHT_WORKERS.
-  workers: process.env.PLAYWRIGHT_WORKERS
-    ? Number(process.env.PLAYWRIGHT_WORKERS)
-    : (process.env.CI
-      ? 4
-      : undefined),
+  // Playwright default (one worker per CPU core) over-subscribes that server on a many-core machine, so
+  // its Yjs sync lags and content-dependent assertions race an empty pre-sync document — surfacing as
+  // intermittent failures in the heavy collab+preview specs (preview render, file-restore, outline).
+  // 4 keeps the server comfortably within sync budget while staying reasonably fast. The cap is applied
+  // UNCONDITIONALLY (not only under CI): a bare local `npx playwright test` must not oversubscribe
+  // either. Override with PLAYWRIGHT_WORKERS when you know the run won't contend (e.g. a single spec).
+  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 4,
   reporter: [['line']],
   use: {
     baseURL: WEB_URL,
