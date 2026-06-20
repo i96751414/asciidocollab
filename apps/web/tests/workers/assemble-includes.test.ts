@@ -246,6 +246,30 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(unresolved).toEqual([]);
   });
 
+  // Same as above but with showIncludes:false (hide mode) — the scroll-sync regression guard must
+  // also hold when the assembler runs with hideMode=true (029 enables this for ALL standalone files).
+  test('leaves a document with no includes byte-identical in hide mode (scroll-sync regression, 029)', () => {
+    const fillerParagraphs = Array.from({ length: 20 }, (_, index) =>
+      [`Filler paragraph ${index + 1} with enough text to generate rendered height.`, ''],
+    ).flat();
+    const lines = [
+      '= First Section',
+      '',
+      'Paragraph in the first section.',
+      '',
+      ...fillerParagraphs,
+      '== Second Section',
+      '',
+      'Content of the second section.',
+    ];
+    const source = lines.join('\n') + '\n';
+    const { content, unresolved } = assembleIncludes('main.adoc', reader({ 'main.adoc': source }), {
+      showIncludes: false,
+    });
+    expect(content).toBe(source);
+    expect(unresolved).toEqual([]);
+  });
+
   // T015 (FR-005): an unset before the include removes the attribute, so a later include target
   // using it is no longer substituted (and the target is left literal / unresolved).
   test('an unset attribute before an include is not substituted in a later include target', () => {
