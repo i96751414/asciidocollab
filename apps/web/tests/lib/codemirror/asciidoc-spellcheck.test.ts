@@ -29,7 +29,7 @@ const langExtension = new LanguageSupport(LRLanguage.define({ name: 'asciidoc', 
 const FAKE_AFF = String.raw`SET UTF-8
 TRY esianrtolcdugmphbyfvkwz
 `;
-const FAKE_DIC = ['5', 'hello', 'world', 'code', 'title', 'good'].join('\n') + '\n';
+const FAKE_DIC = ['6', 'hello', 'world', 'code', 'title', 'good', 'once'].join('\n') + '\n';
 
 /** Response stand-in for a successful same-origin dictionary fetch. */
 function okResponse(body: string): Partial<Response> {
@@ -141,6 +141,30 @@ describe('SPELLCHECK_SKIP_NODES', () => {
       expect(words).not.toContain('nce');       // fragment glued to the span
       expect(words).not.toContain('underline'); // role name (markup)
       expect(words).not.toContain('big');       // role name (markup)
+      view.destroy();
+    });
+  });
+
+  test('an unconstrained span splitting a VALID word (`[.underline]##O##nce` → "Once") is not flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('[.underline]##O##nce\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      expect(diagnostics).toHaveLength(0); // reconstructs to "Once", which is in the dictionary
+      view.destroy();
+    });
+  });
+
+  test('an unconstrained span splitting a MISSPELLED word (`[.underline]##O##nceasa` → "Onceasa") is flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      const view = makeView('[.underline]##O##nceasa\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      expect(diagnostics.length).toBeGreaterThan(0); // reconstructs to "Onceasa", not a word
+      // The diagnostic underlines the visible (mis)spelled word, including the dropped `##` delimiters.
+      expect(diagnostics.some((d) => view.state.sliceDoc(d.from, d.to).includes('nceasa'))).toBe(true);
       view.destroy();
     });
   });

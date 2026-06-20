@@ -140,35 +140,54 @@ export function asciidocSpellcheckSource(
     const diagnostics: Diagnostic[] = [];
     const text = view.state.doc.toString();
 
-    // Collect prose ranges by subtracting skip-node ranges from the document. `roleSpans` holds the
-    // FULL `[.role]##body##` range (its body is prose, so it is not a skip range) — a word glued to its
-    // outer edge is a markup-split fragment, not a standalone misspelling.
-    const skip: Array<{ from: number; to: number }> = [];
-    const roleSpans: Array<{ from: number; to: number }> = [];
+    // Classify every document char so prose is checked on the word the READER sees. Role-span MARKUP
+    // (`[.role]` and the `#`/`##` delimiters) is DROPped so the styled body rejoins the prose glued
+    // around it into one word — `[.underline]##O##nce` → `Once` (a valid word, not flagged), while
+    // `[.underline]##O##nceasa` → `Onceasa` (flagged). Every other non-prose node (verbatim blocks,
+    // links, entities, macros, `{set:…}`) becomes a BOUNDARY so its text is never checked AND a word
+    // glued to it stays a separate, checkable word (`&amp;wrold` still checks `wrold`).
+    const KEEP = 0, DROP = 1, BOUNDARY = 2;
+    const cls = new Uint8Array(text.length);
     tree.cursor().iterate((node) => {
       if (node.name === ROLE_SPAN_NODE) {
-        // Skip only the leading `[.role]` markup; leave the `#…#`/`##…##` body to be spell-checked.
-        const bracketEnd = text.indexOf(']', node.from);
-        const nameEnd = bracketEnd === -1 || bracketEnd >= node.to ? node.to : bracketEnd + 1;
-        skip.push({ from: node.from, to: nameEnd });
-        roleSpans.push({ from: node.from, to: node.to });
-        return;
+        const spanText = text.slice(node.from, node.to);
+        const bracketEnd = spanText.indexOf(']'); // end of the `[.role]` name
+        let delimiter = bracketEnd + 1, hashes = 0;
+        while (bracketEnd !== -1 && spanText[delimiter] === '#') { hashes++; delimiter++; }
+        if (bracketEnd === -1 || hashes === 0) {
+          // Malformed span — treat it all as a boundary rather than leaking markup as prose.
+          for (let index = node.from; index < node.to; index++) cls[index] = BOUNDARY;
+          return;
+        }
+        const bodyFrom = node.from + delimiter;            // first body char (after `[.role]##`)
+        const bodyTo = node.from + spanText.length - hashes; // first trailing `#`
+        for (let index = node.from; index < bodyFrom; index++) cls[index] = DROP; // `[.role]##` prefix
+        for (let index = bodyTo; index < node.to; index++) cls[index] = DROP;     // `##` suffix
+        return; // body chars stay KEEP so they join the surrounding prose
       }
-      if (SPELLCHECK_SKIP_NODES.has(node.name)) skip.push({ from: node.from, to: node.to });
+      if (SPELLCHECK_SKIP_NODES.has(node.name)) {
+        for (let index = node.from; index < node.to; index++) cls[index] = BOUNDARY;
+      }
     });
-    // A word is not prose-checked when it is inside a skip range, OR glued directly (no whitespace) to
-    // a ROLE SPAN — an unconstrained span splits a word across markup (`[.underline]##O##nce` leaves the
-    // fragment `nce` touching the span). The glued rule is scoped to role spans: a word abutting any
-    // other skip node (a link, entity, or macro) is real standalone prose and must still be checked.
-    const isSkipped = (from: number, to: number) =>
-      skip.some((range) => from >= range.from && to <= range.to) ||
-      roleSpans.some((range) => from === range.to || to === range.from);
 
-    for (const token of selectMisspelled(tokenizeWords(text), checker.correct, getIgnore())) {
-      if (isSkipped(token.from, token.to)) continue;
+    // Materialise the visible text and a per-char map back to document offsets (boundary runs collapse
+    // to a single space — it is only ever a word separator, never part of a flagged word).
+    const parts: string[] = [];
+    const offsetMap: number[] = [];
+    for (let index = 0; index < text.length; ) {
+      const kind = cls[index];
+      if (kind === KEEP) { parts.push(text[index]); offsetMap.push(index); index++; }
+      else if (kind === DROP) { index++; }
+      else { parts.push(' '); offsetMap.push(index); index++; while (index < text.length && cls[index] === BOUNDARY) index++; }
+    }
+    const visible = parts.join('');
+
+    // Each token's offsets index `visible`; map its start/end back to the document for the diagnostic
+    // (a word reconstructed across markup spans the dropped delimiters, so the underline includes them).
+    for (const token of selectMisspelled(tokenizeWords(visible), checker.correct, getIgnore())) {
       diagnostics.push({
-        from: token.from,
-        to: token.to,
+        from: offsetMap[token.from],
+        to: offsetMap[token.to - 1] + 1,
         severity: 'info',
         message: `“${token.word}” may be misspelled`,
       });
