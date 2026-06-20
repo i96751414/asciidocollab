@@ -51,6 +51,7 @@ test.describe('US3 auto IDs honor idprefix/idseparator across files', () => {
     // Open the MAIN file so the include tree is assembled with the inherited id attributes.
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // The first heading's auto-ID uses the configured prefix/separator → `sect_my-section`.

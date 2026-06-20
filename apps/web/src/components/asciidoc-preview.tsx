@@ -10,6 +10,11 @@ import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
+import { ShowIncludesControl } from '@/components/show-includes-control';
+import {
+  INCLUDE_PLACEHOLDER_CLASS,
+  INCLUDE_PLACEHOLDER_TARGET_ATTR,
+} from '@/lib/asciidoc/include-placeholder';
 // Re-exported for back-compat: the AsciiDoc file-name rule now lives in lib/asciidoc/file-name
 // (single presentation copy of the domain rule), but existing callers import it from here.
 export { isAsciiDocumentFile as isAsciiDocFile } from '@/lib/asciidoc/file-name';
@@ -65,6 +70,20 @@ interface AsciiDocPreviewProperties {
    * @param style - The newly selected style token.
    */
   onPreviewStyleChange?: (style: PreviewStyleValue) => void;
+  /** When false (default), included bodies are hidden behind placeholders. Passed to the preview hook. */
+  showIncludedFiles?: boolean;
+  /**
+   * Called when the user clicks/activates a placeholder to open the included file.
+   *
+   * @param path - The project-relative path of the included file.
+   */
+  onOpenInclude?: (path: string) => void;
+  /**
+   * Called when the user toggles the show-included-files control; when provided, the control renders.
+   *
+   * @param value - The new value (true = show bodies inline, false = hide behind placeholders).
+   */
+  onShowIncludedFilesChange?: (value: boolean) => void;
 }
 
 /** Live preview panel that renders AsciiDoc source as styled HTML via a Web Worker. */
@@ -82,6 +101,9 @@ export function AsciiDocPreview({
   onToggleScrollSync,
   previewStyle = 'asciidocollab',
   onPreviewStyleChange,
+  showIncludedFiles = false,
+  onOpenInclude,
+  onShowIncludedFilesChange,
 }: AsciiDocPreviewProperties) {
   // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
   // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
@@ -95,11 +117,18 @@ export function AsciiDocPreview({
     getFiles,
     rootFileId: rootFilePath,
     openFileId: openFilePath,
+    showIncludes: showIncludedFiles,
   });
 
   // Ref to the rendered-output container — the scoped `.asciidoc-preview-content` element whose
   // sanitized HTML may carry STEM delimiters MathJax typesets in place (US15).
   const outputReference = useRef<HTMLDivElement | null>(null);
+
+  // Keep a stable ref to the latest onOpenInclude callback so the delegated listener closure never
+  // captures a stale function reference (avoids re-attaching the listener just because the callback
+  // identity changed, while still calling the most-recent version on each interaction).
+  const onOpenIncludeReference = useRef(onOpenInclude);
+  onOpenIncludeReference.current = onOpenInclude;
 
   // Stable `dangerouslySetInnerHTML` payload, keyed on `html`. A fresh `{ __html }` object literal
   // every render would make React treat the prop as changed and RE-APPLY innerHTML on every re-render
@@ -129,6 +158,46 @@ export function AsciiDocPreview({
     };
   }, [html, mathPresent]);
 
+  // Delegated listener for include-placeholder interactions (click + keyboard).
+  // A single listener on the container handles all placeholders — even those added
+  // after re-render — via `.closest()` delegation (Constitution IV: no per-element handlers).
+  // Re-attaches only when `html` changes (innerHTML is rewritten each render). The ref pattern
+  // above ensures handlers always call the latest `onOpenInclude` without needing it in deps.
+  useEffect(() => {
+    const container = outputReference.current;
+    if (!container || !onOpenIncludeReference.current) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target =
+        event.target instanceof Element
+          ? event.target.closest(`.${INCLUDE_PLACEHOLDER_CLASS}[${INCLUDE_PLACEHOLDER_TARGET_ATTR}]`)
+          : null;
+      if (!target) return;
+      const path = target.getAttribute(INCLUDE_PLACEHOLDER_TARGET_ATTR);
+      if (path) onOpenIncludeReference.current?.(path);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target =
+        event.target instanceof Element
+          ? event.target.closest(`.${INCLUDE_PLACEHOLDER_CLASS}[${INCLUDE_PLACEHOLDER_TARGET_ATTR}]`)
+          : null;
+      if (!target) return;
+      event.preventDefault();
+      const path = target.getAttribute(INCLUDE_PLACEHOLDER_TARGET_ATTR);
+      if (path) onOpenIncludeReference.current?.(path);
+    };
+
+    container.addEventListener('click', handleClick);
+    container.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      container.removeEventListener('click', handleClick);
+      container.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [html]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
@@ -138,6 +207,9 @@ export function AsciiDocPreview({
             <PreviewStyleControl value={previewStyle} onChange={onPreviewStyleChange} compact />
           )}
           <SyncIndicator state={state} isEnabled={isEnabled} />
+          {onShowIncludedFilesChange && (
+            <ShowIncludesControl value={showIncludedFiles} onChange={onShowIncludedFilesChange} />
+          )}
           {onToggleScrollSync && (
             <Button
               type="button"

@@ -39,6 +39,7 @@ test.describe('US8 preview include assembly', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // The included file's content is inlined (assembly ran)…
@@ -54,6 +55,7 @@ test.describe('US8 preview include assembly', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     await expect(output).toContainText('Unresolved directive', { timeout: 15_000 });

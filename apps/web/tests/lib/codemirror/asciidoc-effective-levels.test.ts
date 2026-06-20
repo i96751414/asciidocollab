@@ -3,6 +3,7 @@ import {
   parseLevelOffset,
   computeHeadingLevels,
   isBoundaryBlockConstruct,
+  type IncludeResolutionContext,
 } from '@/lib/codemirror/asciidoc-effective-levels';
 
 describe('parseLevelOffset', () => {
@@ -164,5 +165,75 @@ describe('isBoundaryBlockConstruct', () => {
     for (const line of ['Some prose', '* item', '- item', 'word word', '. ordered']) {
       expect(isBoundaryBlockConstruct(line)).toBe(false);
     }
+  });
+});
+
+function makeIncludeContext(files: Record<string, string>, fromFileId: string): IncludeResolutionContext {
+  return {
+    fileId: fromFileId,
+    getContent: (id) => files[id] ?? null,
+    resolveInclude: (fromId, target) => {
+      const directory = fromId.includes('/') ? fromId.slice(0, fromId.lastIndexOf('/') + 1) : '';
+      const resolved = directory + target;
+      return files[resolved] === undefined ? null : resolved;
+    },
+  };
+}
+
+describe('computeHeadingLevels with includeContext', () => {
+  test('an include inside an inactive ifdef block does NOT contribute its leveloffset', () => {
+    // flag is not defined anywhere → ifdef::flag[] region is inactive.
+    // Without the fix, traceFinalOffset blindly follows the include and picks up :leveloffset: +1.
+    const files = {
+      'main.adoc': 'ifdef::flag[]\ninclude::child.adoc[]\nendif::[]\n== After\n',
+      'child.adoc': ':leveloffset: +1\n',
+    };
+    const headings = computeHeadingLevels(files['main.adoc'], 0, makeIncludeContext(files, 'main.adoc'));
+    // == After should be at effective level 1 (include inside inactive ifdef was skipped)
+    expect(headings[0]?.effectiveLevel).toBe(1);
+  });
+
+  test('a file included via two paths (diamond) contributes its leveloffset only once', () => {
+    // main → a → shared; main → b → shared
+    // shared sets :leveloffset: +1 (attribute form, persists)
+    // Without fix: shared visited twice → offset doubles to +2 → == After at level 3 (beyondMax)
+    const files = {
+      'main.adoc': 'include::a.adoc[]\ninclude::b.adoc[]\n== After\n',
+      'a.adoc': 'include::shared.adoc[]\n',
+      'b.adoc': 'include::shared.adoc[]\n',
+      'shared.adoc': ':leveloffset: +1\n',
+    };
+    const headings = computeHeadingLevels(files['main.adoc'], 0, makeIncludeContext(files, 'main.adoc'));
+    // == After at effective level 2: offset +1 (shared counted once)
+    expect(headings[0]?.effectiveLevel).toBe(2);
+    expect(headings[0]?.beyondMax).toBe(false);
+  });
+
+  test('attribute-form :leveloffset: from an included file shifts headings in the parent', () => {
+    const files = {
+      'main.adoc': 'include::child.adoc[]\n== After Include\n',
+      'child.adoc': ':leveloffset: +1\n== In Child\n',
+    };
+    const headings = computeHeadingLevels(files['main.adoc'], 0, makeIncludeContext(files, 'main.adoc'));
+    // == After Include: raw level 1, child set :leveloffset: +1 (attribute form), so effective = 1 + 1 = 2
+    const afterHeading = headings.find((heading) => !heading.beyondMax);
+    expect(afterHeading?.effectiveLevel).toBe(2);
+  });
+
+  test('leveloffset= option form does NOT shift headings in the parent (scoped)', () => {
+    const files = {
+      'main.adoc': 'include::child.adoc[leveloffset=+1]\n== After Include\n',
+      'child.adoc': '== In Child\n',
+    };
+    const headings = computeHeadingLevels(files['main.adoc'], 0, makeIncludeContext(files, 'main.adoc'));
+    // Option form is scoped: == After Include stays at effective level 1
+    const afterHeading = headings[0];
+    expect(afterHeading?.effectiveLevel).toBe(1);
+  });
+
+  test('without includeContext, include lines are ignored (backward compat)', () => {
+    const document = 'include::child.adoc[]\n== After Include\n';
+    const headings = computeHeadingLevels(document, 0);
+    expect(headings[0]?.effectiveLevel).toBe(1);
   });
 });

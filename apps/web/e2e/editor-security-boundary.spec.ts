@@ -48,6 +48,7 @@ test.describe('editor security boundary (Constitution IX)', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // Every out-of-sandbox target resolves to the "Unresolved directive" marker, not inlined content.
@@ -141,6 +142,7 @@ test.describe('editor security boundary (Constitution IX)', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // The retained (active-branch, in-tag) content renders…

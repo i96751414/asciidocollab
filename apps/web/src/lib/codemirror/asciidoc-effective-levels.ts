@@ -13,6 +13,9 @@
  * The domain owns the separate, server-side structural rules it needs for refactoring.
  */
 
+import { hasIncludeLevelOffsetOption } from '../asciidoc/extraction';
+import { INCLUDE_LINE_RE, ConditionalRegionStack } from '../asciidoc/conditional-regions';
+
 /** AsciiDoc section levels run 0 (`=`, doc title) … 5 (`======`). */
 export const MAX_HEADING_LEVEL = 5;
 
@@ -117,6 +120,84 @@ function applyOffset(current: number, op: LevelOffsetOp, base: number): number {
 }
 
 /**
+ * Capability bag for resolving include directives during heading-level computation.
+ * When provided, `computeHeadingLevels` traces attribute-form `:leveloffset:` changes
+ * that persist from included files into the current file's running offset.
+ */
+export interface IncludeResolutionContext {
+  /** File ID of the document being processed (used as the `from` for include resolution). */
+  fileId: string;
+  /**
+   * Returns the content of a file by ID, or null when unavailable.
+   *
+   * @param fileId - The file whose content to retrieve.
+   * @returns The file text, or null when unavailable.
+   */
+  getContent: (fileId: string) => string | null;
+  /**
+   * Resolves an include target relative to `fromFileId` to a file ID, or null.
+   *
+   * @param fromFileId - The file from which the include target is resolved.
+   * @param target - The include target path (relative to `fromFileId`).
+   * @returns The resolved file ID, or null when the target cannot be resolved.
+   */
+  resolveInclude: (fromFileId: string, target: string) => string | null;
+}
+
+/**
+ * Walk `fileText` (the content of file `fileId`) and return the final `:leveloffset:` value
+ * after all content has been processed, starting from `baseOffset`. Recursively processes
+ * nested includes (up to depth 64), respects the cycle guard (`visited`), and applies the
+ * same two-form scoping rule as the include assembler:
+ * - `leveloffset=` OPTION: scoped, does not affect the returned offset.
+ * - attribute-form `:leveloffset:` inside the file: persists, returned in the final offset.
+ *
+ * @param fileText - The raw text content of the file to walk.
+ * @param fileId - The file ID of the file being walked (for include resolution).
+ * @param baseOffset - The offset inherited at the point this file is included.
+ * @param context - The include resolution context for following include chains.
+ * @param visited - Set of file IDs already visited in this walk (cycle guard).
+ * @param depth - Current recursion depth (capped at 64).
+ */
+const EMPTY_ATTRS = new Map<string, string>();
+
+function traceFinalOffset(
+  fileText: string,
+  fileId: string,
+  baseOffset: number,
+  context: IncludeResolutionContext,
+  visited: Set<string>,
+  depth: number,
+): number {
+  if (depth > 64 || visited.has(fileId)) return baseOffset;
+  visited.add(fileId);
+  let offset = baseOffset;
+  const conditionals = new ConditionalRegionStack();
+  for (const line of fileText.split('\n')) {
+    if (conditionals.applyLine(line, EMPTY_ATTRS) !== null) continue;
+    if (!conditionals.isActive()) continue;
+    const op = parseLevelOffset(line);
+    if (op) {
+      offset = applyOffset(offset, op, baseOffset);
+      continue;
+    }
+    const includeMatch = INCLUDE_LINE_RE.exec(line);
+    if (includeMatch) {
+      const attributeList = includeMatch[2] ?? '';
+      if (hasIncludeLevelOffsetOption(attributeList)) continue; // option form is scoped
+      const childId = context.resolveInclude(fileId, includeMatch[1].trim());
+      if (childId) {
+        const childContent = context.getContent(childId);
+        if (childContent) {
+          offset = traceFinalOffset(childContent, childId, offset, context, visited, depth + 1);
+        }
+      }
+    }
+  }
+  return offset;
+}
+
+/**
  * Compute effective heading levels for an AsciiDoc document. `inheritedOffset` is the offset
  * accumulated from ancestor files in the include path (0 when the file is the tree root, or when
  * no main file supplies it — FR-071).
@@ -130,9 +211,14 @@ function applyOffset(current: number, op: LevelOffsetOp, base: number): number {
  *
  * @param documentText - The file's full text.
  * @param inheritedOffset - The offset inherited from include ancestors (default 0).
+ * @param includeContext - Optional context for tracing include-induced leveloffset changes.
  * @returns One {@link HeadingLevelInfo} per heading line, in document order.
  */
-export function computeHeadingLevels(documentText: string, inheritedOffset = 0): HeadingLevelInfo[] {
+export function computeHeadingLevels(
+  documentText: string,
+  inheritedOffset = 0,
+  includeContext?: IncludeResolutionContext,
+): HeadingLevelInfo[] {
   const result: HeadingLevelInfo[] = [];
   const lines = documentText.split('\n');
   let offset = inheritedOffset;
@@ -140,9 +226,20 @@ export function computeHeadingLevels(documentText: string, inheritedOffset = 0):
   let openDelimiter: string | null = null;
   let pendingDiscrete = false;
   let inParagraph = false; // inside an open paragraph that absorbs following lines until a blank
+  // Shared across all top-level traceFinalOffset calls so a file reachable via multiple sibling
+  // includes (diamond graph) is only traced once (cycle guard shared, not copied per call).
+  const includeVisited = includeContext ? new Set([includeContext.fileId]) : new Set<string>();
+  // Gates traceFinalOffset calls: conditionals are preprocessor-level so we track them globally
+  // (even inside delimited blocks). An empty attribute map makes ifdef::flag[] → inactive, which is
+  // conservative: we may miss leveloffset from genuinely-active ifdef blocks, but we never apply
+  // offset from inactive ones. Only used when includeContext is provided.
+  const tracingConditionals = includeContext ? new ConditionalRegionStack() : null;
 
   for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
+
+    // Preprocessor: always track conditional regions so the include gate below is accurate.
+    tracingConditionals?.applyLine(line, EMPTY_ATTRS);
 
     if (openDelimiter !== null) {
       if (trimmed === openDelimiter) openDelimiter = null;
@@ -175,6 +272,25 @@ export function computeHeadingLevels(documentText: string, inheritedOffset = 0):
       offset = applyOffset(offset, offsetOp, inheritedOffset);
       cursor += line.length + 1;
       continue;
+    }
+
+    if (includeContext) {
+      const includeMatch = INCLUDE_LINE_RE.exec(line);
+      if (includeMatch) {
+        const attributeList = includeMatch[2] ?? '';
+        if (!hasIncludeLevelOffsetOption(attributeList) && tracingConditionals?.isActive() !== false) {
+          const childId = includeContext.resolveInclude(includeContext.fileId, includeMatch[1].trim());
+          if (childId) {
+            const childContent = includeContext.getContent(childId);
+            if (childContent) {
+              offset = traceFinalOffset(childContent, childId, offset, includeContext, includeVisited, 1);
+            }
+          }
+        }
+        pendingDiscrete = false;
+        cursor += line.length + 1;
+        continue;
+      }
     }
 
     if (trimmed === '[discrete]' || trimmed === '[float]') {

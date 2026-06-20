@@ -2,6 +2,7 @@ import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 import { substitutePathAttributes } from '../lib/asciidoc/include-path';
 import {
   parseIncludeLevelOffset,
+  hasIncludeLevelOffsetOption,
   parseIncludeTags,
   parseIncludeLines,
   applyLineAttributes,
@@ -13,6 +14,7 @@ import {
   evaluateConditional,
   INCLUDE_LINE_RE,
 } from '../lib/asciidoc/conditional-regions';
+import { buildIncludePlaceholderBlock } from '../lib/asciidoc/include-placeholder';
 
 /**
  * Sandbox-confined AsciiDoc include assembler (US8/FR-068, Constitution IX).
@@ -71,6 +73,12 @@ const DEFAULT_MAX_DEPTH = 64;
 // generous enough for legitimate multi-file books (thousands of includes) while capping pathological
 // fan-out; once spent, every further include is gated off with the `limit` reason.
 const DEFAULT_MAX_EXPANSIONS = 10_000;
+
+// Matches any attribute-entry line: set (`:name: value`), prefix-unset (`:!name:`), or
+// suffix-unset (`:name!:`). These are emitted verbatim in hide mode so Asciidoctor sees them
+// in document order and resolves attribute state correctly (029).
+const ATTR_ENTRY_RE =
+  /^:([A-Za-z0-9][\w-]*):[ \t]*.*$|^:!([A-Za-z0-9][\w-]*):[ \t]*$|^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
 
 /**
  * Format an ABSOLUTE `:leveloffset:` value entry body. The assembler emits absolute offsets (a bare
@@ -184,13 +192,16 @@ function selectLineRanges(source: string, ranges: ReadonlyArray<readonly [number
  *   lines in the source — Asciidoctor's intrinsics (`backend-html5`, `filetype-html`, `doctype-article`,
  *   …) and any API-seeded values. They must be in scope so conditional include-gating and `{attr}`
  *   target substitution agree with the eventual render; an in-document entry still overrides a seed
- *   (document order wins). Defaults to ∅.
+ *   (document order wins). Defaults to ∅. `showIncludes` (default `undefined`, treated as `true`)
+ *   controls hide mode: when `false`, included file bodies are suppressed and replaced with a
+ *   passthrough placeholder block, while attribute-entry lines are still emitted so Asciidoctor
+ *   resolves attribute state correctly (029/FR-003/FR-005).
  * @returns The assembled content and the list of unresolved/rejected directives.
  */
 export function assembleIncludes(
   rootPath: string,
   readFile: (path: string) => string | null,
-  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string> } = {},
+  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string>; showIncludes?: boolean } = {},
 ): AssembleResult {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const maxExpansions = options.maxExpansions ?? DEFAULT_MAX_EXPANSIONS;
@@ -202,11 +213,8 @@ export function assembleIncludes(
   // Seeded with the attributes already in effect at the root (intrinsics + API attributes) so gating
   // and path substitution match the render; in-document entries override them in document order.
   const attributes = new Map<string, string>(options.seedAttributes);
-
-  const marker = (from: string, target: string, reason: string): string => {
-    unresolved.push({ from, target, reason });
-    return `Unresolved directive in ${from} - include::${target}[]`;
-  };
+  // When false, hide included bodies and emit attribute-entry lines only (029).
+  const hideMode = options.showIncludes === false;
 
   // `baseOffset` is the `:leveloffset:` in effect when this file's content begins (the offset its
   // own include applied). Attribute-form `:leveloffset:` entries inside the file shift a running
@@ -217,12 +225,16 @@ export function assembleIncludes(
   // place of the file's raw content — slicing happens on the RAW child source BEFORE expansion, so
   // nested includes inside a kept region still expand, and attribute/leveloffset resolution applies
   // to the slice exactly as it would to a whole include (FR-033/FR-034/FR-035).
+  // `emit` controls whether non-attribute lines are included in the output. When `false` (used for
+  // hidden subtrees in hide mode), only attribute-entry lines are emitted so the attribute state
+  // is preserved for downstream content while the body is suppressed (029/FR-005).
   const expand = (
     path: string,
     stack: readonly string[],
     depth: number,
     baseOffset: number,
     overrideContent?: string,
+    emit: boolean = true,
   ): string => {
     const content = overrideContent ?? readFile(path);
     if (content === null) return '';
@@ -242,17 +254,42 @@ export function assembleIncludes(
     const expandIncludeLine = (rawTarget: string, attributeList: string): string[] => {
       const target = substitutePathAttributes(rawTarget, attributes);
       const resolved = resolveSandboxedPath(path, target);
-      if (!resolved.ok) return [marker(path, rawTarget, resolved.reason)];
-      if (stack.includes(resolved.path)) return [marker(path, rawTarget, 'cycle')];
-      if (depth + 1 > maxDepth) return [marker(path, rawTarget, 'depth')];
+      if (!resolved.ok) {
+        unresolved.push({ from: path, target: rawTarget, reason: resolved.reason });
+        if (!emit) return [];
+        if (hideMode) return [buildIncludePlaceholderBlock(rawTarget)];
+        return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
+      }
+      if (stack.includes(resolved.path)) {
+        unresolved.push({ from: path, target: rawTarget, reason: 'cycle' });
+        if (!emit) return [];
+        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
+      }
+      if (depth + 1 > maxDepth) {
+        unresolved.push({ from: path, target: rawTarget, reason: 'depth' });
+        if (!emit) return [];
+        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
+      }
       const rawContent = readFile(resolved.path);
-      if (rawContent === null) return [marker(path, rawTarget, 'not-found')];
+      if (rawContent === null) {
+        unresolved.push({ from: path, target: rawTarget, reason: 'not-found' });
+        if (!emit) return [];
+        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
+      }
       // Global fan-out budget: the cycle guard above only blocks an ancestor-chain repeat, so a file
       // re-included along many sibling/diamond paths would otherwise expand exponentially. Once the
       // total budget is spent, refuse further expansions so the worker cannot be driven to OOM by
       // attacker-authored content. Only a real expansion (a found target) counts — a not-found read
       // above expands nothing, so it must not deplete the budget and gate off later valid includes (#6).
-      if (expansions >= maxExpansions) return [marker(path, rawTarget, 'limit')];
+      if (expansions >= maxExpansions) {
+        unresolved.push({ from: path, target: rawTarget, reason: 'limit' });
+        if (!emit) return [];
+        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
+      }
       expansions += 1;
       // Partial include: slice the RAW child source by `tags=`/`lines=` BEFORE expansion. `lines=`
       // is applied first (a raw line range), then `tags=` region selection — Asciidoctor applies a
@@ -265,20 +302,40 @@ export function assembleIncludes(
       if (lineRanges !== null) childSource = selectLineRanges(childSource, lineRanges);
       const tagSelectors = parseIncludeTags(attributeList);
       if (tagSelectors !== null) childSource = selectTaggedLines(childSource, tagSelectors);
-      // The child renders at the offset in effect here plus its include's `leveloffset=` option. It is
-      // expanded with that as its base; afterwards the enclosing `offset` is re-emitted as an absolute
-      // entry so the parent is restored regardless of what the child did to its own offset (the child
-      // may set `:leveloffset:` without resetting it). Both restorations use absolute values so an
-      // unbalanced child cannot corrupt the surrounding offset.
+      // The child renders at the offset in effect here plus its include's `leveloffset=` option.
+      // The `leveloffset=` OPTION form is include-scoped (Asciidoctor restores the offset after the
+      // include ends), so the parent emits an absolute set before the child and an absolute restore
+      // afterwards. The attribute-form `:leveloffset:` INSIDE the child is NOT include-scoped — it
+      // persists into the parent exactly as any other attribute change would (AsciiDoc semantics). In
+      // that case no restore is emitted; the child's accumulated lines (which already contain the
+      // verbatim `:leveloffset: +N` entry) leave the offset shifted for subsequent content.
+      const hasLevelOffsetOption = hasIncludeLevelOffsetOption(attributeList);
       const childOffset = offset + parseIncludeLevelOffset(attributeList);
-      const child = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource);
+
+      if (!emit || hideMode) {
+        // Hidden subtree (emit:false) OR visible-but-hide-mode: expand child for attributes only.
+        // In emit:false mode we are already inside a suppressed subtree — no placeholder emitted here.
+        // In emit:true + hideMode: emit a placeholder for this top-level include, then scan the child
+        // for attribute entries only (emit:false).
+        const childAttributes = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, false);
+        const lines: string[] = [];
+        if (hideMode && emit) lines.push(buildIncludePlaceholderBlock(resolved.path));
+        if (childOffset !== offset) lines.push(`:leveloffset: ${absolute(childOffset)}`);
+        lines.push(childAttributes);
+        if (hasLevelOffsetOption) lines.push(`:leveloffset: ${absolute(offset)}`);
+        return lines;
+      }
+
+      // Show mode (emit:true, !hideMode): full expansion.
+      const child = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, true);
       const lines: string[] = [];
-      // Set the child's absolute offset (only when the boundary actually shifts it), then restore the
-      // enclosing absolute offset afterwards. The restore runs unconditionally because the child may
-      // have changed `:leveloffset:` internally without resetting it (Asciidoctor scopes that to the
-      // include); re-emitting the enclosing offset reproduces that scoping in the inlined assembly.
+      // Emit the child's absolute offset when the include OPTION shifts it; restore the enclosing
+      // offset afterwards (option form is scoped). When no `leveloffset=` option, the child's
+      // inlined content already carries any attribute-form `:leveloffset:` entries verbatim — they
+      // persist into the parent as native Asciidoctor would let them, so no restore is emitted.
       if (childOffset !== offset) lines.push(`:leveloffset: ${absolute(childOffset)}`);
-      lines.push(child, `:leveloffset: ${absolute(offset)}`);
+      lines.push(child);
+      if (hasLevelOffsetOption) lines.push(`:leveloffset: ${absolute(offset)}`);
       return lines;
     };
 
@@ -286,20 +343,23 @@ export function assembleIncludes(
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       const line = lines[lineIndex];
       // A region opener (`ifeval::[expr]`, or empty-bracket `ifdef`/`ifndef`) or closer (`endif::[]`)
-      // moves the shared region stack; the directive line is always emitted verbatim so Asciidoctor
-      // sees the conditional. The single-line content form `ifdef::flag[text]` is deliberately NOT a
-      // region (no matching endif) — it returns `null` here and falls through to be emitted as text.
+      // moves the shared region stack; in emit:true mode the directive line is emitted verbatim so
+      // Asciidoctor sees the conditional. In emit:false (hidden-subtree attribute scan) the directive
+      // is NOT emitted — leaking child conditionals into the parent would corrupt its conditional state.
+      // The single-line content form `ifdef::flag[text]` is deliberately NOT a region (no matching
+      // endif) — it returns `null` here and falls through to be emitted as text.
       if (conditionals.applyLine(line, attributes) !== null) {
-        out.push(line);
+        if (emit) out.push(line);
         continue;
       }
       // The single-line form `ifdef::flag[include::target[]]` — the gating condition wraps an inline
       // include. Evaluate the condition against current attributes and only expand the inner include
-      // when active (and the enclosing regions are too); the directive line is emitted verbatim either
-      // way so Asciidoctor still sees the conditional, and no separate region is opened.
+      // when active (and the enclosing regions are too); the directive line is emitted verbatim in
+      // emit:true mode so Asciidoctor still sees the conditional. In emit:false mode the line is
+      // suppressed so child conditionals do not corrupt the parent's preprocessor state.
       const inlineCond = INLINE_INCLUDE_COND_RE.exec(line);
       if (inlineCond !== null) {
-        out.push(line);
+        if (emit) out.push(line);
         const condition = parseConditional(inlineCond[1] + ']');
         const active = condition !== null && evaluateConditional(condition, attributes);
         if (active && conditionals.isActive()) out.push(...expandIncludeLine(inlineCond[2], inlineCond[3]));
@@ -312,6 +372,8 @@ export function assembleIncludes(
         // otherwise track only the first fragment (with the trailing `\`). Each physical line is still
         // emitted verbatim so Asciidoctor performs its own native join and `data-source-line` mapping
         // is preserved — only the value the assembler TRACKS is joined (FR-041).
+        // Attribute-set continuation lines are always emitted (even in emit:false mode) because they
+        // constitute attribute-entry lines that must survive into the assembled output.
         const setEntry = ATTR_SET_LINE_RE.exec(line);
         if (setEntry !== null && VALUE_CONTINUATION_RE.test(setEntry[2])) {
           out.push(line);
@@ -330,19 +392,55 @@ export function assembleIncludes(
         // attributes defined ABOVE it (matching extraction.ts / Asciidoctor): set/unset and inline
         // `{set:}` all count, with soft-set precedence. A parent's definitions persist into its
         // includes, but an attribute defined (or unset) after an include is not in scope for it.
-        applyLineAttributes(line, attributes);
-        // Track the attribute-form `:leveloffset:` in effect so a later include's restoration knows
-        // the enclosing offset to return to. The line itself is still emitted for Asciidoctor.
-        offset = applyLevelOffsetEntry(line, offset, baseOffset);
-        out.push(line);
+        if (emit) {
+          applyLineAttributes(line, attributes);
+          // Track the attribute-form `:leveloffset:` in effect so a later include's restoration knows
+          // the enclosing offset to return to. The line itself is still emitted for Asciidoctor.
+          offset = applyLevelOffsetEntry(line, offset, baseOffset);
+          // In hide mode, substitute known attribute references in prose lines so the assembled
+          // content already reflects the values defined by hidden includes — the writer sees resolved
+          // values in the preview rather than raw `{attr}` placeholders (029/SC-001).
+          // Attribute-entry lines are emitted verbatim (they define attributes, not reference them);
+          // non-entry prose lines have their `{name}` refs expanded against the current attribute map.
+          const emittedLine =
+            hideMode && !ATTR_ENTRY_RE.test(line)
+              ? substitutePathAttributes(line, attributes)
+              : line;
+          out.push(emittedLine);
+        } else {
+          // emit:false — keep bookkeeping but only emit attribute-entry lines.
+          // Snapshot the attribute map to detect inline {set:} mutations on non-attribute-entry prose.
+          const isAttributeEntry = ATTR_ENTRY_RE.test(line);
+          const previousSnapshot = isAttributeEntry ? null : new Map(attributes);
+          applyLineAttributes(line, attributes);
+          offset = applyLevelOffsetEntry(line, offset, baseOffset);
+          if (isAttributeEntry) {
+            // Attribute-entry lines are always emitted so Asciidoctor sees them in document order.
+            out.push(line);
+          } else if (previousSnapshot !== null) {
+            // Prose line: check whether an inline {set:name:value} mutated the attribute map and, if
+            // so, emit synthetic `:name: value` lines so the change survives into the assembled output.
+            for (const [key, value] of attributes) {
+              if (previousSnapshot.get(key) !== value) {
+                out.push(`:${key}: ${value}`);
+              }
+            }
+            for (const key of previousSnapshot.keys()) {
+              if (!attributes.has(key)) {
+                out.push(`:${key}!:`);
+              }
+            }
+          }
+        }
         continue;
       }
-      // A whole-line `include::` inside an inactive conditional branch is gated off: the line is left
-      // verbatim (Asciidoctor still sees a directive, but it points at a path it cannot read) and its
-      // target is never resolved or read. Outside any region — or with every enclosing region active —
-      // the include expands normally.
+      // A whole-line `include::` inside an inactive conditional branch is gated off. In emit:true mode
+      // the line is left verbatim so Asciidoctor sees the directive (it cannot read the path anyway).
+      // In emit:false (hidden-subtree attribute scan) the line is suppressed: a raw include:: from a
+      // suppressed child must not surface in the assembled output where Asciidoctor would try to resolve
+      // it in the parent context. Target is never resolved or read in either case.
       if (!conditionals.isActive()) {
-        out.push(line);
+        if (emit) out.push(line);
         continue;
       }
       out.push(...expandIncludeLine(match[1].trim(), match[2]));

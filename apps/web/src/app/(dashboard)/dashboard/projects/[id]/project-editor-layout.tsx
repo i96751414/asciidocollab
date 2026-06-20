@@ -262,7 +262,7 @@ export function ProjectEditorLayout({
   // concern of useEditorRestoration above.
   useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
-  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab } = useEditorPreferences();
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles } = useEditorPreferences();
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
   // used to mark the current section. Held here so the panel is fed without remounting the editor.
@@ -472,6 +472,9 @@ export function ProjectEditorLayout({
                   onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
                   previewStyle={previewStyle}
                   onPreviewStyleChange={setPreviewStyle}
+                  showIncludedFiles={showIncludedFiles}
+                  onOpenInclude={handleNavigateToFile}
+                  onShowIncludedFilesChange={setShowIncludedFiles}
                 />
               </Panel>
             </>

@@ -26,6 +26,8 @@ interface RenderRequest {
   rootFileId?: string | null;
   /** The previewed open file's path — the scope whose inherited attributes are seeded (FR-002a). */
   openFileId?: string;
+  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  showIncludes?: boolean;
 }
 
 // Asciidoctor convention: a value ending in `@` is an overridable "soft" default — an in-document
@@ -207,7 +209,7 @@ function getProcessor(): ReturnType<typeof Asciidoctor> {
 }
 
 onmessage = function (event: MessageEvent<RenderRequest>) {
-  const { requestId, content, imagesDir, mainPath, files, rootFileId, openFileId } = event.data;
+  const { requestId, content, imagesDir, mainPath, files, rootFileId, openFileId, showIncludes } = event.data;
   try {
     const proc = getProcessor();
     // `showtitle` renders the document title in embedded output. `imagesdir` is the base path
@@ -222,13 +224,6 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // continuously (1, 2) and the TOC lists them at their effective (offset) levels. Embedded output
     // (`showtitle`, no header/footer) still emits the `<div id="toc">` block when `toc` is set as a
     // document attribute, so no placement fix is needed.
-    // The cross-document SCOPE seed and the include ASSEMBLER never both walk the tree in one render:
-    // the host posts `mainPath` only when the open file IS the main file (assemble path), and posts
-    // `rootFileId`/`openFileId` only when the open file is a non-root CHILD (scope path) — the two are
-    // mutually exclusive. In the assemble path `rootFileId`/`openFileId` are absent, so the seed below
-    // returns `{}` without walking; in the scope path `mainPath` is absent, so the assembler is not
-    // invoked. So this handler performs at most ONE include-tree walk per render (no double parse).
-    //
     // The open file's cross-document attribute scope (US1/FR-002a) — the values it inherits at its
     // first include-point under the project main file (including a resolved `:leveloffset:`), so a
     // `{name}` defined only in a parent resolves here — is seeded FIRST as overridable soft-defaults.
@@ -256,9 +251,20 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // intrinsics + these API attributes) so its conditional include-gating and `{attr}` target
     // substitution agree with the render — an include guarded by `ifdef::backend-html5[]` is kept,
     // not silently dropped (Finding#1).
+    // Assemble rooted at the open file for ANY file with includes (FR-014).
+    // `readFile` overlays the live editor buffer for the root path (FR-015/R8):
+    // content is always the most current keystroke, while files[openPath] may lag.
+    // Only overlay content when openFileId is explicitly provided (the live editor buffer IS that
+    // file); when falling back to mainPath the content field may be for a different file.
+    const openFilePath = openFileId ?? mainPath;
+    const readFile =
+      openFileId === undefined
+        ? (p: string) => files![p] ?? null
+        : (p: string) => (p === openFilePath ? content : (files![p] ?? null));
     const source =
-      mainPath && files
-        ? assembleIncludes(mainPath, (path) => files[path] ?? null, {
+      openFilePath && files && files[openFilePath] !== undefined
+        ? assembleIncludes(openFilePath, readFile, {
+            showIncludes,
             seedAttributes: buildAssemblerSeed(attributes),
           }).content
         : content;

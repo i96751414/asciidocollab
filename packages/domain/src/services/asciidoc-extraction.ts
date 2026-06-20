@@ -170,6 +170,19 @@ export function parseIncludeLevelOffset(attributes: string): number {
   return match ? Number.parseInt(match[1], 10) : 0;
 }
 
+/**
+ * Whether an include directive's attribute list contains a `leveloffset=` option.
+ *
+ * The `leveloffset=` OPTION is include-scoped; the attribute-form `:leveloffset:` inside the
+ * included file is NOT scoped. See the authoritative copy in apps/web extraction.ts.
+ *
+ * @param attributeList - The raw attribute list string from the include directive.
+ * @returns True when a `leveloffset=` option is present.
+ */
+export function hasIncludeLevelOffsetOption(attributeList: string): boolean {
+  return /leveloffset\s*=/.test(attributeList);
+}
+
 // An attribute-form `:leveloffset:` entry: a relative `+N`/`-N` shift, an absolute `N` set, or an
 // unset (`:leveloffset!:` / empty value) that returns to the base. Group 1 = `!` suffix, group 2 =
 // the (trimmed) value. NON-AUTHORITATIVE MIRROR of the editor parser in
@@ -783,13 +796,18 @@ export function effectiveLevelOffset(arguments_: {
 
   // Walk the include tree in document order tracking the running offset. `base` is the offset in
   // effect when this file's content began (the enclosing include's offset) — an unset returns to it.
-  const walk = (currentFileId: string, base: number): void => {
-    if (visited.has(currentFileId)) return;
+  // Returns the final offset after all content in this file has been processed. The caller uses this
+  // to propagate attribute-form `:leveloffset:` changes across sibling includes: the `leveloffset=`
+  // OPTION form is include-scoped (caller ignores the returned offset and keeps its own), while the
+  // attribute form is NOT scoped — it persists (AsciiDoc semantics), so the caller adopts the returned
+  // offset for subsequent sibling includes.
+  const walk = (currentFileId: string, base: number): number => {
+    if (visited.has(currentFileId)) return base;
     visited.add(currentFileId);
     captured.set(currentFileId, base); // the offset inherited at this file's first include point
 
     const content = readContent(currentFileId);
-    if (content === null) return;
+    if (content === null) return base;
 
     let offset = base;
     // Per-file region stack (the shared gating authority): an include is walked only when EVERY
@@ -822,11 +840,17 @@ export function effectiveLevelOffset(arguments_: {
       if (!conditionals.isActive()) continue;
       const resolved = resolveInclude(currentFileId, event.match[1].trim());
       if (resolved === null) continue;
-      // The include option is a relative shift on top of the offset in effect here; the child is
-      // walked with that as its base. Whatever the child does to the offset is discarded on return
-      // (include-scoped restoration), so `offset` for the rest of this file is unchanged.
-      walk(resolved, offset + parseIncludeLevelOffset(event.match[2]));
+      const includeAttributeList = event.match[2];
+      const includeOffset = parseIncludeLevelOffset(includeAttributeList);
+      const childFinalOffset = walk(resolved, offset + includeOffset);
+      // The `leveloffset=` OPTION is include-scoped: the child's changes are contained, so the
+      // parent offset is unchanged after the include. The attribute-form `:leveloffset:` inside the
+      // child is NOT scoped — it persists (AsciiDoc semantics), so adopt the child's final offset.
+      if (!hasIncludeLevelOffsetOption(includeAttributeList)) {
+        offset = childFinalOffset;
+      }
     }
+    return offset;
   };
 
   walk(rootFileId, 0);

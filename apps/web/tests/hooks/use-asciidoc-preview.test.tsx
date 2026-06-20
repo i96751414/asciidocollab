@@ -170,20 +170,23 @@ describe('useAsciidocPreview', () => {
     expect(lastWorker().postMessage.mock.calls[0][0].content).toBe('abcd');
   });
 
-  // (d2) include assembly (FR-068): mainPath + files are forwarded when the root content is present
-  it('forwards mainPath + files to the worker when the main file content is available', () => {
+  // (d2) include assembly (FR-068): openFileId + files are forwarded when the open file content is
+  // available. Assembly is now rooted at the open file (FR-014); mainPath is the project config but
+  // the hook routes assembly through openFileId so any open file can be assembled, not only main.
+  it('forwards openFileId + files to the worker when the open file content is available', () => {
     renderHook(() =>
       useAsciidocPreview({
         content: '= Book\n\ninclude::ch.adoc[]\n',
         isEnabled: true,
         scrollToLine: null,
         mainPath: 'main.adoc',
+        openFileId: 'main.adoc',
         getFiles: () => ({ 'main.adoc': '= Book\n\ninclude::ch.adoc[]\n', 'ch.adoc': '== Ch\n' }),
       }),
     );
     act(() => jest.advanceTimersByTime(200));
     const message = lastWorker().postMessage.mock.calls[0][0];
-    expect(message.mainPath).toBe('main.adoc');
+    expect(message.openFileId).toBe('main.adoc');
     expect(message.files).toMatchObject({ 'main.adoc': expect.any(String) });
   });
 
@@ -767,10 +770,10 @@ describe('useAsciidocPreview', () => {
   });
 
   // (T042, US8/FR-031) Live conditional re-evaluation: toggling a gating attribute in the main file
-  // re-posts the assembler inputs (mainPath + the fresh files snapshot) so the worker re-assembles and
+  // re-posts the assembler inputs (openFileId + the fresh files snapshot) so the worker re-assembles and
   // the include-gating decision is recomputed. The assembler (unit-tested) performs the gating; the
   // hook only needs to keep feeding it the current snapshot on each debounced edit.
-  it('re-posts mainPath + the fresh files snapshot when a gating attribute toggles (live conditional re-eval)', () => {
+  it('re-posts openFileId + the fresh files snapshot when a gating attribute toggles (live conditional re-eval)', () => {
     let flag = ':flag:\n';
     const main = () => `= Book\n${flag}\nifdef::flag[]\ninclude::ch.adoc[]\nendif::[]\n`;
     const { rerender } = renderHook(
@@ -780,6 +783,7 @@ describe('useAsciidocPreview', () => {
           isEnabled: true,
           scrollToLine: null,
           mainPath: 'main.adoc',
+          openFileId: 'main.adoc',
           getFiles: () => ({ 'main.adoc': main(), 'ch.adoc': '== Chapter\n' }),
         }),
       { initialProps: { content: '= Book' } },
@@ -793,7 +797,7 @@ describe('useAsciidocPreview', () => {
     act(() => rerender({ content: '= Book ' })); // content nudge stands in for the live edit
     act(() => jest.advanceTimersByTime(200));
     const lastCall = lastWorker().postMessage.mock.calls.at(-1)?.[0];
-    expect(lastCall.mainPath).toBe('main.adoc');
+    expect(lastCall.openFileId).toBe('main.adoc');
     expect(lastCall.files['main.adoc']).toContain(':flag!:');
   });
 
@@ -805,5 +809,117 @@ describe('useAsciidocPreview', () => {
     expect(lastWorker().postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ content: '= Doc', imagesDir: 'https://api/projects/p1/images' }),
     );
+  });
+});
+
+// ── T010: useAsciidocPreview — showIncludes generalized root (029) ────────────
+
+describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
+  // T010-a: showIncludes is forwarded in the RenderRequest
+  // Fails until: (1) UseAsciidocPreviewOptions gains `showIncludes?: boolean` (T002/T014)
+  //              (2) the hook reads it and includes it in postMessage
+  it('includes showIncludes:false in the worker RenderRequest when the option is false', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '= Root\n\ninclude::child.adoc[]\n',
+        isEnabled: true,
+        scrollToLine: null,
+        // @ts-expect-error — showIncludes not yet in UseAsciidocPreviewOptions (T002/T014)
+        showIncludes: false,
+        openFileId: 'root.adoc',
+        getFiles: () => ({ 'root.adoc': '= Root\n\ninclude::child.adoc[]\n', 'child.adoc': '== Child\n' }),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    expect(message.showIncludes).toBe(false);
+  });
+
+  // T010-b: assembly is rooted at the open file even when it is NOT the configured main file
+  // Fails until T014 removes the open==main gate and sends `files` + `openFileId` for any open file.
+  it('sends files and openFileId in the RenderRequest even when openFileId differs from mainPath', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '== Child\n\nSome content.\n',
+        isEnabled: true,
+        scrollToLine: null,
+        mainPath: 'root.adoc',
+        openFileId: 'child.adoc',          // open file is NOT the main file
+        getFiles: () => ({
+          'root.adoc': '= Root\n\ninclude::child.adoc[]\n',
+          'child.adoc': '== Child\n\nSome content.\n',
+        }),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    // The worker must receive the files snapshot so the open child can be assembled
+    expect(message.files).toBeDefined();
+    expect(message.files).toMatchObject({ 'child.adoc': expect.any(String) });
+    // The open file id must be forwarded so the worker roots assembly there
+    expect(message.openFileId).toBe('child.adoc');
+    // mainPath from the project config must NOT appear (the root is the open file, not the main)
+    expect(message.mainPath).toBeUndefined();
+  });
+
+  // T010-c: the live content prop is used for the open file (not the stale snapshot copy)
+  // Fails until T014 ensures the hook's `content` prop (the live editor buffer) is what the worker
+  // renders for the open file, overriding whatever `files[openFileId]` contains.
+  it('uses the live content prop for the open file root, not the stale snapshot value', () => {
+    const staleContentInSnapshot = '== Child\n\nSTALE content from snapshot.\n';
+    const liveContent = '== Child\n\nLIVE content from editor buffer.\n';
+
+    renderHook(() =>
+      useAsciidocPreview({
+        content: liveContent,
+        isEnabled: true,
+        scrollToLine: null,
+        openFileId: 'child.adoc',
+        getFiles: () => ({
+          'root.adoc': '= Root\n\ninclude::child.adoc[]\n',
+          // The snapshot has stale content for the open file — the hook must use content prop instead
+          'child.adoc': staleContentInSnapshot,
+        }),
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    // The `content` field in the RenderRequest must be the live prop, not the snapshot copy
+    expect(message.content).toBe(liveContent);
+    expect(message.content).not.toBe(staleContentInSnapshot);
+  });
+});
+
+// ── T019: useAsciidocPreview — live re-render on showIncludes change (029) ────
+
+describe('useAsciidocPreview — live re-render on showIncludes change (T019)', () => {
+  // T019: Changing `showIncludes` triggers a new render request (no content edit needed).
+  // This is a GREEN test — showIncludes is already in the [mainPath, rootFileId, showIncludes]
+  // effect dependencies (T014), so the re-render fires automatically.
+  it('triggers a new postMessage when showIncludes changes after an initial render', () => {
+    const { rerender } = renderHook(
+      ({ showIncludes }: { showIncludes: boolean | undefined }) =>
+        useAsciidocPreview({
+          content: '= Root\n\ninclude::child.adoc[]\n',
+          isEnabled: true,
+          scrollToLine: null,
+          showIncludes,
+          openFileId: 'root.adoc',
+          getFiles: () => ({ 'root.adoc': '= Root\n\ninclude::child.adoc[]\n', 'child.adoc': '== Child\n' }),
+        }),
+      { initialProps: { showIncludes: undefined } },
+    );
+
+    // Debounce fires for the initial render
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(1);
+
+    // Simulate the user toggling showIncludes (no content change)
+    act(() => rerender({ showIncludes: false }));
+    act(() => jest.advanceTimersByTime(200));
+
+    // A NEW postMessage must have been sent — the preview re-renders live
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(2);
+    expect(lastWorker().postMessage.mock.calls[1][0].showIncludes).toBe(false);
   });
 });

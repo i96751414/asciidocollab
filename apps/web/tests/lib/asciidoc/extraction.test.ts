@@ -1,6 +1,7 @@
 import {
   headingToId,
   parseIncludeLevelOffset,
+  hasIncludeLevelOffsetOption,
   extractReferences,
   extractSymbols,
   extractAttributeDefinitions,
@@ -42,6 +43,19 @@ describe('parseIncludeLevelOffset', () => {
     ['lines=1..5', 0],
   ])('parses %j as %i', (attributes, expected) => {
     expect(parseIncludeLevelOffset(attributes)).toBe(expected);
+  });
+});
+
+describe('hasIncludeLevelOffsetOption', () => {
+  test.each([
+    ['leveloffset=+1', true],
+    ['leveloffset=-2', true],
+    ['leveloffset = 3', true],
+    ['tags=body', false],
+    ['', false],
+    ['lines=1..3', false],
+  ])('returns %s for %j', (attributeList, expected) => {
+    expect(hasIncludeLevelOffsetOption(attributeList)).toBe(expected);
   });
 });
 
@@ -792,9 +806,10 @@ describe('effectiveLevelOffset (attribute-form :leveloffset: + include offsets, 
     ).toBe(0);
   });
 
-  test('include-scoped restoration: an unbalanced :leveloffset: inside one child does not leak into a sibling', () => {
-    // first.adoc raises the offset by +1 and never resets it; that change is scoped to the include,
-    // so second.adoc (included after, with no offset) inherits offset 0, not +1.
+  test('attribute-form :leveloffset: inside one child persists into a sibling (AsciiDoc semantics)', () => {
+    // Asciidoctor semantics: `:leveloffset: +1` SET INSIDE an included file (attribute form) persists
+    // after the include ends — only the `leveloffset=` OPTION on the include directive is scoped.
+    // So second.adoc, included after first.adoc (which set :leveloffset: +1), inherits offset=1.
     const files = {
       'main.adoc': 'include::first.adoc[]\n\ninclude::second.adoc[]\n',
       'first.adoc': ':leveloffset: +1\n\n== In First\n',
@@ -807,7 +822,7 @@ describe('effectiveLevelOffset (attribute-form :leveloffset: + include offsets, 
         readContent: read(files),
         resolveInclude: resolveInclude(files),
       }),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   test('first-include-point wins for a child reached via two paths', () => {

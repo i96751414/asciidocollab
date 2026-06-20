@@ -52,6 +52,7 @@ test.describe('US2 leveloffset across files', () => {
     // own `== Parent Section` stays an <h2> because the offset is restored after the include.
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
     const output = page.getByTestId('asciidoc-output');
     await expect(output.locator('h3', { hasText: 'Chapter' })).toHaveCount(1, { timeout: 15_000 });
     await expect(output.locator('h2', { hasText: 'Parent Section' })).toHaveCount(1);

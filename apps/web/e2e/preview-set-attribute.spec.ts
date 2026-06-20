@@ -73,6 +73,7 @@ test.describe('FR-040 inline {set:} attribute recognized in preview + editor', (
     await openFile(page, 'child.adoc');
     await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     // The child preview resolves the parent's inline `{set:}` value (assembled at the include point).
     const output = page.getByTestId('asciidoc-output');

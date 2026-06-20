@@ -6,7 +6,7 @@ const nextPlugin = require('@next/eslint-plugin-next');
 const globals = require('globals');
 
 module.exports = tseslint.config(
-  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/*.cjs', '**/*.d.ts', '**/specs/**', '**/.next/**', '**/next-env.d.ts', '**/prisma.config.ts', '**/scripts/**'] },
+  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/*.cjs', '**/*.d.ts', '**/specs/**', '**/.next/**', '**/next-env.d.ts', '**/prisma.config.ts', '**/scripts/**', '.claude/**'] },
 
   eslint.configs.recommended,
 

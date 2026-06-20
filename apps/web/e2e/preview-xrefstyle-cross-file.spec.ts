@@ -50,6 +50,7 @@ test.describe('US4 cross-references honor xrefstyle across files', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     const link = output.locator('a[href="#_target_section"]');

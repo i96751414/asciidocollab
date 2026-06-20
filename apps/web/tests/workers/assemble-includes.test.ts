@@ -95,10 +95,10 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(restoreIndex).toBeGreaterThan(sectionIndex);
   });
 
-  test('restores the prior offset after a child that sets :leveloffset: without resetting it', () => {
-    // first.adoc raises the offset by +2 (attribute form) and never resets it; the assembler must
-    // re-emit the parent's base (0) when the include ends so a sibling included afterwards is not
-    // affected (include-scoped restoration — Asciidoctor scopes the change to the include).
+  test('attribute-form :leveloffset: in a child persists into the parent and sibling includes', () => {
+    // Asciidoctor semantics: `:leveloffset: +2` SET INSIDE an included file (attribute form) persists
+    // after the include ends — it is NOT scoped to the include. Only the `leveloffset=` OPTION on the
+    // include directive is include-scoped. So the second sibling is reached with offset=2, not 0.
     const files = {
       'main.adoc': 'include::first.adoc[]\n\ninclude::second.adoc[]\n',
       'first.adoc': ':leveloffset: +2\n\n== In First\n',
@@ -109,8 +109,35 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     const secondHeading = content.indexOf('== In Second');
     expect(firstHeading).toBeGreaterThan(-1);
     expect(secondHeading).toBeGreaterThan(firstHeading);
-    // Between the two children the offset is restored to the parent's base (0).
-    expect(content.slice(firstHeading, secondHeading)).toContain(':leveloffset: 0');
+    // No restore is emitted between the two includes — the attribute-form change persists.
+    expect(content.slice(firstHeading, secondHeading)).not.toContain(':leveloffset: 0');
+  });
+
+  test(':leveloffset: option form is scoped but attribute form in a child persists to parent body', () => {
+    // Regression for: `:leveloffset: +10` in an included document not considered in the preview.
+    // When a child sets leveloffset with the ATTRIBUTE FORM (`:leveloffset: +N`), the change must
+    // persist into the parent body after the include. The OPTION FORM (`include::[leveloffset=+N]`)
+    // is still scoped (only wraps the child's content) — the two forms are treated differently.
+    const files = {
+      'main.adoc': '= Main\ninclude::child.adoc[]\n== After Include\n',
+      'child.adoc': ':leveloffset: +1\n== Child Heading\n',
+    };
+    const { content } = assembleIncludes('main.adoc', reader(files));
+    // Attribute-form change persists: no `:leveloffset: 0` restore emitted after the child.
+    const childIndex = content.indexOf('== Child Heading');
+    const afterIndex = content.indexOf('== After Include');
+    expect(content.slice(childIndex, afterIndex)).not.toContain(':leveloffset: 0');
+    // Option form: still scoped — wraps the child.
+    const files2 = {
+      'main.adoc': '= Main\ninclude::child.adoc[leveloffset=+1]\n== After Include\n',
+      'child.adoc': '== Child Heading\n',
+    };
+    const { content: content2 } = assembleIncludes('main.adoc', reader(files2));
+    expect(content2).toContain(':leveloffset: 1');
+    expect(content2).toContain(':leveloffset: 0');
+    const set2 = content2.indexOf(':leveloffset: 1');
+    const restore2 = content2.indexOf(':leveloffset: 0');
+    expect(restore2).toBeGreaterThan(set2);
   });
 
   test('the prefix-unset form `:!leveloffset:` resets the running offset (like `:leveloffset!:`)', () => {
@@ -215,6 +242,30 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
   test('leaves a document with no includes byte-identical (scroll-sync regression, Constitution VIII)', () => {
     const source = '= Title\n\n== One\n\nText with a colon: value.\n\n=== Two\n';
     const { content, unresolved } = assembleIncludes('main.adoc', reader({ 'main.adoc': source }));
+    expect(content).toBe(source);
+    expect(unresolved).toEqual([]);
+  });
+
+  // Same as above but with showIncludes:false (hide mode) — the scroll-sync regression guard must
+  // also hold when the assembler runs with hideMode=true (029 enables this for ALL standalone files).
+  test('leaves a document with no includes byte-identical in hide mode (scroll-sync regression, 029)', () => {
+    const fillerParagraphs = Array.from({ length: 20 }, (_, index) =>
+      [`Filler paragraph ${index + 1} with enough text to generate rendered height.`, ''],
+    ).flat();
+    const lines = [
+      '= First Section',
+      '',
+      'Paragraph in the first section.',
+      '',
+      ...fillerParagraphs,
+      '== Second Section',
+      '',
+      'Content of the second section.',
+    ];
+    const source = lines.join('\n') + '\n';
+    const { content, unresolved } = assembleIncludes('main.adoc', reader({ 'main.adoc': source }), {
+      showIncludes: false,
+    });
     expect(content).toBe(source);
     expect(unresolved).toEqual([]);
   });

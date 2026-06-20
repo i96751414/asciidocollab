@@ -285,6 +285,15 @@ export function useEditorMount({
         getOutlineResolvedScope: () => resolvedScopeReference.current,
         projectIndexAccessor,
         getInheritedOffset: () => inheritedOffsetReference.current,
+        getIncludeContext: () => {
+          const index = projectIndexAccessor();
+          if (!index) return null;
+          return {
+            fileId: index.activeFileId,
+            getContent: (id) => index.getContent(id),
+            resolveInclude: (fromId, target) => index.resolveInclude(fromId, target),
+          };
+        },
         collabActive,
         collabExtension,
         hookExtensions: [updateListener, lineClickHandler, fileDropHandler, ctrlClickTooltip],

@@ -23,4 +23,12 @@ describe('substitutePathAttributes', () => {
   test('returns the target unchanged when there are no references', () => {
     expect(substitutePathAttributes('plain/path.adoc', attributes({ a: '1' }))).toBe('plain/path.adoc');
   });
+
+  test('leaves a backslash-escaped reference verbatim (AsciiDoc escape semantics)', () => {
+    expect(substitutePathAttributes(String.raw`\{foo}`, attributes({ foo: 'bar' }))).toBe(String.raw`\{foo}`);
+  });
+
+  test('substitutes an unescaped reference on the same line as an escaped one', () => {
+    expect(substitutePathAttributes(String.raw`\{foo} and {foo}`, attributes({ foo: 'bar' }))).toBe(String.raw`\{foo} and bar`);
+  });
 });

@@ -10,7 +10,7 @@ import { asciidoc } from '@/lib/codemirror/asciidoc-language';
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import { asciidocHeadingLevels, inheritedHeadingOffsetFacet } from '@/lib/codemirror/asciidoc-heading-levels';
+import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { asciidocCrossDocumentAttributes } from '@/lib/codemirror/cross-document-attributes';
 import { asciidocConditionalDimming } from '@/lib/codemirror/conditional-dimming';
@@ -105,6 +105,8 @@ export interface BuildEditorExtensionsOptions {
   projectIndexAccessor: () => ProjectSymbolIndex | null;
   /** Returns the inherited include-path heading-level offset (US3/FR-071). */
   getInheritedOffset: () => number;
+  /** Returns the include resolution context for heading-level include tracing, or null. */
+  getIncludeContext?: () => IncludeResolutionContext | null;
   /** True on the collab path: native history is omitted (Yjs UndoManager owns undo). */
   collabActive: boolean;
   /** The collaboration binding extension, when present (collab path only). */
@@ -141,6 +143,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     getOutlineResolvedScope,
     projectIndexAccessor,
     getInheritedOffset,
+    getIncludeContext,
     collabActive,
     collabExtension,
     hookExtensions,
@@ -198,7 +201,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     linter(asciidocDiagnosticsSource(projectIndexAccessor)),
     // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
     // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
-    asciidocHeadingLevels(getInheritedOffset),
+    asciidocHeadingLevels(getInheritedOffset, getIncludeContext),
     // Expose the same inherited offset to the outline StateField so it derives effective levels
     // (and the beyond-max / leveloffset rules) identically to the heading highlight.
     inheritedHeadingOffsetFacet.of(getInheritedOffset),

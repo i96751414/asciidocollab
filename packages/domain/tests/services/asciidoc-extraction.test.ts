@@ -874,7 +874,9 @@ describe('effectiveLevelOffset (attribute-form :leveloffset: + include offsets, 
     ).toBe(0);
   });
 
-  test('include-scoped restoration: an unbalanced :leveloffset: inside one child does not leak into a sibling', () => {
+  test('attribute-form :leveloffset: inside one child persists into a sibling (AsciiDoc semantics)', () => {
+    // Asciidoctor semantics: `:leveloffset: +1` SET INSIDE an included file (attribute form) persists
+    // after the include ends — only the `leveloffset=` OPTION on the include directive is scoped.
     const files = {
       'main.adoc': 'include::first.adoc[]\n\ninclude::second.adoc[]\n',
       'first.adoc': ':leveloffset: +1\n\n== In First\n',
@@ -882,7 +884,7 @@ describe('effectiveLevelOffset (attribute-form :leveloffset: + include offsets, 
     };
     expect(
       effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'second.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   test('first-include-point wins for a child reached via two paths', () => {

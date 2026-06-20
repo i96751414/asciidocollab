@@ -50,6 +50,7 @@ test.describe('US5 caption/label family across files', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // The titled table uses the inherited "Tabela" label, e.g. "Tabela 1. Dados".

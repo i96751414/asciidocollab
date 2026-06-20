@@ -1,6 +1,6 @@
 import { ViewPlugin, Decoration, EditorView, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { Facet, RangeSetBuilder, StateEffect, type Extension } from '@codemirror/state';
-import { computeHeadingLevels, type HeadingLevelInfo } from './asciidoc-effective-levels';
+import { computeHeadingLevels, type HeadingLevelInfo, type IncludeResolutionContext } from './asciidoc-effective-levels';
 
 /**
  * CodeMirror projection of the effective-heading-level rule (US3, FR-009/010/071/072).
@@ -14,7 +14,7 @@ import { computeHeadingLevels, type HeadingLevelInfo } from './asciidoc-effectiv
 
 // Re-exported for the in-editor fold/outline consumers that import them here.
 export { MAX_HEADING_LEVEL, computeHeadingLevels, parseLevelOffset } from './asciidoc-effective-levels';
-export type { HeadingLevelInfo, LevelOffsetOp } from './asciidoc-effective-levels';
+export type { HeadingLevelInfo, LevelOffsetOp, IncludeResolutionContext } from './asciidoc-effective-levels';
 
 /** CSS class applied to a heading line for its effective level (e.g. `cm-ad-h2`). */
 export function headingLevelClass(info: HeadingLevelInfo): string {
@@ -43,9 +43,14 @@ export const inheritedHeadingOffsetFacet = Facet.define<() => number, () => numb
 /** Line-decoration class flagging a section marker whose effective level exceeds the max (FR-010). */
 const SUPPRESSED_HEADING_CLASS = 'cm-ad-suppressed-heading';
 
-function buildDecorations(view: EditorView, getInheritedOffset: () => number): DecorationSet {
+function buildDecorations(
+  view: EditorView,
+  getInheritedOffset: () => number,
+  getIncludeContext?: () => IncludeResolutionContext | null,
+): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  for (const info of computeHeadingLevels(view.state.doc.toString(), getInheritedOffset())) {
+  const includeContext = getIncludeContext?.() ?? undefined;
+  for (const info of computeHeadingLevels(view.state.doc.toString(), getInheritedOffset(), includeContext)) {
     // A heading whose effective level exceeds the max is not a heading (FR-010). The Lezer grammar
     // still tokenises it as a Heading (it cannot know the active :leveloffset:), so tag the line to
     // neutralise the grammar's heading colour and render it as body text — see asciidoc-theme.ts.
@@ -64,12 +69,15 @@ function buildDecorations(view: EditorView, getInheritedOffset: () => number): D
  * @param getInheritedOffset - Returns the current include-path inherited offset (default 0).
  * @returns The heading-levels view plugin.
  */
-export function asciidocHeadingLevels(getInheritedOffset: () => number = () => 0): Extension {
+export function asciidocHeadingLevels(
+  getInheritedOffset: () => number = () => 0,
+  getIncludeContext?: () => IncludeResolutionContext | null,
+): Extension {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, getInheritedOffset);
+        this.decorations = buildDecorations(view, getInheritedOffset, getIncludeContext);
       }
 
       update(update: ViewUpdate) {
@@ -77,7 +85,7 @@ export function asciidocHeadingLevels(getInheritedOffset: () => number = () => 0
           tr.effects.some((effect) => effect.is(refreshHeadingLevelsEffect)),
         );
         if (update.docChanged || update.viewportChanged || refreshed) {
-          this.decorations = buildDecorations(update.view, getInheritedOffset);
+          this.decorations = buildDecorations(update.view, getInheritedOffset, getIncludeContext);
         }
       }
     },
