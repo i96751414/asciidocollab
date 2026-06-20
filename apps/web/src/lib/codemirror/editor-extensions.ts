@@ -7,13 +7,13 @@ import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirr
 import { linter, lintGutter } from '@codemirror/lint';
 import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
-import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-highlight';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { asciidocCrossDocumentAttributes } from '@/lib/codemirror/cross-document-attributes';
 import { asciidocConditionalDimming } from '@/lib/codemirror/conditional-dimming';
+import { asciidocBlockDecorations } from '@/lib/codemirror/asciidoc-block-decorations';
 import { asciidocSourceHighlight } from '@/lib/codemirror/asciidoc-source-highlight';
 import { foldControlsKeymap, foldPersistence } from '@/lib/codemirror/asciidoc-fold-persist';
 import { formatKeymap, autoWrapInputHandler } from '@/lib/codemirror/asciidoc-format-keymap';
@@ -162,7 +162,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     asciidocSourceHighlight((view) =>
       view.dispatch({ effects: compartments.language.reconfigure(asciidoc({ fresh: true })) }),
     ),
-    syntaxHighlighting(asciidocHighlightStyle),
+    // asciidocTheme (Prec.highest, below) already includes syntaxHighlighting for the 030 style;
+    // the legacy asciidocHighlightStyle registration was removed to prevent its span-level fontSize
+    // specs from overriding the 030 line-level heading ramp (cm-ad-h* decorations).
     syntaxHighlighting(defaultHighlightStyle),
     // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
     ...nativeHistory,
@@ -224,6 +226,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // emphasis on top of the grammar's generic role-span highlight (US14/FR-021c). Registering a new
     // role needs no change here — the decoration recomputes from the registry on each update.
     asciidocInlineStyleEmphasis(),
+    // Recede block-title `.` markers and table `|` separators, and bold table header cells, layered
+    // over the grammar's token colours (FR-031/046).
+    asciidocBlockDecorations(),
     // Feed the section outline the file's resolved cross-document scope so it resolves `{attr}` titles
     // and excludes inactive conditional-branch headings (R11/FR-032); read lazily so the shared
     // refreshHeadingLevelsEffect re-evaluates it when the scope changes without a document edit.

@@ -11,13 +11,15 @@
   attrEntryToken,
   commentBlockDelim, commentLineToken,
   admonitionLineToken,
+  admonNoteLineToken, admonTipLineToken, admonWarningLineToken, admonImportantLineToken, admonCautionLineToken,
+  admonNoteAttrToken, admonTipAttrToken, admonWarningAttrToken, admonImportantAttrToken, admonCautionAttrToken,
   blockMacroToken,
   descListToken,
   listingDelim, literalDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim, openDelim, tableDelim,
   csvTableDelim, dsvTableDelim,
   stemAttrToken, admonAttrToken,
   conditionalToken, blockAttrToken,
-  checklistMarker, unorderedMarker, orderedMarker,
+  checkDoneMarker, checkTodoMarker, unorderedMarker, orderedMarker,
   inlineMacroToken, footnoteToken,
   blockTitleToken,
   thematicBreakToken, pageBreakToken,
@@ -26,11 +28,13 @@
   paragraphLineToken,
   boldMarkToken, italicMarkToken, monoMarkToken,
   blockColsToken,
+  authorLineToken, revisionLineToken,
   blankLineToken
 }
 
 block {
   DocumentTitle |
+  AuthorLine | RevisionLine |
   Heading5 | Heading4 | Heading3 | Heading2 | Heading1 |
   AttributeEntry |
   CommentBlock |
@@ -43,6 +47,7 @@ block {
   QuoteBlock |
   PassthroughBlock |
   OpenBlock |
+  AdmonitionNoteBlock | AdmonitionTipBlock | AdmonitionWarningBlock | AdmonitionImportantBlock | AdmonitionCautionBlock |
   AdmonitionBlock |
   TableBlock |
   CsvTableBlock |
@@ -54,10 +59,11 @@ block {
   PageBreak |
   BlockTitle |
   BlockMacro |
-  ChecklistItem |
+  CheckDoneItem | CheckTodoItem |
   UnorderedListItem |
   OrderedListItem |
   DescriptionList |
+  AdmonitionNoteParagraph | AdmonitionTipParagraph | AdmonitionWarningParagraph | AdmonitionImportantParagraph | AdmonitionCautionParagraph |
   AdmonitionParagraph |
   blankLine |
   Paragraph
@@ -72,14 +78,21 @@ Heading4          { heading4Token }
 Heading5          { heading5Token }
 AttributeEntry    { attrEntryToken }
 CommentLine       { commentLineToken }
-// An admonition paragraph absorbs glued following lines like a normal Paragraph (a paragraph runs
-// until a blank line), so a heading/list marker on the next line is plain text, not a new block.
-// Its continuation lines use a DEDICATED node (not the plain `ParagraphContinuation`) so they inherit
-// the admonition highlight — highlightTree does not propagate a parent node's tag to its children.
+// Legacy fallback: `admonitionLineToken` is never emitted (per-severity tokens handle all valid
+// label prefixes). This rule is unreachable at runtime but kept so the token declaration compiles.
 AdmonitionParagraph { admonitionLineToken AdmonitionContinuation* }
 AdmonitionContinuation { paragraphLineToken }
+AdmonitionNoteParagraph      { AdmonNotePfx      inlineContent? nl AdmonitionContinuation* }
+AdmonitionTipParagraph       { AdmonTipPfx       inlineContent? nl AdmonitionContinuation* }
+AdmonitionWarningParagraph   { AdmonWarningPfx   inlineContent? nl AdmonitionContinuation* }
+AdmonitionImportantParagraph { AdmonImportantPfx inlineContent? nl AdmonitionContinuation* }
+AdmonitionCautionParagraph   { AdmonCautionPfx   inlineContent? nl AdmonitionContinuation* }
 BlockMacro        { blockMacroToken }
-DescriptionList   { descListToken DescriptionContinuation* }
+// A description-list entry. The external tokenizer emits `descListToken` for ONLY the term plus its
+// `::`/`;;` separator (not the rest of the line), so any definition on the same line is parsed as
+// `inlineContent` and reads as body text — keeping it the same colour as a wrapped continuation line.
+DescriptionList   { DescTerm inlineContent? nl DescriptionContinuation* }
+DescTerm          { descListToken }
 BlockTitle        { blockTitleToken }
 Conditional       { conditionalToken }
 // A table column-format specifier line `[cols="1,>2"]` (FR-046). The external tokenizer recognises a
@@ -100,37 +113,89 @@ PageBreak         { pageBreakToken }
 // Principal text is OPTIONAL: an empty marker line (`. ` / `* ` with nothing after) is still a list
 // item, and a glued following line is its principal-text continuation — so an empty item never breaks
 // the list (it would otherwise error-recover and drop the rest of the list to a paragraph).
-ChecklistItem     { checklistMarker inlineContent? nl Continuation* }
-UnorderedListItem { unorderedMarker inlineContent? nl Continuation* }
-OrderedListItem   { orderedMarker   inlineContent? nl Continuation* }
+UnorderedListItem { UnorderedMark inlineContent? nl Continuation* }
+OrderedListItem   { OrderedMark   inlineContent? nl Continuation* }
 Continuation            { continuationLineToken }
 DescriptionContinuation { continuationLineToken }
 
 // ── Delimited blocks ──────────────────────────────────────────────────────────
-ListingBlock     { listingDelim     blockBody listingDelim }
-LiteralBlock     { literalDelim     blockBody literalDelim }
-ExampleBlock     { exampleDelim     blockBody exampleDelim }
-SidebarBlock     { sidebarDelim     blockBody sidebarDelim }
-QuoteBlock       { quoteDelim       blockBody quoteDelim }
-PassthroughBlock { passthroughDelim blockBody passthroughDelim }
-OpenBlock        { openDelim        blockBody openDelim }
+ListingBlock     { ListingFence     blockBody ListingFence }
+LiteralBlock     { LiteralFence     blockBody LiteralFence }
+ExampleBlock     { ExampleFence     blockBody ExampleFence }
+SidebarBlock     { SidebarFence     blockBody SidebarFence }
+QuoteBlock       { QuoteFence       blockBody QuoteFence }
+PassthroughBlock { PassthroughFence blockBody PassthroughFence }
+OpenBlock        { OpenFence        blockBody OpenFence }
 CommentBlock     { commentBlockDelim blockBody commentBlockDelim }
 
-StemBlock        { stemAnnotation   passthroughDelim blockBody passthroughDelim }
-AdmonitionBlock  { admonAnnotation  exampleDelim     blockBody exampleDelim }
+StemBlock        { StemAnnotation   PassthroughFence blockBody PassthroughFence }
+// Legacy fallback: `admonAttrToken` is never emitted (per-severity tokens handle all [NOTE]/[TIP]/…).
+AdmonitionBlock  { AdmonAnnotation  ExampleFence     blockBody ExampleFence }
 
-TableBlock       { tableDelim tableBody tableDelim }
-CsvTableBlock    { csvTableDelim blockBody csvTableDelim }
-DsvTableBlock    { dsvTableDelim blockBody dsvTableDelim }
+TableBlock       { TableFence tableBody TableFence }
+CsvTableBlock    { CsvTableFence blockBody CsvTableFence }
+DsvTableBlock    { DsvTableFence blockBody DsvTableFence }
 
-stemAnnotation  { stemAttrToken }
-admonAnnotation { admonAttrToken }
+// ── Named wrappers for highlight-system access ──────────────────────────────
+// Lezer only exposes PascalCase grammar rules as named nodes in the parse tree;
+// lowercase external tokens are anonymous leaves that cannot be individually
+// targeted by styleTags.  These thin wrappers give the highlighter a handle
+// on each token range without requiring a heavier grammar refactor.
+
+// Block fence delimiters — shared across block types
+ExampleFence     { exampleDelim }
+SidebarFence     { sidebarDelim }
+QuoteFence       { quoteDelim }
+OpenFence        { openDelim }
+ListingFence     { listingDelim }
+LiteralFence     { literalDelim }
+PassthroughFence { passthroughDelim }
+CsvTableFence    { csvTableDelim }
+DsvTableFence    { dsvTableDelim }
+TableFence       { tableDelim }
+
+// Block-attribute annotation lines ([stem], [NOTE], etc.)
+StemAnnotation    { stemAttrToken }
+AdmonAnnotation   { admonAttrToken }
+AdmonNoteAnnotation      { admonNoteAttrToken }
+AdmonTipAnnotation       { admonTipAttrToken }
+AdmonWarningAnnotation   { admonWarningAttrToken }
+AdmonImportantAnnotation { admonImportantAttrToken }
+AdmonCautionAnnotation   { admonCautionAttrToken }
+
+// Admonition paragraph label prefixes (inline form: NOTE: , TIP: , etc.)
+AdmonNotePfx         { admonNoteLineToken }
+AdmonTipPfx          { admonTipLineToken }
+AdmonWarningPfx      { admonWarningLineToken }
+AdmonImportantPfx    { admonImportantLineToken }
+AdmonCautionPfx      { admonCautionLineToken }
+
+// List item markers
+UnorderedMark { unorderedMarker }
+OrderedMark   { orderedMarker }
+CheckDoneMark { checkDoneMarker }
+CheckTodoMark { checkTodoMarker }
+
+AdmonitionNoteBlock      { AdmonNoteAnnotation      ExampleFence blockBody ExampleFence }
+AdmonitionTipBlock       { AdmonTipAnnotation       ExampleFence blockBody ExampleFence }
+AdmonitionWarningBlock   { AdmonWarningAnnotation   ExampleFence blockBody ExampleFence }
+AdmonitionImportantBlock { AdmonImportantAnnotation ExampleFence blockBody ExampleFence }
+AdmonitionCautionBlock   { AdmonCautionAnnotation   ExampleFence blockBody ExampleFence }
+
+CheckDoneItem  { CheckDoneMark inlineContent? nl Continuation* }
+CheckTodoItem  { CheckTodoMark inlineContent? nl Continuation* }
+
+AuthorLine   { authorLineToken }
+RevisionLine { revisionLineToken }
 
 blockBody   { bodyLine* }
 bodyLine    { rawBodyLine | blankLine }
 
 tableBody   { (tableRow | blankLine)* }
-tableRow    { tableCellMark inlineContent nl }
+tableRow    { TableCellMark inlineContent nl }
+// Named wrapper so the leading `|` cell separator carries the muted markup colour (FR-046). Only the
+// row-leading pipe is modelled here; any further `|` on the line falls into inlineContent.
+TableCellMark { tableCellMark }
 
 // A blank line is a bare newline OR a whitespace-only line (the external tokenizer emits
 // `blankLineToken` for spaces/tabs followed by a newline) — both separate blocks in AsciiDoc.

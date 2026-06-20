@@ -183,6 +183,31 @@ export function consumeToEOL(input: ConsumingInput): void {
 }
 
 /**
+ * Advances the cursor forward by exactly `count` characters, used to skip a fixed-length label prefix.
+ *
+ * @param input - The consuming view over the input.
+ * @param count - The number of characters to advance.
+ */
+export function advanceBy(input: ConsumingInput, count: number): void {
+  for (let index = 0; index < count; index++) input.advance();
+}
+
+/**
+ * Advances the cursor over a description-list term and its `::`/`;;` separator run, stopping
+ * immediately after the separator (before any definition text, trailing space, or newline). Leaving
+ * the rest of the line unconsumed lets the grammar parse the definition as `inlineContent` so it
+ * highlights as body text — keeping the first definition line the same colour as a continuation line.
+ *
+ * @param input - The consuming view over the input.
+ * @param termLength - Number of characters in the term, up to the first separator char.
+ * @param separator - The separator char code (`:` or `;`).
+ */
+export function consumeDescTerm(input: ConsumingInput, termLength: number, separator: number): void {
+  advanceBy(input, termLength);
+  while (input.next === separator) input.advance();
+}
+
+/**
  * Advances the cursor over a complete attribute entry, following `\`-continued value lines. A
  * trailing `\` (after optional whitespace) at the end of a physical line continues the value onto
  * the next line, so every continued line is consumed into the same attribute-entry token — the whole

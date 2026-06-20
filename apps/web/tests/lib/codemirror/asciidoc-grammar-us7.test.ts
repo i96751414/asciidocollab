@@ -42,7 +42,9 @@ describe('US7 grammar — generic block-attribute line (FR-025)', () => {
 
   test('[NOTE] still routes to an AdmonitionBlock', () => {
     const source = '[NOTE]\n====\nnote\n====\n';
-    expect(hasToken(source, 'AdmonitionBlock')).toBe(true);
+    // NOTE now produces AdmonitionNoteBlock (per-severity split); fall back to generic AdmonitionBlock
+    const hasAdmon = hasToken(source, 'AdmonitionBlock') || hasToken(source, 'AdmonitionNoteBlock');
+    expect(hasAdmon).toBe(true);
   });
 
   test('a [source] attribute line precedes a listing block without breaking it', () => {

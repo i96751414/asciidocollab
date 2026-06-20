@@ -4,7 +4,11 @@ import { syntaxTree } from '@codemirror/language';
 /** Non-table delimited block names that can contain |=== in their bodies. */
 const DELIMITED_BLOCK_NAMES = new Set([
   'ListingBlock', 'ExampleBlock', 'CommentBlock', 'SidebarBlock',
-  'QuoteBlock', 'PassthroughBlock', 'OpenBlock', 'AdmonitionBlock', 'StemBlock',
+  'QuoteBlock', 'PassthroughBlock', 'OpenBlock', 'StemBlock',
+  // Per-severity admonition delimited blocks (the tokenizer emits per-severity tokens;
+  // the legacy 'AdmonitionBlock' node is never produced at runtime).
+  'AdmonitionNoteBlock', 'AdmonitionTipBlock', 'AdmonitionWarningBlock',
+  'AdmonitionImportantBlock', 'AdmonitionCautionBlock',
   // CSV/DSV tables are delimited blocks but NOT |-tables, so the cursor walk must
   // treat them as "not inside a |=== table" (don't offer the table skeleton/rows there).
   'CsvTableBlock', 'DsvTableBlock',

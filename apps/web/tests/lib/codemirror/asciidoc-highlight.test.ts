@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildParser } from '@lezer/generator';
-import { highlightTree } from '@lezer/highlight';
+import { highlightTree, tags as t } from '@lezer/highlight';
 import type { LRParser } from '@lezer/lr';
 import { asciidocHighlightStyle } from '@/lib/codemirror/asciidoc-theme';
-import { asciidocHighlightTags } from '@/lib/codemirror/asciidoc-highlight-tags';
+import { asciidocHighlightTags, ad } from '@/lib/codemirror/asciidoc-highlight-tags';
 import {
   computeKnownRoleSpanMarks,
   registerInlineStyle,
@@ -257,5 +257,248 @@ describe('known role-span emphasis (US14)', () => {
 
   test('a multi-role span counts as known when ANY role is known', () => {
     expect(computeKnownRoleSpanMarks('[.unknownrole.lead]#x#\n')).toHaveLength(1);
+  });
+});
+
+// ── Feature 030 — Syntax Highlighting Rework ─────────────────────────────────
+// T007/T008 (US1), T014 (US2), T019 (US3), T025/T026 (US4), T032 (US5), T039 (US6)
+
+describe('030 US1 — structural markup recedes, block bodies not flooded', () => {
+  test('example block fence class differs from body class', () => {
+    const source = '====\nbody\n====\n';
+    expect(classAt(source, 0)).not.toBe(classAt(source, 5));
+  });
+
+  test('listing block fence class differs from body class', () => {
+    const source = '----\nbody\n----\n';
+    expect(classAt(source, 0)).not.toBe(classAt(source, 5));
+  });
+
+  test('table block fence class differs from cell content class', () => {
+    const source = '|===\n| cell\n|===\n';
+    expect(classAt(source, 0)).not.toBe(classAt(source, 6));
+  });
+
+  test('all block fence types share the same markup class', () => {
+    const exFence  = classAt('====\nbody\n====\n', 0);
+    const listFence = classAt('----\nbody\n----\n', 0);
+    const sideBar  = classAt('****\nbody\n****\n', 0);
+    expect(exFence).not.toBe('');
+    expect(listFence).toBe(exFence);
+    expect(sideBar).toBe(exFence);
+  });
+
+  test('unordered list marker shares markup class with block fences', () => {
+    expect(classAt('* item\n', 0)).toBe(classAt('====\nbody\n====\n', 0));
+  });
+
+  test('ordered list marker shares markup class with block fences', () => {
+    expect(classAt('. item\n', 0)).toBe(classAt('====\nbody\n====\n', 0));
+  });
+});
+
+describe('030 US2 — heading level ramp (T014)', () => {
+  test('DocumentTitle, Heading1, Heading2, Heading3 each get distinct classes', () => {
+    const h0 = classAt('= Title\n', 2);
+    const h1 = classAt('== Section\n', 3);
+    const h2 = classAt('=== Sub\n', 4);
+    const h3 = classAt('==== Sub-sub\n', 5);
+    expect(h0).not.toBe('');
+    expect(h1).not.toBe('');
+    expect(h2).not.toBe('');
+    expect(h3).not.toBe('');
+    expect(h0).not.toBe(h1);
+    expect(h1).not.toBe(h2);
+    expect(h2).not.toBe(h3);
+  });
+
+  test('Heading4, Heading5, Heading6 share the grouped --syntax-h3 spec in asciidoc-theme', () => {
+    // asciidoc-theme.ts groups h4/h5/h6 in one spec — verify the intent directly.
+    const rampSpec = asciidocHighlightStyle.specs.find((spec) => {
+      const specTags = Array.isArray(spec.tag) ? spec.tag : [spec.tag];
+      return specTags.includes(t.heading4) && specTags.includes(t.heading5);
+    });
+    expect(rampSpec).toBeDefined();
+    expect(rampSpec!.color).toContain('--syntax-h3');
+    // All three levels must resolve to a non-empty highlight class.
+    expect(classAt('==== Sub-sub\n', 5)).not.toBe('');
+    expect(classAt('===== Deepest\n', 6)).not.toBe('');
+    expect(classAt('====== Even-deeper\n', 7)).not.toBe('');
+  });
+
+  test('every heading spec is bold (fontWeight 700) at all levels', () => {
+    const headingTagSet = new Set<unknown>([t.heading1, t.heading2, t.heading3, t.heading4, t.heading5, t.heading6]);
+    for (const spec of asciidocHighlightStyle.specs) {
+      const specTags = Array.isArray(spec.tag) ? spec.tag : [spec.tag];
+      if (specTags.some((tag) => headingTagSet.has(tag))) {
+        expect((spec as Record<string, unknown>).fontWeight).toBe('700');
+      }
+    }
+  });
+
+  test('every heading spec explicitly clears text-decoration (defaultHighlightStyle underline guard)', () => {
+    // defaultHighlightStyle (mounted for embedded source blocks) underlines headings, so each heading
+    // spec MUST set textDecoration:'none' to override it at Prec.highest — never 'underline'.
+    const headingTagSet = new Set<unknown>([t.heading1, t.heading2, t.heading3, t.heading4, t.heading5, t.heading6]);
+    for (const spec of asciidocHighlightStyle.specs) {
+      const specTags = Array.isArray(spec.tag) ? spec.tag : [spec.tag];
+      const isHeadingSpec = specTags.some((tag) => headingTagSet.has(tag));
+      if (isHeadingSpec) {
+        expect((spec as Record<string, unknown>).textDecoration).toBe('none');
+      }
+    }
+  });
+});
+
+describe('030 US3 — admonition severity labels (chip only, body clean)', () => {
+  test('inline NOTE: prefix is highlighted', () => {
+    expect(classAt('NOTE: body\n', 0)).not.toBe('');
+  });
+
+  test('all five inline severity labels have distinct classes', () => {
+    const severities = [
+      classAt('NOTE: x\n', 0),
+      classAt('TIP: x\n', 0),
+      classAt('WARNING: x\n', 0),
+      classAt('IMPORTANT: x\n', 0),
+      classAt('CAUTION: x\n', 0),
+    ];
+    for (const cls of severities) expect(cls).not.toBe('');
+    for (let index = 0; index < severities.length; index++) {
+      for (let jdx = index + 1; jdx < severities.length; jdx++) {
+        expect(severities[index]).not.toBe(severities[jdx]);
+      }
+    }
+  });
+
+  test('admonition body text does not get the label chip class', () => {
+    const source = 'NOTE: body text\n';
+    expect(classAt(source, 0)).not.toBe(classAt(source, 6));
+  });
+
+  test('the label chip is TIGHT — the space after `NOTE:` reads as plain body, not chip', () => {
+    const source = 'NOTE: body\n';
+    const chipClass = classAt(source, 0); // inside `NOTE:`
+    const spaceClass = classAt(source, 5); // the space between the colon and the body
+    const bodyClass = classAt(source, 6); // `b` of body
+    expect(chipClass).not.toBe('');
+    expect(spaceClass).not.toBe(chipClass); // space is NOT part of the chip
+    expect(spaceClass).toBe(bodyClass); // space reads as plain body
+  });
+
+  test('[NOTE] block annotation is highlighted', () => {
+    expect(classAt('[NOTE]\n====\nbody\n====\n', 1)).not.toBe('');
+  });
+
+  test('[NOTE] block annotation class matches inline NOTE: prefix class', () => {
+    const inlineCls = classAt('NOTE: x\n', 0);
+    const blockCls  = classAt('[NOTE]\n====\nbody\n====\n', 1);
+    expect(inlineCls).toBe(blockCls);
+  });
+
+  test('NOTE: mid-sentence is not highlighted as a severity label', () => {
+    const inlineCls = classAt('NOTE: body\n', 0);
+    expect(classAt('See NOTE: x\n', 4)).not.toBe(inlineCls);
+  });
+});
+
+describe('030 US4 — block interiors readable', () => {
+  test('block title is highlighted as a non-empty class', () => {
+    expect(classAt('.Block Title\nbody\n', 1)).not.toBe('');
+  });
+
+  test('inside a listing block, `*` chars are not highlighted as bold', () => {
+    const boldCls    = classAt('Some *bold* text\n', 6);
+    const inBlockCls = classAt('----\n*not bold*\n----\n', 6);
+    expect(inBlockCls).not.toBe(boldCls);
+  });
+
+  test('inside a listing block, `{attr}` chars are not highlighted as attribute refs', () => {
+    const attributeCls    = classAt('{version}\n', 0);
+    const inBlockCls = classAt('----\n{attr}\n----\n', 5);
+    expect(inBlockCls).not.toBe(attributeCls);
+  });
+});
+
+describe('030 US5 — list types, inline code, links distinct', () => {
+  test('checklist done [x] marker class differs from todo [ ] marker class', () => {
+    const doneCls = classAt('* [x] done\n', 3);
+    const todoCls = classAt('* [ ] todo\n', 3);
+    expect(doneCls).not.toBe('');
+    expect(todoCls).not.toBe('');
+    expect(doneCls).not.toBe(todoCls);
+  });
+
+  test('both checklist box markers are bold (fontWeight 700)', () => {
+    for (const adTag of [ad.checkDone, ad.checkTodo]) {
+      const spec = asciidocHighlightStyle.specs.find((s) => {
+        const tags = Array.isArray(s.tag) ? s.tag : [s.tag];
+        return tags.includes(adTag);
+      });
+      expect(spec).toBeDefined();
+      expect((spec as Record<string, unknown>).fontWeight).toBe('700');
+    }
+  });
+
+  test('link is highlighted', () => {
+    expect(classAt('Go https://example.org now\n', 5)).not.toBe('');
+  });
+
+  test('link class differs from unordered list marker class', () => {
+    expect(classAt('Go https://example.org now\n', 5)).not.toBe(classAt('* item\n', 0));
+  });
+
+  test('inline code is highlighted', () => {
+    expect(classAt('run `code` now\n', 5)).not.toBe('');
+  });
+
+  test('description list term is highlighted', () => {
+    expect(classAt('Term:: description\n', 0)).not.toBe('');
+  });
+
+  // The term + `::` separator carry the term colour, but the DEFINITION on the same line reads as
+  // body — the SAME class as a wrapped continuation line (so `Science…` and `math.` match).
+  test('description definition text is body, distinct from the term', () => {
+    const source = 'STEM:: Science, tech, engineering,\nmath.\n';
+    const termClass = classAt(source, 1); // inside `STEM`
+    const definitionClass = classAt(source, source.indexOf('Science')); // first-line definition
+    const continuationClass = classAt(source, source.indexOf('math.')); // continuation line
+    expect(termClass).not.toBe('');
+    expect(definitionClass).not.toBe(termClass);
+    expect(definitionClass).toBe(continuationClass);
+  });
+});
+
+describe('030 — block-attribute lines read consistently (amber)', () => {
+  test('[stem] annotation shares the class of a generic [source,ruby] block-attribute line', () => {
+    const stemClass = classAt('[stem]\n++++\nx\n++++\n', 1);
+    const blockAttributeClass = classAt('[source,ruby]\n----\nx\n----\n', 1);
+    expect(stemClass).not.toBe('');
+    expect(stemClass).toBe(blockAttributeClass);
+  });
+
+  test('[cols] table spec shares the class of a generic block-attribute line', () => {
+    const colsClass = classAt('[cols="1,1"]\n|===\n| a | b\n|===\n', 1);
+    const blockAttributeClass = classAt('[source,ruby]\n----\nx\n----\n', 1);
+    expect(colsClass).not.toBe('');
+    expect(colsClass).toBe(blockAttributeClass);
+  });
+});
+
+describe('030 US6 — attribute refs, callouts', () => {
+  test('{name} attribute reference is highlighted', () => {
+    expect(classAt('{version}\n', 0)).not.toBe('');
+  });
+
+  test('{name} attribute reference class differs from plain body text', () => {
+    expect(classAt('{version}\n', 0)).not.toBe(classAt('plaintext\n', 0));
+  });
+
+  test('callout <1> is highlighted', () => {
+    expect(classAt('code <1>\n', 5)).not.toBe('');
+  });
+
+  test('callout class differs from ordered list marker class', () => {
+    expect(classAt('code <1>\n', 5)).not.toBe(classAt('. item\n', 0));
   });
 });

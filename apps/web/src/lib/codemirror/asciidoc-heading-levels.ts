@@ -43,6 +43,9 @@ export const inheritedHeadingOffsetFacet = Facet.define<() => number, () => numb
 /** Line-decoration class flagging a section marker whose effective level exceeds the max (FR-010). */
 const SUPPRESSED_HEADING_CLASS = 'cm-ad-suppressed-heading';
 
+/** Mark decoration applied to the leading `=` run of a heading line (T016/FR-001). */
+const HEADING_MARKER_DECO = Decoration.mark({ class: 'cm-ad-heading-marker' });
+
 function buildDecorations(
   view: EditorView,
   getInheritedOffset: () => number,
@@ -56,6 +59,13 @@ function buildDecorations(
     // neutralise the grammar's heading colour and render it as body text — see asciidoc-theme.ts.
     const cls = info.beyondMax ? SUPPRESSED_HEADING_CLASS : headingLevelClass(info);
     builder.add(info.from, info.from, Decoration.line({ class: cls }));
+    // Recede the leading `=` marker run so structural punctuation fades behind the heading text
+    // (T016/FR-001). RangeSetBuilder requires same-from entries in ascending-to order, so the
+    // zero-length line decoration (above) must always precede this positive-length mark.
+    if (!info.beyondMax) {
+      const markerLength = info.rawLevel + 1;
+      builder.add(info.from, info.from + markerLength, HEADING_MARKER_DECO);
+    }
   }
   return builder.finish();
 }

@@ -79,13 +79,37 @@
     --radius: 0.5rem;
 
     /* editor syntax palette (brand-cohesive) */
-    --syntax-heading: 191 66% 36%;
-    --syntax-attr: 34 58% 42%;
+    --syntax-heading: 188 70% 26%;
+    --syntax-attr: 34 58% 38%;
     --syntax-link: 214 58% 46%;
-    --syntax-string: 152 46% 35%;
+    --syntax-string: 152 46% 34%;
     --syntax-keyword: 280 34% 52%;
-    --syntax-comment: 196 14% 48%;
+    --syntax-comment: 196 14% 44%;
     --syntax-punct: 196 12% 44%;
+
+    /* 030 — highlighting rework */
+    /* --markup is a DE-EMPHASIZED structural-scaffold grey (heading `=`, list/fence/table markers),
+       deliberately LOW-contrast so it recedes — not held to the 4.5:1 body-text floor. */
+    --markup: 200 12% 72%;
+    /* Heading ramp follows the review proposal's teal family (== → h1, === → h2, deeper → h3); the
+       document title `=` keeps --syntax-heading. */
+    --syntax-h1: 191 58% 38%;
+    --syntax-h2: 199 24% 47%;
+    --syntax-h3: 199 24% 47%;
+    --syntax-code-fg: 200 18% 30%;
+    --syntax-code-bg: 200 20% 94%;
+    --attrref: 34 50% 39%;
+    --syntax-callout: 330 50% 45%;
+    --admon-note-fg: 200 70% 32%;
+    --admon-note-bg: 200 55% 94%;
+    --admon-tip-fg: 150 55% 30%;
+    --admon-tip-bg: 150 45% 93%;
+    --admon-warning-fg: 38 80% 32%;
+    --admon-warning-bg: 44 85% 91%;
+    --admon-important-fg: 0 65% 42%;
+    --admon-important-bg: 0 70% 95%;
+    --admon-caution-fg: 24 78% 38%;
+    --admon-caution-bg: 28 82% 93%;
 
     /* semantic status tokens */
     --success: 152 52% 32%;
@@ -122,13 +146,35 @@
     --ring: 189 54% 56%;
 
     /* editor syntax palette (brand-cohesive) */
-    --syntax-heading: 189 54% 62%;
+    --syntax-heading: 188 70% 55%;
     --syntax-attr: 38 62% 62%;
     --syntax-link: 214 64% 72%;
     --syntax-string: 152 44% 62%;
     --syntax-keyword: 280 46% 74%;
     --syntax-comment: 192 14% 56%;
     --syntax-punct: 192 12% 58%;
+
+    /* 030 — highlighting rework */
+    /* De-emphasized scaffold grey (see :root note); on dark, "less contrast" means DARKER toward bg. */
+    --markup: 200 10% 44%;
+    /* Heading ramp — review-proposal teal family (dark variant). */
+    --syntax-h1: 189 50% 60%;
+    --syntax-h2: 196 24% 64%;
+    --syntax-h3: 196 24% 64%;
+    --syntax-code-fg: 200 16% 80%;
+    --syntax-code-bg: 200 14% 22%;
+    --attrref: 38 55% 68%;
+    --syntax-callout: 330 55% 72%;
+    --admon-note-fg: 200 65% 74%;
+    --admon-note-bg: 200 38% 22%;
+    --admon-tip-fg: 150 50% 68%;
+    --admon-tip-bg: 150 32% 20%;
+    --admon-warning-fg: 42 85% 66%;
+    --admon-warning-bg: 40 50% 22%;
+    --admon-important-fg: 0 72% 74%;
+    --admon-important-bg: 0 45% 25%;
+    --admon-caution-fg: 28 82% 70%;
+    --admon-caution-bg: 26 50% 25%;
 
     /* semantic status tokens */
     --success: 152 46% 62%;

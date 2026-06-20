@@ -1,71 +1,168 @@
-import { styleTags, tags as t } from '@lezer/highlight';
+import { styleTags, tags as t, Tag } from '@lezer/highlight';
+
+/** Custom AsciiDoc-specific highlight tags (named `ad.*` to avoid collisions). */
+export const ad = {
+  markup:        Tag.define(),
+  descTerm:      Tag.define(),
+  blockTitle:    Tag.define(),
+  checkDone:     Tag.define(),
+  checkTodo:     Tag.define(),
+  attrRef:       Tag.define(),
+  callout:       Tag.define(),
+  stem:          Tag.define(),
+  inlineStem:    Tag.define(),
+  xrefLabel:     Tag.define(),
+  admonNote:     Tag.define(),
+  admonTip:      Tag.define(),
+  admonWarning:  Tag.define(),
+  admonImportant:Tag.define(),
+  admonCaution:  Tag.define(),
+  docInfo:       Tag.define(),
+} as const;
 
 /**
- * Maps AsciiDoc Lezer node types to highlight tags. Kept in its own module — free of any
- * generated-parser import — so it is a single source of truth shared by the configured language
- * (`asciidoc-language.ts`) and the highlight-consistency tests, which build the parser from the
- * grammar source rather than the generated (ESM) `asciidoc-parser.js`.
+ * Maps AsciiDoc Lezer node types to highlight tags.
+ *
+ * Only PascalCase grammar rules create named nodes in the parse tree;
+ * lowercase external tokens are anonymous leaves that styleTags cannot target
+ * individually.  The grammar wraps every token that needs independent styling
+ * in a thin PascalCase rule (ExampleFence, AdmonNotePfx, CheckDoneMark, …)
+ * so the highlight system has a handle on each range.
+ *
+ * Kept in its own module — free of any generated-parser import — so it is a
+ * single source of truth shared by the configured language (`asciidoc-language.ts`)
+ * and the highlight-consistency tests.
  */
 export const asciidocHighlightTags = styleTags({
+  // ── Headings ────────────────────────────────────────────────────────────────
   DocumentTitle:      t.heading1,
   Heading1:           t.heading2,
   Heading2:           t.heading3,
   Heading3:           t.heading4,
   Heading4:           t.heading5,
   Heading5:           t.heading6,
+
+  // ── Inline emphasis ──────────────────────────────────────────────────────
   Bold:               t.strong,
   Italic:             t.emphasis,
   Monospace:          t.monospace,
+
+  // ── Block wrappers — body is foreground; fences and annotations recede ────
+  // Named `XxxFence` wrapper rules allow fence tokens to carry ad.markup
+  // independently of the parent block's t.content.
+  ExampleBlock:       t.content,
+  SidebarBlock:       t.content,
+  QuoteBlock:         t.content,
+  OpenBlock:          t.content,
+  TableBlock:         t.content,
+  CsvTableBlock:      t.content,
+  DsvTableBlock:      t.content,
+  ListingBlock:       t.content,
+  LiteralBlock:       t.content,
+  PassthroughBlock:   t.content,
+  // Stem: body colored with stem tag; the `[stem]` annotation reads as a block-attribute line
+  // (amber, like `[source,ruby]`) rather than receding to grey; the `++++` fence still recedes.
+  StemBlock:          ad.stem,
+  StemAnnotation:     t.meta,
+
+  // Block fence delimiters (named wrappers from grammar)
+  ExampleFence:       ad.markup,
+  SidebarFence:       ad.markup,
+  QuoteFence:         ad.markup,
+  OpenFence:          ad.markup,
+  ListingFence:       ad.markup,
+  LiteralFence:       ad.markup,
+  PassthroughFence:   ad.markup,
+  CsvTableFence:      ad.markup,
+  DsvTableFence:      ad.markup,
+  TableFence:         ad.markup,
+
+  // ── Table internals ──────────────────────────────────────────────────────
+  // `[cols="…"]` reads as a block-attribute line (amber), consistent with `[stem]`/`[source]`.
+  TableCols:          t.meta,
+  // `|` cell separators recede to muted markup so the cell content leads.
+  TableCellMark:      ad.markup,
+
+  // ── Admonitions — label-only chip; body is foreground ────────────────────
+  // Generic fallback (whole paragraph/block → foreground)
+  AdmonitionParagraph:    t.content,
+  AdmonitionContinuation: t.content,
+  AdmonitionBlock:        t.content,
+  AdmonAnnotation:        ad.markup,
+
+  // Inline-form label prefix wrappers (NOTE: , TIP: , etc.)
+  AdmonNotePfx:        ad.admonNote,
+  AdmonTipPfx:         ad.admonTip,
+  AdmonWarningPfx:     ad.admonWarning,
+  AdmonImportantPfx:   ad.admonImportant,
+  AdmonCautionPfx:     ad.admonCaution,
+
+  // Block-attribute annotation wrappers ([NOTE], [TIP], etc.)
+  AdmonNoteAnnotation:      ad.admonNote,
+  AdmonTipAnnotation:       ad.admonTip,
+  AdmonWarningAnnotation:   ad.admonWarning,
+  AdmonImportantAnnotation: ad.admonImportant,
+  AdmonCautionAnnotation:   ad.admonCaution,
+
+  // Per-severity paragraph nodes — body inherits foreground (overridden at prefix level)
+  AdmonitionNoteParagraph:      t.content,
+  AdmonitionTipParagraph:       t.content,
+  AdmonitionWarningParagraph:   t.content,
+  AdmonitionImportantParagraph: t.content,
+  AdmonitionCautionParagraph:   t.content,
+
+  // Per-severity block nodes — body inherits foreground (overridden at annotation level)
+  AdmonitionNoteBlock:      t.content,
+  AdmonitionTipBlock:       t.content,
+  AdmonitionWarningBlock:   t.content,
+  AdmonitionImportantBlock: t.content,
+  AdmonitionCautionBlock:   t.content,
+
+  // ── Lists — marker wrappers recede; body is foreground ───────────────────
+  // Named marker wrappers carry the chip/muted color independently.
+  UnorderedMark:      ad.markup,
+  OrderedMark:        ad.markup,
+  CheckDoneMark:      ad.checkDone,
+  CheckTodoMark:      ad.checkTodo,
+  // Parent list-item nodes → body inherits foreground
+  OrderedListItem:    t.content,
+  UnorderedListItem:  t.content,
+  CheckDoneItem:      t.content,
+  CheckTodoItem:      t.content,
+  Continuation:       t.content,
+  // The DescriptionList wrapper is body text; only its DescTerm child (term + `::` separator)
+  // carries the term colour, so the DEFINITION text and any wrapped continuation line read as
+  // ordinary foreground body — the same colour, first line and continuation alike.
+  DescriptionList:    t.content,
+  DescTerm:           ad.descTerm,
+  DescriptionContinuation: t.content,
+
+  // ── Inline references & special constructs ────────────────────────────────
+  Link:               t.link,
+  InlineMacro:        t.link,
+  CrossReference:     t.link,
+  XrefTarget:         t.link,
+  XrefLabel:          ad.xrefLabel,
+  AttributeReference: ad.attrRef,
+  AttributeEntry:     t.meta,
+  InlineSet:          t.meta,
+  Callout:            ad.callout,
+  // Inline `stem:[…]` carries its own tag so it can show a math chip (block stem body uses ad.stem).
+  InlineStem:         ad.inlineStem,
+  SmartQuote:         t.quote,
+  HardBreak:          t.escape,
+
+  // ── Document structure ────────────────────────────────────────────────────
   Highlight:          t.special(t.string),
   Subscript:          t.number,
   Superscript:        t.special(t.number),
-  // A role-based inline span `[.role]#text#` is a styled span. EVERY role span gets this generic
-  // highlight class (FR-021b) — it reuses the highlight/marked-span tag that the theme already
-  // colours, so all five themes show role spans. A KNOWN role earns an ADDITIONAL distinct emphasis
-  // via the registry-driven decoration (`inline-style-registry.ts`), layered on top of this base.
   RoleSpan:           t.special(t.string),
   CommentLine:        t.lineComment,
   CommentBlock:       t.blockComment,
-  AttributeEntry:     t.meta,
-  AttributeReference: t.variableName,
-  // An inline `{set:}` assignment is an attribute DEFINITION in body text, so it shares the
-  // attribute-entry colour (`t.meta`) rather than the (theme-unstyled) reference tag.
-  InlineSet:          t.meta,
   BlockMacro:         t.macroName,
-  InlineMacro:        t.link,
-  CrossReference:     t.link,
-  // A cross-reference's target id reads as a link (the navigation anchor); its optional display
-  // label reads as body text, distinct from the target (FR-045). The `<<`/`>>` delimiters (and the
-  // single guard char the opener consumes) share the target's link colour.
-  xrefOpen:           t.link,
-  xrefClose:          t.link,
-  XrefTarget:         t.link,
-  XrefLabel:          t.string,
-  // A table column-format specifier line `[cols="1,>2"]` — highlighted distinctly from a generic
-  // block-attribute line (FR-046). `t.attributeValue` reads as a value/spec, not plain meta.
-  TableCols:          t.attributeValue,
-  Footnote:           t.string,
-  ListingBlock:       t.content,
-  LiteralBlock:       t.content,
-  ExampleBlock:       t.string,
-  SidebarBlock:       t.typeName,
-  QuoteBlock:         t.quote,
-  PassthroughBlock:   t.processingInstruction,
-  OpenBlock:          t.labelName,
-  StemBlock:          t.special(t.keyword),
-  AdmonitionParagraph: t.keyword,
-  // Glued continuation lines of an admonition paragraph share its colour so the whole NOTE/TIP/…
-  // block reads as one admonition (see AdmonitionContinuation in the grammar).
-  AdmonitionContinuation: t.keyword,
-  AdmonitionBlock:    t.keyword,
-  TableBlock:         t.className,
-  CsvTableBlock:      t.className,
-  DsvTableBlock:      t.className,
-  tableDelim:         t.separator,
-  tableRow:           t.content,
-  tableCellMark:      t.operator,
-  Conditional:        t.keyword,
+  BlockTitle:         ad.blockTitle,
   BlockAttributeLine: t.meta,
+  Conditional:        t.keyword,
   ThematicBreak:      t.contentSeparator,
   PageBreak:          t.special(t.contentSeparator),
   Passthrough:        t.special(t.string),
@@ -73,17 +170,10 @@ export const asciidocHighlightTags = styleTags({
   BiblioAnchor:       t.special(t.labelName),
   Replacement:        t.character,
   Entity:             t.special(t.character),
-  Callout:            t.special(t.number),
   UiMacro:            t.macroName,
-  InlineStem:         t.special(t.macroName),
-  Link:               t.link,
-  SmartQuote:         t.quote,
-  HardBreak:          t.escape,
-  BlockTitle:         t.annotation,
-  OrderedListItem:    t.list,
-  UnorderedListItem:  t.list,
-  ChecklistItem:      t.list,
-  Continuation:       t.list,
-  DescriptionList:    t.labelName,
-  DescriptionContinuation: t.labelName,
+  Footnote:           t.string,
+
+  // ── Document header metadata ──────────────────────────────────────────────
+  AuthorLine:         ad.docInfo,
+  RevisionLine:       ad.docInfo,
 });

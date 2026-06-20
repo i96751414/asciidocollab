@@ -338,7 +338,9 @@ describe('AsciiDoc Lezer Grammar', () => {
     test('glued lines under NOTE: are admonition continuation, not a heading', () => {
       const tree = parseDocument('NOTE: One of five built-in admonition block types.\n== This is not a title yet\nanother line\n');
       expect(hasNode(tree, 'Heading1')).toBe(false);
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      // NOTE: now produces AdmonitionNoteParagraph (per-severity split)
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionNoteParagraph');
+      expect(hasAdmon).toBe(true);
       // The glued lines belong to the admonition (their own node so they inherit the admonition tag),
       // not the plain ParagraphContinuation — so the whole NOTE block highlights as one admonition.
       expect(collectNodes(tree, 'AdmonitionContinuation')).toHaveLength(2);
@@ -420,22 +422,30 @@ describe('AsciiDoc Lezer Grammar', () => {
   });
 
   describe('whitespace-only line is a blank line (block separator)', () => {
-    const cases: Array<[string, string]> = [
-      ['AdmonitionParagraph', 'Intro.\n   \nNOTE: an admonition follows a spaces-only line.\n'],
-      ['AdmonitionParagraph (tab)', 'Intro.\n\t\nNOTE: an admonition follows a tab-only line.\n'],
+    test('AdmonitionParagraph starts after a whitespace-only line', () => {
+      const tree = parseDocument('Intro.\n   \nNOTE: an admonition follows a spaces-only line.\n');
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionNoteParagraph');
+      expect(hasAdmon).toBe(true);
+    });
+
+    test('AdmonitionParagraph (tab) starts after a whitespace-only line', () => {
+      const tree = parseDocument('Intro.\n\t\nNOTE: an admonition follows a tab-only line.\n');
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionNoteParagraph');
+      expect(hasAdmon).toBe(true);
+    });
+
+    test.each([
       ['InlineStem', 'Intro.\n   \nEuler: stem:[e^(i*pi) + 1 = 0].\n'],
       ['UnorderedListItem', 'Intro.\n   \n* a list item after a spaces-only line\n'],
       ['ListingBlock', 'Intro.\n   \n----\ncode\n----\n'],
-    ];
-    for (const [label, source] of cases) {
-      test(`${label} starts after a whitespace-only line`, () => {
-        const node = label.split(' ')[0];
-        expect(hasNode(parseDocument(source), node)).toBe(true);
-      });
-    }
+    ])('%s starts after a whitespace-only line', (node, source) => {
+      expect(hasNode(parseDocument(source), node)).toBe(true);
+    });
 
     test('a truly empty line still separates blocks (no regression)', () => {
-      expect(hasNode(parseDocument('Intro.\n\nNOTE: still an admonition.\n'), 'AdmonitionParagraph')).toBe(true);
+      const tree = parseDocument('Intro.\n\nNOTE: still an admonition.\n');
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionNoteParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('an INDENTED non-empty line is NOT treated as blank (stays a paragraph)', () => {
@@ -657,30 +667,25 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
-  describe('ChecklistItem', () => {
-    test('recognises * [ ] unchecked checklist item', () => {
-      const tree = parseDocument('* [ ] Unchecked task\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+  describe('CheckTodoItem / CheckDoneItem', () => {
+    test('recognises * [ ] unchecked checklist item as CheckTodoItem', () => {
+      expect(hasNode(parseDocument('* [ ] Unchecked task\n'), 'CheckTodoItem')).toBe(true);
     });
 
-    test('recognises * [x] checked checklist item', () => {
-      const tree = parseDocument('* [x] Checked task\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    test('recognises * [x] checked checklist item as CheckDoneItem', () => {
+      expect(hasNode(parseDocument('* [x] Checked task\n'), 'CheckDoneItem')).toBe(true);
     });
 
-    test('recognises * [X] checked checklist item (uppercase)', () => {
-      const tree = parseDocument('* [X] Done task\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    test('recognises * [X] checked checklist item (uppercase) as CheckDoneItem', () => {
+      expect(hasNode(parseDocument('* [X] Done task\n'), 'CheckDoneItem')).toBe(true);
     });
 
-    test('recognises dash `- [ ]` unchecked checklist item (US3)', () => {
-      const tree = parseDocument('- [ ] task\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    test('recognises dash `- [ ]` unchecked checklist item as CheckTodoItem (US3)', () => {
+      expect(hasNode(parseDocument('- [ ] task\n'), 'CheckTodoItem')).toBe(true);
     });
 
-    test('recognises dash `- [x]` checked checklist item (US3)', () => {
-      const tree = parseDocument('- [x] task\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+    test('recognises dash `- [x]` checked checklist item as CheckDoneItem (US3)', () => {
+      expect(hasNode(parseDocument('- [x] task\n'), 'CheckDoneItem')).toBe(true);
     });
   });
 
@@ -729,39 +734,46 @@ describe('AsciiDoc Lezer Grammar', () => {
   describe('AdmonitionParagraph', () => {
     test('recognises NOTE: admonition paragraph', () => {
       const tree = parseDocument('NOTE: Pay attention here\n');
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionNoteParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('recognises TIP: admonition paragraph', () => {
       const tree = parseDocument('TIP: A useful hint\n');
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionTipParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('recognises WARNING: admonition paragraph', () => {
       const tree = parseDocument('WARNING: Be careful\n');
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionWarningParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('recognises IMPORTANT: admonition paragraph', () => {
       const tree = parseDocument('IMPORTANT: Must do this\n');
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionImportantParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('recognises CAUTION: admonition paragraph', () => {
       const tree = parseDocument('CAUTION: Watch out\n');
-      expect(hasNode(tree, 'AdmonitionParagraph')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') || hasNode(tree, 'AdmonitionCautionParagraph');
+      expect(hasAdmon).toBe(true);
     });
   });
 
   describe('AdmonitionBlock', () => {
     test('recognises [NOTE] block-style admonition', () => {
       const tree = parseDocument('[NOTE]\n====\nThis is a note block\n====\n');
-      expect(hasNode(tree, 'AdmonitionBlock')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionBlock') || hasNode(tree, 'AdmonitionNoteBlock');
+      expect(hasAdmon).toBe(true);
     });
 
     test('recognises [WARNING] block-style admonition', () => {
       const tree = parseDocument('[WARNING]\n====\nDanger!\n====\n');
-      expect(hasNode(tree, 'AdmonitionBlock')).toBe(true);
+      const hasAdmon = hasNode(tree, 'AdmonitionBlock') || hasNode(tree, 'AdmonitionWarningBlock');
+      expect(hasAdmon).toBe(true);
     });
   });
 
@@ -859,8 +871,9 @@ example block
       expect(hasNode(parseDocument(complexDocument), 'UnorderedListItem')).toBe(true);
     });
 
-    test('complex document contains ChecklistItem nodes', () => {
-      expect(hasNode(parseDocument(complexDocument), 'ChecklistItem')).toBe(true);
+    test('complex document contains CheckDoneItem or CheckTodoItem nodes', () => {
+      const tree = parseDocument(complexDocument);
+      expect(hasNode(tree, 'CheckDoneItem') || hasNode(tree, 'CheckTodoItem')).toBe(true);
     });
 
     test('complex document contains DescriptionList nodes', () => {
@@ -872,7 +885,12 @@ example block
     });
 
     test('complex document contains AdmonitionParagraph nodes', () => {
-      expect(hasNode(parseDocument(complexDocument), 'AdmonitionParagraph')).toBe(true);
+      const tree = parseDocument(complexDocument);
+      const hasAdmon = hasNode(tree, 'AdmonitionParagraph') ||
+        hasNode(tree, 'AdmonitionNoteParagraph') || hasNode(tree, 'AdmonitionTipParagraph') ||
+        hasNode(tree, 'AdmonitionWarningParagraph') || hasNode(tree, 'AdmonitionImportantParagraph') ||
+        hasNode(tree, 'AdmonitionCautionParagraph');
+      expect(hasAdmon).toBe(true);
     });
 
     test('complex document contains CommentLine nodes', () => {
@@ -894,21 +912,21 @@ example block
 
   // ── Checkbox markers ──────────────────────────────────────────────────────────
   describe('Checklist markers', () => {
-    test.each(['* [ ] todo\n', '* [x] done\n', '* [X] done\n', '* [*] done\n'])(
-      'recognises %j as a ChecklistItem',
-      (input) => {
-        expect(hasNode(parseDocument(input), 'ChecklistItem')).toBe(true);
+    test.each([['* [ ] todo\n', 'CheckTodoItem'], ['* [x] done\n', 'CheckDoneItem'], ['* [X] done\n', 'CheckDoneItem'], ['* [*] done\n', 'CheckDoneItem']])(
+      'recognises %j as a %s',
+      (input, nodeName) => {
+        expect(hasNode(parseDocument(input), nodeName)).toBe(true);
       },
     );
 
     test('the checked `[*]` marker does not open inline Bold', () => {
       const tree = parseDocument('* [*] some text\n');
-      expect(hasNode(tree, 'ChecklistItem')).toBe(true);
+      expect(hasNode(tree, 'CheckDoneItem')).toBe(true);
       expect(hasNode(tree, 'Bold')).toBe(false);
     });
 
     test('dash checklist `- [*] ` is recognised', () => {
-      expect(hasNode(parseDocument('- [*] done\n'), 'ChecklistItem')).toBe(true);
+      expect(hasNode(parseDocument('- [*] done\n'), 'CheckDoneItem')).toBe(true);
     });
   });
 
@@ -930,7 +948,7 @@ example block
 
     test('a wrapped checklist item absorbs the next line', () => {
       const tree = parseDocument('* [x] part\nstill part\n');
-      expect(nodeAt(tree, 'ChecklistItem', 13)).toBe(true);
+      expect(nodeAt(tree, 'CheckDoneItem', 13)).toBe(true);
       expect(hasNode(tree, 'Paragraph')).toBe(false);
     });
 
@@ -961,9 +979,12 @@ example block
       [' * indented unordered\n', 'UnorderedListItem'],
       ['  . indented ordered\n', 'OrderedListItem'],
       ['  1. indented numbered\n', 'OrderedListItem'],
-      ['  * [x] indented checklist\n', 'ChecklistItem'],
     ])('recognises %j as %s', (input, nodeType) => {
       expect(hasNode(parseDocument(input), nodeType)).toBe(true);
+    });
+
+    test(String.raw`recognises "  * [x] indented checklist\n" as CheckDoneItem`, () => {
+      expect(hasNode(parseDocument('  * [x] indented checklist\n'), 'CheckDoneItem')).toBe(true);
     });
 
     test('an indented list item still absorbs its continuation line', () => {

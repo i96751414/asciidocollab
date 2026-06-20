@@ -86,7 +86,6 @@ jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () 
 jest.mock('@/hooks/use-section-outline', () => ({ useSectionOutline: jest.fn(() => []) }));
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true } }));
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
-jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));
 jest.mock('@/lib/codemirror/asciidoc-theme', () => ({ asciidocTheme: [] }));
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({ asciidocFold: {} }));
 jest.mock('@/lib/codemirror/asciidoc-table-context', () => ({ tableContextField: { field: true } }));

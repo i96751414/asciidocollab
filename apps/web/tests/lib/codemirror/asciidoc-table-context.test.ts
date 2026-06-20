@@ -5,7 +5,7 @@ import type { LRParser } from '@lezer/lr';
 import { EditorState } from '@codemirror/state';
 import { LRLanguage, LanguageSupport, ensureSyntaxTree } from '@codemirror/language';
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
-import { parseTableContext, tableContextField } from '@/lib/codemirror/asciidoc-table-context';
+import { parseTableContext, tableContextField, tableHasExplicitHeader } from '@/lib/codemirror/asciidoc-table-context';
 import {
   parseTable,
   addRow,
@@ -177,6 +177,53 @@ describe('parseTableContext cursor detection', () => {
     expect(contextR0!.cursorRowIndex).toBe(0);
     expect(contextR1!.cursorRowIndex).toBe(1);
     expect(contextR0!.rowCount).toBe(2);
+  });
+});
+
+// ── Explicit header option (`[%header]` / `options="header"`) ────────────────
+// FR-046: the header option marks the first row as a header even without a blank-line separator.
+// The TableBlock node excludes the attribute line, so the field passes the signal as a parameter;
+// `tableHasExplicitHeader` is the single detector shared with the header-cell decoration.
+
+describe('tableHasExplicitHeader', () => {
+  test.each([
+    ['[%header]', true],
+    ['[cols="2,1",options="header"]', true],
+    ['[options="header,footer"]', true],
+    ['[%header,cols="2"]', true],
+    ['[cols="2,1"]', false],
+    ['[source,ruby]', false],
+    ['', false],
+  ])('%s → %s', (line, expected) => {
+    expect(tableHasExplicitHeader(line)).toBe(expected);
+  });
+});
+
+describe('parseTableContext explicit-header option (no blank-line separator)', () => {
+  // Two content rows, NO blank separator: `|===\n|H1 |H2\n|B1 |B2\n|===\n`.
+  const TABLE = '|===\n|H1 |H2\n|B1 |B2\n|===\n';
+  const OFFSET_ROW0 = 6; // inside the first row `|H1`
+  const OFFSET_ROW1 = 14; // inside the second row `|B1`
+
+  test('without the option, the first row is a body row (no header)', () => {
+    const context = parseTableContext(TABLE, OFFSET_ROW0);
+    expect(context!.isInHeader).toBe(false);
+    expect(context!.rowCount).toBe(2);
+  });
+
+  test('with the option, the first row becomes the header and the rest are body', () => {
+    const header = parseTableContext(TABLE, OFFSET_ROW0, true);
+    const body = parseTableContext(TABLE, OFFSET_ROW1, true);
+    expect(header!.isInHeader).toBe(true);
+    expect(body!.isInHeader).toBe(false);
+    expect(body!.cursorRowIndex).toBe(0);
+    expect(body!.rowCount).toBe(1); // header row no longer counted as a body row
+  });
+
+  test('a lone header row stays a single completable body row (not promoted to null)', () => {
+    const context = parseTableContext('|===\n|H1 |H2\n|===\n', 6, true);
+    expect(context).not.toBeNull();
+    expect(context!.rowCount).toBe(1);
   });
 });
 

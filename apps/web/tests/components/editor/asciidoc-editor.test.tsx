@@ -244,11 +244,6 @@ jest.mock('@/hooks/use-editor-preferences', () => ({
   useEditorPreferences: jest.fn(() => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() })),
 }));
 
-jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({
-  asciidocHighlightStyle: {},
-  asciidocHighlighting: () => ({}),
-}));
-
 jest.mock('@/lib/codemirror/asciidoc-theme', () => ({
   asciidocTheme: [],
 }));
