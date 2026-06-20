@@ -103,6 +103,28 @@ describe('PrismaAuditLogRepository', () => {
     expect(all).toHaveLength(2);
   });
 
+  it('round-trips nested metadata: arrays, nested objects, nulls and primitives', async () => {
+    const user = createTestUser();
+    await userRepo.save(user);
+
+    // Exercises every arm of the metadata serializer: arrays, nested objects, null, and the
+    // string/number/boolean primitives, then verifies the value survives the save/load round-trip.
+    const metadata = {
+      tags: ['a', 1, true],
+      nested: { level: { deeper: 'x' } },
+      missing: null,
+      count: 42,
+      enabled: false,
+      label: 'audit',
+    };
+    await repo.save(createTestAuditLog(user.id, { action: 'rich.metadata', metadata }));
+
+    const all = await repo.findAll();
+    const entry = all.find((a) => a.action === 'rich.metadata');
+    expect(entry).toBeDefined();
+    expect(entry!.metadata).toEqual(metadata);
+  });
+
   describe('findWithFilters', () => {
     it('returns all entries when no filters applied', async () => {
       const user = createTestUser();
