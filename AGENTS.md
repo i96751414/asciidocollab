@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/028-document-outline-panel/plan.md
+Active feature plan: specs/029-show-includes-option/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

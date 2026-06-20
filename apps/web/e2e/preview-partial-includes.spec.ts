@@ -76,6 +76,7 @@ test.describe('US9 partial includes by tags= / lines=', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
 

@@ -112,7 +112,7 @@ describe('use-editor-mount revealRequest (FR-049)', () => {
 // effect stays in the hook.
 describe('use-editor-mount inherited heading offset (FR-071/045a)', () => {
   test('passes a lazy inherited-offset accessor to asciidocHeadingLevels', () => {
-    expect(extensionsSource).toMatch(/asciidocHeadingLevels\(getInheritedOffset\)/);
+    expect(extensionsSource).toMatch(/asciidocHeadingLevels\(getInheritedOffset,/);
     expect(source).toMatch(/getInheritedOffset: \(\) => inheritedOffsetReference\.current/);
   });
 

@@ -81,6 +81,7 @@ test.describe('US8 preview conditionals across files', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
     // Flag set ⇒ the include is expanded by the assembler and the chapter renders.

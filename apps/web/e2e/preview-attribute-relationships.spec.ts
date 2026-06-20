@@ -91,6 +91,7 @@ test.describe('preview attribute relationships resolve mutually consistently (FR
     // Open the MAIN file so the whole include tree is assembled and resolved together.
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
 

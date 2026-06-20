@@ -1,5 +1,9 @@
-/** A `{name}` attribute reference in a macro target / value. Names are case-insensitive. */
-const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
+/**
+ * A `{name}` attribute reference in a macro target / value. Names are case-insensitive.
+ * The negative lookbehind excludes `\{name}` — backslash escapes the reference so
+ * Asciidoctor emits a literal `{name}` instead of the value (AsciiDoc escape semantics).
+ */
+const ATTR_REF_RE = /(?<!\\)\{([A-Za-z0-9][\w-]*)\}/g;
 
 /**
  * Replace `{name}` attribute references with their values, resolving nested references up to

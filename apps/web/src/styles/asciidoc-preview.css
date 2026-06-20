@@ -468,3 +468,30 @@
   border: 0;
   border-top: 2px dashed hsl(var(--border));
 }
+
+/* ── Include placeholder (029) ──────────────────────────────────────────────── */
+/* Scoped strictly to the preview content surface — never leaks to app chrome
+   (Constitution VI). Subtle, non-intrusive, clearly interactive. */
+.asciidoc-preview-content .adoc-include-placeholder {
+  display: block;
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  border: 1px dashed hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.85em;
+  font-style: italic;
+  cursor: pointer;
+  user-select: none;
+}
+
+.asciidoc-preview-content .adoc-include-placeholder:hover {
+  background-color: hsl(var(--accent) / 0.5);
+  border-color: hsl(var(--primary) / 0.4);
+  color: hsl(var(--foreground));
+}
+
+.asciidoc-preview-content .adoc-include-placeholder:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}

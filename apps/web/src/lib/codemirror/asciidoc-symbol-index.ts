@@ -93,6 +93,23 @@ export interface ProjectSymbolIndex {
    * @returns The 1-based line number; 1 when the file's content is unavailable.
    */
   lineOf(fileId: string, offset: number): number;
+  /**
+   * Returns the content of a file by ID, or null when unavailable.
+   * Used by heading-level computation to trace include-induced leveloffset changes.
+   *
+   * @param fileId - The file whose content to retrieve.
+   * @returns The file's text content, or null when unavailable.
+   */
+  getContent(fileId: string): string | null;
+  /**
+   * Resolves an include target relative to `fromFileId` to a file ID, or null.
+   * Used by heading-level computation to follow include chains.
+   *
+   * @param fromFileId - The file from which the include target is resolved.
+   * @param target - The include target path (relative to `fromFileId`).
+   * @returns The resolved file ID, or null when the target cannot be resolved.
+   */
+  resolveInclude(fromFileId: string, target: string): string | null;
 }
 
 /**
@@ -207,5 +224,7 @@ export function buildProjectSymbolIndex(
       }
       return line;
     },
+    getContent: (fileId) => getContent(fileId),
+    resolveInclude: (fromFileId, target) => resolveInclude(fromFileId, target),
   };
 }

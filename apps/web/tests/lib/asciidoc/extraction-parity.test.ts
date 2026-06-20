@@ -139,7 +139,7 @@ describe('extraction parity (web vs domain)', () => {
       fileId: 'child.adoc',
     },
     {
-      name: 'include-scoped restoration across siblings',
+      name: 'attribute-form leveloffset persists into sibling',
       files: {
         'main.adoc': 'include::first.adoc[]\n\ninclude::second.adoc[]\n',
         'first.adoc': ':leveloffset: +1\n\n== A\n',

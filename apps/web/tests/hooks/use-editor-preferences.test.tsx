@@ -672,3 +672,57 @@ test('a GET response carrying leftPanelTab does not overwrite the local value', 
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(result.current.leftPanelTab).toBe('outline');
 });
+
+// ── showIncludedFiles (029: client-only, localStorage, never synced to the account) ──
+
+test('showIncludedFiles defaults to false when localStorage is empty', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.showIncludedFiles).toBe(false);
+});
+
+test('setShowIncludedFiles(true) writes to localStorage', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.setShowIncludedFiles(true));
+  expect(result.current.showIncludedFiles).toBe(true);
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.showIncludedFiles).toBe(true);
+});
+
+test('showIncludedFiles is NOT sent in any PUT body (client-only preference)', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+  // Toggle showIncludedFiles (must not be in any PUT) then change another pref so a PUT fires.
+  act(() => result.current.setShowIncludedFiles(true));
+  act(() => result.current.setFontSize(18));
+  await act(async () => {
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCalls = mockFetch.mock.calls.filter((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  expect(putCalls.length).toBeGreaterThan(0);
+  for (const putCall of putCalls) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).not.toHaveProperty('showIncludedFiles');
+  }
+});
+
+test('a GET response that does not include showIncludedFiles keeps the local value', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', showIncludedFiles: true });
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(result.current.showIncludedFiles).toBe(true);
+});
+
+test('showIncludedFiles round-trips a boolean true from localStorage', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', showIncludedFiles: true });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.showIncludedFiles).toBe(true);
+});

@@ -43,17 +43,19 @@ interface EditorPrefs {
   spellcheckEnabled: boolean;
   /** 028: the active left-panel view. Client-only — kept in localStorage, never PUT to the account. */
   leftPanelTab: LeftPanelTab;
+  /** 029: whether to show included files inline in the editor. Client-only — kept in localStorage, never PUT to the account. */
+  showIncludedFiles: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files' };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
 // PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
 // leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
 // hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
-const CLIENT_ONLY_KEYS = ['leftPanelTab'] as const satisfies readonly (keyof EditorPrefs)[];
+const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles'] as const satisfies readonly (keyof EditorPrefs)[];
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -78,6 +80,7 @@ function loadFromStorage(): EditorPrefs {
           spellIgnore: toStringArray(parsed.spellIgnore),
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
           leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
+          showIncludedFiles: typeof parsed.showIncludedFiles === 'boolean' ? parsed.showIncludedFiles : DEFAULT_PREFS.showIncludedFiles,
         };
       }
     }
@@ -95,6 +98,7 @@ interface UseEditorPreferencesResult {
   spellIgnore: string[];
   spellcheckEnabled: boolean;
   leftPanelTab: LeftPanelTab;
+  showIncludedFiles: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
@@ -103,6 +107,7 @@ interface UseEditorPreferencesResult {
   addSpellIgnore: (word: string) => void;
   setSpellcheckEnabled: (enabled: boolean) => void;
   setLeftPanelTab: (tab: LeftPanelTab) => void;
+  setShowIncludedFiles: (value: boolean) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -126,6 +131,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
         // the local value — the server response can never overwrite the chosen view.
         leftPanelTab: previous.leftPanelTab,
+        showIncludedFiles: previous.showIncludedFiles,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -223,5 +229,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab };
+  // Client-only setter (029): persists whether to show included files to localStorage but never
+  // schedules a PUT, so the value stays on this device and is excluded from the account preferences.
+  const setShowIncludedFiles = useCallback((showIncludedFiles: boolean) => {
+    setPrefs((previous) => {
+      const next = { ...previous, showIncludedFiles };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles };
 }

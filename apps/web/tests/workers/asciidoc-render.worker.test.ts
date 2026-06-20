@@ -648,9 +648,9 @@ describe('asciidoc-render.worker', () => {
     expect(rendered.indexOf('== Parent Section')).toBeGreaterThan(restoreIndex);
   });
 
-  // (u2) an attribute-form :leveloffset: set inside a child without a reset is restored when the
-  // include ends, so a sibling included afterwards is not affected (include-scoped restoration).
-  it('restores the prior leveloffset after a child that sets the attribute form without resetting it', () => {
+  // (u2) an attribute-form :leveloffset: set inside a child persists into the sibling include
+  // (AsciiDoc semantics: attribute form is NOT scoped to the include, only the option form is).
+  it('attribute-form :leveloffset: in a child persists into the next sibling include', () => {
     mockFindBy.mockReturnValueOnce([]);
     require('@/workers/asciidoc-render.worker');
     sendMessage({
@@ -664,15 +664,13 @@ describe('asciidoc-render.worker', () => {
       },
     });
     const rendered = mockLoad.mock.calls[0][0] as string;
-    // The child's own attribute-form offset is present, and a restore entry returns the offset to
-    // the parent's base (0) before the second include's content.
+    // The child's attribute-form offset persists — no restore is emitted between the two includes.
     const firstHeading = rendered.indexOf('== In First');
     const secondHeading = rendered.indexOf('== In Second');
     expect(firstHeading).toBeGreaterThan(-1);
     expect(secondHeading).toBeGreaterThan(firstHeading);
-    // Between the two headings there is a restoring `:leveloffset:` entry that resets to the base.
     const between = rendered.slice(firstHeading, secondHeading);
-    expect(between).toMatch(/:leveloffset:/);
+    expect(between).not.toMatch(/:leveloffset: 0/);
   });
 
   // ── T043 (US11/FR-040/FR-041) inline {set:} & wrapped attribute values in the assembled source ─

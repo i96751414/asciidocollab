@@ -15,6 +15,8 @@ interface RenderRequest {
   files?: Record<string, string>;
   rootFileId?: string | null;
   openFileId?: string;
+  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  showIncludes?: boolean;
 }
 
 interface RenderResult {
@@ -63,6 +65,8 @@ export interface UseAsciidocPreviewOptions {
   rootFileId?: string | null;
   /** The previewed open file's path, whose inherited attribute scope the worker seeds (FR-002a). */
   openFileId?: string;
+  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  showIncludes?: boolean;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -95,6 +99,7 @@ export function useAsciidocPreview({
   getFiles,
   rootFileId,
   openFileId,
+  showIncludes,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
@@ -116,6 +121,8 @@ export function useAsciidocPreview({
   rootFileIdReference.current = rootFileId;
   const openFileIdReference = useRef(openFileId);
   openFileIdReference.current = openFileId;
+  const showIncludesReference = useRef(showIncludes);
+  showIncludesReference.current = showIncludes;
 
   const workerReference = useRef<Worker | null>(null);
   const requestIdReference = useRef(0);
@@ -165,12 +172,12 @@ export function useAsciidocPreview({
       const mainFilePath = mainPathReference.current;
       const rootId = rootFileIdReference.current;
       const openId = openFileIdReference.current;
-      // The files snapshot feeds BOTH include assembly (when this file is the main file) and the
-      // cross-document attribute-scope resolution (when this file is an included child); read it once
-      // whenever either uses it so editing a parent re-resolves the open child live (FR-002a).
-      const needsFiles = mainFilePath !== undefined || (rootId != null && openId !== undefined);
+      // Always fetch files when any open file has an id (for assembly + scope), not only for main file.
+      const needsFiles = openId !== undefined || mainFilePath !== undefined || (rootId != null);
       const files = needsFiles ? getFilesReference.current?.() : undefined;
-      const canAssemble = mainFilePath !== undefined && files !== undefined && files[mainFilePath] !== undefined;
+      // Assemble rooted at the OPEN file for any file (FR-014): the worker takes openFileId as the
+      // root. Assembly runs when the open file's content is in the snapshot (even if it's not main).
+      const canAssemble = openId !== undefined && files !== undefined && files[openId] !== undefined;
       // Resolve the inherited scope only when the open file is reachable in the snapshot AND is not
       // itself the root (the root's own attributes Asciidoctor parses from the source). The worker
       // still revalidates and falls back to standalone if these inputs are incomplete.
@@ -180,7 +187,8 @@ export function useAsciidocPreview({
         requestId: requestIdReference.current,
         content: currentContent,
         imagesDir: imagesDirectoryReference.current,
-        ...(canAssemble ? { mainPath: mainFilePath, files } : {}),
+        showIncludes: showIncludesReference.current,
+        ...(canAssemble ? { files, openFileId: openId } : {}),
         ...(canResolveScope ? { rootFileId: rootId, openFileId: openId, files } : {}),
       } satisfies RenderRequest);
     }, PREVIEW_DEBOUNCE_MS);
@@ -224,7 +232,7 @@ export function useAsciidocPreview({
   useEffect(() => {
     if (!isEnabled || !content) return;
     scheduleRender(content);
-  }, [mainPath, rootFileId]);
+  }, [mainPath, rootFileId, showIncludes]);
 
   // Scroll to line when scrollToLine changes.
   useEffect(() => {

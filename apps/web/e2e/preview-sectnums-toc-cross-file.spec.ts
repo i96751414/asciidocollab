@@ -53,6 +53,7 @@ test.describe('US10 section numbering & TOC across includes', () => {
     // Open the MAIN file so the include tree is assembled with the inherited numbering/TOC attributes.
     await openFile(page, 'main.adoc');
     await expandPreview(page);
+    await page.getByTestId('show-includes-toggle').click();
 
     const output = page.getByTestId('asciidoc-output');
 
