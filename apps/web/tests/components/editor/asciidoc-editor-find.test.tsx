@@ -105,7 +105,6 @@ jest.mock('@/lib/codemirror/asciidoc-completions', () => {
 });
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn(), extension: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
-jest.mock('@/lib/codemirror/asciidoc-highlight', () => ({ asciidocHighlightStyle: {}, asciidocHighlighting: () => ({}) }));
 jest.mock('@/lib/codemirror/asciidoc-theme', () => ({ asciidocTheme: [] }));
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({ asciidocFold: {} }));
 jest.mock('@/lib/codemirror/asciidoc-table-context', () => ({ tableContextField: { field: true } }));

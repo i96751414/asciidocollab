@@ -225,3 +225,34 @@ describe('asciidocHeadingLevels — update paths', () => {
     expect(lineClasses(view)).toEqual(['cm-line cm-ad-h1']);
   });
 });
+
+// T016 (030 FR-001) — heading `=` marker run decoration.
+describe('030 T016 — heading = marker recedes via cm-ad-heading-marker', () => {
+  test('= marker span exists and carries the heading-marker class', () => {
+    const view = mount('= Title');
+    const markerSpan = view.dom.querySelector('.cm-ad-heading-marker');
+    expect(markerSpan).not.toBeNull();
+    expect(markerSpan!.textContent).toBe('=');
+  });
+
+  test('== marker span covers exactly the two = characters', () => {
+    const view = mount('== Section');
+    const markerSpan = view.dom.querySelector('.cm-ad-heading-marker');
+    expect(markerSpan).not.toBeNull();
+    expect(markerSpan!.textContent).toBe('==');
+  });
+
+  test('=== marker span covers three = characters', () => {
+    const view = mount('=== Sub');
+    const markerSpan = view.dom.querySelector('.cm-ad-heading-marker');
+    expect(markerSpan).not.toBeNull();
+    expect(markerSpan!.textContent).toBe('===');
+  });
+
+  test('beyondMax headings do not get a heading-marker span', () => {
+    // Mount with inheritedOffset = 5 so a `= Title` line becomes effectiveLevel 5+0 = 5 = MAX.
+    // `== Section` at rawLevel 1 becomes effectiveLevel 6 → beyondMax → no marker decoration.
+    const view = mount('== Section', () => 5);
+    expect(view.dom.querySelector('.cm-ad-heading-marker')).toBeNull();
+  });
+});

@@ -21,10 +21,31 @@ export interface TableContext {
   isInHeader: boolean;
 }
 
-/** Parses table structure and cursor position from the raw table text. */
+/**
+ * Reports whether a table's leading `[...]` block-attribute line marks the first row as a header via
+ * the explicit `options="header"` long form or the `%header` / `[header,…]` shorthands (FR-046). This
+ * is the single source of truth for explicit-header detection, shared by the cursor-context parser
+ * here and the header-cell bolding decoration (asciidoc-block-decorations.ts), so the two never
+ * disagree on what counts as a header.
+ */
+export function tableHasExplicitHeader(attributeLine: string): boolean {
+  return /options\s*=\s*"[^"]*\bheader\b/i.test(attributeLine) || /(?:\[|,|%)\s*header\b/i.test(attributeLine);
+}
+
+/**
+ * Parses table structure and cursor position from the raw table text.
+ *
+ * @param text - The table block text (the `|===…|===` slice; may start with a `[...]` attribute line).
+ * @param cursorOffset - Cursor offset relative to `text`.
+ * @param explicitHeaderOption - True when the table's (separate) block-attribute line declares a header
+ *   via `[%header]` / `options="header"`. The `TableBlock` node does not include that line, so the
+ *   caller (the field) detects it on the preceding sibling and passes it here — keeping this parser in
+ *   agreement with the header-cell decoration, which detects the same option from the same line.
+ */
 export function parseTableContext(
   text: string,
   cursorOffset: number,
+  explicitHeaderOption = false,
 ): Omit<TableContext, 'tableFrom' | 'tableTo'> | null {
   const lines = text.split('\n');
   let hasColSpec = false;
@@ -34,6 +55,11 @@ export function parseTableContext(
     hasColSpec = true;
     startLineIndex = 1;
   }
+  // An explicit header option (`[%header]` / `options="header"`) marks the first content row as a
+  // header even without a blank-line separator after it (applied post-classification below). The
+  // option may be passed by the caller (production: attr line is outside the TableBlock node) or be
+  // present inline in `text` (a `[...]` first line, as in direct-call tests).
+  const explicitHeader = explicitHeaderOption || (hasColSpec && tableHasExplicitHeader(lines[0] ?? ''));
 
   // Identify which line number the cursor is on.
   let cursorLine = -1;
@@ -70,6 +96,17 @@ export function parseTableContext(
         headerLineIndices.push(index);
       }
     }
+  }
+
+  // An explicit header option with NO blank-line separator: promote the first content row to the
+  // header set and treat the rest as body, so this parser agrees with the header-cell decoration.
+  // Only when there is a body row to keep (a lone header row stays a single completable body row).
+  if (explicitHeader && !foundHeaderSeparator && headerLines.length > 1) {
+    bodyLines.push(...headerLines.slice(1));
+    bodyLineIndices.push(...headerLineIndices.slice(1));
+    headerLines.length = 1;
+    headerLineIndices.length = 1;
+    foundHeaderSeparator = true;
   }
 
   // For tables without a header/body separator every content row is a body row.
@@ -135,7 +172,14 @@ export const tableContextField = StateField.define<TableContext | null>({
 
       const tableText = tr.state.doc.sliceString(node.from, node.to);
       const cursorOffset = cursorPos - node.from;
-      const context = parseTableContext(tableText, cursorOffset);
+      // The `[%header]`/`options="header"` attribute line is a SEPARATE node before TableBlock, so
+      // read it off the preceding sibling and pass the header signal in — the decoration reads the
+      // same line, so both agree on whether the first row is a header.
+      const previous = node.node.prevSibling;
+      const explicitHeaderOption = previous
+        ? tableHasExplicitHeader(tr.state.doc.sliceString(previous.from, previous.to))
+        : false;
+      const context = parseTableContext(tableText, cursorOffset, explicitHeaderOption);
 
       if (context) {
         found = { tableFrom: node.from, tableTo: node.to, ...context };

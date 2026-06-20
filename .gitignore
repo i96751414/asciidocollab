@@ -54,3 +54,6 @@ apps/web/public/dictionaries/
 
 # Self-hosted MathJax browser bundle (copied from the mathjax package at build)
 apps/web/public/vendor/
+
+/.claude/worktrees/
+/playwright-report/

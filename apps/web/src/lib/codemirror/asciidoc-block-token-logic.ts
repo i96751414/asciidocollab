@@ -10,6 +10,8 @@ import {
   startsDelimitedBlock,
   isLineStart,
   consumeToEOL,
+  consumeDescTerm,
+  advanceBy,
   consumeAttributeEntry,
   peekString,
   isAlphaNumber,
@@ -45,14 +47,15 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
     docTitleToken: documentTitleToken,
     heading1Token, heading2Token, heading3Token, heading4Token, heading5Token,
     attrEntryToken: attributeEntryToken,
-    commentBlockDelim, commentLineToken, admonitionLineToken, blockMacroToken, descListToken,
+    commentBlockDelim, commentLineToken, blockMacroToken, descListToken,
     listingDelim, literalDelim, exampleDelim, sidebarDelim, quoteDelim, passthroughDelim,
     openDelim, tableDelim, csvTableDelim, dsvTableDelim,
     stemAttrToken: stemAttributeToken,
-    admonAttrToken: admonitionAttributeToken,
+    admonNoteAttrToken, admonTipAttrToken, admonWarningAttrToken, admonImportantAttrToken, admonCautionAttrToken,
+    admonNoteLineToken, admonTipLineToken, admonWarningLineToken, admonImportantLineToken, admonCautionLineToken,
     conditionalToken,
     blockAttrToken: blockAttributeToken,
-    checklistMarker, unorderedMarker, orderedMarker,
+    checkDoneMarker, checkTodoMarker, unorderedMarker, orderedMarker,
     inlineMacroToken, footnoteToken,
     blockTitleToken,
     thematicBreakToken, pageBreakToken, hardBreakToken,
@@ -182,7 +185,8 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
           if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) &&
               input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
             for (let index = 0; index < count + 5; index++) input.advance();
-            input.acceptToken(checklistMarker); return;
+            const isDone = boxChar === 120 || boxChar === 88 || boxChar === STAR;
+            input.acceptToken(isDone ? checkDoneMarker : checkTodoMarker); return;
           }
         }
         input.advance(); input.advance(); input.acceptToken(unorderedMarker); return;
@@ -190,7 +194,7 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       return;
     }
 
-    // ── '*' : sidebarDelim, checklistMarker, unorderedMarker ──────────────────
+    // ── '*' : sidebarDelim, checkDoneMarker/checkTodoMarker, unorderedMarker ──
     if (ch === STAR) {
       let count = 0;
       while (input.peek(count) === STAR) count++;
@@ -201,7 +205,8 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
         if ((boxChar === SPACE || boxChar === 120 || boxChar === 88 || boxChar === STAR) &&
             input.peek(count + 3) === 93 && input.peek(count + 4) === SPACE) {
           for (let index = 0; index < count + 5; index++) input.advance();
-          input.acceptToken(checklistMarker); return;
+          const isDone = boxChar === 120 || boxChar === 88 || boxChar === STAR;
+          input.acceptToken(isDone ? checkDoneMarker : checkTodoMarker); return;
         }
       }
       if (afterStar === SPACE) {
@@ -309,10 +314,11 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
     // ── '[' : stemAttributeToken, admonitionAttributeToken, generic block-attr ─
     if (ch === LBRACK) {
       if (peekString(input, '[stem]')) { consumeToEOL(input); input.acceptToken(stemAttributeToken); return; }
-      const admonTypes = ['[NOTE]', '[TIP]', '[WARNING]', '[IMPORTANT]', '[CAUTION]'];
-      for (const admonType of admonTypes) {
-        if (peekString(input, admonType)) { consumeToEOL(input); input.acceptToken(admonitionAttributeToken); return; }
-      }
+      if (peekString(input, '[NOTE]'))      { consumeToEOL(input); input.acceptToken(admonNoteAttrToken); return; }
+      if (peekString(input, '[TIP]'))       { consumeToEOL(input); input.acceptToken(admonTipAttrToken); return; }
+      if (peekString(input, '[WARNING]'))   { consumeToEOL(input); input.acceptToken(admonWarningAttrToken); return; }
+      if (peekString(input, '[IMPORTANT]')) { consumeToEOL(input); input.acceptToken(admonImportantAttrToken); return; }
+      if (peekString(input, '[CAUTION]'))   { consumeToEOL(input); input.acceptToken(admonCautionAttrToken); return; }
       // Table column-format specifier line `[cols="1,>2"]` / `[cols=2*]` (FR-046) — emitted as a
       // distinct token (before the generic block-attribute branch) so the cols spec highlights
       // distinctly. Matched only when it is a well-formed block-attribute line beginning `[cols`.
@@ -341,11 +347,20 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
         }
       }
 
-      // admonitionLineToken: NOTE: , TIP: , etc.
-      const admonParagraphs = ['NOTE: ', 'TIP: ', 'WARNING: ', 'IMPORTANT: ', 'CAUTION: '];
-      for (const keyword of admonParagraphs) {
-        if (peekString(input, keyword)) { consumeToEOL(input); input.acceptToken(admonitionLineToken); return; }
-      }
+      // Per-severity admonition paragraph tokens (NOTE: , TIP: , etc.). The trailing space is REQUIRED
+      // to recognise the label (so `NOTE:foo` is not an admonition) but is NOT consumed into the token:
+      // the prefix spans only `NOTE:` so the label chip hugs the label and the separating space reads as
+      // plain body — `inlineContent? nl` then parses ` <body>`. Lengths are the label without the space.
+      if (peekString(input, 'NOTE: '))      { advanceBy(input, 5);  input.acceptToken(admonNoteLineToken);      return; }
+      if (peekString(input, 'TIP: '))       { advanceBy(input, 4);  input.acceptToken(admonTipLineToken);       return; }
+      if (peekString(input, 'WARNING: '))   { advanceBy(input, 8);  input.acceptToken(admonWarningLineToken);   return; }
+      if (peekString(input, 'IMPORTANT: ')) { advanceBy(input, 10); input.acceptToken(admonImportantLineToken); return; }
+      if (peekString(input, 'CAUTION: '))   { advanceBy(input, 8);  input.acceptToken(admonCautionLineToken);   return; }
+
+      // Author/revision line detection is not implemented in the tokenizer: the grammar
+      // includes AuthorLine/RevisionLine as grammar-level stubs (for tag mapping purposes),
+      // but they require document-header context that cannot be enforced via canShift alone.
+      // The tokens remain in the grammar and highlight-tags but are never emitted.
 
       // Read identifier name
       let nameLength = 0;
@@ -381,12 +396,12 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
         if (lastClosePosition === offset - 1) {
           consumeToEOL(input); input.acceptToken(blockMacroToken); return;
         }
-        consumeToEOL(input); input.acceptToken(descListToken); return;
+        consumeDescTerm(input, nameLength, COLON); input.acceptToken(descListToken); return;
       }
 
       // `;;` description-list term separator (research D3).
       if (nameLength > 0 && input.peek(nameLength) === SEMICOLON && input.peek(nameLength + 1) === SEMICOLON) {
-        consumeToEOL(input); input.acceptToken(descListToken); return;
+        consumeDescTerm(input, nameLength, SEMICOLON); input.acceptToken(descListToken); return;
       }
     }
 
@@ -404,10 +419,10 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       while (offset < 200) {
         const code = input.peek(offset);
         if (code === COLON && input.peek(offset + 1) === COLON) {
-          consumeToEOL(input); input.acceptToken(descListToken); return;
+          consumeDescTerm(input, offset, COLON); input.acceptToken(descListToken); return;
         }
         if (code === SEMICOLON && input.peek(offset + 1) === SEMICOLON) {
-          consumeToEOL(input); input.acceptToken(descListToken); return;
+          consumeDescTerm(input, offset, SEMICOLON); input.acceptToken(descListToken); return;
         }
         if (code === NEWLINE || code === -1 || code === SPACE) break;
         offset++;

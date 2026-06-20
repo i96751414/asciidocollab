@@ -26,7 +26,11 @@ export interface FoldRange {
 /** Delimited blocks (incl. Literal + Admonition) whose body folds. */
 const FOLDABLE_BLOCK_TYPES = new Set([
   'ListingBlock', 'LiteralBlock', 'ExampleBlock', 'SidebarBlock', 'QuoteBlock',
-  'PassthroughBlock', 'OpenBlock', 'StemBlock', 'CommentBlock', 'AdmonitionBlock',
+  'PassthroughBlock', 'OpenBlock', 'StemBlock', 'CommentBlock',
+  // Per-severity admonition delimited blocks (the tokenizer emits per-severity tokens;
+  // 'AdmonitionBlock' is a dead grammar stub and is never produced at runtime).
+  'AdmonitionNoteBlock', 'AdmonitionTipBlock', 'AdmonitionWarningBlock',
+  'AdmonitionImportantBlock', 'AdmonitionCautionBlock',
 ]);
 
 /** Table block variants (PSV + CSV/DSV) whose body folds. */

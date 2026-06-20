@@ -50,15 +50,18 @@ const TOKEN_NAMES = [
   'heading1Token', 'heading2Token', 'heading3Token', 'heading4Token', 'heading5Token',
   'attrEntryToken',
   'commentBlockDelim', 'commentLineToken', 'admonitionLineToken', 'blockMacroToken', 'descListToken',
+  'admonNoteLineToken', 'admonTipLineToken', 'admonWarningLineToken', 'admonImportantLineToken', 'admonCautionLineToken',
+  'admonNoteAttrToken', 'admonTipAttrToken', 'admonWarningAttrToken', 'admonImportantAttrToken', 'admonCautionAttrToken',
   'listingDelim', 'literalDelim', 'exampleDelim', 'sidebarDelim', 'quoteDelim', 'passthroughDelim',
   'openDelim', 'tableDelim', 'csvTableDelim', 'dsvTableDelim',
   'stemAttrToken', 'admonAttrToken',
   'conditionalToken', 'blockAttrToken',
-  'checklistMarker', 'unorderedMarker', 'orderedMarker',
+  'checkDoneMarker', 'checkTodoMarker', 'unorderedMarker', 'orderedMarker',
   'inlineMacroToken', 'footnoteToken',
   'blockTitleToken',
   'thematicBreakToken', 'pageBreakToken', 'hardBreakToken',
   'continuationLineToken', 'paragraphLineToken',
+  'authorLineToken', 'revisionLineToken',
 ];
 
 const TERMS: Record<string, number> = Object.fromEntries(
@@ -309,19 +312,19 @@ describe('createBlockTokenLogic block detection', () => {
   });
 
   test('dash checklist unchecked `- [ ] `', () => {
-    expect(runLogic('- [ ] task\n').token).toBe('checklistMarker');
+    expect(runLogic('- [ ] task\n').token).toBe('checkTodoMarker');
   });
 
   test('dash checklist checked `- [x] `', () => {
-    expect(runLogic('- [x] task\n').token).toBe('checklistMarker');
+    expect(runLogic('- [x] task\n').token).toBe('checkDoneMarker');
   });
 
   test('dash checklist checked `- [X] `', () => {
-    expect(runLogic('- [X] task\n').token).toBe('checklistMarker');
+    expect(runLogic('- [X] task\n').token).toBe('checkDoneMarker');
   });
 
   test('dash checklist checked `- [*] `', () => {
-    expect(runLogic('- [*] task\n').token).toBe('checklistMarker');
+    expect(runLogic('- [*] task\n').token).toBe('checkDoneMarker');
   });
 
   test('dash `- [y] ` invalid box char falls back to plain unordered marker', () => {
@@ -346,11 +349,11 @@ describe('createBlockTokenLogic block detection', () => {
   });
 
   test('star checklist `* [ ] `', () => {
-    expect(runLogic('* [ ] task\n').token).toBe('checklistMarker');
+    expect(runLogic('* [ ] task\n').token).toBe('checkTodoMarker');
   });
 
   test('star checklist `* [x] `', () => {
-    expect(runLogic('* [x] task\n').token).toBe('checklistMarker');
+    expect(runLogic('* [x] task\n').token).toBe('checkDoneMarker');
   });
 
   test('star checklist invalid box `* [y] ` falls back to unordered', () => {
@@ -516,11 +519,11 @@ describe('createBlockTokenLogic block detection', () => {
   });
 
   test('admonition attribute `[NOTE]`', () => {
-    expect(runLogic('[NOTE]\n').token).toBe('admonAttrToken');
+    expect(runLogic('[NOTE]\n').token).toBe('admonNoteAttrToken');
   });
 
   test('admonition attribute `[WARNING]`', () => {
-    expect(runLogic('[WARNING]\n').token).toBe('admonAttrToken');
+    expect(runLogic('[WARNING]\n').token).toBe('admonWarningAttrToken');
   });
 
   test('generic block attribute `[source,ruby]`', () => {
@@ -561,11 +564,11 @@ describe('createBlockTokenLogic block detection', () => {
   });
 
   test('admonition paragraph `NOTE: `', () => {
-    expect(runLogic('NOTE: heads up\n').token).toBe('admonitionLineToken');
+    expect(runLogic('NOTE: heads up\n').token).toBe('admonNoteLineToken');
   });
 
   test('admonition paragraph `WARNING: `', () => {
-    expect(runLogic('WARNING: careful\n').token).toBe('admonitionLineToken');
+    expect(runLogic('WARNING: careful\n').token).toBe('admonWarningLineToken');
   });
 
   test('inline macro at line start `link:url[text]`', () => {

@@ -133,9 +133,15 @@ describe('foldRangeForBlock / foldRangeForTable (FR-012)', () => {
     const range = foldRangeForBlock(fakeNode('LiteralBlock', 5, 7), state(source));
     expect(range).toEqual({ from: 4, to: 6 });
   });
-  test('folds an AdmonitionBlock', () => {
+  test.each([
+    ['AdmonitionNoteBlock'],
+    ['AdmonitionTipBlock'],
+    ['AdmonitionWarningBlock'],
+    ['AdmonitionImportantBlock'],
+    ['AdmonitionCautionBlock'],
+  ])('folds a %s (per-severity admonition)', (nodeName) => {
     const source = '[NOTE]\n====\nnote\n====\n';
-    const range = foldRangeForBlock(fakeNode('AdmonitionBlock', 7, 17), state(source));
+    const range = foldRangeForBlock(fakeNode(nodeName, 7, 17), state(source));
     expect(range).not.toBeNull();
   });
   test('foldRangeForBlock ignores table nodes', () => {
