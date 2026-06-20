@@ -1,4 +1,5 @@
 'use client';
+import { useMemo } from 'react';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { EditorSectionOutline } from './editor-section-outline';
 import { currentHeadingIndex } from '@/lib/editor/current-heading';
@@ -18,7 +19,9 @@ interface OutlineViewProperties {
  * existing {@link EditorSectionOutline}; the current section is derived from the cursor line.
  */
 export function OutlineView({ entries, currentLine, hasDocument, onHeadingClick }: OutlineViewProperties) {
-  const currentIndex = currentHeadingIndex(entries, currentLine);
+  // The layout re-renders this view on every cursor move (currentLine) and every edit (entries), so
+  // memoise the O(n) current-section scan over only its real inputs.
+  const currentIndex = useMemo(() => currentHeadingIndex(entries, currentLine), [entries, currentLine]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

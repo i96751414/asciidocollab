@@ -25,9 +25,12 @@ export const SPELLCHECK_SKIP_NODES = new Set([
   'Callout', 'Entity',
   // `{set:name:value}` — the attribute name and value are identifiers, not prose.
   'InlineSet',
-  // `[.role]##text##` — the role name is markup (an arbitrary identifier like `[.lead]`), not prose.
-  'RoleSpan',
 ]);
+
+// `[.role]##body##` is a single token, but only the role NAME is markup — the body is ordinary prose
+// and must stay spell-checked. RoleSpan is handled out-of-band (skip the `[.role]` prefix only) rather
+// than added to SPELLCHECK_SKIP_NODES, which would suppress the body too.
+const ROLE_SPAN_NODE = 'RoleSpan';
 
 const WORD_RE = /[A-Za-z][A-Za-z']*/g;
 
@@ -137,20 +140,29 @@ export function asciidocSpellcheckSource(
     const diagnostics: Diagnostic[] = [];
     const text = view.state.doc.toString();
 
-    // Collect prose ranges by subtracting skip-node ranges from the document.
+    // Collect prose ranges by subtracting skip-node ranges from the document. `roleSpans` holds the
+    // FULL `[.role]##body##` range (its body is prose, so it is not a skip range) — a word glued to its
+    // outer edge is a markup-split fragment, not a standalone misspelling.
     const skip: Array<{ from: number; to: number }> = [];
+    const roleSpans: Array<{ from: number; to: number }> = [];
     tree.cursor().iterate((node) => {
+      if (node.name === ROLE_SPAN_NODE) {
+        // Skip only the leading `[.role]` markup; leave the `#…#`/`##…##` body to be spell-checked.
+        const bracketEnd = text.indexOf(']', node.from);
+        const nameEnd = bracketEnd === -1 || bracketEnd >= node.to ? node.to : bracketEnd + 1;
+        skip.push({ from: node.from, to: nameEnd });
+        roleSpans.push({ from: node.from, to: node.to });
+        return;
+      }
       if (SPELLCHECK_SKIP_NODES.has(node.name)) skip.push({ from: node.from, to: node.to });
     });
-    // A word is not prose-checked when it is inside a skip range OR glued directly to one (no
-    // whitespace). An unconstrained span splits a word across markup — `[.underline]##O##nce` leaves
-    // the fragment `nce` touching the span — so a word abutting a skipped span is a markup fragment,
-    // not a standalone misspelling.
+    // A word is not prose-checked when it is inside a skip range, OR glued directly (no whitespace) to
+    // a ROLE SPAN — an unconstrained span splits a word across markup (`[.underline]##O##nce` leaves the
+    // fragment `nce` touching the span). The glued rule is scoped to role spans: a word abutting any
+    // other skip node (a link, entity, or macro) is real standalone prose and must still be checked.
     const isSkipped = (from: number, to: number) =>
-      skip.some((range) =>
-        (from >= range.from && to <= range.to) || // fully inside a skipped span
-        from === range.to ||                        // glued immediately AFTER a span (e.g. ##O##nce)
-        to === range.from);                         // glued immediately BEFORE a span (e.g. Onc##e##)
+      skip.some((range) => from >= range.from && to <= range.to) ||
+      roleSpans.some((range) => from === range.to || to === range.from);
 
     for (const token of selectMisspelled(tokenizeWords(text), checker.correct, getIgnore())) {
       if (isSkipped(token.from, token.to)) continue;

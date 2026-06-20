@@ -106,9 +106,11 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     expect(SPELLCHECK_SKIP_NODES.has('AttributeEntry')).toBe(true);
     // New non-prose inline nodes (T019) — URLs, macros, math, anchors, callouts,
     // entities, and passthroughs must not be spell-checked as prose.
-    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor', 'InlineSet', 'RoleSpan']) {
+    for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor', 'InlineSet']) {
       expect(SPELLCHECK_SKIP_NODES.has(node)).toBe(true);
     }
+    // RoleSpan is NOT a full skip node — only its `[.role]` name is markup; the body is prose.
+    expect(SPELLCHECK_SKIP_NODES.has('RoleSpan')).toBe(false);
     // Prose-bearing nodes are NOT skipped.
     expect(SPELLCHECK_SKIP_NODES.has('Paragraph')).toBe(false);
     expect(SPELLCHECK_SKIP_NODES.has('Heading1')).toBe(false);
@@ -139,6 +141,35 @@ describe('SPELLCHECK_SKIP_NODES', () => {
       expect(words).not.toContain('nce');       // fragment glued to the span
       expect(words).not.toContain('underline'); // role name (markup)
       expect(words).not.toContain('big');       // role name (markup)
+      view.destroy();
+    });
+  });
+
+  test('a misspelled word inside a role-span BODY is still flagged (only the role name is markup)', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // The role name `[.lead]` is markup, but the span body `Wrold` is ordinary prose and must be
+      // checked — otherwise spell-check is silently disabled for every `[.role]#…#` body.
+      const view = makeView('[.lead]#Wrold#\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).toContain('Wrold');    // body prose IS checked
+      expect(words).not.toContain('lead'); // role name is markup
+      view.destroy();
+    });
+  });
+
+  test('a misspelled word glued to a non-span skip node (Entity) is still flagged', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) =>
+      okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC)) as unknown as typeof fetch;
+    await withFreshModule(async ({ asciidocSpellcheckSource }) => {
+      // The glued-fragment rule is for word-splitting role spans only; a standalone word glued to an
+      // entity/link/macro is real prose, not a markup fragment, so it must still be checked.
+      const view = makeView('Tom &amp;wrold here\n');
+      const diagnostics = await asciidocSpellcheckSource(() => [], 'en', true)(view);
+      const words = diagnostics.map((diagnostic: Diagnostic) => view.state.sliceDoc(diagnostic.from, diagnostic.to));
+      expect(words).toContain('wrold');
       view.destroy();
     });
   });

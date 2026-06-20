@@ -379,6 +379,32 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
+  // A section title must have actual title text. `== ` with an empty (or whitespace-only) title is a
+  // paragraph in Asciidoctor, and the outline's HEADING_RE (`^(={1,6})\s+\S`) already omits it — the
+  // tokenizer must agree so the editor highlight and the Outline panel never disagree.
+  describe('an empty-title heading marker is not a heading', () => {
+    test('`== ` with no title text is a Paragraph, not a Heading1', () => {
+      const tree = parseDocument('== \n');
+      expect(hasNode(tree, 'Heading1')).toBe(false);
+    });
+
+    test('`= ` with no title text is not a DocumentTitle', () => {
+      expect(hasNode(parseDocument('= \n'), 'DocumentTitle')).toBe(false);
+    });
+
+    test('`==   ` with only whitespace after the marker is not a Heading1', () => {
+      expect(hasNode(parseDocument('==   \n'), 'Heading1')).toBe(false);
+    });
+
+    test('`== Real` with title text is still a Heading1 (no regression)', () => {
+      expect(hasNode(parseDocument('== Real\n'), 'Heading1')).toBe(true);
+    });
+
+    test('`==   Spaced` with extra leading spaces before the title is still a Heading1', () => {
+      expect(hasNode(parseDocument('==   Spaced\n'), 'Heading1')).toBe(true);
+    });
+  });
+
   describe('whitespace-only line is a blank line (block separator)', () => {
     const cases: Array<[string, string]> = [
       ['AdmonitionParagraph', 'Intro.\n   \nNOTE: an admonition follows a spaces-only line.\n'],

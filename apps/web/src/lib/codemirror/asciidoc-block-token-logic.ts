@@ -142,14 +142,22 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
 
       if (afterEquals === SPACE) {
         const afterSpace = input.peek(count + 1);
-        if (count === 1 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(documentTitleToken); return; }
-        if (count === 2 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading1Token); return; }
-        if (count === 3 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading2Token); return; }
-        if (count === 4 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading3Token); return; }
-        if (count === 5 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading4Token); return; }
+        // A section title must have actual title text: skip the run of spaces/tabs after the marker
+        // and require a non-whitespace char before the line ends. `== ` (empty) / `==   ` (whitespace
+        // only) is a paragraph, matching Asciidoctor and the outline's `HEADING_RE` (`^(={1,6})\s+\S`),
+        // so the editor highlight and the Outline panel can never disagree on what is a heading.
+        let titlePos = count + 1;
+        while (input.peek(titlePos) === SPACE || input.peek(titlePos) === TAB) titlePos++;
+        const titleChar = input.peek(titlePos);
+        const hasTitle = titleChar !== NEWLINE && titleChar !== -1;
+        if (hasTitle && count === 1 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(documentTitleToken); return; }
+        if (hasTitle && count === 2 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading1Token); return; }
+        if (hasTitle && count === 3 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading2Token); return; }
+        if (hasTitle && count === 4 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading3Token); return; }
+        if (hasTitle && count === 5 && afterSpace !== EQUALS) { consumeToEOL(input); input.acceptToken(heading4Token); return; }
         // Exactly 6 `=` is level 5 — the deepest heading. A run of 7+ `=` is NOT a heading (it falls
         // through to a paragraph), matching Asciidoctor: `=======  Not a Section` is plain text.
-        if (count === 6) { consumeToEOL(input); input.acceptToken(heading5Token); return; }
+        if (hasTitle && count === 6) { consumeToEOL(input); input.acceptToken(heading5Token); return; }
       }
       if (count >= 4 && (afterEquals === NEWLINE || afterEquals === -1)) {
         consumeToEOL(input); input.acceptToken(exampleDelim); return;

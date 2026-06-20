@@ -47,6 +47,11 @@ interface EditorPrefs {
 
 const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files' };
 
+// Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
+// merge-from-server and the PUT-payload strip both derive from this one list, so adding a new client-
+// only preference is a single edit here and it can never leak to the server by omission (028).
+const CLIENT_ONLY_KEYS = ['leftPanelTab'] as const satisfies readonly (keyof EditorPrefs)[];
+
 function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -117,8 +122,8 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
-        // leftPanelTab is a client-only preference (028): the account API never returns it, so always
-        // keep the local value — the server response can never overwrite the chosen view.
+        // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
+        // the local value — the server response can never overwrite the chosen view.
         leftPanelTab: previous.leftPanelTab,
       })))
       .catch(() => { /* keep localStorage value on error */ });
@@ -126,10 +131,10 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
 
   function schedulePut(next: EditorPrefs) {
     if (debounceTimerReference.current) clearTimeout(debounceTimerReference.current);
-    // leftPanelTab is client-only (028): strip it from the account payload so no server DTO change is
-    // needed and the chosen view never leaves this browser.
-    const serverPayload: Omit<EditorPrefs, 'leftPanelTab'> & { leftPanelTab?: LeftPanelTab } = { ...next };
-    delete serverPayload.leftPanelTab;
+    // Strip every client-only key from the account payload (no server DTO change needed; the chosen
+    // view never leaves this browser). Driven by CLIENT_ONLY_KEYS so a new client-only pref can't leak.
+    const serverPayload: Partial<EditorPrefs> = { ...next };
+    for (const key of CLIENT_ONLY_KEYS) delete serverPayload[key];
     debounceTimerReference.current = setTimeout(() => {
       void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, {
         method: 'PUT',

@@ -268,17 +268,24 @@ export function ProjectEditorLayout({
   // used to mark the current section. Held here so the panel is fed without remounting the editor.
   const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [currentLine, setCurrentLine] = useState<number | null>(null);
-  // Outline navigation reuses the existing same-file reveal seam: move the EDITOR cursor to the
-  // heading's line (revealRequest); the preview follows via the existing scroll-sync. No new sync path.
+  // Outline navigation reuses the existing same-file reveal seam: `revealLine` moves the EDITOR cursor
+  // to the heading's line, and — exactly like clicking a line in the editor — `handleLineClick` scrolls
+  // the open preview to match. The preview follow is independent of the scroll-sync toggle because an
+  // outline click is an explicit navigation, not passive cursor tracking.
   const handleOutlineHeadingClick = useCallback(
-    (entry: SectionOutlineEntry) => revealLine(entry.line),
-    [revealLine],
+    (entry: SectionOutlineEntry) => {
+      revealLine(entry.line);
+      if (previewOpen) handleLineClick(entry.line);
+    },
+    [revealLine, handleLineClick, previewOpen],
   );
 
-  // Reset scroll position whenever a different file is opened.
-  // useLayoutEffect prevents a one-frame flash of the old scroll position.
+  // Reset the scroll position AND the current-section marker whenever a different file is opened, so the
+  // Outline never highlights a row using the previous file's cursor line before the new editor reports
+  // its cursor. useLayoutEffect prevents a one-frame flash of the old scroll position / stale highlight.
   useLayoutEffect(() => {
     resetScroll();
+    setCurrentLine(null);
   }, [selectedFile?.nodeId, resetScroll]);
 
   // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
@@ -313,8 +320,10 @@ export function ProjectEditorLayout({
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
   return (
-    // The editor is full-bleed: it cancels the dashboard <main>'s `p-6` (negative margin) and adds the
-    // padding back to its height so the rail, editor, and preview reach every edge of the viewport.
+    // The editor is full-bleed: it cancels the dashboard <main>'s `p-6` with a negative margin and adds
+    // that padding back to its height so the rail, editor, and preview reach every edge of the viewport.
+    // COUPLED to `<main className="…p-6">` in `(dashboard)/layout.tsx`: `-m-6` cancels its padding and
+    // `3rem` re-adds the top+bottom (2 × the 1.5rem `p-6`). If that padding changes, update BOTH here.
     <div className="flex flex-col h-[calc(100%+3rem)] -m-6">
       {/* Header */}
       <div className="flex items-center gap-3 h-14 px-3 border-b shrink-0">
