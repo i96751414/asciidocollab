@@ -98,7 +98,7 @@ export async function projectDownloadRoute(app: FastifyInstance): Promise<void> 
             }
             // Attach error listener immediately on acquisition — before archive.append() —
             // so any stream error that fires in the gap doesn't become an unhandled event.
-            stream.on('error', (err) => { archive.emit('error', err); });
+            stream.on('error', (error) => { archive.emit('error', error); });
             return { kind: 'stream', stream, relativePath };
           } catch (error) {
             return { kind: 'error', path: fileNode.path.value, error };
@@ -108,19 +108,27 @@ export async function projectDownloadRoute(app: FastifyInstance): Promise<void> 
 
       let entriesAdded = 0;
       for (const entry of resolvedEntries) {
-        if (entry.kind === 'inline') {
-          archive.append(entry.bytes, { name: entry.relativePath });
-          entriesAdded++;
-        } else if (entry.kind === 'stream') {
-          archive.append(entry.stream, { name: entry.relativePath });
-          entriesAdded++;
-        } else if (entry.kind === 'null') {
-          request.log.warn({ projectId: projectId.value, path: entry.path }, 'file missing from store during ZIP; skipping');
-        } else {
-          request.log.warn(
-            { projectId: projectId.value, path: entry.path, error: entry.error instanceof Error ? entry.error.message : String(entry.error) },
-            'readStream threw during ZIP; skipping file',
-          );
+        switch (entry.kind) {
+          case 'inline': {
+            archive.append(entry.bytes, { name: entry.relativePath });
+            entriesAdded++;
+            break;
+          }
+          case 'stream': {
+            archive.append(entry.stream, { name: entry.relativePath });
+            entriesAdded++;
+            break;
+          }
+          case 'null': {
+            request.log.warn({ projectId: projectId.value, path: entry.path }, 'file missing from store during ZIP; skipping');
+            break;
+          }
+          default: {
+            request.log.warn(
+              { projectId: projectId.value, path: entry.path, error: entry.error instanceof Error ? entry.error.message : String(entry.error) },
+              'readStream threw during ZIP; skipping file',
+            );
+          }
         }
       }
 

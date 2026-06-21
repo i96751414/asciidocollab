@@ -224,23 +224,23 @@ describe('buildResolverDeps', () => {
   });
 
   test('returns full deps object when all three are provided', () => {
-    const docRepo = new InMemoryDocumentRepository();
+    const documentRepo = new InMemoryDocumentRepository();
     const sessionRepo = new InMemoryCollaborationSessionRepository();
     const reader: CollaborativeContentReader = { readContent: jest.fn() };
-    const deps = buildResolverDeps(docRepo, sessionRepo, reader);
+    const deps = buildResolverDeps(documentRepo, sessionRepo, reader);
     expect(deps).not.toBeNull();
-    expect(deps!.documentRepo).toBe(docRepo);
+    expect(deps!.documentRepo).toBe(documentRepo);
     expect(deps!.collaborationSessionRepo).toBe(sessionRepo);
     expect(deps!.collaborativeContentReader).toBe(reader);
     expect(deps!.logger).toBeUndefined();
   });
 
   test('includes optional logger when provided', () => {
-    const docRepo = new InMemoryDocumentRepository();
+    const documentRepo = new InMemoryDocumentRepository();
     const sessionRepo = new InMemoryCollaborationSessionRepository();
     const reader: CollaborativeContentReader = { readContent: jest.fn() };
     const logger: Logger = { warn: jest.fn() };
-    const deps = buildResolverDeps(docRepo, sessionRepo, reader, logger);
+    const deps = buildResolverDeps(documentRepo, sessionRepo, reader, logger);
     expect(deps!.logger).toBe(logger);
   });
 });

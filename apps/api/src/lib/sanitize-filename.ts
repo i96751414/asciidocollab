@@ -1,6 +1,6 @@
 /** Strips characters that are illegal or dangerous inside a quoted `filename=` Content-Disposition token. */
 export function sanitizeContentDispositionFilename(name: string): string {
-  return name.replace(/[^\x20-\x7E]|["\\]/g, '');
+  return name.replaceAll(/[^ -~]|["\\]/g, '');
 }
 
 /**
@@ -17,6 +17,6 @@ export function buildAttachmentDisposition(name: string, asciiFallback: string):
   // encodeURIComponent encodes everything except A-Za-z0-9 - _ . ! ~ * ' ( )
   // RFC 5987 attr-char excludes * ' ( ) so we additionally encode those.
   const encoded = encodeURIComponent(name)
-    .replace(/['()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    .replaceAll(/['()*]/g, (c) => '%' + (c.codePointAt(0) ?? 0).toString(16).toUpperCase());
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }

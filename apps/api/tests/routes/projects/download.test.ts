@@ -77,10 +77,11 @@ function buildTestServer(options: {
       ]),
     },
     document: {
-      findByFileNodeId: jest.fn().mockResolvedValue(document),
+      findByFileNodeIds: jest.fn().mockResolvedValue(document ? [document] : []),
     },
     collaborationSession: {
       isActive: jest.fn().mockResolvedValue(sessionActive),
+      findActiveDocumentIds: jest.fn().mockResolvedValue([]),
     },
   });
 
@@ -317,7 +318,7 @@ describe('GET /projects/:projectId/download — resilience (US3)', () => {
 describe('GET /projects/:projectId/download — filename sanitization', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  test('CRLF in project name does not crash the response (\\r\\n stripped from Content-Disposition)', async () => {
+  test(String.raw`CRLF in project name does not crash the response (\r\n stripped from Content-Disposition)`, async () => {
     jest.spyOn(DownloadProjectUseCase.prototype, 'execute').mockResolvedValue({
       success: true,
       value: { projectName: 'My\r\nProject', files: [] },
@@ -476,7 +477,7 @@ describe('GET /projects/:projectId/download — archiveError unhandledRejection 
           // Emit error TWO microtasks after returning — after the error listener is attached
           // in this Promise.all callback, but before Promise.all resolves (entry 2 is still pending).
           Promise.resolve()
-            .then(() => Promise.resolve())
+            .then(() => {})
             .then(() => { earlyErrorStream.emit('error', new Error('S3 early failure')); });
           return earlyErrorStream;
         }

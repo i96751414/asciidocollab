@@ -94,31 +94,31 @@ export class DownloadProjectUseCase {
         source: storedSource,
       }));
     }
-    // buildResolverDeps confirmed all three deps are present; use destructured locals for narrowing.
-    const { documentRepo, collaborationSessionRepo, collaborativeContentReader } = this as Required<
-      Pick<DownloadProjectUseCase, 'documentRepo' | 'collaborationSessionRepo' | 'collaborativeContentReader'>
-    >;
+    // buildResolverDeps confirmed all three deps are present; non-null assertions are safe here.
+    const documentRepo = this.documentRepo!;
+    const collaborationSessionRepo = this.collaborationSessionRepo!;
+    const collaborativeContentReader = this.collaborativeContentReader!;
 
     // Batch-fetch all documents in one query, then use an in-memory lookup per file.
     const fileNodeIds: FileNodeId[] = fileNodes.map((n) => n.id);
     const documents = await documentRepo.findByFileNodeIds(fileNodeIds);
-    const docMap = new Map(documents.map((d) => [d.fileNodeId.value, d]));
+    const documentMap = new Map(documents.map((d) => [d.fileNodeId.value, d]));
 
     // Batch-fetch all active session document IDs once — avoids N+1 isActive calls.
-    const activeDocIds = await collaborationSessionRepo.findActiveDocumentIds(projectId);
-    const activeSet = new Set(activeDocIds.map((id) => id.value));
+    const activeDocumentIds = await collaborationSessionRepo.findActiveDocumentIds(projectId);
+    const activeSet = new Set(activeDocumentIds.map((id) => id.value));
 
     const resolverDeps: ResolveDownloadContentSourceDeps = {
-      documentRepo: { findByFileNodeId: async (id) => docMap.get(id.value) ?? null },
-      collaborationSessionRepo: { isActive: async (_pid, docId) => activeSet.has(docId.value) },
+      documentRepo: { findByFileNodeId: async (id) => documentMap.get(id.value) ?? null },
+      collaborationSessionRepo: { isActive: async (_pid, documentId) => activeSet.has(documentId.value) },
       collaborativeContentReader,
       logger: this.logger,
     };
 
     // Process in chunks to bound peak concurrency (Redis + collab HTTP calls).
     const results: DownloadProjectFile[] = [];
-    for (let i = 0; i < fileNodes.length; i += this.concurrencyCap) {
-      const chunk = fileNodes.slice(i, i + this.concurrencyCap);
+    for (let index = 0; index < fileNodes.length; index += this.concurrencyCap) {
+      const chunk = fileNodes.slice(index, index + this.concurrencyCap);
       const chunkResults = await Promise.all(
         chunk.map(async (node) => ({
           fileNode: node,

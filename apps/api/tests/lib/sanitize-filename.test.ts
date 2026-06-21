@@ -5,15 +5,15 @@ describe('sanitizeContentDispositionFilename', () => {
     expect(sanitizeContentDispositionFilename('my"file.adoc')).toBe('myfile.adoc');
   });
 
-  test('strips embedded carriage-return (\\r)', () => {
+  test(String.raw`strips embedded carriage-return (\r)`, () => {
     expect(sanitizeContentDispositionFilename('my\rfile.adoc')).toBe('myfile.adoc');
   });
 
-  test('strips embedded newline (\\n)', () => {
+  test(String.raw`strips embedded newline (\n)`, () => {
     expect(sanitizeContentDispositionFilename('my\nfile.adoc')).toBe('myfile.adoc');
   });
 
-  test('strips \\r\\n CRLF sequence', () => {
+  test(String.raw`strips \r\n CRLF sequence`, () => {
     expect(sanitizeContentDispositionFilename('My\r\nProject')).toBe('MyProject');
   });
 
@@ -29,20 +29,20 @@ describe('sanitizeContentDispositionFilename', () => {
     // In Content-Disposition: attachment; filename="foo\", the \" is a quoted-pair escape,
     // so the closing quote is consumed and parsers see an unterminated string.
     expect(sanitizeContentDispositionFilename('foo\\')).toBe('foo');
-    expect(sanitizeContentDispositionFilename('a\\b\\c')).toBe('abc');
+    expect(sanitizeContentDispositionFilename(String.raw`a\b\c`)).toBe('abc');
   });
 
-  test('strips null byte (\\x00) — would cause Node.js setHeader to throw', () => {
-    expect(sanitizeContentDispositionFilename('evil\x00file.adoc')).toBe('evilfile.adoc');
+  test(String.raw`strips null byte (\x00) — would cause Node.js setHeader to throw`, () => {
+    expect(sanitizeContentDispositionFilename('evil\u0000file.adoc')).toBe('evilfile.adoc');
   });
 
-  test('strips other C0 control characters (\\x01–\\x1f)', () => {
-    expect(sanitizeContentDispositionFilename('file\x01name')).toBe('filename');
-    expect(sanitizeContentDispositionFilename('tab\x09here')).toBe('tabhere');
+  test(String.raw`strips other C0 control characters (\x01–\x1f)`, () => {
+    expect(sanitizeContentDispositionFilename('file\u0001name')).toBe('filename');
+    expect(sanitizeContentDispositionFilename('tab\u0009here')).toBe('tabhere');
   });
 
-  test('strips DEL (\\x7f)', () => {
-    expect(sanitizeContentDispositionFilename('del\x7fchar')).toBe('delchar');
+  test(String.raw`strips DEL (\x7f)`, () => {
+    expect(sanitizeContentDispositionFilename('del\u007Fchar')).toBe('delchar');
   });
 
   test('strips non-ASCII characters — accented, CJK, emoji', () => {
@@ -51,7 +51,7 @@ describe('sanitizeContentDispositionFilename', () => {
     expect(sanitizeContentDispositionFilename('launch🚀.adoc')).toBe('launch.adoc');
   });
 
-  test('space (\\x20) and tilde (\\x7e) are the boundary printable-ASCII chars and are kept', () => {
+  test(String.raw`space (\x20) and tilde (\x7e) are the boundary printable-ASCII chars and are kept`, () => {
     expect(sanitizeContentDispositionFilename(' file name ')).toBe(' file name ');
     expect(sanitizeContentDispositionFilename('a~b')).toBe('a~b');
   });

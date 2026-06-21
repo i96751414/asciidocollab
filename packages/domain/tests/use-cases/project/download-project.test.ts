@@ -332,9 +332,9 @@ describe('DownloadProjectUseCase — batch document lookup (N+1 prevention)', ()
     const project = new Project(projectId, ProjectName.create('P'), null, [], rootNodeId);
     await projectRepo.save(project);
     await fileNodeRepo.save(new FileNode(rootNodeId, projectId, null, 'root', FileNodeType.create('folder'), FilePath.create('/')));
-    for (let i = 0; i < 20; i++) {
-      const id = FileNodeId.create(`550e8400-e29b-41d4-a716-4466554400${String(i).padStart(2, '0')}`);
-      await fileNodeRepo.save(new FileNode(id, projectId, rootNodeId, `f${i}.adoc`, FileNodeType.create('file'), FilePath.create(`/f${i}.adoc`)));
+    for (let index = 0; index < 20; index++) {
+      const id = FileNodeId.create(`550e8400-e29b-41d4-a716-4466554400${String(index).padStart(2, '0')}`);
+      await fileNodeRepo.save(new FileNode(id, projectId, rootNodeId, `f${index}.adoc`, FileNodeType.create('file'), FilePath.create(`/f${index}.adoc`)));
     }
     await memberRepo.addMember(new ProjectMember(projectId, memberId, Role.create('viewer')));
 
@@ -396,11 +396,10 @@ describe('DownloadProjectUseCase — batch session lookup (N+1 prevention for se
 
   test('InMemoryCollaborationSessionRepository.findActiveDocumentIds returns open document IDs', async () => {
     const projectId = ProjectId.create(PROJECT_ID);
-    const doc1Id = DocumentId.create(DOC_1_ID);
-    const doc2Id = DocumentId.create(DOC_2_ID);
+    const document1Id = DocumentId.create(DOC_1_ID);
     const repo = new InMemoryCollaborationSessionRepository();
 
-    await repo.open(projectId, doc1Id);
+    await repo.open(projectId, document1Id);
     // doc2 intentionally NOT opened
 
     const active = await repo.findActiveDocumentIds(projectId);
@@ -426,14 +425,14 @@ describe('DownloadProjectUseCase — configurable concurrency cap (Finding 9)', 
     await fileNodeRepo.save(new FileNode(rootNodeId, projectId, null, 'root', FileNodeType.create('folder'), FilePath.create('/')));
 
     // Create 6 files, each with an active session so readContent is actually called.
-    for (let i = 0; i < 6; i++) {
-      const fileId = FileNodeId.create(`550e8400-e29b-41d4-a716-cc0000000${i}00`);
-      const docId  = DocumentId.create(`550e8400-e29b-41d4-a716-dd0000000${i}00`);
-      const contentId = ContentId.create(`550e8400-e29b-41d4-a716-ee0000000${i}00`);
-      const yjsId  = YjsStateId.create(`550e8400-e29b-41d4-a716-ff0000000${i}00`);
-      await fileNodeRepo.save(new FileNode(fileId, projectId, rootNodeId, `f${i}.adoc`, FileNodeType.create('file'), FilePath.create(`/f${i}.adoc`)));
-      await documentRepo.save(new Document(docId, fileId, contentId, yjsId, MimeType.create('text/asciidoc')));
-      await sessionRepo.open(projectId, docId);
+    for (let index = 0; index < 6; index++) {
+      const fileId = FileNodeId.create(`550e8400-e29b-41d4-a716-cc0000000${index}00`);
+      const documentId = DocumentId.create(`550e8400-e29b-41d4-a716-dd0000000${index}00`);
+      const contentId = ContentId.create(`550e8400-e29b-41d4-a716-ee0000000${index}00`);
+      const yjsId  = YjsStateId.create(`550e8400-e29b-41d4-a716-ff0000000${index}00`);
+      await fileNodeRepo.save(new FileNode(fileId, projectId, rootNodeId, `f${index}.adoc`, FileNodeType.create('file'), FilePath.create(`/f${index}.adoc`)));
+      await documentRepo.save(new Document(documentId, fileId, contentId, yjsId, MimeType.create('text/asciidoc')));
+      await sessionRepo.open(projectId, documentId);
     }
     await memberRepo.addMember(new ProjectMember(projectId, memberId, Role.create('viewer')));
 

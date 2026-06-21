@@ -132,7 +132,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download', () => {
       collaborativeContentEditor: { readContent: jest.fn().mockResolvedValue({ success: true, value: null }) },
     });
     app.decorate('config', { downloads: { file: { rateLimitMax: 30, rateLimitWindow: 60_000 } } });
-    app.addHook('preHandler', async (_req, reply) => { reply.header('x-test-hook', 'present'); });
+    app.addHook('preHandler', async (_request, reply) => { reply.header('x-test-hook', 'present'); });
     app.register(fileDownloadRoute);
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/download` });
     expect(response.headers['x-test-hook']).toBe('present');
@@ -157,7 +157,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download', () => {
       collaborativeContentEditor: { readContent: jest.fn().mockResolvedValue({ success: true, value: '= Live' }) },
     });
     app.decorate('config', { downloads: { file: { rateLimitMax: 30, rateLimitWindow: 60_000 } } });
-    app.addHook('preHandler', async (_req, reply) => { reply.header('x-test-hook', 'present'); });
+    app.addHook('preHandler', async (_request, reply) => { reply.header('x-test-hook', 'present'); });
     app.register(fileDownloadRoute);
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/download` });
     expect(response.headers['x-test-hook']).toBe('present');
@@ -337,7 +337,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download — resilience (US
 });
 
 describe('GET /projects/:projectId/files/:fileNodeId/download — filename sanitization', () => {
-  test('CRLF in filename does not crash the response (\\r\\n stripped) — stored path', async () => {
+  test(String.raw`CRLF in filename does not crash the response (\r\n stripped) — stored path`, async () => {
     const fileNodeWithCrlf = {
       id: { value: FILE_NODE_ID },
       projectId: { value: PROJECT_ID },
@@ -356,7 +356,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download — filename sanit
     expect(disposition).not.toMatch(/\r|\n/);
   });
 
-  test('CRLF in filename does not crash the response (\\r\\n stripped) — inline path', async () => {
+  test(String.raw`CRLF in filename does not crash the response (\r\n stripped) — inline path`, async () => {
     const fileNodeWithCrlf = {
       id: { value: FILE_NODE_ID },
       projectId: { value: PROJECT_ID },
@@ -447,7 +447,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download — stream error h
     const app = buildTestServer({ readStreamResult: errorStream });
 
     let rawResponse: import('http').ServerResponse | null = null;
-    app.addHook('onSend', async (_req, reply) => { rawResponse = reply.raw; });
+    app.addHook('onSend', async (_request, reply) => { rawResponse = reply.raw; });
 
     const responsePromise = app.inject({
       method: 'GET',

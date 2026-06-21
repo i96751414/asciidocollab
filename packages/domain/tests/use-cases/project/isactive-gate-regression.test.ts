@@ -38,15 +38,20 @@ const DOC_ID       = '550e8400-e29b-41d4-a716-aa0000000005';
 const CONTENT_ID   = '550e8400-e29b-41d4-a716-aa0000000006';
 const YJS_ID       = '550e8400-e29b-41d4-a716-aa0000000007';
 
+function spyReader(): { reader: CollaborativeContentReader; readContent: jest.Mock } {
+  const readContent = jest.fn().mockResolvedValue({ success: true, value: 'live content' });
+  return { reader: { readContent }, readContent };
+}
+
 describe('isActive gate — dormant document must never invoke the collaborative reader', () => {
   const projectId  = ProjectId.create(PROJECT_ID);
   const memberId   = UserId.create(MEMBER_ID);
   const rootId     = FileNodeId.create(ROOT_ID);
   const fileId     = FileNodeId.create(FILE_ID);
-  const docId      = DocumentId.create(DOC_ID);
+  const documentId = DocumentId.create(DOC_ID);
 
   const document = new Document(
-    docId,
+    documentId,
     fileId,
     ContentId.create(CONTENT_ID),
     YjsStateId.create(YJS_ID),
@@ -73,11 +78,6 @@ describe('isActive gate — dormant document must never invoke the collaborative
     await fileStore.write(projectId, fileNode.path, Buffer.from('= Stored Content'));
 
     return { projectRepo, fileNodeRepo, memberRepo, documentRepo, assetRepo, fileStore, sessionRepo };
-  }
-
-  function spyReader(): { reader: CollaborativeContentReader; readContent: jest.Mock } {
-    const readContent = jest.fn().mockResolvedValue({ success: true, value: 'live content' });
-    return { reader: { readContent }, readContent };
   }
 
   test('GetFileNodeContent does not call reader for dormant document', async () => {
