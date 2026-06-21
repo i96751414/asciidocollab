@@ -317,3 +317,96 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.index).toBe(built); // superseded build left the index untouched
   });
 });
+
+/** A fake observer factory that captures `onUpdate` callbacks per fileId. */
+function makeFakeObserverFactory() {
+  const callbacks = new Map<string, () => void>();
+  const destroyed = new Set<string>();
+  const factory = jest.fn(({ fileId, onUpdate }: { url: string; name: string; fileId: string; onUpdate: () => void }) => {
+    callbacks.set(fileId, onUpdate);
+    return Promise.resolve({ destroy: () => destroyed.add(fileId) });
+  });
+  return { factory, callbacks, destroyed };
+}
+
+// T015: reachable-doc change observation (feature 032)
+describe('useProjectSymbolIndex — reachable-doc change observation (feature 032)', () => {
+
+  test('creates an observer for each reachable non-open file', async () => {
+    const { factory } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    // Should observe 'a' and 'b' (reachable but not the open file 'main')
+    expect(observedIds.toSorted()).toEqual(['a', 'b']);
+    // Should NOT observe 'c' (unreachable) or 'main' (open file, already overlaid)
+    expect(observedIds).not.toContain('c');
+    expect(observedIds).not.toContain('main');
+  });
+
+  test('onUpdate triggers cache invalidation + increments reachableDocVersion', async () => {
+    const { factory, callbacks } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const v0 = result.current.reachableDocVersion;
+
+    // Simulate a content change in 'a'
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      Promise.resolve(fileId === 'a' ? '== Updated A\n' : (CONTENT[fileId] ?? '')),
+    );
+    await act(async () => { callbacks.get('a')!(); });
+
+    await waitFor(() => expect(result.current.reachableDocVersion).toBeGreaterThan(v0));
+  });
+
+  test('observers are destroyed on unmount (no leak)', async () => {
+    const { factory, destroyed } = makeFakeObserverFactory();
+    const { result, unmount } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    unmount();
+    for (const id of observedIds) {
+      expect(destroyed).toContain(id);
+    }
+  });
+
+  test('does not observe the open file (deduped against live overlay)', async () => {
+    const { factory } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'a',
+        liveContent: CONTENT.a,
+        createDocumentObserver: factory,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    expect(observedIds).not.toContain('a');
+  });
+});

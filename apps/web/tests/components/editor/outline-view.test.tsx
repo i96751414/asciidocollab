@@ -50,3 +50,186 @@ describe('OutlineView', () => {
     expect(screen.getByText('No headings yet — add a section title (=, ==, …).')).toBeInTheDocument();
   });
 });
+
+// T010: OutlineView full-document mode (feature 032)
+describe('OutlineView — full-document mode (feature 032)', () => {
+  const fullEntries: SectionOutlineEntry[] = [
+    { level: 0, title: 'Root Title', line: 1, from: 0, sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 1, isOpenFile: true },
+    { level: 1, title: 'Main Section', line: 3, from: 20, sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 3, isOpenFile: true },
+    { level: 1, title: 'Child Section', line: 6, from: 80, sourceFileId: 'id-ch', sourcePath: 'ch.adoc', sourceLine: 1, isOpenFile: false },
+    { level: 1, title: 'After Include', line: 8, from: 130, sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 7, isOpenFile: true },
+  ];
+
+  test('full-scope: renders all entries from all files as one seamless flat list', () => {
+    render(
+      <OutlineView
+        entries={fullEntries}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+    expect(screen.getByText('Root Title')).toBeInTheDocument();
+    expect(screen.getByText('Child Section')).toBeInTheDocument();
+    expect(screen.getByText('After Include')).toBeInTheDocument();
+    expect(screen.queryByRole('separator')).toBeNull();
+  });
+
+  test('full-scope: current-section marks the nearest open-file entry (FR-011)', () => {
+    // Cursor at line 4 in the open file — nearest open-file heading is Main Section (line 3)
+    render(
+      <OutlineView
+        entries={fullEntries}
+        currentLine={4}
+        hasDocument
+        effectiveScope="full"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    const buttons = screen.getAllByRole('button');
+    // index 1 = 'Main Section' (isOpenFile=true, line 3) should be current
+    expect(buttons[1]).toHaveAttribute('aria-current', 'true');
+    // Exactly one aria-current
+    expect(buttons.filter((b) => b.getAttribute('aria-current') === 'true')).toHaveLength(1);
+  });
+
+  test('full-scope: foreign-file entries never get aria-current even if cursor line matches their sourceLine', () => {
+    // Cursor hypothetically at the assembled line of the child section
+    render(
+      <OutlineView
+        entries={fullEntries}
+        currentLine={6}
+        hasDocument
+        effectiveScope="full"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    const buttons = screen.getAllByRole('button');
+    // index 2 = 'Child Section' is from a foreign file — it must NOT be current
+    expect(buttons[2]).not.toHaveAttribute('aria-current');
+  });
+});
+
+// T022: OutlineView scope toggle (feature 032 / US2 / FR-003 / FR-004)
+describe('OutlineView — scope toggle (feature 032)', () => {
+  const mixed: SectionOutlineEntry[] = [
+    { level: 0, title: 'Root', line: 1, from: 0, sourceFileId: 'id-a', sourcePath: 'a.adoc', sourceLine: 1, isOpenFile: true },
+    { level: 1, title: 'Open Heading', line: 3, from: 10, sourceFileId: 'id-a', sourcePath: 'a.adoc', sourceLine: 3, isOpenFile: true },
+    { level: 1, title: 'Foreign Heading', line: 5, from: 50, sourceFileId: 'id-b', sourcePath: 'b.adoc', sourceLine: 1, isOpenFile: false },
+  ];
+
+  test('toggle button is present when outlineScope and onScopeChange are provided', () => {
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        outlineScope="full"
+        onHeadingClick={jest.fn()}
+        onScopeChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /current file|full document/i })).toBeInTheDocument();
+  });
+
+  test('when outlineScope=current, only open-file entries are rendered', () => {
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="current"
+        outlineScope="current"
+        onHeadingClick={jest.fn()}
+        onScopeChange={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText('Foreign Heading')).toBeNull();
+    expect(screen.getByText('Open Heading')).toBeInTheDocument();
+  });
+
+  test('when outlineScope=full, all entries including foreign-file are rendered', () => {
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        outlineScope="full"
+        onHeadingClick={jest.fn()}
+        onScopeChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Foreign Heading')).toBeInTheDocument();
+    expect(screen.getByText('Open Heading')).toBeInTheDocument();
+  });
+
+  test('clicking the toggle calls onScopeChange with the opposite scope', () => {
+    const onScopeChange = jest.fn();
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        outlineScope="full"
+        onHeadingClick={jest.fn()}
+        onScopeChange={onScopeChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /current file|full document/i }));
+    expect(onScopeChange).toHaveBeenCalledWith('current');
+  });
+
+  test('no toggle button is rendered when onScopeChange is not provided', () => {
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /current file|full document/i })).toBeNull();
+  });
+});
+
+// T025: OutlineView — no-main-doc fallback (feature 032 / US3 / FR-005 / FR-006)
+describe('OutlineView — no-main-doc fallback (feature 032)', () => {
+  const openFileEntries: SectionOutlineEntry[] = [
+    { level: 0, title: 'Standalone Title', line: 1, from: 0 },
+    { level: 1, title: 'Only Section', line: 3, from: 20 },
+  ];
+
+  test('when outlineScope is absent, toggle button is hidden', () => {
+    render(
+      <OutlineView
+        entries={openFileEntries}
+        currentLine={null}
+        hasDocument
+        effectiveScope="current"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    // No scope props → toggle must not appear (FR-005/FR-006)
+    expect(screen.queryByRole('button', { name: /current file|full document/i })).toBeNull();
+  });
+
+  test('when outlineScope is absent, still renders the open-file headings', () => {
+    render(
+      <OutlineView
+        entries={openFileEntries}
+        currentLine={null}
+        hasDocument
+        effectiveScope="current"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Standalone Title')).toBeInTheDocument();
+    expect(screen.getByText('Only Section')).toBeInTheDocument();
+  });
+});

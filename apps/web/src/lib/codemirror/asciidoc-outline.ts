@@ -24,6 +24,24 @@ export interface SectionOutlineEntry {
    * outline below — the flag is retained on the entry type for callers that prefer to mark them.
    */
   inactive?: boolean;
+
+  // ── Provenance fields (feature 032: full-document outline across includes) ──
+  // Present only in the assembled/full-document outline. Absent (undefined) in the current-file
+  // scope, so existing single-file callers compile and behave unchanged.
+
+  /** Project file node id the heading was authored in. */
+  sourceFileId?: string;
+  /** Project-relative path of the source file (for cross-file navigation). */
+  sourcePath?: string;
+  /**
+   * 1-based line of the heading within its source file (≠ assembled line).
+   * Used by cross-file navigation and presence mapping.
+   */
+  sourceLine?: number;
+  /**
+   * True when `sourceFileId` equals the currently-open file — drives the open-file mark (FR-018).
+   */
+  isOpenFile?: boolean;
 }
 
 /** Strips the `={1,6}` marker (and following whitespace) from a heading line to get its title. */

@@ -83,7 +83,9 @@ jest.mock('@/lib/codemirror/asciidoc-completions', () => {
 });
 jest.mock('@/lib/codemirror/asciidoc-link-handler', () => ({ createLinkHandler: () => ({ handleMousedown: jest.fn() }) }));
 jest.mock('@/hooks/use-include-completions', () => ({ useIncludeCompletions: () => [], useImagePaths: () => [] }));
-jest.mock('@/hooks/use-section-outline', () => ({ useSectionOutline: jest.fn(() => []) }));
+jest.mock('@/hooks/use-section-outline', () => ({
+  useSectionOutline: jest.fn(() => ({ entries: [], effectiveScope: 'current', unresolved: [] })),
+}));
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true } }));
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/lib/codemirror/asciidoc-theme', () => ({ asciidocTheme: [] }));

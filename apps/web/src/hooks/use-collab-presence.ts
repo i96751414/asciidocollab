@@ -17,6 +17,11 @@ export interface ParticipantPresence {
   colorLight: string;
   /** Avatar image URL, if any. */
   avatarUrl?: string;
+  /**
+   * 1-based cursor line published by the peer via the project-presence channel (FR-019).
+   * Absent for older clients that don't publish it; skip those in outline attribution.
+   */
+  cursorLine?: number;
 }
 
 /**

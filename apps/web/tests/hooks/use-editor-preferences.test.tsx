@@ -726,3 +726,63 @@ test('showIncludedFiles round-trips a boolean true from localStorage', () => {
   const { result } = renderHook(() => useEditorPreferences());
   expect(result.current.showIncludedFiles).toBe(true);
 });
+
+// ── outlineScope (032: client-only, localStorage, never synced to the account) ──
+
+test('outlineScope defaults to full', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.outlineScope).toBe('full');
+});
+
+test('setOutlineScope round-trips through localStorage', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.setOutlineScope('current'));
+  expect(result.current.outlineScope).toBe('current');
+  const stored = JSON.parse(mockLocalStorage.store[LS_KEY] ?? '{}');
+  expect(stored.outlineScope).toBe('current');
+});
+
+test('a stored outlineScope is seeded on load', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', outlineScope: 'current' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.outlineScope).toBe('current');
+});
+
+test('an invalid stored outlineScope falls back to full', () => {
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', outlineScope: 'both' });
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.outlineScope).toBe('full');
+});
+
+test('outlineScope is NOT sent in any PUT body (client-only preference)', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+  act(() => result.current.setOutlineScope('current'));
+  act(() => result.current.setFontSize(18));
+  await act(async () => {
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+  const putCalls = mockFetch.mock.calls.filter((c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT');
+  expect(putCalls.length).toBeGreaterThan(0);
+  for (const putCall of putCalls) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).not.toHaveProperty('outlineScope');
+  }
+});
+
+test('a GET response carrying outlineScope does not overwrite the local value', async () => {
+  mockLocalStorage.store[LS_KEY] = JSON.stringify({ fontSize: 14, theme: 'default', outlineScope: 'current' });
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', outlineScope: 'full' }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(result.current.outlineScope).toBe('current');
+});

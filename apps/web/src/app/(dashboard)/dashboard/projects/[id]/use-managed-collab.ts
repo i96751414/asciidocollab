@@ -14,6 +14,8 @@ interface ManagedCollabOptions {
   selectedFile: SelectedFile | null;
   contentState: FileContentState;
   canEdit: boolean;
+  // 1-based cursor line in the open file, published via awareness for outline presence (FR-019).
+  cursorLine?: number | null;
 }
 
 interface ManagedCollab {
@@ -43,6 +45,7 @@ export function useManagedCollab({
   selectedFile,
   contentState,
   canEdit,
+  cursorLine,
 }: ManagedCollabOptions): ManagedCollab {
   // Collaboration binding for the selected file. `contentState.collab` is set by useFileSelection
   // on the collab path (a backing collaborative document); otherwise this hook stays inert.
@@ -64,6 +67,7 @@ export function useManagedCollab({
     // "Open" means a collaborative document is open in the editor — gate on collabInfo so a selected
     // folder (or a legacy/non-collab file) is never advertised as the viewer's open file.
     openFileNodeId: collabInfo ? (selectedFile?.nodeId ?? null) : null,
+    cursorLine,
   });
 
   // Mid-session role enforcement (FR-012 / edge case "permission change mid-session"): the role

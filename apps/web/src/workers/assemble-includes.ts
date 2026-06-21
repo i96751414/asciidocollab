@@ -46,12 +46,31 @@ export interface UnresolvedInclude {
   reason: string;
 }
 
+/** One entry in the assembled-line → source-file provenance map. */
+export interface SourceMapEntry {
+  /** Project-relative path of the source file. */
+  path: string;
+  /** 1-based line number within that source file. */
+  sourceLine: number;
+}
+
+/**
+ * A parallel array to the assembled content: `lineToSource[i]` gives the origin of assembled line
+ * `i+1` (0-indexed here). Only produced when `options.withSourceMap` is set.
+ */
+export interface IncludeSourceMap {
+  /** Parallel array to assembled content: entry `i` gives the origin of assembled line `i+1`. */
+  lineToSource: SourceMapEntry[];
+}
+
 /** Result of assembling a document tree from a root file. */
 export interface AssembleResult {
   /** The assembled document with in-sandbox includes inlined. */
   content: string;
   /** Every directive that was rejected or could not be resolved, in encounter order. */
   unresolved: UnresolvedInclude[];
+  /** Provenance map (assembled line → source file + line). Only present when `options.withSourceMap` was set. */
+  sourceMap?: IncludeSourceMap;
 }
 
 // An attribute SET entry whose value may wrap: `:name: value` (a prefix/suffix unset has no value to
@@ -201,7 +220,7 @@ function selectLineRanges(source: string, ranges: ReadonlyArray<readonly [number
 export function assembleIncludes(
   rootPath: string,
   readFile: (path: string) => string | null,
-  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string>; showIncludes?: boolean } = {},
+  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string>; showIncludes?: boolean; withSourceMap?: boolean } = {},
 ): AssembleResult {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const maxExpansions = options.maxExpansions ?? DEFAULT_MAX_EXPANSIONS;
@@ -215,6 +234,10 @@ export function assembleIncludes(
   const attributes = new Map<string, string>(options.seedAttributes);
   // When false, hide included bodies and emit attribute-entry lines only (029).
   const hideMode = options.showIncludes === false;
+  // Source-map accumulator: collects one entry per assembled output line when withSourceMap is true.
+  // Indexed in the same order as content.split('\n'). Null when not requested (avoids overhead).
+  const withSM = options.withSourceMap === true;
+  const sourceMapAccumulator: SourceMapEntry[] = [];
 
   // `baseOffset` is the `:leveloffset:` in effect when this file's content begins (the offset its
   // own include applied). Attribute-form `:leveloffset:` entries inside the file shift a running
@@ -233,8 +256,9 @@ export function assembleIncludes(
     stack: readonly string[],
     depth: number,
     baseOffset: number,
-    overrideContent?: string,
-    emit: boolean = true,
+    overrideContent: string | undefined,
+    emit: boolean,
+    sources: SourceMapEntry[] | null,
   ): string => {
     const content = overrideContent ?? readFile(path);
     if (content === null) return '';
@@ -251,32 +275,54 @@ export function assembleIncludes(
     // the lines to emit: the inlined child wrapped in absolute `:leveloffset:` set/restore entries, or
     // a single "Unresolved directive" marker line when the target is rejected/cyclic/too deep/missing.
     // Shared by the whole-line include path and the single-line `ifdef::flag[include::…]` form.
-    const expandIncludeLine = (rawTarget: string, attributeList: string): string[] => {
+    // `directiveLine` is the 1-based source line of the include directive in the current file, used
+    // to attribute synthesized/placeholder lines in the source map.
+    const expandIncludeLine = (rawTarget: string, attributeList: string, directiveLine: number): string[] => {
       const target = substitutePathAttributes(rawTarget, attributes);
       const resolved = resolveSandboxedPath(path, target);
       if (!resolved.ok) {
         unresolved.push({ from: path, target: rawTarget, reason: resolved.reason });
         if (!emit) return [];
-        if (hideMode) return [buildIncludePlaceholderBlock(rawTarget)];
+        if (hideMode) {
+          const block = buildIncludePlaceholderBlock(rawTarget);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          return [block];
+        }
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
         return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
       }
       if (stack.includes(resolved.path)) {
         unresolved.push({ from: path, target: rawTarget, reason: 'cycle' });
         if (!emit) return [];
-        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        if (hideMode) {
+          const block = buildIncludePlaceholderBlock(resolved.path);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          return [block];
+        }
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
         return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
       }
       if (depth + 1 > maxDepth) {
         unresolved.push({ from: path, target: rawTarget, reason: 'depth' });
         if (!emit) return [];
-        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        if (hideMode) {
+          const block = buildIncludePlaceholderBlock(resolved.path);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          return [block];
+        }
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
         return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
       }
       const rawContent = readFile(resolved.path);
       if (rawContent === null) {
         unresolved.push({ from: path, target: rawTarget, reason: 'not-found' });
         if (!emit) return [];
-        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        if (hideMode) {
+          const block = buildIncludePlaceholderBlock(resolved.path);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          return [block];
+        }
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
         return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
       }
       // Global fan-out budget: the cycle guard above only blocks an ancestor-chain repeat, so a file
@@ -287,7 +333,12 @@ export function assembleIncludes(
       if (expansions >= maxExpansions) {
         unresolved.push({ from: path, target: rawTarget, reason: 'limit' });
         if (!emit) return [];
-        if (hideMode) return [buildIncludePlaceholderBlock(resolved.path)];
+        if (hideMode) {
+          const block = buildIncludePlaceholderBlock(resolved.path);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          return [block];
+        }
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
         return [`Unresolved directive in ${path} - include::${rawTarget}[]`];
       }
       expansions += 1;
@@ -316,26 +367,50 @@ export function assembleIncludes(
         // Hidden subtree (emit:false) OR visible-but-hide-mode: expand child for attributes only.
         // In emit:false mode we are already inside a suppressed subtree — no placeholder emitted here.
         // In emit:true + hideMode: emit a placeholder for this top-level include, then scan the child
-        // for attribute entries only (emit:false).
-        const childAttributes = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, false);
+        // for attribute entries only (emit:false). Sources are NOT tracked inside emit:false scans —
+        // the parent attributes all resulting lines to the include directive (Principle VIII).
+        const childAttributes = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, false, null);
         const lines: string[] = [];
-        if (hideMode && emit) lines.push(buildIncludePlaceholderBlock(resolved.path));
-        if (childOffset !== offset) lines.push(`:leveloffset: ${absolute(childOffset)}`);
+        if (hideMode && emit) {
+          const block = buildIncludePlaceholderBlock(resolved.path);
+          if (sources !== null) for (let index = 0; index < block.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+          lines.push(block);
+        }
+        if (childOffset !== offset) {
+          lines.push(`:leveloffset: ${absolute(childOffset)}`);
+          if (emit && sources !== null) sources.push({ path, sourceLine: directiveLine });
+        }
+        // Attribute entries from the child are attributed to the include directive's line.
+        if (emit && sources !== null) {
+          for (let index = 0; index < childAttributes.split('\n').length; index++) sources.push({ path, sourceLine: directiveLine });
+        }
         lines.push(childAttributes);
-        if (hasLevelOffsetOption) lines.push(`:leveloffset: ${absolute(offset)}`);
+        if (hasLevelOffsetOption) {
+          lines.push(`:leveloffset: ${absolute(offset)}`);
+          if (emit && sources !== null) sources.push({ path, sourceLine: directiveLine });
+        }
         return lines;
       }
 
       // Show mode (emit:true, !hideMode): full expansion.
-      const child = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, true);
-      const lines: string[] = [];
       // Emit the child's absolute offset when the include OPTION shifts it; restore the enclosing
       // offset afterwards (option form is scoped). When no `leveloffset=` option, the child's
       // inlined content already carries any attribute-form `:leveloffset:` entries verbatim — they
       // persist into the parent as native Asciidoctor would let them, so no restore is emitted.
-      if (childOffset !== offset) lines.push(`:leveloffset: ${absolute(childOffset)}`);
+      // Source map: synthesized lines are attributed to the include directive; child lines are tracked
+      // by the recursive expand call (passed via `sources`). Push set BEFORE the child expand so the
+      // order in `sources` matches the assembled output order.
+      const lines: string[] = [];
+      if (childOffset !== offset) {
+        lines.push(`:leveloffset: ${absolute(childOffset)}`);
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
+      }
+      const child = expand(resolved.path, [...stack, resolved.path], depth + 1, childOffset, childSource, true, sources);
       lines.push(child);
-      if (hasLevelOffsetOption) lines.push(`:leveloffset: ${absolute(offset)}`);
+      if (hasLevelOffsetOption) {
+        lines.push(`:leveloffset: ${absolute(offset)}`);
+        if (sources !== null) sources.push({ path, sourceLine: directiveLine });
+      }
       return lines;
     };
 
@@ -349,7 +424,10 @@ export function assembleIncludes(
       // The single-line content form `ifdef::flag[text]` is deliberately NOT a region (no matching
       // endif) — it returns `null` here and falls through to be emitted as text.
       if (conditionals.applyLine(line, attributes) !== null) {
-        if (emit) out.push(line);
+        if (emit) {
+          out.push(line);
+          if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
+        }
         continue;
       }
       // The single-line form `ifdef::flag[include::target[]]` — the gating condition wraps an inline
@@ -359,10 +437,13 @@ export function assembleIncludes(
       // suppressed so child conditionals do not corrupt the parent's preprocessor state.
       const inlineCond = INLINE_INCLUDE_COND_RE.exec(line);
       if (inlineCond !== null) {
-        if (emit) out.push(line);
+        if (emit) {
+          out.push(line);
+          if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
+        }
         const condition = parseConditional(inlineCond[1] + ']');
         const active = condition !== null && evaluateConditional(condition, attributes);
-        if (active && conditionals.isActive()) out.push(...expandIncludeLine(inlineCond[2], inlineCond[3]));
+        if (active && conditionals.isActive()) out.push(...expandIncludeLine(inlineCond[2], inlineCond[3], lineIndex + 1));
         continue;
       }
       const match = INCLUDE_LINE_RE.exec(line);
@@ -377,11 +458,13 @@ export function assembleIncludes(
         const setEntry = ATTR_SET_LINE_RE.exec(line);
         if (setEntry !== null && VALUE_CONTINUATION_RE.test(setEntry[2])) {
           out.push(line);
+          if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
           let joined = setEntry[2];
           while (VALUE_CONTINUATION_RE.test(joined) && lineIndex + 1 < lines.length) {
             lineIndex += 1;
             const continuation = lines[lineIndex];
             out.push(continuation);
+            if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
             joined = joined.replace(VALUE_CONTINUATION_RE, '').trimEnd() + ' ' + continuation.trim();
           }
           applyLineAttributes(`:${setEntry[1]}: ${joined.trimEnd()}`, attributes);
@@ -407,6 +490,7 @@ export function assembleIncludes(
               ? substitutePathAttributes(line, attributes)
               : line;
           out.push(emittedLine);
+          if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
         } else {
           // emit:false — keep bookkeeping but only emit attribute-entry lines.
           // Snapshot the attribute map to detect inline {set:} mutations on non-attribute-entry prose.
@@ -440,10 +524,13 @@ export function assembleIncludes(
       // suppressed child must not surface in the assembled output where Asciidoctor would try to resolve
       // it in the parent context. Target is never resolved or read in either case.
       if (!conditionals.isActive()) {
-        if (emit) out.push(line);
+        if (emit) {
+          out.push(line);
+          if (sources !== null) sources.push({ path, sourceLine: lineIndex + 1 });
+        }
         continue;
       }
-      out.push(...expandIncludeLine(match[1].trim(), match[2]));
+      out.push(...expandIncludeLine(match[1].trim(), match[2], lineIndex + 1));
     }
     return out.join('\n');
   };
@@ -451,5 +538,8 @@ export function assembleIncludes(
   if (readFile(rootPath) === null) {
     return { content: '', unresolved: [{ from: '', target: rootPath, reason: 'not-found' }] };
   }
-  return { content: expand(rootPath, [rootPath], 0, 0), unresolved };
+  const sources = withSM ? sourceMapAccumulator : null;
+  const content = expand(rootPath, [rootPath], 0, 0, undefined, true, sources);
+  if (!withSM) return { content, unresolved };
+  return { content, unresolved, sourceMap: { lineToSource: sourceMapAccumulator } };
 }

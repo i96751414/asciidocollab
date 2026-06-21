@@ -12,9 +12,41 @@ import { fetchReachableContent } from '@/lib/codemirror/include-tree-fetcher';
 import { getDocumentContent } from '@/lib/api/file-content';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
+import { COLLAB_URL, collabRoomName } from '@/lib/editor-config';
 
 /** Shared, stable empty scope returned before the index has built (avoids a new identity per call). */
 const EMPTY_RESOLVED_SCOPE: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Factory for a lightweight document observer. When the remote Yjs document updates,
+ * `onUpdate` fires so the caller can invalidate its cache and recompute. The returned
+ * object's `destroy()` closes the connection.
+ *
+ * Injected for tests; defaults to a real Hocuspocus/Y.Doc subscription at runtime.
+ */
+export type CreateDocumentObserver = (options: {
+  url: string;
+  name: string;
+  fileId: string;
+  onUpdate: () => void;
+}) => Promise<{ destroy(): void }>;
+
+/** Default runtime observer: connects a HocusPocus provider + Y.Doc and fires on any update. */
+const defaultCreateDocumentObserver: CreateDocumentObserver = async ({ url, name, onUpdate }) => {
+  // Dynamic import defers loading to call time so these browser-only modules are never loaded at
+  // module initialisation in Node/test environments (test code always injects a fake factory).
+  const Y = await import('yjs');
+  const { HocuspocusProvider } = await import('@hocuspocus/provider');
+  const ydoc = new Y.Doc();
+  ydoc.on('update', onUpdate);
+  const provider = new HocuspocusProvider({ url, name, document: ydoc });
+  return {
+    destroy() {
+      provider.destroy();
+      ydoc.destroy();
+    },
+  };
+};
 
 /** Options for {@link useProjectSymbolIndex}. */
 interface UseProjectSymbolIndexOptions {
@@ -26,6 +58,11 @@ interface UseProjectSymbolIndexOptions {
   openFileId?: string | null;
   /** Live content of the open file; used instead of a fetch so in-progress edits are reflected. */
   liveContent?: string | null;
+  /**
+   * Overrides the document observer factory in tests. When provided, observers are created for each
+   * reachable non-open file to detect live collaborative changes (feature 032 / FR-013a).
+   */
+  createDocumentObserver?: CreateDocumentObserver;
 }
 
 /** Result of {@link useProjectSymbolIndex}. */
@@ -58,6 +95,19 @@ interface UseProjectSymbolIndexResult {
    * without a file-tree event, such as a project-wide symbol rename (FR-064).
    */
   refresh: () => void;
+  /**
+   * Looks up the file node id for a project-relative path (reverse of pathOf).
+   *
+   * @param path - Project-relative path.
+   * @returns The file node id, or null when the path is not in the tree.
+   */
+  fileIdForPath: (path: string) => string | null;
+  /**
+   * Counter that increments whenever a reachable non-open file's live content changes (feature 032
+   * / FR-013a). Consumers can include this in useMemo/useEffect dependency arrays to recompute the
+   * assembled full-document outline when a collaborator edits an included file.
+   */
+  reachableDocVersion: number;
 }
 
 /**
@@ -69,6 +119,10 @@ interface UseProjectSymbolIndexResult {
  * Invalidates on file-tree SSE events and whenever the root (main-file) changes, and
  * overlays the open file's live content so the index reflects in-progress edits.
  *
+ * When `createDocumentObserver` is provided (or at runtime), also observes live Yjs
+ * changes for each reachable non-open included file and exposes `reachableDocVersion`
+ * so downstream outline assembly can recompute on collaborator edits (FR-013a).
+ *
  * @param options - {@link UseProjectSymbolIndexOptions}.
  * @returns The {@link UseProjectSymbolIndexResult}.
  */
@@ -77,10 +131,13 @@ export function useProjectSymbolIndex({
   rootFileId,
   openFileId,
   liveContent,
+  createDocumentObserver,
 }: UseProjectSymbolIndexOptions): UseProjectSymbolIndexResult {
   const [index, setIndex] = useState<ProjectSymbolIndex | null>(null);
   const indexReference = useRef<ProjectSymbolIndex | null>(null);
   indexReference.current = index;
+
+  const [reachableDocumentVersion, setReachableDocumentVersion] = useState(0);
 
   const contentCache = useRef<Map<string, string | null>>(new Map());
   const pathById = useRef<Map<string, string>>(new Map());
@@ -102,6 +159,11 @@ export function useProjectSymbolIndex({
     text: liveContent ?? null,
   });
   liveOverlay.current = { id: openFileId ?? null, text: liveContent ?? null };
+
+  // Live observers for reachable non-open files (feature 032 / FR-013a).
+  const documentObservers = useRef<Map<string, { destroy(): void }>>(new Map());
+  const createDocumentObserverReference = useRef(createDocumentObserver);
+  createDocumentObserverReference.current = createDocumentObserver;
 
   const readContent = useCallback((fileId: string): string | null => {
     const overlay = liveOverlay.current;
@@ -158,6 +220,33 @@ export function useProjectSymbolIndex({
     );
     indexReference.current = built;
     setIndex(built);
+
+    // Set up live document observers for each reachable non-open file (feature 032 / FR-013a).
+    // Destroy old observers first, then re-establish for the new reachable set.
+    const factory = createDocumentObserverReference.current ?? (
+      // Only use the real Hocuspocus observer at runtime (not during tests).
+      globalThis.window === undefined ? undefined : defaultCreateDocumentObserver
+    );
+    if (factory) {
+      for (const [, obs] of documentObservers.current) obs.destroy();
+      documentObservers.current.clear();
+      const openId = liveOverlay.current.id;
+      for (const fileId of built.tree.nodes) {
+        if (fileId === openId) continue; // open file is already live via liveContent overlay
+        const obs = await factory({
+          url: COLLAB_URL,
+          name: collabRoomName(projectId, fileId),
+          fileId,
+          onUpdate: () => {
+            contentCache.current.delete(fileId);
+            setReachableDocumentVersion((v) => v + 1);
+            build();
+          },
+        });
+        if (isCancelled()) { obs.destroy(); return; }
+        documentObservers.current.set(fileId, obs);
+      }
+    }
   }, [projectId, rootFileId, readContent]);
 
   // Rebuild when the project or root (main-file) changes.
@@ -210,6 +299,14 @@ export function useProjectSymbolIndex({
     build();
   }, [build]);
 
+  // Destroy all document observers on unmount.
+  useEffect(() => {
+    return () => {
+      for (const [, obs] of documentObservers.current) obs.destroy();
+      documentObservers.current.clear();
+    };
+  }, []);
+
   const getIndex = useCallback(() => indexReference.current, []);
   // The resolved cross-document scope (inherited from ancestors + the file's own definitions, the
   // file's own winning) drives the editor's known-vs-unknown `{name}` highlighting (US6/FR-020).
@@ -240,5 +337,9 @@ export function useProjectSymbolIndex({
     }
     return files;
   }, [readContent]);
-  return { index, getIndex, getFiles, resolvedScopeOf, refresh };
+  const fileIdForPath = useCallback(
+    (path: string): string | null => idByPath.current.get(path) ?? null,
+    [],
+  );
+  return { index, getIndex, getFiles, resolvedScopeOf, refresh, fileIdForPath, reachableDocVersion: reachableDocumentVersion };
 }

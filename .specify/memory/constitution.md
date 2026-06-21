@@ -1,12 +1,15 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.2.0 → 2.3.0 (MINOR — Principle II clarified: performance/load tests are opt-in,
-not added unless explicitly requested. No principle removed or redefined; functional TDD unchanged.)
+Version change: 2.3.0 → 2.4.0 (MINOR — two new subsections added to Development Workflow:
+"Implementation Discipline" mandates /tdd skill for every implementation task and forbids
+splitting test/implementation into separate tasks; "End-of-Feature Verification" mandates a
+full quality-gate sweep (lint, typecheck, unit + integration + e2e tests across all touched
+packages) and a /code-review loop (repeat until zero findings) before a feature is done.)
 
-Rationale (2.3.0): the TDD mandate was being read to require performance/benchmark tests by default;
-that is now scoped out — functional tests remain NON-NEGOTIABLE, but performance/load/benchmark tests
-are added only when the feature spec explicitly requests them.
+--- prior change (2.2.0 → 2.3.0) retained for context ---
+MINOR — Principle II clarified: performance/load tests are opt-in, not added unless explicitly
+requested. No principle removed or redefined; functional TDD unchanged.
 
 --- prior change (2.1.0 → 2.2.0) retained for context ---
 MINOR — one new principle added (IX); Principle VIII materially expanded; Principles IV and VII
@@ -14,34 +17,21 @@ clarified. Rationale: feature 026 (AsciiDoc editor enhancements) was being scope
 Principle VIII, and IV/VII were ambiguous for (a) extending the in-repo Lezer grammar and (b)
 project-shared configuration — UNBLOCKED while STRENGTHENING the security boundary.
 
-Modified principles (2.3.0):
-- II. Test-Driven Development — clarified: performance/load/benchmark tests are OPT-IN (only when the
-  spec explicitly requests them); functional red-green-refactor remains NON-NEGOTIABLE and unchanged.
+Modified principles (2.4.0): none — existing principles unchanged.
 
-Modified principles (2.2.0):
-- IV. Reuse Before Rebuild — clarified: "reuse" presupposes a *compatible* asset; extending an existing
-  in-repo asset is permitted when no vendorable-compatible equivalent exists (documented).
-- VII. Per-User Preferences, Shared Content Immutability — clarified: governs *personal preferences*;
-  project-scoped, permission-governed configuration (e.g. a designated main document) is permitted and
-  is NOT a user preference.
-- VIII. Editor Pipeline Integrity — expanded: resolving/assembling additional content into a render path
-  (e.g. expanding includes, embedding source languages or imported markup) IS permitted when it passes
-  UNCHANGED through the existing sanitizer and satisfies Principle IX. Sanitization MUST NOT be weakened.
-
-Added principle:
-- IX. Untrusted Input Boundary (NON-NEGOTIABLE) — all externally-sourced content entering the editor or
-  render pipeline (pasted/dropped content, resolved includes, embedded languages, attribute-substituted
-  paths) MUST be validated, sandbox-confined, and sanitized before insertion or rendering.
+Added sections (2.4.0):
+- Development Workflow › Implementation Discipline (new subsection)
+- Development Workflow › End-of-Feature Verification (new subsection)
 
 Removed sections: none
 
 Templates requiring updates:
-- ✅ .specify/templates/plan-template.md — Constitution Check is generic; no hardcoded principle list.
+- ✅ .specify/templates/tasks-template.md — removed separate "Tests for User Story" sub-sections;
+  tasks now describe WHAT, not HOW (the /tdd skill owns the how). Updated Notes section.
+- ✅ .specify/templates/plan-template.md — Constitution Check is generic; no changes required.
 - ✅ .specify/templates/spec-template.md — no constitution-coupled mandatory sections changed.
-- ✅ .specify/templates/tasks-template.md — task categories remain principle-agnostic.
 - ✅ .specify/memory/architecture_constitution.md — no conflict.
-- ✅ .specify/memory/security_constitution.md — new Principle IX reinforces it (sandbox + sanitization);
-  no conflict. Dependency scanning still applies to all new/vendored deps.
+- ✅ .specify/memory/security_constitution.md — no conflict.
 
 Follow-up TODOs: none. Ratification date retained from original adoption.
 -->
@@ -263,6 +253,25 @@ Development MUST follow the phased delivery plan defined in the architecture spe
   implementation.
 - No commit MAY contain failing tests. If a test fails, the entire change is reverted.
 
+### Implementation Discipline
+
+Every implementation task MUST be executed via the `/tdd` skill. The skill owns the
+red-green-refactor cycle — test authoring, implementation order, and commit timing are
+managed within the skill, not specified outside it.
+
+- Tasks MUST describe **what** to implement. The `/tdd` skill determines **how** (failing
+  test first, minimal production code second, refactor third). Task descriptions MUST NOT
+  prescribe test file names, assert implementation steps, or pre-split test and source work.
+- Tasks MUST NOT be split into a "write test" sub-task and a "write implementation"
+  sub-task for the same deliverable. One deliverable = one task = one `/tdd` invocation.
+  Splitting breaks the red-green feedback loop and risks out-of-order execution.
+- Bypassing the `/tdd` skill and writing production code directly is a Principle II
+  violation. The only permitted exception is a task that is explicitly non-functional
+  (e.g., file rename, config-only change, documentation update with no logic).
+- Rationale: externalizing test/implementation sequencing into the task list re-creates the
+  "tests optional" anti-pattern under a different name. Delegating the cycle to a single
+  skill invocation makes compliance structural, not advisory.
+
 ### Quality Gates (Pre-Commit)
 
 Before every commit, the following MUST pass:
@@ -271,6 +280,25 @@ Before every commit, the following MUST pass:
 2. `pnpm typecheck` — zero type errors.
 3. Relevant unit tests — all green.
 4. No secrets, credentials, or internal file paths in the diff.
+
+### End-of-Feature Verification
+
+When all tasks for a feature are complete, the following MUST run before the feature is
+considered done and a PR is opened:
+
+1. **Full quality-gate sweep** — across every package touched by the feature:
+   - `pnpm lint` — zero warnings.
+   - `pnpm typecheck` — zero type errors.
+   - All unit tests — full suite, all green.
+   - All integration tests — full suite, all green.
+   - All e2e tests — full suite, all green.
+2. **Code review loop** — the `/code-review` skill MUST be invoked. If it surfaces any
+   findings, each finding MUST be fixed and the skill MUST be re-invoked. This loop
+   continues until `/code-review` returns zero findings. The feature MUST NOT be merged
+   before the loop reaches a clean pass.
+
+Both steps are NON-NEGOTIABLE. A feature that completes all tasks but skips either step is
+not done.
 
 ### Code Review
 
@@ -316,4 +344,4 @@ document (including CLAUDE.md, AGENTS.md, or template files), this Constitution 
   intentional and justified, it MUST be documented in the PR description and the plan's
   complexity tracking section.
 
-**Version**: 2.3.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-13
+**Version**: 2.4.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-21

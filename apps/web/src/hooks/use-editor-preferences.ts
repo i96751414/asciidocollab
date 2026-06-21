@@ -30,6 +30,14 @@ function isLeftPanelTab(value: unknown): value is LeftPanelTab {
   return value === 'files' || value === 'outline';
 }
 
+/** Whether the outline shows the full assembled document or only the open file (032/FR-012). */
+export type OutlineScope = 'full' | 'current';
+
+/** Returns true when `value` is a recognised OutlineScope. */
+function isOutlineScope(value: unknown): value is OutlineScope {
+  return value === 'full' || value === 'current';
+}
+
 const LS_KEY = 'asciidocollab:editor-preferences';
 const DEBOUNCE_MS = 500;
 
@@ -45,17 +53,19 @@ interface EditorPrefs {
   leftPanelTab: LeftPanelTab;
   /** 029: whether to show included files inline in the editor. Client-only — kept in localStorage, never PUT to the account. */
   showIncludedFiles: boolean;
+  /** 032: whether the outline shows the full document or the open file only. Client-only — kept in localStorage, never PUT to the account. */
+  outlineScope: OutlineScope;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full' };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
 // PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
 // leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
 // hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
-const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles'] as const satisfies readonly (keyof EditorPrefs)[];
+const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles', 'outlineScope'] as const satisfies readonly (keyof EditorPrefs)[];
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -81,6 +91,7 @@ function loadFromStorage(): EditorPrefs {
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
           leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
           showIncludedFiles: typeof parsed.showIncludedFiles === 'boolean' ? parsed.showIncludedFiles : DEFAULT_PREFS.showIncludedFiles,
+          outlineScope: isOutlineScope(parsed.outlineScope) ? parsed.outlineScope : DEFAULT_PREFS.outlineScope,
         };
       }
     }
@@ -99,6 +110,7 @@ interface UseEditorPreferencesResult {
   spellcheckEnabled: boolean;
   leftPanelTab: LeftPanelTab;
   showIncludedFiles: boolean;
+  outlineScope: OutlineScope;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
@@ -108,6 +120,7 @@ interface UseEditorPreferencesResult {
   setSpellcheckEnabled: (enabled: boolean) => void;
   setLeftPanelTab: (tab: LeftPanelTab) => void;
   setShowIncludedFiles: (value: boolean) => void;
+  setOutlineScope: (scope: OutlineScope) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -129,9 +142,10 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
         // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
-        // the local value — the server response can never overwrite the chosen view.
+        // the local value — the server response can never overwrite the chosen view or scope.
         leftPanelTab: previous.leftPanelTab,
         showIncludedFiles: previous.showIncludedFiles,
+        outlineScope: previous.outlineScope,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -239,5 +253,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles };
+  // Client-only setter (032/FR-012): persists the outline scope (full / current) to localStorage
+  // but never schedules a PUT, so the choice stays on this device.
+  const setOutlineScope = useCallback((outlineScope: OutlineScope) => {
+    setPrefs((previous) => {
+      const next = { ...previous, outlineScope };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope };
 }

@@ -1,5 +1,5 @@
 'use client';
-import { useLayoutEffect, useState, useCallback } from 'react';
+import { useLayoutEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -22,6 +22,8 @@ import { type ConnectionState } from '@/hooks/use-collab-document';
 import { LeftPanel } from '@/components/editor/left-panel';
 import { OutlineView } from '@/components/editor/outline-view';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import { assembleOutline, mapOutlinePresence } from '@/lib/outline';
+import type { OutlinePeer } from '@/lib/outline';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
@@ -221,12 +223,18 @@ export function ProjectEditorLayout({
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
   // file changes (FR-045a) and overlays the open file's live content (FR-048).
-  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, resolvedScopeOf, refresh: refreshProjectIndex } = useProjectSymbolIndex({
+  const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, resolvedScopeOf, refresh: refreshProjectIndex, fileIdForPath, reachableDocVersion } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
     liveContent,
   });
+
+  // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
+  // used to mark the current section. Held here so the panel is fed without remounting the editor.
+  // Declared before useManagedCollab so cursorLine can be forwarded to presence publishing (T031).
+  const [cmOutlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
+  const [currentLine, setCurrentLine] = useState<number | null>(null);
 
   // Collaboration orchestration for the open file: the Yjs binding, mid-session role enforcement
   // (FR-012), offline read-only fallback (FR-013), presence (feature 024), and the derived editor
@@ -239,7 +247,7 @@ export function ProjectEditorLayout({
     editorContentOverride,
     editorConnectionState,
     editorPending,
-  } = useManagedCollab({ projectId, selectedFile, contentState, canEdit });
+  } = useManagedCollab({ projectId, selectedFile, contentState, canEdit, cursorLine: currentLine });
 
   // File + cross-reference navigation, the go-to-symbol palette, and the refactor dialog.
   const {
@@ -262,24 +270,7 @@ export function ProjectEditorLayout({
   // concern of useEditorRestoration above.
   useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
-  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles } = useEditorPreferences();
-
-  // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
-  // used to mark the current section. Held here so the panel is fed without remounting the editor.
-  const [outlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
-  const [currentLine, setCurrentLine] = useState<number | null>(null);
-  // Outline navigation reuses the existing same-file reveal seam: `revealLine` moves the EDITOR cursor
-  // to the heading's line, and — exactly like clicking a line in the editor — `handleLineClick` scrolls
-  // the open preview to match even when scroll-sync is OFF (an outline click is an explicit navigation,
-  // not passive cursor tracking). When scroll-sync is ON we skip it: the cursor move already drives the
-  // preview via the scroll-sync handler, so issuing a second scroll would be a redundant double-scroll.
-  const handleOutlineHeadingClick = useCallback(
-    (entry: SectionOutlineEntry) => {
-      revealLine(entry.line);
-      if (previewOpen && !scrollSyncEnabled) handleLineClick(entry.line);
-    },
-    [revealLine, handleLineClick, previewOpen, scrollSyncEnabled],
-  );
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
 
   // Reset the scroll position AND the current-section marker whenever a different file is opened, so the
   // Outline never highlights a row using the previous file's cursor line before the new editor reports
@@ -317,6 +308,64 @@ export function ProjectEditorLayout({
   const previewRootPath = mainFile && projectIndex ? (projectIndex.pathOf(mainFile) ?? undefined) : undefined;
   const previewOpenPath =
     selectedFile && projectIndex ? (projectIndex.pathOf(selectedFile.nodeId) ?? undefined) : undefined;
+
+  // Full-document outline (feature 032): assemble across include directives when a main file is
+  // configured and the open file is reachable. `getProjectFiles()` already overlays liveContent so
+  // the open file's in-progress edits are reflected. Depends on liveContent (open-file edit),
+  // previewOpenPath (open-file change), and previewRootPath (main-file change).
+  const assembledOutlineResult = useMemo(() => {
+    if (!previewRootPath || !previewOpenPath || !selectedFile) return null;
+    if (outlineScope === 'current') return null; // skip assembly when user wants current-file only
+    // Skip assembly until the file tree is loaded enough to resolve file IDs. Without this guard,
+    // fileIdForPath falls back to the path string, making isOpenFile comparisons always false and
+    // routing every outline heading click through handleNavigateToFile instead of revealLine.
+    if (!fileIdForPath(previewOpenPath)) return null;
+    const files = getProjectFiles();
+    return assembleOutline({
+      rootPath: previewRootPath,
+      openFilePath: previewOpenPath,
+      openFileId: selectedFile.nodeId,
+      readFile: (path: string) => files[path] ?? null,
+      fileIdForPath: (path: string) => fileIdForPath(path) ?? path,
+      scopePreference: 'full',
+    });
+  }, [previewRootPath, previewOpenPath, selectedFile, liveContent, getProjectFiles, fileIdForPath, reachableDocVersion, outlineScope]);
+
+  // Resolve outline entries and effective scope: prefer the assembled full outline when available
+  // (scope='full'), otherwise use the CM6 single-file entries (current scope).
+  const outlineEntries: SectionOutlineEntry[] =
+    assembledOutlineResult?.scope === 'full' ? assembledOutlineResult.entries : cmOutlineEntries;
+  const outlineEffectiveScope: 'full' | 'current' =
+    assembledOutlineResult?.scope === 'full' ? 'full' : 'current';
+
+  // Peer cursor positions mapped to outline headings (feature 032 / US5 / FR-021/FR-022).
+  // Only peers with a numeric cursorLine (published via T031) contribute; others are ignored.
+  const outlinePresence = useMemo(() => {
+    const peersWithCursor = new Map<string, OutlinePeer[]>();
+    for (const [fileId, peers] of presenceByFile) {
+      const filtered = peers.filter((p): p is OutlinePeer => typeof p.cursorLine === 'number');
+      if (filtered.length > 0) peersWithCursor.set(fileId, filtered);
+    }
+    return mapOutlinePresence(outlineEntries, peersWithCursor);
+  }, [outlineEntries, presenceByFile]);
+
+  // Outline navigation (feature 032 / FR-007 / FR-008): route by provenance.
+  // - Open-file entries (no provenance OR isOpenFile=true) → reveal in the open editor.
+  // - Foreign-file entries (isOpenFile=false with a sourcePath) → switch to that file and reveal
+  //   the source line once the new editor mounts (reuses the xref pending-line seam).
+  const handleOutlineHeadingClick = useCallback(
+    (entry: SectionOutlineEntry) => {
+      if (entry.isOpenFile === false && entry.sourcePath) {
+        pendingXrefLine.current = entry.sourceLine ?? null;
+        handleNavigateToFile(entry.sourcePath);
+        return;
+      }
+      const targetLine = entry.sourceLine ?? entry.line;
+      revealLine(targetLine);
+      if (previewOpen && !scrollSyncEnabled) handleLineClick(targetLine);
+    },
+    [revealLine, handleLineClick, handleNavigateToFile, pendingXrefLine, previewOpen, scrollSyncEnabled],
+  );
 
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
@@ -384,6 +433,10 @@ export function ProjectEditorLayout({
                 currentLine={currentLine}
                 hasDocument={selectedFile !== null && isAsciiDocFile(selectedFile.nodeName)}
                 onHeadingClick={handleOutlineHeadingClick}
+                effectiveScope={outlineEffectiveScope}
+                outlineScope={previewRootPath ? outlineScope : undefined}
+                onScopeChange={previewRootPath ? setOutlineScope : undefined}
+                outlinePresence={outlinePresence}
               />
             }
           />
