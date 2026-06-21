@@ -10,9 +10,10 @@ import {
 import { buildFilePathIndex } from '@/lib/codemirror/file-path-index';
 import { fetchReachableContent } from '@/lib/codemirror/include-tree-fetcher';
 import { getDocumentContent } from '@/lib/api/file-content';
+import { getCollabDocumentInfo } from '@/lib/api/collab';
 import { fetchProjectFileTree } from '@/lib/api/file-tree';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
-import { COLLAB_URL, collabRoomName } from '@/lib/editor-config';
+import { COLLAB_URL, COLLAB_YTEXT_KEY, collabRoomName } from '@/lib/editor-config';
 
 /** Shared, stable empty scope returned before the index has built (avoids a new identity per call). */
 const EMPTY_RESOLVED_SCOPE: ReadonlyMap<string, string> = new Map();
@@ -28,17 +29,29 @@ export type CreateDocumentObserver = (options: {
   url: string;
   name: string;
   fileId: string;
-  onUpdate: () => void;
+  /**
+   * Fires on every change to the observed document, refreshing the caller's cache from the Yjs
+   * replica's live text so a collaborator's UNSAVED edits are reflected — the persisted content
+   * endpoint only reflects the last save, which would lag a live edit (FR-013a/SC-007).
+   *
+   * @param content - The file's current live text read from the synced Y.Doc, or undefined when none.
+   */
+  onUpdate: (content?: string) => void;
 }) => Promise<{ destroy(): void }>;
 
-/** Default runtime observer: connects a HocusPocus provider + Y.Doc and fires on any update. */
+/**
+ * Default runtime observer: connects a HocusPocus provider + Y.Doc and, on every update, reports the
+ * live text from the shared `codemirror` Y.Text — the same type the editor binds — so the outline
+ * tracks a collaborator's in-progress edits to an included file without waiting for a save.
+ */
 const defaultCreateDocumentObserver: CreateDocumentObserver = async ({ url, name, onUpdate }) => {
   // Dynamic import defers loading to call time so these browser-only modules are never loaded at
   // module initialisation in Node/test environments (test code always injects a fake factory).
   const Y = await import('yjs');
   const { HocuspocusProvider } = await import('@hocuspocus/provider');
   const ydoc = new Y.Doc();
-  ydoc.on('update', onUpdate);
+  const ytext = ydoc.getText(COLLAB_YTEXT_KEY);
+  ydoc.on('update', () => onUpdate(ytext.toString()));
   const provider = new HocuspocusProvider({ url, name, document: ydoc });
   return {
     destroy() {
@@ -63,6 +76,24 @@ interface UseProjectSymbolIndexOptions {
    * reachable non-open file to detect live collaborative changes (feature 032 / FR-013a).
    */
   createDocumentObserver?: CreateDocumentObserver;
+  /**
+   * Whether to hold live collaborative observer connections for reachable non-open files (FR-013a).
+   * Each observer is a real Hocuspocus connection to that file's room, so this should be enabled ONLY
+   * while the full-document outline is actually being viewed — otherwise every open file with includes
+   * would keep N idle collaborative sessions alive (extra load + teardown races). Defaults to true to
+   * preserve the standalone-hook behaviour; the editor passes the outline-visibility-derived value.
+   */
+  observeReachableDocuments?: boolean;
+  /**
+   * Resolves a file node id to the id of its collaborative room (the document's `yjsStateId`, which
+   * is distinct from the file node id). The observer must join the room keyed by `yjsStateId` — the
+   * same room the editor binds — to receive a collaborator's live edits (FR-013a/SC-007). Defaults
+   * to a lookup via the collab-info endpoint; injected in tests to stay hermetic.
+   *
+   * @param fileId - The file node id whose collaborative room id is wanted.
+   * @returns The room id (`yjsStateId`), or null when the file has no collaborative document.
+   */
+  resolveCollabRoomId?: (fileId: string) => Promise<string | null>;
 }
 
 /** Result of {@link useProjectSymbolIndex}. */
@@ -132,6 +163,8 @@ export function useProjectSymbolIndex({
   openFileId,
   liveContent,
   createDocumentObserver,
+  resolveCollabRoomId,
+  observeReachableDocuments = true,
 }: UseProjectSymbolIndexOptions): UseProjectSymbolIndexResult {
   const [index, setIndex] = useState<ProjectSymbolIndex | null>(null);
   const indexReference = useRef<ProjectSymbolIndex | null>(null);
@@ -158,12 +191,33 @@ export function useProjectSymbolIndex({
     id: openFileId ?? null,
     text: liveContent ?? null,
   });
-  liveOverlay.current = { id: openFileId ?? null, text: liveContent ?? null };
+  {
+    const next = { id: openFileId ?? null, text: liveContent ?? null };
+    const previous = liveOverlay.current;
+    // When the open file changes, commit the file we're LEAVING into the cache from its last overlay
+    // text before the overlay is reassigned to the new file. The open file is served from the overlay
+    // (and excluded from fetching), so without this it would vanish from `getFiles()` the instant the
+    // selection moves — collapsing the assembled full-document outline to the current-file fallback
+    // for a frame until the next rebuild re-fetches it. Done during render so the assembled memo in
+    // the same render already sees the committed content.
+    if (previous.id !== null && previous.id !== next.id && previous.text !== null) {
+      contentCache.current.set(previous.id, previous.text);
+    }
+    liveOverlay.current = next;
+  }
 
   // Live observers for reachable non-open files (feature 032 / FR-013a).
   const documentObservers = useRef<Map<string, { destroy(): void }>>(new Map());
   const createDocumentObserverReference = useRef(createDocumentObserver);
   createDocumentObserverReference.current = createDocumentObserver;
+  // Resolves a file node id → its collaborative room id (the document's `yjsStateId`); defaults to a
+  // collab-info lookup. Held in a ref so the build closure reads the latest without re-subscribing.
+  const resolveCollabRoomIdReference = useRef(resolveCollabRoomId);
+  resolveCollabRoomIdReference.current = resolveCollabRoomId;
+  // Whether observers should currently be held (outline visible in full scope). Read via a ref so the
+  // build closure sees the latest value without being recreated.
+  const observeReachableDocumentsReference = useRef(observeReachableDocuments);
+  observeReachableDocumentsReference.current = observeReachableDocuments;
 
   const readContent = useCallback((fileId: string): string | null => {
     const overlay = liveOverlay.current;
@@ -206,7 +260,11 @@ export function useProjectSymbolIndex({
       resolveInclude,
       fetchContent: (id) => getDocumentContent(projectId, id),
       cache: contentCache.current,
-      overlayFileId: liveOverlay.current.id,
+      // Only treat the open file as overlay-served (and thus skip fetching it) when the overlay
+      // actually holds its text. Before the open editor has produced content the overlay is null, so
+      // the file must still be fetched into the cache — otherwise it would be neither overlaid nor
+      // cached and would read as empty.
+      overlayFileId: liveOverlay.current.text === null ? null : liveOverlay.current.id,
       isCancelled,
     });
     if (!completed) return;
@@ -221,26 +279,56 @@ export function useProjectSymbolIndex({
     indexReference.current = built;
     setIndex(built);
 
-    // Set up live document observers for each reachable non-open file (feature 032 / FR-013a).
-    // Destroy old observers first, then re-establish for the new reachable set.
+    // RECONCILE the live document observers for reachable non-open files (feature 032 / FR-013a).
+    //
+    // We create/destroy only the DELTA and never recreate an existing observer. A fresh observer's
+    // initial Yjs sync fires an `update`, so a destroy-and-recreate-all approach would re-enter the
+    // `onUpdate` handler below in an endless loop. Touching only the delta leaves existing observers
+    // quiet, so this is safe to run on EVERY build — including the soft rebuild that an `onUpdate`
+    // itself triggers — and it correctly picks up a file that just became reachable (e.g. a
+    // collaborator live-adds an `include::`) as well as tearing observers down when the full-document
+    // outline is hidden (`observeReachableDocuments` false → empty wanted set).
     const factory = createDocumentObserverReference.current ?? (
       // Only use the real Hocuspocus observer at runtime (not during tests).
       globalThis.window === undefined ? undefined : defaultCreateDocumentObserver
     );
-    if (factory) {
-      for (const [, obs] of documentObservers.current) obs.destroy();
-      documentObservers.current.clear();
-      const openId = liveOverlay.current.id;
-      for (const fileId of built.tree.nodes) {
-        if (fileId === openId) continue; // open file is already live via liveContent overlay
+    const openId = liveOverlay.current.id;
+    const wanted = factory && observeReachableDocumentsReference.current
+      ? new Set([...built.tree.nodes].filter((id) => id !== openId)) // reachable, non-open
+      : new Set<string>();
+    // Tear down observers for files no longer wanted (dropped from the reachable set, now the open
+    // file, or observers turned off entirely).
+    for (const [fileId, obs] of documentObservers.current) {
+      if (!wanted.has(fileId)) {
+        obs.destroy();
+        documentObservers.current.delete(fileId);
+      }
+    }
+    if (factory && wanted.size > 0) {
+      // Resolve a file node id → its collaborative room id (the document's `yjsStateId`). The default
+      // queries the collab-info endpoint and tolerates failure (asset with no document, or offline).
+      const resolveRoomId = resolveCollabRoomIdReference.current
+        ?? ((id: string) => getCollabDocumentInfo(projectId, id).then((info) => info?.yjsStateId ?? null).catch(() => null));
+      for (const fileId of wanted) {
+        if (documentObservers.current.has(fileId)) continue; // already observed — leave it quiet
+        const roomId = await resolveRoomId(fileId);
+        if (isCancelled()) return;
+        if (!roomId) continue; // no collaborative document for this file — nothing to observe
         const obs = await factory({
           url: COLLAB_URL,
-          name: collabRoomName(projectId, fileId),
+          name: collabRoomName(projectId, roomId),
           fileId,
-          onUpdate: () => {
-            contentCache.current.delete(fileId);
-            setReachableDocumentVersion((v) => v + 1);
-            build();
+          onUpdate: (liveText?: string) => {
+            // Refresh this file's cached content from the Yjs replica's LIVE text (a collaborator's
+            // unsaved edit); when no live text is available, drop the cache so the rebuild re-fetches
+            // the persisted copy. Then rebuild — observer reconciliation makes this re-entrant-safe
+            // (existing observers are left untouched) — and bump the version after it settles so the
+            // assembled outline recomputes (SC-007).
+            if (typeof liveText === 'string') contentCache.current.set(fileId, liveText);
+            else contentCache.current.delete(fileId);
+            void build().then(() => {
+              setReachableDocumentVersion((v) => v + 1);
+            });
           },
         });
         if (isCancelled()) { obs.destroy(); return; }
@@ -254,6 +342,15 @@ export function useProjectSymbolIndex({
     build();
   }, [build]);
 
+  // When observer-holding is toggled (the full-document outline becomes visible / hidden), rebuild so
+  // observers are established or torn down. Skips the initial mount — the effect above already builds.
+  const previousObserveReachableDocuments = useRef(observeReachableDocuments);
+  useEffect(() => {
+    if (previousObserveReachableDocuments.current === observeReachableDocuments) return;
+    previousObserveReachableDocuments.current = observeReachableDocuments;
+    build();
+  }, [observeReachableDocuments, build]);
+
   // Rebuild (sync extraction, no fetch) shortly after the open file's live content settles.
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -262,18 +359,10 @@ export function useProjectSymbolIndex({
     return () => clearTimeout(handle);
   }, [liveContent, openFileId, build]);
 
-  // When the open file changes, drop the file we just switched AWAY from out of the content cache.
-  // That file may have unsaved edits that were only ever held in its live overlay (now gone), so its
-  // cached copy is stale; the next rebuild re-fetches its CURRENT text from the content endpoint —
-  // which serves the live collaborative (Hocuspocus/Yjs) state for a file with an open session — so
-  // a child's cross-document resolution reflects a parent's just-typed, unsaved edits (FR-007a).
-  const previousOpenFileId = useRef<string | null>(openFileId ?? null);
-  useEffect(() => {
-    const previous = previousOpenFileId.current;
-    const current = openFileId ?? null;
-    if (previous !== null && previous !== current) contentCache.current.delete(previous);
-    previousOpenFileId.current = current;
-  }, [openFileId]);
+  // (The file we switch away from is preserved in the cache from its last overlay text during render —
+  // see the `liveOverlay` commit above — so the assembled outline never momentarily loses it. Its live
+  // edits keep flowing in afterwards: once it is a reachable non-open file its observer refreshes the
+  // cache, exactly like any other included file, FR-013a/FR-007a.)
 
   // Invalidate on file-tree SSE: structural change ⇒ path maps + the affected file's cache are stale.
   const handleEvent = useCallback(

@@ -182,6 +182,40 @@ describe('assembleOutline — full scope with provenance (feature 032)', () => {
     expect(titles).toContain('Visible');
   });
 
+  test('resolves a {attr} heading title against an earlier attribute definition', () => {
+    const files = {
+      'main.adoc': '= Book\n:productName: Acme\n\n== {productName} Guide\n',
+    };
+    const result = assembleOutline({
+      rootPath: 'main.adoc',
+      openFilePath: 'main.adoc',
+      openFileId: 'id-main',
+      readFile: makeReader(files),
+      fileIdForPath: makeFileIdForPath({ 'main.adoc': 'id-main' }),
+      scopePreference: 'full',
+    });
+    expect(result.entries.map((entry) => entry.title)).toContain('Acme Guide');
+  });
+
+  test('a :name: line inside a verbatim/listing block is NOT treated as an attribute definition', () => {
+    const files = {
+      // `:productName: Acme` sits inside a listing block, so per AsciiDoc it is literal text and must
+      // not define `productName`; the later `{productName}` heading title stays unresolved.
+      'main.adoc': '= Book\n\n----\n:productName: Acme\n----\n\n== {productName} Guide\n',
+    };
+    const result = assembleOutline({
+      rootPath: 'main.adoc',
+      openFilePath: 'main.adoc',
+      openFileId: 'id-main',
+      readFile: makeReader(files),
+      fileIdForPath: makeFileIdForPath({ 'main.adoc': 'id-main' }),
+      scopePreference: 'full',
+    });
+    const titles = result.entries.map((entry) => entry.title);
+    expect(titles).toContain('{productName} Guide');
+    expect(titles).not.toContain('Acme Guide');
+  });
+
   test('unresolved includes are passed through in AssembledOutline.unresolved', () => {
     const files = {
       'main.adoc': '= Title\n\ninclude::missing.adoc[]\n\n== After\n',

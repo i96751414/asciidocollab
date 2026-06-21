@@ -75,6 +75,9 @@ export ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_MAX=500
 export ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX=10000
 export ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX=500
 export ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX=500
+# The cross-document / outline suites set a project's main file many times; the default 50/hour is
+# easily exceeded by the shared-IP workers (× CI retries), so raise it well above the suite's volume.
+export ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX=10000
 
 # ─── Cleanup on exit ─────────────────────────────────────────────────────────
 API_PID=""; WEB_PID=""; COLLAB_PID=""

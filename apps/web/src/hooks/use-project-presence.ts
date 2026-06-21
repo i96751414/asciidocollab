@@ -143,6 +143,10 @@ function byFileEqual(a: Map<string, ParticipantPresence[]>, b: Map<string, Parti
     if (!listB || listB.length !== listA.length) return false;
     for (const [index, participant] of listA.entries()) {
       if (participant.userId !== listB[index].userId || participant.name !== listB[index].name) return false;
+      // Compare cursorLine too: a peer moving their cursor changes only this field, and the outline
+      // attributes presence markers by it (FR-021). Without this, a cursor move is suppressed as a
+      // no-op and the marker never appears / never moves.
+      if (participant.cursorLine !== listB[index].cursorLine) return false;
     }
   }
   return true;

@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api/file-content';
+
+// Run the localStorage load as a layout effect on the client (a no-op on the server) so it commits
+// BEFORE the browser paints and before any user interaction is possible. This keeps the hydrating
+// render matching the server (defaults) — avoiding the React #418 mismatch — while closing the window
+// in which a setter could fire against the default state and persist defaults over the saved values.
+const useBrowserLayoutEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 import { isPreviewStyleValue, type PreviewStyleValue } from '@/components/preview-style-control';
 
 // Re-exported so consumers/tests that read preferences can validate tokens from one import.
@@ -125,10 +131,21 @@ interface UseEditorPreferencesResult {
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
 export function useEditorPreferences(): UseEditorPreferencesResult {
-  const [prefs, setPrefs] = useState<EditorPrefs>(loadFromStorage);
+  // Start from the defaults rather than reading localStorage in the initializer: the editor layout is
+  // server-rendered, and the server has no localStorage, so a persisted non-default value (e.g. the
+  // chosen left-panel tab or outline scope) would make the client's first render diverge from the
+  // server HTML and trip a hydration mismatch (React #418). Instead the stored prefs are loaded once,
+  // after mount, so the hydrating render matches the server and then settles to the saved values.
+  const [prefs, setPrefs] = useState<EditorPrefs>(DEFAULT_PREFS);
   // Use a ref for the debounce timer so timer changes don't trigger re-renders
   // and the callbacks always see the latest timer ID without stale-closure issues.
   const debounceTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load the persisted prefs from localStorage on the client only, after hydration. Declared before
+  // the account-fetch effect so its values are already in place when that async merge resolves.
+  useBrowserLayoutEffect(() => {
+    setPrefs(loadFromStorage());
+  }, []);
 
   useEffect(() => {
     void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, { credentials: 'include' })

@@ -1,5 +1,7 @@
 'use client';
 import { useMemo } from 'react';
+import { Files, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { EditorSectionOutline } from './editor-section-outline';
 import { currentHeadingIndex } from '@/lib/editor/current-heading';
@@ -50,10 +52,10 @@ export function OutlineView({ entries, currentLine, hasDocument, onHeadingClick,
       const openOnly = visibleEntries.filter((entry) => entry.isOpenFile !== false);
       const indexInOpen = currentHeadingIndex(openOnly, currentLine);
       if (indexInOpen < 0) return -1;
-      // Map the open-only index back to the full entries index.
+      // Map the open-only index back to the full entries index (same predicate as the filter above).
       let openCount = -1;
       for (const [index, entry] of visibleEntries.entries()) {
-        if (entry.isOpenFile !== false || entry.isOpenFile === undefined) openCount++;
+        if (entry.isOpenFile !== false) openCount++;
         if (openCount === indexInOpen) return index;
       }
       return -1;
@@ -68,14 +70,24 @@ export function OutlineView({ entries, currentLine, hasDocument, onHeadingClick,
       <div className="flex items-center px-2 border-b shrink-0 h-9">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Outline</span>
         {onScopeChange && outlineScope !== undefined && (
-          <button
+          // Icon-only toggle matching the rail/header icon buttons: the glyph shows the CURRENT scope
+          // (stacked files = full document, single file = current file); the accessible name + tooltip
+          // describe the action (switch to the other scope).
+          <Button
             type="button"
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            variant="ghost"
+            size="icon"
+            className="ml-auto h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={() => onScopeChange(outlineScope === 'full' ? 'current' : 'full')}
             aria-label={outlineScope === 'full' ? 'Current file' : 'Full document'}
+            title={
+              outlineScope === 'full'
+                ? 'Showing the full document — switch to the current file only'
+                : 'Showing the current file — switch to the full document'
+            }
           >
-            {outlineScope === 'full' ? 'Full document' : 'Current file'}
-          </button>
+            {outlineScope === 'full' ? <Files className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+          </Button>
         )}
       </div>
       {hasDocument && visibleEntries.length > 0 ? (

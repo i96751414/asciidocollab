@@ -110,6 +110,27 @@ describe('OutlineView — full-document mode (feature 032)', () => {
     // index 2 = 'Child Section' is from a foreign file — it must NOT be current
     expect(buttons[2]).not.toHaveAttribute('aria-current');
   });
+
+  // The cursor's `currentLine` is a line in the OPEN file, so the current-section match must be made
+  // against each open-file entry's `sourceLine` (its line within that file), NOT its assembled `line`
+  // — those diverge once an include shifts later sections down in the assembled document.
+  test('full-scope: current section uses the open file source line, not the assembled line', () => {
+    // 'After Include' sits at assembled line 8 but open-file source line 7. With the cursor on the
+    // open file's line 7 it is the current section; comparing against the assembled line would wrongly
+    // mark 'Main Section'.
+    render(
+      <OutlineView
+        entries={fullEntries}
+        currentLine={7}
+        hasDocument
+        effectiveScope="full"
+        onHeadingClick={jest.fn()}
+      />,
+    );
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[3]).toHaveAttribute('aria-current', 'true'); // 'After Include'
+    expect(buttons.filter((b) => b.getAttribute('aria-current') === 'true')).toHaveLength(1);
+  });
 });
 
 // T022: OutlineView scope toggle (feature 032 / US2 / FR-003 / FR-004)
@@ -195,6 +216,26 @@ describe('OutlineView — scope toggle (feature 032)', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /current file|full document/i })).toBeNull();
+  });
+
+  // Task 2: the scope toggle is an icon button (matching the other header/rail icon buttons), not a
+  // text label — but it keeps an accessible name so it stays keyboard- and screen-reader-usable.
+  test('the scope toggle is an icon button with an accessible name and no visible text', () => {
+    render(
+      <OutlineView
+        entries={mixed}
+        currentLine={null}
+        hasDocument
+        effectiveScope="full"
+        outlineScope="full"
+        onHeadingClick={jest.fn()}
+        onScopeChange={jest.fn()}
+      />,
+    );
+    const toggle = screen.getByRole('button', { name: /current file|full document/i });
+    // Icon-only: renders an SVG glyph and carries no visible text content.
+    expect(toggle.querySelector('svg')).not.toBeNull();
+    expect(toggle.textContent).toBe('');
   });
 });
 

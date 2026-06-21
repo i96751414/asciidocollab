@@ -1,5 +1,5 @@
 'use client';
-import { useLayoutEffect, useState, useCallback, useMemo } from 'react';
+import { useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -23,6 +23,7 @@ import { LeftPanel } from '@/components/editor/left-panel';
 import { OutlineView } from '@/components/editor/outline-view';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { assembleOutline, mapOutlinePresence } from '@/lib/outline';
+import { sameOutlineEntries } from '@/lib/outline/stable-entries';
 import type { OutlinePeer } from '@/lib/outline';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
@@ -213,12 +214,16 @@ export function ProjectEditorLayout({
     mainFile,
     sidebarOpen, setSidebarOpen, sidebarResize,
     previewOpen, togglePreview,
-    liveContent, handleChange,
+    liveContent, liveOverlayContent, handleChange,
   } = useProjectEditorState({
     mainFileNodeId,
     selectedFileNodeId: selectedFile?.nodeId ?? null,
     content: contentState.content,
   });
+
+  // Editor preferences (read before the symbol index so the outline's visibility can gate live
+  // collaborative observers — see `observeReachableDocs` below).
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
 
   // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
   // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
@@ -227,7 +232,14 @@ export function ProjectEditorLayout({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
     openFileId: selectedFile?.nodeId ?? null,
-    liveContent,
+    // Overlay the open file's content only once its editor has produced it; before then `null` keeps
+    // the index on the cached/persisted copy so a file switch doesn't transiently blank the open file
+    // (which would drop its headings from the assembled outline and re-add them a frame later).
+    liveContent: liveOverlayContent,
+    // Hold live observer connections for included files ONLY while the full-document outline is on
+    // screen (FR-013a). Otherwise every open file with includes would keep idle collaborative
+    // sessions alive for a panel the user isn't looking at.
+    observeReachableDocuments: leftPanelTab === 'outline' && outlineScope === 'full' && mainFile != null,
   });
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
@@ -270,8 +282,6 @@ export function ProjectEditorLayout({
   // concern of useEditorRestoration above.
   useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
-  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
-
   // Reset the scroll position AND the current-section marker whenever a different file is opened, so the
   // Outline never highlights a row using the previous file's cursor line before the new editor reports
   // its cursor. useLayoutEffect prevents a one-frame flash of the old scroll position / stale highlight.
@@ -310,9 +320,10 @@ export function ProjectEditorLayout({
     selectedFile && projectIndex ? (projectIndex.pathOf(selectedFile.nodeId) ?? undefined) : undefined;
 
   // Full-document outline (feature 032): assemble across include directives when a main file is
-  // configured and the open file is reachable. `getProjectFiles()` already overlays liveContent so
-  // the open file's in-progress edits are reflected. Depends on liveContent (open-file edit),
-  // previewOpenPath (open-file change), and previewRootPath (main-file change).
+  // configured and the open file is reachable. `getProjectFiles()` overlays the open file's live
+  // content (once its editor has produced it — see `liveOverlayContent`) so in-progress edits are
+  // reflected. Depends on liveOverlayContent (open-file edit), previewOpenPath (open-file change),
+  // and previewRootPath (main-file change).
   const assembledOutlineResult = useMemo(() => {
     if (!previewRootPath || !previewOpenPath || !selectedFile) return null;
     if (outlineScope === 'current') return null; // skip assembly when user wants current-file only
@@ -329,14 +340,28 @@ export function ProjectEditorLayout({
       fileIdForPath: (path: string) => fileIdForPath(path) ?? path,
       scopePreference: 'full',
     });
-  }, [previewRootPath, previewOpenPath, selectedFile, liveContent, getProjectFiles, fileIdForPath, reachableDocVersion, outlineScope]);
+    // `projectIndex` is included so a rebuild that asynchronously fetches a reachable file's content
+    // (e.g. The included file's text arrives after a reload, or a collaborator's live edit lands)
+    // re-runs this memo against the now-populated `getProjectFiles()` snapshot. Without it the memo
+    // would keep the stale assembly because `getProjectFiles` is referentially stable (FR-013b/SC-007).
+  }, [previewRootPath, previewOpenPath, selectedFile, liveOverlayContent, getProjectFiles, fileIdForPath, projectIndex, reachableDocVersion, outlineScope]);
 
   // Resolve outline entries and effective scope: prefer the assembled full outline when available
   // (scope='full'), otherwise use the CM6 single-file entries (current scope).
-  const outlineEntries: SectionOutlineEntry[] =
+  const outlineEntriesRaw: SectionOutlineEntry[] =
     assembledOutlineResult?.scope === 'full' ? assembledOutlineResult.entries : cmOutlineEntries;
   const outlineEffectiveScope: 'full' | 'current' =
     assembledOutlineResult?.scope === 'full' ? 'full' : 'current';
+
+  // Keep the outline array identity STABLE when a rebuild produces a value-equal result. The assembled
+  // outline is recomputed on every symbol-index rebuild (keystrokes, reachable-doc changes, a file
+  // switch that doesn't alter the full document), each time yielding a fresh array; reusing the prior
+  // reference when nothing changed stops the outline panel from re-rendering needlessly.
+  const stableOutlineReference = useRef<SectionOutlineEntry[]>(outlineEntriesRaw);
+  if (!sameOutlineEntries(stableOutlineReference.current, outlineEntriesRaw)) {
+    stableOutlineReference.current = outlineEntriesRaw;
+  }
+  const outlineEntries = stableOutlineReference.current;
 
   // Peer cursor positions mapped to outline headings (feature 032 / US5 / FR-021/FR-022).
   // Only peers with a numeric cursorLine (published via T031) contribute; others are ignored.

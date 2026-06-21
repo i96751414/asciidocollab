@@ -423,8 +423,12 @@ test.describe('Editor left panel: Outline view (028)', () => {
       await pageB.getByTestId('tree-node-main-presence.adoc').click();
       await waitCollabSynced(pageB);
 
+      // The outline-scoped marker: the file-tree (024) marker shares this testid, so scope to the
+      // section-outline navigation to assert specifically on the outline's presence marker.
+      const outlineMarker = page.getByRole('navigation', { name: /section outline/i }).getByTestId('open-by-others-marker');
+
       // SC-011: A does NOT see a marker on their own session (self-exclusion).
-      await expect(page.getByTestId('open-by-others-marker')).toHaveCount(0);
+      await expect(outlineMarker).toHaveCount(0);
 
       // B places cursor on the "Child Section" heading line by clicking in the editor around line 7.
       const editorB = pageB.locator('.cm-editor .cm-content');
@@ -433,19 +437,19 @@ test.describe('Editor left panel: Outline view (028)', () => {
       for (let index = 0; index < 6; index++) await pageB.keyboard.press('ArrowDown');
 
       // SC-010: A's outline should eventually show B's presence marker on whichever heading B is in.
-      await expect(page.getByTestId('open-by-others-marker')).toBeVisible({ timeout: 15_000 });
+      await expect(outlineMarker).toBeVisible({ timeout: 15_000 });
 
       // SC-011: B moves cursor up to the "Intro Section" area.
       for (let index = 0; index < 5; index++) await pageB.keyboard.press('ArrowUp');
 
       // The marker should move (appear somewhere in the outline — still present).
-      await expect(page.getByTestId('open-by-others-marker')).toBeVisible({ timeout: 10_000 });
+      await expect(outlineMarker).toBeVisible({ timeout: 10_000 });
     } finally {
       await contextB.close();
     }
 
     // SC-011: After B disconnects, the marker should clear from A's outline.
-    await expect(page.getByTestId('open-by-others-marker')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByRole('navigation', { name: /section outline/i }).getByTestId('open-by-others-marker')).toHaveCount(0, { timeout: 15_000 });
   });
 
   // US5: file create/options actions show only while Files is active.

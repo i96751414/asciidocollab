@@ -47,6 +47,27 @@ export interface AssembleOutlineInput {
 
 const EMPTY_SCOPE: ReadonlyMap<string, string> = new Map();
 const HEADING_PREFIX_RE = /^={1,6}\s+/;
+// AsciiDoc attribute-definition lines: `:name: value` (set) and `:name!:` (unset). Matched per line
+// while scanning so `{attr}` titles resolve against attributes defined earlier in the (assembled)
+// document — AsciiDoc's define-before-use, document-order semantics.
+const ATTR_SET_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*?)[ \t]*$/;
+const ATTR_UNSET_RE = /^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
+// Verbatim/comment delimited-block fences whose bodies are NOT subject to attribute substitution:
+// listing (`----`), literal (`....`), passthrough (`++++`), and comment (`////`). A `:name:` line
+// inside one of these is literal text, not an attribute definition (mirrors `verbatimRanges` in
+// lib/asciidoc/extraction.ts). Capture group 1 is the delimiter token for length-sensitive closing.
+const VERBATIM_FENCE_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,})[ \t]*$/;
+
+/** Apply one attribute-definition line to a mutable scope (sets the value, or removes it on unset). */
+function applyAttributeLine(line: string, attributes: Map<string, string>): void {
+  const unset = ATTR_UNSET_RE.exec(line);
+  if (unset) {
+    attributes.delete(unset[1].toLowerCase());
+    return;
+  }
+  const set = ATTR_SET_RE.exec(line);
+  if (set) attributes.set(set[1].toLowerCase(), set[2]);
+}
 
 /** Determines, for each 1-based line of documentText, whether it is inside an inactive conditional. */
 function computeInactiveLines(documentText: string, scope: ReadonlyMap<string, string>): boolean[] {
@@ -68,22 +89,47 @@ function extractHeadingsFromText(
   getProvenance: (lineNumber: number) => { sourceFileId: string; sourcePath: string; sourceLine: number; isOpenFile: boolean },
 ): SectionOutlineEntry[] {
   const entries: SectionOutlineEntry[] = [];
+  const lines = documentText.split('\n');
   const inactiveLines = computeInactiveLines(documentText, scope);
-  for (const info of computeHeadingLevels(documentText, inheritedOffset)) {
-    if (info.beyondMax || info.discrete || info.effectiveLevel < 0) continue;
-    if (inactiveLines[info.line]) continue;
-    const rawLine = documentText.split('\n')[info.line - 1] ?? '';
-    const prefixMatch = rawLine.match(HEADING_PREFIX_RE);
-    const rawTitle = prefixMatch ? rawLine.slice(prefixMatch[0].length) : rawLine;
-    const title = substitutePathAttributes(rawTitle, scope).trim();
-    const provenance = getProvenance(info.line);
-    entries.push({
-      level: info.effectiveLevel,
-      title,
-      line: info.line,
-      from: info.from,
-      ...provenance,
-    });
+  // Index headings by 1-based line so each title can resolve against the attribute scope accumulated
+  // up to that point as we walk the document in order.
+  const headingByLine = new Map<number, ReturnType<typeof computeHeadingLevels>[number]>();
+  for (const info of computeHeadingLevels(documentText, inheritedOffset)) headingByLine.set(info.line, info);
+  // Working attribute scope, seeded with the inherited scope and extended in document order.
+  const attributes = new Map(scope);
+  // Tracks the delimiter token of the currently-open verbatim/comment block, or null when outside one.
+  let openVerbatimDelimiter: string | null = null;
+  for (const [index, rawLine] of lines.entries()) {
+    const lineNumber = index + 1;
+    const active = !inactiveLines[lineNumber];
+    // Maintain verbatim-block state so attribute definitions inside listing/literal/passthrough/
+    // comment blocks (and `//` line comments) are treated as literal text, not real definitions.
+    const fence = VERBATIM_FENCE_RE.exec(rawLine);
+    const insideVerbatim = openVerbatimDelimiter !== null;
+    if (insideVerbatim) {
+      if (fence && fence[1] === openVerbatimDelimiter) openVerbatimDelimiter = null;
+    } else if (fence) {
+      openVerbatimDelimiter = fence[1];
+    }
+    const isVerbatim = insideVerbatim || fence !== null;
+    const info = headingByLine.get(lineNumber);
+    if (info && active && !info.beyondMax && !info.discrete && info.effectiveLevel >= 0) {
+      const prefixMatch = rawLine.match(HEADING_PREFIX_RE);
+      const rawTitle = prefixMatch ? rawLine.slice(prefixMatch[0].length) : rawLine;
+      const title = substitutePathAttributes(rawTitle, attributes).trim();
+      const provenance = getProvenance(info.line);
+      entries.push({
+        level: info.effectiveLevel,
+        title,
+        line: info.line,
+        from: info.from,
+        ...provenance,
+      });
+    }
+    // Accumulate attribute definitions from active, non-verbatim, non-comment lines only (an inactive
+    // conditional branch's definitions don't apply, and a `:name:` inside a verbatim/comment block or
+    // a `//` line comment is literal text), so later `{attr}` titles resolve to the value in effect.
+    if (active && !isVerbatim && !rawLine.startsWith('//')) applyAttributeLine(rawLine, attributes);
   }
   return entries;
 }
