@@ -5,6 +5,7 @@ import {
 } from '@asciidocollab/domain';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
 import type { FileTreeEventDto } from '@asciidocollab/shared';
+import { flushFastifyHeadersToRaw } from '../../lib/flush-fastify-headers';
 
 const KEEPALIVE_INTERVAL_MS = 30_000;
 
@@ -26,15 +27,7 @@ export async function eventsRoutes(app: FastifyInstance): Promise<void> {
       reply.raw.setHeader('Connection', 'keep-alive');
       reply.raw.setHeader('X-Accel-Buffering', 'no');
 
-      // Fastify stores headers (e.g. CORS) in reply[kReplyHeaders], separate from reply.raw.
-      // reply.raw.flushHeaders() bypasses Fastify's normal reply.send() path, so Fastify's
-      // headers never reach reply.raw unless we flush them explicitly first.
-      const fastifyHeaders = reply.getHeaders();
-      for (const [name, value] of Object.entries(fastifyHeaders)) {
-        if (value !== undefined) {
-          reply.raw.setHeader(name, value);
-        }
-      }
+      flushFastifyHeadersToRaw(reply);
 
       reply.raw.flushHeaders();
 

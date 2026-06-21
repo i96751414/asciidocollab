@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Readable } from 'stream';
 import archiver from 'archiver';
 import {
   DownloadProjectUseCase,
@@ -8,8 +9,11 @@ import {
   ProjectId,
 } from '@asciidocollab/domain';
 import { requireAuth, getAuthenticatedUserId } from '../../plugins/require-auth';
+import { requestLogger } from '../../lib/request-logger';
+import { sanitizeContentDispositionFilename, buildAttachmentDisposition } from '../../lib/sanitize-filename';
+import { flushFastifyHeadersToRaw } from '../../lib/flush-fastify-headers';
 
-/** Streams a ZIP archive of all project files. */
+/** Streams a ZIP archive of all project files, serving live Yjs text for actively-edited documents. */
 export async function projectDownloadRoute(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { projectId: string } }>(
     '/projects/:projectId/download',
@@ -30,6 +34,10 @@ export async function projectDownloadRoute(app: FastifyInstance): Promise<void> 
         request.server.repos.project,
         request.server.repos.fileNode,
         request.server.repos.projectMember,
+        request.server.repos.document,
+        request.server.repos.collaborationSession,
+        request.server.stores.collaborativeContentEditor,
+        requestLogger(request),
       );
 
       const result = await useCase.execute(actorId, projectId);
@@ -47,26 +55,107 @@ export async function projectDownloadRoute(app: FastifyInstance): Promise<void> 
 
       const { projectName, files } = result.value;
       const date = new Date().toISOString().slice(0, 10);
-      const filename = `${projectName}-${date}.zip`;
+      const asciiName = `${sanitizeContentDispositionFilename(projectName) || 'project'}-${date}.zip`;
+      const fullName = `${projectName}-${date}.zip`;
 
+      flushFastifyHeadersToRaw(reply);
       reply.raw.setHeader('Content-Type', 'application/zip');
-      reply.raw.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      reply.raw.setHeader('Content-Disposition', buildAttachmentDisposition(fullName, asciiName));
 
       const archive = archiver('zip', { zlib: { level: 6 } });
+      // archiveError races against finalize() so an entry-stream error doesn't leave the
+      // handler suspended on a hanging finalize() (the ZIP engine waits for 'end' which
+      // destroy() never emits, causing finalize() to hang indefinitely).
+      const archiveError = new Promise<never>((_, reject) => { archive.once('error', reject); });
+      // Pre-attach a no-op catch so that if archive errors before Promise.race is set up
+      // (e.g. during concurrent readStream opens in Promise.all), the rejection is already
+      // "handled" and Node.js never emits unhandledRejection — which would crash the process.
+      archiveError.catch(() => {});
+      archive.on('error', (error) => {
+        request.log.warn({ projectId: projectId.value, error: error.message }, 'archiver error during ZIP download');
+        archive.unpipe(reply.raw);
+        if (!reply.raw.writableEnded) reply.raw.end();
+      });
       archive.pipe(reply.raw);
 
-      for (const { fileNode, relativePath } of files) {
-        const stream = await request.server.stores.fileStore.readStream(projectId, fileNode.path);
-        if (stream === null) {
-          // Filesystem/DB desync — skip file with a warning
-          app.log.warn({ projectId: projectId.value, path: fileNode.path.value }, 'file missing from store during ZIP; skipping');
-          continue;
+      // Open all stored-file streams concurrently to amortise S3/GCS open latency across the
+      // entire file list (wall-clock: max(open_latency) vs sequential: N * open_latency).
+      type ResolvedEntry =
+        | { kind: 'inline'; bytes: Buffer; relativePath: string }
+        | { kind: 'stream'; stream: Readable; relativePath: string }
+        | { kind: 'null'; path: string }
+        | { kind: 'error'; path: string; error: unknown };
+
+      const resolvedEntries = await Promise.all(
+        files.map(async ({ fileNode, relativePath, source }): Promise<ResolvedEntry> => {
+          if (source.kind === 'inline') {
+            return { kind: 'inline', bytes: source.bytes, relativePath };
+          }
+          try {
+            const stream = await request.server.stores.fileStore.readStream(projectId, fileNode.path);
+            if (stream === null) {
+              return { kind: 'null', path: fileNode.path.value };
+            }
+            // Attach error listener immediately on acquisition — before archive.append() —
+            // so any stream error that fires in the gap doesn't become an unhandled event.
+            stream.on('error', (error) => { archive.emit('error', error); });
+            return { kind: 'stream', stream, relativePath };
+          } catch (error) {
+            return { kind: 'error', path: fileNode.path.value, error };
+          }
+        }),
+      );
+
+      let entriesAdded = 0;
+      for (const entry of resolvedEntries) {
+        switch (entry.kind) {
+          case 'inline': {
+            archive.append(entry.bytes, { name: entry.relativePath });
+            entriesAdded++;
+            break;
+          }
+          case 'stream': {
+            archive.append(entry.stream, { name: entry.relativePath });
+            entriesAdded++;
+            break;
+          }
+          case 'null': {
+            request.log.warn({ projectId: projectId.value, path: entry.path }, 'file missing from store during ZIP; skipping');
+            break;
+          }
+          default: {
+            request.log.warn(
+              { projectId: projectId.value, path: entry.path, error: entry.error instanceof Error ? entry.error.message : String(entry.error) },
+              'readStream threw during ZIP; skipping file',
+            );
+          }
         }
-        archive.append(stream, { name: relativePath });
       }
 
-      await archive.finalize();
-      return reply;
+      if (entriesAdded === 0 && files.length > 0) {
+        request.log.warn({ projectId: projectId.value, expected: files.length }, 'ZIP archive is empty — all files were skipped; client receives empty archive');
+      }
+
+      let archiveFinishedNormally = false;
+      await Promise.race([
+        archive.finalize().then(() => { archiveFinishedNormally = true; }),
+        archiveError,
+      ]).catch(() => {
+        // Archive errored: reply.raw was already ended and unpiped in the 'error' handler above.
+        // Swallowing prevents Fastify from trying to write a 500 to the already-ended response.
+      });
+
+      if (archiveFinishedNormally) {
+        return reply;
+      }
+      // Archive errored path: destroy any open stored-file streams that archiver never consumed
+      // so that S3/GCS HTTP connections are released immediately rather than leaking until TCP timeout.
+      for (const entry of resolvedEntries) {
+        if (entry.kind === 'stream' && !entry.stream.destroyed) {
+          entry.stream.destroy();
+        }
+      }
+      // do NOT return reply — reply.raw was already ended in the 'error' handler above.
     },
   );
 }

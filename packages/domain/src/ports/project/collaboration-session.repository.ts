@@ -39,6 +39,15 @@ export interface CollaborationSessionRepository {
   closeAllForProject(projectId: ProjectId): Promise<void>;
 
   /**
+   * Returns all document IDs with an active collaboration session for the given project.
+   * Used by download use-cases to batch-check session status without N+1 `isActive` calls.
+   *
+   * @param projectId - The project to query.
+   * @returns Array of DocumentId values currently active for the project.
+   */
+  findActiveDocumentIds(projectId: ProjectId): Promise<DocumentId[]>;
+
+  /**
    * Removes all session records globally (called on collab server startup).
    *
    * @returns Resolves when all records have been removed.
