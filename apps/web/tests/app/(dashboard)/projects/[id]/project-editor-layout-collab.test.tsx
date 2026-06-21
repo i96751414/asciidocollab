@@ -97,6 +97,10 @@ beforeEach(() => {
   mockCollabRole = 'editor';
   mockGetCollabInfo.mockReset();
   mockGetDocumentContent.mockReset();
+  // The cross-file symbol index fetches reachable file content (including the open file, which the
+  // assembled outline keeps cached); default to a resolved value so it never reads `.then` of
+  // undefined. Individual tests override this when they assert on the fetched content.
+  mockGetDocumentContent.mockResolvedValue('');
 });
 
 describe('ProjectEditorLayout — offline read-only fallback (T044)', () => {

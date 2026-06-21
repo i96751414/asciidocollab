@@ -228,7 +228,7 @@ jest.mock('@/hooks/use-include-completions', () => ({
 }));
 
 jest.mock('@/hooks/use-section-outline', () => ({
-  useSectionOutline: jest.fn(() => []),
+  useSectionOutline: jest.fn(() => ({ entries: [], effectiveScope: 'current', unresolved: [] })),
 }));
 
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({

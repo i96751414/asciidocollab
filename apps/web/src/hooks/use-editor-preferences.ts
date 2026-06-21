@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/lib/api/file-content';
+
+// Run the localStorage load as a layout effect on the client (a no-op on the server) so it commits
+// BEFORE the browser paints and before any user interaction is possible. This keeps the hydrating
+// render matching the server (defaults) — avoiding the React #418 mismatch — while closing the window
+// in which a setter could fire against the default state and persist defaults over the saved values.
+const useBrowserLayoutEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 import { isPreviewStyleValue, type PreviewStyleValue } from '@/components/preview-style-control';
 
 // Re-exported so consumers/tests that read preferences can validate tokens from one import.
@@ -30,6 +36,14 @@ function isLeftPanelTab(value: unknown): value is LeftPanelTab {
   return value === 'files' || value === 'outline';
 }
 
+/** Whether the outline shows the full assembled document or only the open file (032/FR-012). */
+export type OutlineScope = 'full' | 'current';
+
+/** Returns true when `value` is a recognised OutlineScope. */
+function isOutlineScope(value: unknown): value is OutlineScope {
+  return value === 'full' || value === 'current';
+}
+
 const LS_KEY = 'asciidocollab:editor-preferences';
 const DEBOUNCE_MS = 500;
 
@@ -45,17 +59,19 @@ interface EditorPrefs {
   leftPanelTab: LeftPanelTab;
   /** 029: whether to show included files inline in the editor. Client-only — kept in localStorage, never PUT to the account. */
   showIncludedFiles: boolean;
+  /** 032: whether the outline shows the full document or the open file only. Client-only — kept in localStorage, never PUT to the account. */
+  outlineScope: OutlineScope;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full' };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
 // PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
 // leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
 // hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
-const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles'] as const satisfies readonly (keyof EditorPrefs)[];
+const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles', 'outlineScope'] as const satisfies readonly (keyof EditorPrefs)[];
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -81,6 +97,7 @@ function loadFromStorage(): EditorPrefs {
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
           leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
           showIncludedFiles: typeof parsed.showIncludedFiles === 'boolean' ? parsed.showIncludedFiles : DEFAULT_PREFS.showIncludedFiles,
+          outlineScope: isOutlineScope(parsed.outlineScope) ? parsed.outlineScope : DEFAULT_PREFS.outlineScope,
         };
       }
     }
@@ -99,6 +116,7 @@ interface UseEditorPreferencesResult {
   spellcheckEnabled: boolean;
   leftPanelTab: LeftPanelTab;
   showIncludedFiles: boolean;
+  outlineScope: OutlineScope;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
@@ -108,14 +126,26 @@ interface UseEditorPreferencesResult {
   setSpellcheckEnabled: (enabled: boolean) => void;
   setLeftPanelTab: (tab: LeftPanelTab) => void;
   setShowIncludedFiles: (value: boolean) => void;
+  setOutlineScope: (scope: OutlineScope) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
 export function useEditorPreferences(): UseEditorPreferencesResult {
-  const [prefs, setPrefs] = useState<EditorPrefs>(loadFromStorage);
+  // Start from the defaults rather than reading localStorage in the initializer: the editor layout is
+  // server-rendered, and the server has no localStorage, so a persisted non-default value (e.g. the
+  // chosen left-panel tab or outline scope) would make the client's first render diverge from the
+  // server HTML and trip a hydration mismatch (React #418). Instead the stored prefs are loaded once,
+  // after mount, so the hydrating render matches the server and then settles to the saved values.
+  const [prefs, setPrefs] = useState<EditorPrefs>(DEFAULT_PREFS);
   // Use a ref for the debounce timer so timer changes don't trigger re-renders
   // and the callbacks always see the latest timer ID without stale-closure issues.
   const debounceTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load the persisted prefs from localStorage on the client only, after hydration. Declared before
+  // the account-fetch effect so its values are already in place when that async merge resolves.
+  useBrowserLayoutEffect(() => {
+    setPrefs(loadFromStorage());
+  }, []);
 
   useEffect(() => {
     void fetch(`${API_BASE_URL}/auth/me/editor-preferences`, { credentials: 'include' })
@@ -129,9 +159,10 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
         // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
-        // the local value — the server response can never overwrite the chosen view.
+        // the local value — the server response can never overwrite the chosen view or scope.
         leftPanelTab: previous.leftPanelTab,
         showIncludedFiles: previous.showIncludedFiles,
+        outlineScope: previous.outlineScope,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -239,5 +270,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles };
+  // Client-only setter (032/FR-012): persists the outline scope (full / current) to localStorage
+  // but never schedules a PUT, so the choice stays on this device.
+  const setOutlineScope = useCallback((outlineScope: OutlineScope) => {
+    setPrefs((previous) => {
+      const next = { ...previous, outlineScope };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope };
 }

@@ -193,6 +193,8 @@ jest.mock('@/hooks/use-project-symbol-index', () => ({
     getFiles: mockGetFiles,
     refresh: mockRefreshIndex,
     resolvedScopeOf: () => new Map<string, string>(),
+    fileIdForPath: () => null,
+    reachableDocVersion: 0,
   })),
 }));
 

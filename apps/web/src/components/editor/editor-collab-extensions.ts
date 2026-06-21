@@ -3,13 +3,14 @@ import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import type { Awareness } from 'y-protocols/awareness';
 import { keymap } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+import { COLLAB_YTEXT_KEY as SHARED_COLLAB_YTEXT_KEY } from '@/lib/editor-config';
 
 /**
- * Key of the shared `Y.Text` the editor binds to. The collaboration server seeds
- * this same field from stored file content on first load (018 FR-008), so the
- * first opener sees content via sync rather than a REST fetch (research D7).
+ * Key of the shared `Y.Text` the editor binds to. Sourced from the dependency-free editor-config
+ * (the single source of truth) and re-exported here so this module's existing importers keep working
+ * without re-declaring the literal `'codemirror'`.
  */
-export const COLLAB_YTEXT_KEY = 'codemirror';
+export const COLLAB_YTEXT_KEY = SHARED_COLLAB_YTEXT_KEY;
 
 /**
  * Builds the CodeMirror extension that binds the editor to the collaborative

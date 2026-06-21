@@ -75,6 +75,9 @@ export ASCIIDOCOLLAB_ADMIN_INVITE_RATE_LIMIT_MAX=500
 export ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX=10000
 export ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX=500
 export ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX=500
+# The cross-document / outline suites set a project's main file many times; the default 50/hour is
+# easily exceeded by the shared-IP workers (× CI retries), so raise it well above the suite's volume.
+export ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX=10000
 
 # ─── Cleanup on exit ─────────────────────────────────────────────────────────
 API_PID=""; WEB_PID=""; COLLAB_PID=""
@@ -161,7 +164,15 @@ ok "Web is ready."
 # ─── E2E suite ───────────────────────────────────────────────────────────────
 # Optionally filter to a subset of spec files (e.g. E2E_FILES=collab- for the
 # collaboration specs only); Playwright treats positional args as filename filters.
+#
+# CI=1 is set ONLY for the Playwright run (not the whole script) so the local gate matches CI's
+# retry policy: the config sets `retries: process.env.CI ? 2 : 0`, and a handful of collaboration /
+# preview / outline specs are timing-sensitive under the default 4 parallel workers sharing one
+# Postgres + collab server — they pass on a retry, exactly as they do in CI. Scoping CI to this one
+# command avoids changing the behaviour of the earlier build steps. (To see raw, un-retried results
+# when hunting a genuine failure, run the spec directly with `npx playwright test` and CI unset.)
 step "Running Playwright E2E tests …"
+CI=1 \
 NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
 NEXT_PUBLIC_WEB_URL="http://localhost:${WEB_PORT}" \
 NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \

@@ -226,6 +226,8 @@ jobs:
           ASCIIDOCOLLAB_ADMIN_OPEN_REGISTRATION_RATE_LIMIT_MAX: 10000
           ASCIIDOCOLLAB_AUTH_EMAIL_VERIFICATION_RATE_LIMIT_MAX: 500
           ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX: 500
+          # Outline / cross-document suites set a project's main file many times; raise the 50/hour default.
+          ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX: 10000
 
       - name: Wait for API to be ready
         run: |

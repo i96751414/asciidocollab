@@ -15,6 +15,7 @@ function fakeUser(userId: string, name: string): AwarenessUser {
 interface FakeState {
   user?: AwarenessUser;
   openFileNodeId?: string | null;
+  cursorLine?: number;
 }
 
 function fakeAwareness(localClientId: number, states: Map<number, FakeState>) {
@@ -233,5 +234,54 @@ describe('useProjectPresence', () => {
     });
     rerender({ openFileNodeId: 'file-b' });
     expect(awareness.setLocalStateField).toHaveBeenCalledWith('openFileNodeId', 'file-b');
+  });
+});
+
+// T030: cursorLine publish + aggregation (feature 032 / US5 / FR-019 / FR-020 / FR-023)
+describe('useProjectPresence — cursorLine (feature 032)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test('publishes cursorLine to awareness after debounce when given a cursor line', async () => {
+    const states = new Map<number, FakeState>([[1, {}]]);
+    const awareness = fakeAwareness(1, states);
+    const provider: PresenceProvider = { awareness, destroy: jest.fn() };
+    const baseProperties = { projectId: 'p', enabled: true, user: { userId: 'u', name: 'Me' }, openFileNodeId: 'file-a', createProvider: () => provider };
+
+    const { rerender } = renderHook(
+      (props: { cursorLine: number | null }) => useProjectPresence({ ...baseProperties, cursorLine: props.cursorLine }),
+      { initialProps: { cursorLine: null } },
+    );
+    rerender({ cursorLine: 10 });
+
+    // Not yet (debounced)
+    expect(awareness.setLocalStateField).not.toHaveBeenCalledWith('cursorLine', 10);
+
+    // After debounce
+    act(() => { jest.advanceTimersByTime(400); });
+    expect(awareness.setLocalStateField).toHaveBeenCalledWith('cursorLine', 10);
+  });
+
+  test('aggregation includes cursorLine when peer has one', () => {
+    const states = new Map<number, FakeState>([
+      [1, { user: fakeUser('u-local', 'Me'), openFileNodeId: null }],
+      [2, { user: fakeUser('u-bea', 'Bea'), openFileNodeId: 'file-a', cursorLine: 7 }],
+    ]);
+    const { result } = render({ states, localClientId: 1, openFileNodeId: null });
+    const bea = result.current.get('file-a')?.[0];
+    expect(bea).toBeDefined();
+    expect((bea as { cursorLine?: number }).cursorLine).toBe(7);
+  });
+
+  test('older client without cursorLine still aggregates at file level without crash', () => {
+    const states = new Map<number, FakeState>([
+      [1, { user: fakeUser('u-local', 'Me'), openFileNodeId: null }],
+      [2, { user: fakeUser('u-bea', 'Bea'), openFileNodeId: 'file-a' }], // no cursorLine
+    ]);
+    const { result } = render({ states, localClientId: 1, openFileNodeId: null });
+    expect(result.current.get('file-a')).toHaveLength(1);
+    // cursorLine may be absent — no crash
+    const bea = result.current.get('file-a')?.[0];
+    expect(bea).toBeDefined();
   });
 });

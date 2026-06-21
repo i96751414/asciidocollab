@@ -138,6 +138,24 @@ describe('useProjectSymbolIndex', () => {
     expect(files['a.adoc']).toBe(CONTENT.a);
   });
 
+  test('keeps the file switched away from available in getFiles (no transient gap on switch)', async () => {
+    // The open file is served from the live overlay (and excluded from fetching), so when the
+    // selection moves its content must be committed to the cache — otherwise the assembled
+    // full-document outline would momentarily lose the (root) file and collapse for a frame.
+    const { result, rerender } = renderHook(
+      ({ openFileId, liveContent }: { openFileId: string; liveContent: string }) =>
+        useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId, liveContent }),
+      { initialProps: { openFileId: 'main', liveContent: CONTENT.main } },
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    expect(result.current.getFiles()['main.adoc']).toBe(CONTENT.main);
+
+    // Switch the open file to 'a': 'main' (the include root, previously overlay-served) must remain
+    // immediately available rather than vanishing until the next rebuild re-fetches it.
+    rerender({ openFileId: 'a', liveContent: CONTENT.a });
+    expect(result.current.getFiles()['main.adoc']).toBe(CONTENT.main);
+  });
+
   test('tolerates a content fetch that rejects (caches null, still builds an index)', async () => {
     // b.adoc errors; the include walk must not throw and the index still resolves a.adoc's anchor.
     mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
@@ -315,5 +333,134 @@ describe('useProjectSymbolIndex', () => {
       await firstContent.promise;
     });
     expect(result.current.index).toBe(built); // superseded build left the index untouched
+  });
+});
+
+/** A fake observer factory that captures `onUpdate` callbacks per fileId. */
+function makeFakeObserverFactory() {
+  const callbacks = new Map<string, () => void>();
+  const destroyed = new Set<string>();
+  const factory = jest.fn(({ fileId, onUpdate }: { url: string; name: string; fileId: string; onUpdate: () => void }) => {
+    callbacks.set(fileId, onUpdate);
+    return Promise.resolve({ destroy: () => destroyed.add(fileId) });
+  });
+  return { factory, callbacks, destroyed };
+}
+
+// T015: reachable-doc change observation (feature 032)
+describe('useProjectSymbolIndex — reachable-doc change observation (feature 032)', () => {
+
+  test('creates an observer for each reachable non-open file', async () => {
+    const { factory } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+        // Hermetic room-id resolution: map each file id to itself so the fake factory still keys by file id.
+        resolveCollabRoomId: async (id: string) => id,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    // Should observe 'a' and 'b' (reachable but not the open file 'main')
+    expect(observedIds.toSorted()).toEqual(['a', 'b']);
+    // Should NOT observe 'c' (unreachable) or 'main' (open file, already overlaid)
+    expect(observedIds).not.toContain('c');
+    expect(observedIds).not.toContain('main');
+  });
+
+  test('onUpdate triggers cache invalidation + increments reachableDocVersion', async () => {
+    const { factory, callbacks } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+        // Hermetic room-id resolution: map each file id to itself so the fake factory still keys by file id.
+        resolveCollabRoomId: async (id: string) => id,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const v0 = result.current.reachableDocVersion;
+
+    // Simulate a content change in 'a'
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      Promise.resolve(fileId === 'a' ? '== Updated A\n' : (CONTENT[fileId] ?? '')),
+    );
+    await act(async () => { callbacks.get('a')!(); });
+
+    await waitFor(() => expect(result.current.reachableDocVersion).toBeGreaterThan(v0));
+  });
+
+  test('observes a newly-reachable file after a live content change (live-added include)', async () => {
+    const { factory, callbacks } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+        resolveCollabRoomId: async (id: string) => id,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await waitFor(() => expect(callbacks.has('a')).toBe(true));
+    // 'c' is in the tree but unreachable from main, so it starts unobserved.
+    expect(callbacks.has('c')).toBe(false);
+
+    // A collaborator adds `include::c.adoc[]` to the observed file 'a': the next fetch of 'a' returns
+    // the new content, making 'c' reachable. The reconciling rebuild must now observe 'c' — the old
+    // skip-observers-on-update path left it unobserved.
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      Promise.resolve(fileId === 'a' ? 'include::c.adoc[]\n' : (CONTENT[fileId] ?? '')),
+    );
+    await act(async () => { callbacks.get('a')!(); });
+
+    await waitFor(() => expect(callbacks.has('c')).toBe(true));
+  });
+
+  test('observers are destroyed on unmount (no leak)', async () => {
+    const { factory, destroyed } = makeFakeObserverFactory();
+    const { result, unmount } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'main',
+        liveContent: CONTENT.main,
+        createDocumentObserver: factory,
+        // Hermetic room-id resolution: map each file id to itself so the fake factory still keys by file id.
+        resolveCollabRoomId: async (id: string) => id,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    unmount();
+    for (const id of observedIds) {
+      expect(destroyed).toContain(id);
+    }
+  });
+
+  test('does not observe the open file (deduped against live overlay)', async () => {
+    const { factory } = makeFakeObserverFactory();
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({
+        projectId: 'p1',
+        rootFileId: 'main',
+        openFileId: 'a',
+        liveContent: CONTENT.a,
+        createDocumentObserver: factory,
+        // Hermetic room-id resolution: map each file id to itself so the fake factory still keys by file id.
+        resolveCollabRoomId: async (id: string) => id,
+      }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const observedIds = factory.mock.calls.map((c) => c[0].fileId);
+    expect(observedIds).not.toContain('a');
   });
 });

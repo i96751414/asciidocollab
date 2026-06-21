@@ -24,6 +24,14 @@ interface ProjectEditorState {
   togglePreview: () => void;
   /** Live editor content so the preview reflects what the user is typing. */
   liveContent: string;
+  /**
+   * The open file's live content to OVERLAY onto its cached/persisted copy — i.e. `liveContent` once
+   * the open editor has produced content (a sync or an edit), or `null` before then. While null, a
+   * consumer should fall back to the cached content rather than treating the file as empty. This is
+   * what keeps the full-document outline from dropping the open file's headings during a file switch,
+   * when `liveContent` has been reset but the new editor has not yet reported its content.
+   */
+  liveOverlayContent: string | null;
   // Editor change handler: marks the file edited and tracks the live buffer.
   handleChange: (value: string) => void;
 }
@@ -49,17 +57,24 @@ export function useProjectEditorState({
   // True once the user has typed in the current file — prevents server updates from
   // overwriting in-progress edits.
   const userHasEditedReference = useRef(false);
+  // The file `liveContent` currently belongs to, used to reset it the moment the selection changes.
+  const liveContentFileReference = useRef<string | null>(selectedFileNodeId);
 
   const handleChange = useCallback((value: string) => {
     userHasEditedReference.current = true;
     setLiveContent(value);
   }, []);
 
-  // When switching to a different file, reset edit tracking and load initial content.
-  useEffect(() => {
+  // Reset edit tracking + live content the instant the open file changes, SYNCHRONOUSLY during render
+  // (React's "adjust state during render" pattern) rather than in an effect. An effect lags the change
+  // by a render, during which `liveContent` still holds the previous file's text while the selection
+  // already points at the new file — so a consumer that overlays `liveContent` onto the open file (the
+  // symbol index / assembled outline) momentarily applies the wrong file's content and flickers.
+  if (liveContentFileReference.current !== selectedFileNodeId) {
+    liveContentFileReference.current = selectedFileNodeId;
     userHasEditedReference.current = false;
     setLiveContent(content ?? '');
-  }, [selectedFileNodeId]);
+  }
 
   // Apply server-pushed content updates only while the user hasn't typed anything.
   useEffect(() => {
@@ -90,6 +105,14 @@ export function useProjectEditorState({
     previewOpen,
     togglePreview,
     liveContent,
+    // The open file's content to OVERLAY onto its cached copy: the live editor buffer once the user
+    // has typed, otherwise the loaded server content (`content`), and `null` only while that content
+    // is still loading. Using the loaded content rather than the reset-to-empty buffer prevents the
+    // full-document outline from dropping (and re-adding) the open file's headings during a switch,
+    // and lets the symbol index serve the open file from this overlay instead of issuing a redundant
+    // fetch for it. `content` is reset to null on every file change (useFileSelection), so it is never
+    // the previous file's text — the overlay can never apply the wrong file's content.
+    liveOverlayContent: userHasEditedReference.current ? liveContent : (content ?? null),
     handleChange,
   };
 }

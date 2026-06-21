@@ -83,7 +83,9 @@ jest.mock('@/components/editor/editor-collab-extensions', () => ({
   COLLAB_YTEXT_KEY: 'codemirror',
 }));
 jest.mock('@/lib/codemirror/asciidoc-language', () => ({ asciidoc: () => ({}) }));
-jest.mock('@/hooks/use-section-outline', () => ({ useSectionOutline: () => [] }));
+jest.mock('@/hooks/use-section-outline', () => ({
+  useSectionOutline: () => ({ entries: [], effectiveScope: 'current', unresolved: [] }),
+}));
 jest.mock('@/lib/codemirror/asciidoc-outline', () => ({ outlineField: { field: true }, outlineResolvedScopeFacet: { of: () => ({}) } }));
 jest.mock('@replit/codemirror-minimap', () => ({ showMinimap: { of: () => ({}) } }));
 jest.mock('@/hooks/use-editor-preferences', () => ({ useEditorPreferences: () => ({ fontSize: 14, theme: 'default', setFontSize: jest.fn(), setTheme: jest.fn() }) }));

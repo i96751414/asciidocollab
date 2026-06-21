@@ -796,3 +796,113 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     });
   });
 });
+
+// T002: source map tests (feature 032)
+describe('assembleIncludes — source map (withSourceMap, feature 032)', () => {
+  test('regression: without withSourceMap, content and unresolved are byte-for-byte identical to existing behaviour', () => {
+    const files = {
+      'main.adoc': '= Book\n\ninclude::ch.adoc[]\n',
+      'ch.adoc': '== Chapter\n\nBody.\n',
+    };
+    const withoutFlag = assembleIncludes('main.adoc', reader(files));
+    const withFalseFlag = assembleIncludes('main.adoc', reader(files), { withSourceMap: false });
+    expect(withoutFlag.content).toBe(withFalseFlag.content);
+    expect(withoutFlag.unresolved).toEqual(withFalseFlag.unresolved);
+    expect(withoutFlag.sourceMap).toBeUndefined();
+    expect(withFalseFlag.sourceMap).toBeUndefined();
+  });
+
+  test('regression: withSourceMap:true does not change content or unresolved', () => {
+    const files = {
+      'main.adoc': '= Book\n\ninclude::ch.adoc[]\n',
+      'ch.adoc': '== Chapter\n\nBody.\n',
+    };
+    const withoutFlag = assembleIncludes('main.adoc', reader(files));
+    const withFlag = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(withFlag.content).toBe(withoutFlag.content);
+    expect(withFlag.unresolved).toEqual(withoutFlag.unresolved);
+  });
+
+  test('sourceMap.lineToSource.length === assembled line count (single file)', () => {
+    const files = { 'main.adoc': 'Line1\nLine2\nLine3\n' };
+    const { content, sourceMap } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    const lines = content.split('\n');
+    expect(sourceMap).toBeDefined();
+    expect(sourceMap!.lineToSource.length).toBe(lines.length);
+  });
+
+  test('sourceMap entries point to the root file for a single-file document', () => {
+    const files = { 'main.adoc': 'Line1\nLine2\n' };
+    const { sourceMap } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(sourceMap).toBeDefined();
+    for (const entry of sourceMap!.lineToSource) {
+      expect(entry.path).toBe('main.adoc');
+    }
+  });
+
+  test('lineToSource[i] has sourceLine=i+1 for a single-file document (1-based)', () => {
+    const files = { 'main.adoc': 'Line1\nLine2\nLine3\n' };
+    const { sourceMap } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(sourceMap!.lineToSource[0].sourceLine).toBe(1);
+    expect(sourceMap!.lineToSource[1].sourceLine).toBe(2);
+    expect(sourceMap!.lineToSource[2].sourceLine).toBe(3);
+  });
+
+  test('included file lines resolve to the child path and correct source lines', () => {
+    const files = {
+      'main.adoc': '= Title\ninclude::ch.adoc[]\nEpilogue\n',
+      'ch.adoc': 'Ch-L1\nCh-L2\n',
+    };
+    const { sourceMap } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(sourceMap).toBeDefined();
+    const map = sourceMap!.lineToSource;
+    // Line 1 of assembled = "= Title" — root file, line 1
+    expect(map[0]).toMatchObject({ path: 'main.adoc', sourceLine: 1 });
+    // After the include directive, next lines come from ch.adoc
+    const chStart = map.findIndex((entry) => entry.path === 'ch.adoc');
+    expect(chStart).toBeGreaterThan(-1);
+    expect(map[chStart]).toMatchObject({ path: 'ch.adoc', sourceLine: 1 });
+    expect(map[chStart + 1]).toMatchObject({ path: 'ch.adoc', sourceLine: 2 });
+    // "Epilogue" comes back in main.adoc
+    const epilogueIndex = map.findLastIndex((entry) => entry.path === 'main.adoc');
+    expect(epilogueIndex).toBeGreaterThan(chStart + 1);
+  });
+
+  test('nested includes: lineToSource entries resolve to each file at the correct source lines', () => {
+    const files = {
+      'main.adoc': 'A\ninclude::b.adoc[]\nZ\n',
+      'b.adoc': 'B1\ninclude::c.adoc[]\nB3\n',
+      'c.adoc': 'C1\nC2',   // no trailing newline → exactly 2 lines
+    };
+    const { sourceMap } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    const map = sourceMap!.lineToSource;
+    const cEntries = map.filter((entry) => entry.path === 'c.adoc');
+    expect(cEntries).toHaveLength(2);
+    expect(cEntries[0].sourceLine).toBe(1);
+    expect(cEntries[1].sourceLine).toBe(2);
+  });
+
+  test('unresolved includes still produce a placeholder line whose source points to the containing file', () => {
+    const files = { 'main.adoc': 'Before\ninclude::missing.adoc[]\nAfter\n' };
+    const { sourceMap, unresolved } = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(unresolved).toHaveLength(1);
+    expect(sourceMap).toBeDefined();
+    // The placeholder line should still map to main.adoc
+    const placeholderIndex = sourceMap!.lineToSource.findIndex((entry) => entry.path === 'main.adoc' && entry.sourceLine === 2);
+    expect(placeholderIndex).toBeGreaterThan(-1);
+  });
+
+  // T036 — Principle VIII: regression guard proving that the assembled content piped to the preview
+  // renderer (sanitization + scroll-sync) is byte-for-byte identical whether or not source mapping is
+  // requested. Covers leveloffset and tags to exercise the same paths the preview worker uses.
+  test('preview-relevant content (leveloffset + tags) is byte-for-byte unchanged with withSourceMap:true', () => {
+    const files = {
+      'main.adoc': '= Book\n\ninclude::ch.adoc[leveloffset=+1,tags=body]\n',
+      'ch.adoc': '// tag::body[]\n== Chapter\n\nParagraph.\n// end::body[]\n',
+    };
+    const baseline = assembleIncludes('main.adoc', reader(files));
+    const withMap = assembleIncludes('main.adoc', reader(files), { withSourceMap: true });
+    expect(withMap.content).toBe(baseline.content);
+    expect(withMap.unresolved).toEqual(baseline.unresolved);
+  });
+});
