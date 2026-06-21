@@ -18,6 +18,7 @@ import type { FileTreeEventDto } from '@asciidocollab/shared';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
 import { requestContextFrom } from '../../lib/request-context';
 import { requestLogger } from '../../lib/request-logger';
+import { sanitizeContentDispositionFilename } from '../../lib/sanitize-filename';
 
 interface AssetContent {
   bytes: Buffer;
@@ -46,7 +47,7 @@ function sendAssetContent(
   }
 
   const disposition = options.disposition === 'attachment'
-    ? `attachment; filename="${result.value.filename.replaceAll('"', '')}"`
+    ? `attachment; filename="${sanitizeContentDispositionFilename(result.value.filename)}"`
     : 'inline';
   reply.status(200)
     .header('Content-Type', result.value.mimeType.value)
