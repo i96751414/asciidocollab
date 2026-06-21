@@ -105,11 +105,14 @@ export function useProjectEditorState({
     previewOpen,
     togglePreview,
     liveContent,
-    // Only expose the open file's content as a live overlay once its editor has actually produced it
-    // (synced or typed). Until then it is null so consumers fall back to the cached/persisted copy
-    // instead of the reset-to-empty buffer — this is what prevents the full-document outline from
-    // dropping (and re-adding) the open file's headings during a file switch.
-    liveOverlayContent: userHasEditedReference.current ? liveContent : null,
+    // The open file's content to OVERLAY onto its cached copy: the live editor buffer once the user
+    // has typed, otherwise the loaded server content (`content`), and `null` only while that content
+    // is still loading. Using the loaded content rather than the reset-to-empty buffer prevents the
+    // full-document outline from dropping (and re-adding) the open file's headings during a switch,
+    // and lets the symbol index serve the open file from this overlay instead of issuing a redundant
+    // fetch for it. `content` is reset to null on every file change (useFileSelection), so it is never
+    // the previous file's text — the overlay can never apply the wrong file's content.
+    liveOverlayContent: userHasEditedReference.current ? liveContent : (content ?? null),
     handleChange,
   };
 }

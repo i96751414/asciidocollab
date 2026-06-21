@@ -260,11 +260,12 @@ export function useProjectSymbolIndex({
       resolveInclude,
       fetchContent: (id) => getDocumentContent(projectId, id),
       cache: contentCache.current,
-      // Only treat the open file as overlay-served (and thus skip fetching it) when the overlay
-      // actually holds its text. Before the open editor has produced content the overlay is null, so
-      // the file must still be fetched into the cache — otherwise it would be neither overlaid nor
-      // cached and would read as empty.
-      overlayFileId: liveOverlay.current.text === null ? null : liveOverlay.current.id,
+      // The open file is served by its editor (overlay/Yjs sync), never fetched — fetching it would
+      // add a redundant content round-trip per file open. When the overlay text is briefly null (just
+      // before the editor produces content), a file the open file was switched FROM is already in the
+      // cache (it was a reachable non-open file, or was committed on switch), so the assembled outline
+      // still reads it; only a brand-new open file's headings wait for its editor to sync.
+      overlayFileId: liveOverlay.current.id,
       isCancelled,
     });
     if (!completed) return;
