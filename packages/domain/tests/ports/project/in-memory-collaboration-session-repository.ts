@@ -31,6 +31,17 @@ export class InMemoryCollaborationSessionRepository implements CollaborationSess
     }
   }
 
+  async findActiveDocumentIds(projectId: ProjectId): Promise<DocumentId[]> {
+    const prefix = `${projectId.value}:`;
+    const ids: DocumentId[] = [];
+    for (const key of this.sessions) {
+      if (key.startsWith(prefix)) {
+        ids.push(DocumentId.create(key.slice(prefix.length)));
+      }
+    }
+    return ids;
+  }
+
   async closeAll(): Promise<void> {
     this.sessions.clear();
   }

@@ -39,6 +39,15 @@ export class PrismaCollaborationSessionRepository implements CollaborationSessio
     });
   }
 
+  /** Returns all document IDs with an active session for the given project. */
+  async findActiveDocumentIds(projectId: ProjectId): Promise<DocumentId[]> {
+    const rows = await this.prisma.collaborationSession.findMany({
+      where: { projectId: projectId.value },
+      select: { documentId: true },
+    });
+    return rows.map((row) => DocumentId.create(row.documentId));
+  }
+
   /** Deletes all session rows in the table. */
   async closeAll(): Promise<void> {
     await this.prisma.collaborationSession.deleteMany();
