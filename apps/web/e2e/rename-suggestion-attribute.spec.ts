@@ -69,6 +69,28 @@ test.describe('033 US1 — attribute rename suggestion', () => {
     expect(await getEditorText(page)).not.toContain('{release}');
   });
 
+  test('triggers for an inline {set:name:value} definition (FR-040)', async ({ page }) => {
+    await createAdocFile(page, projectId, 'main.adoc', '{set:edition:1}\n\nSee {edition} for details.\n');
+    await openProject(page, projectId);
+    await openFile(page, 'main.adoc', 'edition');
+
+    // The inline {set:} folds to a value widget; place the cursor on line 1 to reveal the raw source,
+    // then select the name and rename it.
+    await editorContent(page).locator('.cm-line').first().click();
+    await editorContent(page).getByText('edition', { exact: false }).first().dblclick();
+    await page.keyboard.type('release');
+
+    const suggestion = page.getByTestId('rename-suggestion');
+    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toContainText('edition');
+    await expect(suggestion).toContainText('release');
+
+    await page.getByTestId('rename-suggestion-apply').click();
+    // The `{edition}` reference is rewritten to `{release}`, which resolves to the value (folds to 1).
+    await expect.poll(() => getEditorText(page)).not.toContain('{edition}');
+    expect(await getEditorText(page)).toContain('See 1 for details.');
+  });
+
   test('blocks apply when the new name collides with an existing attribute (FR-022)', async ({ page }) => {
     await createAdocFile(page, projectId, 'main.adoc', ':edition: 1\n:release: 2\n\nSee {edition}.\n');
     await openProject(page, projectId);

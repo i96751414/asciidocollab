@@ -23,6 +23,11 @@ export interface DefinitionMatch {
 
 // Attribute definition `:name:` / `:name!:`, anchored to the start of the line.
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)!?:/g;
+// Inline attribute assignment `{set:name:value}` / `{set:name!}` (FR-040) — an attribute definition
+// in body text. Mirrors INLINE_SET_RE in asciidoc-attribute-fold.ts.
+const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:[^}\n]*)\}/g;
+// The `{set:` prefix length, used to locate the name span within an inline-set token.
+const SET_PREFIX_LENGTH = 5;
 // Explicit anchors: `[[id]]`, `[#id]`, and the `anchor:id[` macro opener.
 const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
 // A section heading (levels 1–6; the level-0 document title is excluded) and its title text.
@@ -70,6 +75,22 @@ export function definitionAtCursor(state: EditorState): DefinitionMatch | null {
       name: attribute[1],
       range: { from: line.from + start, to: line.from + start + attribute[0].length },
     };
+  }
+
+  // Inline `{set:name:value}` assignment — only when the cursor is on the NAME (editing the value is
+  // not a rename). The whole token is the range so the reused rename excludes this definition itself.
+  const inlineSet = covering(text, pos, INLINE_SET_RE);
+  if (inlineSet) {
+    const start = inlineSet.index ?? 0;
+    const nameStart = start + SET_PREFIX_LENGTH;
+    const name = inlineSet[1];
+    if (pos >= nameStart && pos <= nameStart + name.length) {
+      return {
+        kind: 'attribute',
+        name,
+        range: { from: line.from + start, to: line.from + start + inlineSet[0].length },
+      };
+    }
   }
 
   const anchor = covering(text, pos, ANCHOR_RE);

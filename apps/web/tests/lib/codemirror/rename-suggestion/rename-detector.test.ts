@@ -39,6 +39,19 @@ describe('definitionAtCursor (FR-001, FR-004)', () => {
     expect(definitionAtCursor(stateWithCaret('See {product-|name} for details.\n'))).toBeNull();
   });
 
+  test('detects an inline {set:name:value} attribute definition (FR-040)', () => {
+    const result = definitionAtCursor(stateWithCaret('{set:my|var:value}\n'));
+    expect(result).toMatchObject({ kind: 'attribute', name: 'myvar' });
+  });
+
+  test('detects an inline {set:name!} unset definition', () => {
+    expect(definitionAtCursor(stateWithCaret('{set:fl|ag!}\n'))).toMatchObject({ kind: 'attribute', name: 'flag' });
+  });
+
+  test('returns null when the cursor is on the VALUE of {set:name:value} (not renaming the name)', () => {
+    expect(definitionAtCursor(stateWithCaret('{set:myvar:va|lue}\n'))).toBeNull();
+  });
+
   test('returns null on an xref reference — FR-004', () => {
     expect(definitionAtCursor(stateWithCaret('See <<install-|guide>>.\n'))).toBeNull();
   });
