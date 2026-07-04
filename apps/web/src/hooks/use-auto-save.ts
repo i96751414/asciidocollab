@@ -20,7 +20,7 @@ interface UseAutoSaveOptions {
   /**
    * When false, the hook is fully inert: no PUT saves, no ETag polling, no
    * localStorage drafts, no `beforeunload`/unmount keepalive. Used on the collab
-   * path where the collaboration server owns persistence (FR-006); `save()` is a
+   * path where the collaboration server owns persistence; `save()` is a
    * no-op. Defaults to true (legacy REST path).
    */
   enabled?: boolean;

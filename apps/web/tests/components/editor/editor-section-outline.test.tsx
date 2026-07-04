@@ -85,7 +85,7 @@ describe('EditorSectionOutline', () => {
     expect((EditorSectionOutline as unknown as { $$typeof?: symbol }).$$typeof).toBe(memoSymbol);
   });
 
-  // 028 (T009): level 0 (title) is flush; deeper levels step in. paddingLeft = level*12 + 8.
+  // 028: level 0 (title) is flush; deeper levels step in. paddingLeft = level*12 + 8.
   test('indents rows by level: 0 flush, deeper levels progressively', () => {
     const entries: SectionOutlineEntry[] = [
       { level: 0, title: 'Doc Title', line: 1, from: 0 },
@@ -99,7 +99,7 @@ describe('EditorSectionOutline', () => {
     expect(buttons[2]).toHaveStyle({ paddingLeft: '32px' });
   });
 
-  // 028 (T019): the row at currentIndex is marked aria-current; exactly one.
+  // 028: the row at currentIndex is marked aria-current; exactly one.
   test('marks the row at currentIndex with aria-current and no other', () => {
     render(<EditorSectionOutline entries={sampleEntries} currentIndex={1} onHeadingClick={jest.fn()} />);
     const buttons = screen.getAllByRole('button');
@@ -116,7 +116,7 @@ describe('EditorSectionOutline', () => {
   });
 });
 
-// T009: provenance rendering for full-document outline (feature 032)
+// provenance rendering for full-document outline (feature 032)
 describe('EditorSectionOutline — provenance (feature 032)', () => {
   const mainEntry: SectionOutlineEntry = {
     level: 0, title: 'Doc Title', line: 1, from: 0,
@@ -131,7 +131,7 @@ describe('EditorSectionOutline — provenance (feature 032)', () => {
     sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 7, isOpenFile: true,
   };
 
-  test('renders provenance entries as one seamless list (no per-file dividers, FR-017)', () => {
+  test('renders provenance entries as one seamless list (no per-file dividers)', () => {
     render(
       <EditorSectionOutline
         entries={[mainEntry, childEntry, openEntry2]}
@@ -147,7 +147,7 @@ describe('EditorSectionOutline — provenance (feature 032)', () => {
     expect(screen.getByText('After Include')).toBeInTheDocument();
   });
 
-  test('marks isOpenFile entries with data-open-file attribute (FR-018)', () => {
+  test('marks isOpenFile entries with data-open-file attribute', () => {
     render(
       <EditorSectionOutline
         entries={[mainEntry, childEntry, openEntry2]}
@@ -197,7 +197,7 @@ function presencePeer(name: string, clientId: number): ParticipantPresence {
   return { clientId, userId: `u-${name.toLowerCase()}`, name, color: '#30bced', colorLight: '#30bced33' };
 }
 
-// T032: presence markers on outline entries (feature 032 / US5 / FR-021)
+// presence markers on outline entries (feature 032)
 describe('EditorSectionOutline — presence markers (feature 032)', () => {
   const entryA: SectionOutlineEntry = {
     level: 1, title: 'Section A', line: 5, from: 0,
@@ -246,7 +246,7 @@ describe('EditorSectionOutline — presence markers (feature 032)', () => {
     expect(screen.queryByTestId('open-by-others-marker')).toBeNull();
   });
 
-  test('marker aria-label names the collaborator (FR-021)', () => {
+  test('marker aria-label names the collaborator', () => {
     const key = `${entryA.sourceFileId}:${entryA.sourceLine}`;
     const presenceMap = new Map<string, ParticipantPresence[]>([[key, [presencePeer('Bea', 2)]]]);
     render(
@@ -317,8 +317,8 @@ describe('EditorSectionOutline — presence markers (feature 032)', () => {
   });
 });
 
-// T035: accessibility — open-file mark, current-section, and presence marker not conveyed by color alone
-describe('EditorSectionOutline — accessibility (T035)', () => {
+// accessibility — open-file mark, current-section, and presence marker not conveyed by color alone
+describe('EditorSectionOutline — accessibility', () => {
   const openEntry: SectionOutlineEntry = {
     level: 1, title: 'Open Heading', line: 3, from: 0,
     sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 3, isOpenFile: true,
@@ -328,21 +328,21 @@ describe('EditorSectionOutline — accessibility (T035)', () => {
     sourceFileId: 'id-ch', sourcePath: 'ch.adoc', sourceLine: 1, isOpenFile: false,
   };
 
-  test('open-file mark is conveyed by data-open-file attribute (not color-only) (FR-018)', () => {
+  test('open-file mark is conveyed by data-open-file attribute (not color-only)', () => {
     render(<EditorSectionOutline entries={[openEntry, closedEntry]} onHeadingClick={jest.fn()} />);
     const [buttonOpen, buttonClosed] = screen.getAllByRole('button');
     expect(buttonOpen).toHaveAttribute('data-open-file', 'true');
     expect(buttonClosed).not.toHaveAttribute('data-open-file');
   });
 
-  test('current-section is conveyed by aria-current (not color-only) (028/US2)', () => {
+  test('current-section is conveyed by aria-current (not color-only) (028)', () => {
     render(<EditorSectionOutline entries={[openEntry, closedEntry]} currentIndex={0} onHeadingClick={jest.fn()} />);
     const [buttonOpen, buttonClosed] = screen.getAllByRole('button');
     expect(buttonOpen).toHaveAttribute('aria-current', 'true');
     expect(buttonClosed).not.toHaveAttribute('aria-current');
   });
 
-  test('presence marker is conveyed by aria-label text (not color-only) (FR-021)', () => {
+  test('presence marker is conveyed by aria-label text (not color-only)', () => {
     const key = `${closedEntry.sourceFileId}:${closedEntry.sourceLine}`;
     const presenceMap = new Map<string, ParticipantPresence[]>([[key, [presencePeer('Bea', 2)]]]);
     render(

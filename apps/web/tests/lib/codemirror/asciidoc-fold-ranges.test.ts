@@ -27,7 +27,7 @@ function fakeNode(name: string, firstChildTo: number, lastChildFrom: number): Sy
   } as unknown as SyntaxNode;
 }
 
-describe('foldRangeForSection (FR-012)', () => {
+describe('foldRangeForSection', () => {
   const source = '= Title\n\n== One\n\nbody of one\n\n=== Sub\n\nsub body\n\n== Two\n\nbody two\n';
 
   test('folds a section to just before the next same-level heading', () => {
@@ -52,7 +52,7 @@ describe('foldRangeForSection (FR-012)', () => {
   });
 });
 
-describe('foldRangeForConditional (FR-014/051)', () => {
+describe('foldRangeForConditional', () => {
   test('folds ifdef … endif', () => {
     const source = 'ifdef::env[]\nline a\nline b\nendif::[]\n';
     const editorState = state(source);
@@ -101,7 +101,7 @@ describe('foldRangeForConditional (FR-014/051)', () => {
   });
 });
 
-describe('foldRangeForCommentRun (FR-013)', () => {
+describe('foldRangeForCommentRun', () => {
   test('folds ≥2 consecutive // lines', () => {
     const editorState = state('// one\n// two\n// three\ntext\n');
     expect(foldRangeForCommentRun(editorState, lineStart(editorState, 1))).not.toBeNull();
@@ -116,7 +116,7 @@ describe('foldRangeForCommentRun (FR-013)', () => {
   });
 });
 
-describe('foldRangeForAttributeRun (FR-013)', () => {
+describe('foldRangeForAttributeRun', () => {
   test('folds ≥2 consecutive :name: lines', () => {
     const editorState = state(':author: A\n:version: 1\n:toc:\nbody\n');
     expect(foldRangeForAttributeRun(editorState, lineStart(editorState, 1))).not.toBeNull();
@@ -127,7 +127,7 @@ describe('foldRangeForAttributeRun (FR-013)', () => {
   });
 });
 
-describe('foldRangeForBlock / foldRangeForTable (FR-012)', () => {
+describe('foldRangeForBlock / foldRangeForTable', () => {
   test('folds a LiteralBlock body', () => {
     const source = '....\nx\n....\n';
     const range = foldRangeForBlock(fakeNode('LiteralBlock', 5, 7), state(source));

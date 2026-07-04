@@ -8,12 +8,12 @@ function reader(files: Record<string, string>) {
   return (path: string) => files[path] ?? null;
 }
 
-describe('assembleIncludes — hide mode (showIncludes: false, T007/FR-012)', () => {
+describe('assembleIncludes — hide mode (showIncludes: false)', () => {
   // ── Scenario 1: body suppressed; include-defined attribute still resolves ──────────────────────
   test('body is suppressed but attributes defined in the include resolve after it', () => {
     // The child defines `:product-name: Acme` and has prose "Acme Corp Description".
     // With showIncludes:false the prose must be hidden, but the attribute must survive
-    // so that `{product-name}` in the PARENT resolves correctly (SC-001/FR-003/FR-005).
+    // so that `{product-name}` in the PARENT resolves correctly.
     const files = {
       'main.adoc': '= Product\n\ninclude::child.adoc[]\n\nValue: {product-name}\n',
       'child.adoc': ':product-name: Acme\n\nAcme Corp Description\n',
@@ -88,8 +88,8 @@ describe('assembleIncludes — hide mode (showIncludes: false, T007/FR-012)', ()
   });
 
   // ── Scenario 4: non-AsciiDoc include (source snippet) is suppressed ──────────────────────────
-  test('a non-AsciiDoc include (source snippet) is suppressed and replaced with a placeholder (FR-012)', () => {
-    // FR-012: content suppression applies to all include types, not just .adoc files.
+  test('a non-AsciiDoc include (source snippet) is suppressed and replaced with a placeholder', () => {
+    // Content suppression applies to all include types, not just .adoc files.
     // A Ruby snippet included as a code block must be hidden behind a placeholder.
     const files = {
       'main.adoc': '= Guide\n\n[source,ruby]\n----\ninclude::snippet.rb[]\n----\n',
@@ -186,8 +186,8 @@ Resolved: {product-name}
   });
 
   // ── Scenario 5: image directive inside a hidden include is dropped ────────────────────────────
-  test('an image:: line inside a hidden include is dropped along with the rest of the body (FR-011)', () => {
-    // FR-011: images inside a hidden include are suppressed with the include's body.
+  test('an image:: line inside a hidden include is dropped along with the rest of the body', () => {
+    // Images inside a hidden include are suppressed with the include's body.
     // child.adoc contains an `image::` directive; with showIncludes:false that line
     // must not appear in the output — only the placeholder for child.adoc appears.
     const files = {

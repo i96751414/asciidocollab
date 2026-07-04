@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US5 / FR-017/FR-018/FR-019/FR-019a (caption/label/signifier family): the main file sets a
+// Caption/label/signifier family: the main file sets a
 // localized `:table-caption:` and `:toc-title:` before including a child; the child's titled table
 // and the document TOC use the inherited labels in the assembled preview.
 
@@ -16,7 +16,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US5 caption/label family across files', () => {
+test.describe('caption/label family across files', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

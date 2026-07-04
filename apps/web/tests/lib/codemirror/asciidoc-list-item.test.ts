@@ -4,7 +4,7 @@ import { parseListMarker } from '@/lib/codemirror/asciidoc-list-item';
  * Pure-parser unit tests for `parseListMarker`. One assertion group per marker family plus
  * emptiness, indentation, and "not a list" negatives. Runs in the fast `node` Jest project.
  */
-describe('parseListMarker — unordered (US1)', () => {
+describe('parseListMarker — unordered', () => {
   test('single bullet `* x`', () => {
     expect(parseListMarker('* x')).toEqual({
       kind: 'unordered', indent: '', marker: '*', depth: 1, contentStart: 2, isEmpty: false, ordinal: null,
@@ -73,7 +73,7 @@ describe('parseListMarker — unordered (US1)', () => {
   });
 });
 
-describe('parseListMarker — ordered (US2)', () => {
+describe('parseListMarker — ordered', () => {
   test('implicit `. x` → depth 1, ordinal null', () => {
     expect(parseListMarker('. x')).toEqual({
       kind: 'ordered', indent: '', marker: '.', depth: 1, contentStart: 2, isEmpty: false, ordinal: null,
@@ -110,7 +110,7 @@ describe('parseListMarker — ordered (US2)', () => {
   });
 });
 
-describe('parseListMarker — checklist (US3)', () => {
+describe('parseListMarker — checklist', () => {
   test('`* [ ] x` → checklist, marker `*`', () => {
     const marker = parseListMarker('* [ ] x');
     expect(marker?.kind).toBe('checklist');
@@ -146,7 +146,7 @@ describe('parseListMarker — checklist (US3)', () => {
   });
 });
 
-describe('parseListMarker — description (US4)', () => {
+describe('parseListMarker — description', () => {
   test('term `CPU:: x` → marker `::`, not empty', () => {
     const marker = parseListMarker('CPU:: The brain');
     expect(marker?.kind).toBe('description');
@@ -200,7 +200,7 @@ describe('parseListMarker — description (US4)', () => {
   });
 });
 
-describe('parseListMarker — deep nesting & edge cases (SC-005, T031)', () => {
+describe('parseListMarker — deep nesting & edge cases', () => {
   test('deep unordered `**** x` → depth 4', () => {
     const marker = parseListMarker('**** x');
     expect(marker?.kind).toBe('unordered');

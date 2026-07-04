@@ -1,4 +1,4 @@
-// T035: Failing domain unit tests for ConfirmEmailChangeUseCase
+// Failing domain unit tests for ConfirmEmailChangeUseCase
 import { ConfirmEmailChangeUseCase } from '../../../src/use-cases/auth/confirm-email-change';
 import { User } from '../../../src/entities/user';
 import { UserId } from '../../../src/value-objects/ids/user-id';

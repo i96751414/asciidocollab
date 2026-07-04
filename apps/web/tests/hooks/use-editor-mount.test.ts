@@ -34,7 +34,7 @@ describe('editor-extensions completion sources', () => {
   });
 });
 
-// T011: onLineClick integration. The hook still accepts the option and wires the handler extension;
+// onLineClick integration. The hook still accepts the option and wires the handler extension;
 // the handler body (posAtCoords → lineAt) now lives in the dom-handlers module.
 describe('use-editor-mount onLineClick', () => {
   test('accepts onLineClick option in UseEditorMountOptions', () => {
@@ -54,8 +54,8 @@ describe('use-editor-mount onLineClick', () => {
   });
 });
 
-// T010 / US2: initialLine restores the cursor to a remembered line on mount, clamped to the
-// current document length ("closest valid line", FR-005). This file runs in the `node` jest
+// initialLine restores the cursor to a remembered line on mount, clamped to the
+// current document length ("closest valid line"). This file runs in the `node` jest
 // project (no DOM to mount a real EditorView), so behavior is pinned at the source level —
 // matching the existing convention in this file.
 describe('use-editor-mount initialLine restore', () => {
@@ -80,9 +80,9 @@ describe('use-editor-mount initialLine restore', () => {
   });
 });
 
-// T064 / US8: live reveal request drives same-file go-to-definition (FR-049). Pinned at the
+// Live reveal request drives same-file go-to-definition. Pinned at the
 // source level (node project, no DOM EditorView) per this file's convention.
-describe('use-editor-mount revealRequest (FR-049)', () => {
+describe('use-editor-mount revealRequest', () => {
   test('accepts a revealRequest option', () => {
     expect(source).toContain('revealRequest');
   });
@@ -102,15 +102,15 @@ describe('use-editor-mount revealRequest (FR-049)', () => {
     expect(source).toMatch(/createLinkHandler\([\S\s]*projectIndexAccessor/);
   });
 
-  test('shows an index-backed xref hover preview (FR-034)', () => {
+  test('shows an index-backed xref hover preview', () => {
     expect(domHandlersSource).toContain('xrefHoverPreview');
   });
 });
 
-// T066 / US3: the inherited include-path offset feeds heading levels and re-evaluates on change.
+// The inherited include-path offset feeds heading levels and re-evaluates on change.
 // The heading-levels extension is assembled in the extensions module; the change-driven refresh
 // effect stays in the hook.
-describe('use-editor-mount inherited heading offset (FR-071/045a)', () => {
+describe('use-editor-mount inherited heading offset', () => {
   test('passes a lazy inherited-offset accessor to asciidocHeadingLevels', () => {
     expect(extensionsSource).toMatch(/asciidocHeadingLevels\(getInheritedOffset,/);
     expect(source).toMatch(/getInheritedOffset: \(\) => inheritedOffsetReference\.current/);

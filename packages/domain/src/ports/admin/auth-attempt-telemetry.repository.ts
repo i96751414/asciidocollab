@@ -3,14 +3,14 @@ import { PaginationOptions, PagedResult } from './audit-log.repository';
 
 /**
  * Input for coalescing a single account-security attempt into a telemetry bucket.
- * The submitted secret is never part of this input (FR-029).
+ * The submitted secret is never part of this input.
  */
 export interface RecordAuthAttemptInput {
   /** Which kind of attempt this is — part of the coalescing key. */
   readonly eventType: AuthAttemptEventType;
   /** Normalized, validated attempted identifier (email). */
   readonly identifier: string;
-  /** Request origin, or the sentinel `"unknown"` (never null — FR-025/D2). */
+  /** Request origin, or the sentinel `"unknown"` (never null — D2). */
   readonly ipAddress: string;
   /** Client identifier, when available. */
   readonly userAgent: string | null;
@@ -20,7 +20,7 @@ export interface RecordAuthAttemptInput {
   readonly now: Date;
 }
 
-/** Filters for reviewing account-security telemetry (FR-032). */
+/** Filters for reviewing account-security telemetry. */
 export interface AuthAttemptTelemetryFilters {
   /** Restrict to a single attempt kind (e.g. Only failed sign-ins). */
   eventType?: AuthAttemptEventType;
@@ -36,7 +36,7 @@ export interface AuthAttemptTelemetryFilters {
 
 /**
  * Persistence port for failed sign-in telemetry. Separate from
- * {@link AuditLogRepository} so the two stores stay distinct (FR-026).
+ * {@link AuditLogRepository} so the two stores stay distinct.
  */
 export interface AuthAttemptTelemetryRepository {
   /**

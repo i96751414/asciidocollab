@@ -1,38 +1,24 @@
 import type { CompletionSource, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
-import { headingToId } from '@/lib/asciidoc/extraction';
+import { extractSymbols } from '@asciidocollab/asciidoc-core';
+import { inheritedAttributesSeed } from '@/lib/codemirror/inherited-attributes-field';
 import { crossFileSymbolNames, type ProjectIndexGetter } from '@/lib/codemirror/completions/symbol-index';
 
-// Heading auto-ids use the shared Asciidoctor-correct slug (`_my_section`), so xref
-// completion offers the same ids the symbol index / diagnostics recognize (one source).
-
-// Anchor-id charset, mirroring the symbol index's ANCHOR_RE (asciidoc/extraction.ts) so completion
-// offers exactly the ids the index recognizes. A bare `[^\]]+` would swallow `[#id,role]` /
-// `[#id%opt]` role/option shorthand into the suggested id, yielding xrefs the index can't resolve.
-const ANCHOR_ID = String.raw`[A-Za-z][\w:.-]*`;
-
-function extractAnchors(text: string): string[] {
-  const anchors: string[] = [];
-  const explicit = text.matchAll(new RegExp(String.raw`\[\[(${ANCHOR_ID})\]\]|\[#(${ANCHOR_ID})\]`, 'g'));
-  for (const match of explicit) {
-    anchors.push(match[1] ?? match[2]);
-  }
-  return anchors;
-}
-
-function extractHeadingIds(state: { doc: { toString: () => string } }): string[] {
-  const text = state.doc.toString();
-  const ids: string[] = [];
-  for (const line of text.split('\n')) {
-    const match = line.match(/^={1,6} (.+)$/);
-    if (match) ids.push(headingToId(match[1]));
-  }
-  return ids;
+// The current document's section/anchor ids come from extractSymbols — the SINGLE authority for
+// heading detection (block-boundary rule) and id derivation (idprefix/idseparator/sectids +
+// explicit-id override) — so xref completion offers exactly the ids the index / diagnostics resolve.
+// The seed carries the open file's inherited idprefix/idseparator/sectids so a heading id derived
+// under a parent-set prefix matches the index (and the server), rather than offering an unprefixed
+// duplicate.
+function localSectionAndAnchorIds(text: string, seed?: ReadonlyMap<string, string>): string[] {
+  return extractSymbols('', text, seed)
+    .filter((symbol) => symbol.kind === 'section' || symbol.kind === 'anchor')
+    .map((symbol) => symbol.name);
 }
 
 /**
  * Cross-reference completion source factory — triggers after "<<". When a symbol
  * index is supplied, section/anchor ids defined across the whole include tree are
- * merged in alongside the current document's (US8/FR-029).
+ * merged in alongside the current document's.
  */
 export function createXrefCompletionSource(getIndex?: ProjectIndexGetter): CompletionSource {
   return (context: CompletionContext): CompletionResult | null => {
@@ -41,10 +27,9 @@ export function createXrefCompletionSource(getIndex?: ProjectIndexGetter): Compl
 
     const text = context.state.doc.toString();
     const prefix = match.text.slice(2);
-    const headingIds = extractHeadingIds({ doc: { toString: () => text } });
-    const anchors = extractAnchors(text);
+    const localIds = localSectionAndAnchorIds(text, inheritedAttributesSeed(context.state));
     const crossFile = crossFileSymbolNames(getIndex, ['section', 'anchor']);
-    const allIds = [...new Set([...headingIds, ...anchors, ...crossFile])];
+    const allIds = [...new Set([...localIds, ...crossFile])];
     const filtered = allIds.filter((id) => id.startsWith(prefix));
 
     return {

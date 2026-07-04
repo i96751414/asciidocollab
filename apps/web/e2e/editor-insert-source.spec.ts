@@ -3,10 +3,10 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, getEditorText } from './helpers/editor';
 
-// US6 / FR-020–022: the Code Block toolbar action inserts a [source,<lang>]
+// The Code Block toolbar action inserts a [source,<lang>]
 // declaration + listing delimiters, with the cursor on the language placeholder.
 
-test.describe('US6 insert source block', () => {
+test.describe('insert source block', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

@@ -13,7 +13,7 @@ import { isAdmin, normalizeAdminPagination } from './admin-list-helpers';
 
 /**
  * Retrieves a paged, filtered view of failed-sign-in telemetry for admins only
- * (FR-032), so credential-stuffing / brute-force patterns are reconstructable.
+ * so credential-stuffing / brute-force patterns are reconstructable.
  * Mirrors {@link ListAuditLogsUseCase}'s admin-gating, but reads the separate
  * telemetry store.
  */
@@ -45,7 +45,7 @@ export class ListFailedSignInAttemptsUseCase {
     }
 
     // Pin the event type so the failed-sign-in review never includes other
-    // account-security telemetry (e.g. password-reset requests) sharing the store (FR-026).
+    // account-security telemetry (e.g. password-reset requests) sharing the store.
     const result = await this.repo.findWithFilters(
       { ...filters, eventType: AUTH_ATTEMPT_FAILED_SIGN_IN },
       normalizeAdminPagination(pagination),

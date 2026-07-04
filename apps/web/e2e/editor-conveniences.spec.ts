@@ -3,10 +3,10 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, getEditorText } from './helpers/editor';
 
-// US9 / FR-036–040/062/063: format shortcuts + auto-pair, paste URL→link,
+// Format shortcuts + auto-pair, paste URL→link,
 // paste HTML→AsciiDoc, spell-check flags prose (not code).
 
-test.describe('US9 authoring conveniences', () => {
+test.describe('Authoring conveniences', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -32,7 +32,7 @@ test.describe('US9 authoring conveniences', () => {
     await expect.poll(async () => getEditorText(page)).toContain('*word*');
   });
 
-  test('typing an emphasis mark over a selection auto-wraps it (FR-037)', async ({ page }) => {
+  test('typing an emphasis mark over a selection auto-wraps it', async ({ page }) => {
     await createAdocFile(page, projectId, 'conv-wrap.adoc', '= Conv\n\nterm\n');
     await openProject(page, projectId);
     await openFile(page, 'conv-wrap.adoc');

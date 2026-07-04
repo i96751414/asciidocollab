@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// US12 / FR-066 collab-safety: when a file is renamed/moved, the cross-file reference rewrite
+// Collab-safety: when a file is renamed/moved, the cross-file reference rewrite
 // must treat the Yjs document (owned by the collab server) as the SOURCE OF TRUTH for any file
 // that is currently open for collaborative editing. Writing the corrected reference straight to
 // the plain-text file store is unsafe: the editing user never sees it AND the next Yjs writeback

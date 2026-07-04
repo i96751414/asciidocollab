@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US5 / FR-017–019: a [source,js] block body shows JavaScript tokens; an unknown
+// A [source,js] block body shows JavaScript tokens; an unknown
 // language stays plain; AsciiDoc highlighting resumes after the block.
 
 const DOC = [
@@ -23,7 +23,7 @@ const DOC = [
   '',
 ].join('\n');
 
-test.describe('US5 in-editor source highlighting', () => {
+test.describe('in-editor source highlighting', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -42,7 +42,10 @@ test.describe('US5 in-editor source highlighting', () => {
   test('JS block highlights as code while AsciiDoc resumes afterwards', async ({ page }) => {
     await createAdocFile(page, projectId, 'source.adoc', DOC);
     await openProject(page, projectId);
-    await openFile(page, 'source.adoc');
+    // Wait for the collaborative document to sync in before asserting on its
+    // tokens — `.cm-content` mounts empty pre-sync, which under load raced the
+    // 5s default and surfaced as an intermittent empty-content failure.
+    await openFile(page, 'source.adoc', 'const greeting');
 
     const content = page.locator('.cm-editor .cm-content');
     await expect(content).toContainText('const greeting');

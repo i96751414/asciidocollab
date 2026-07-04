@@ -2,7 +2,7 @@
 
 /**
  * Unit tests for the whole-document fold controls + per-file fold persistence
- * (US10, FR-042/043). The jsdom environment (set by the pragma above) is required
+ * The jsdom environment (set by the pragma above) is required
  * because the persistence plugin is a CodeMirror `ViewPlugin`: exercising it needs
  * a real `EditorView` (and therefore a DOM), and jsdom also supplies `localStorage`.
  */

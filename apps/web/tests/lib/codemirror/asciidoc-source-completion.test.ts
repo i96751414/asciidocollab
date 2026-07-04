@@ -13,7 +13,7 @@ function contextFor(textBeforeCursor: string): CompletionContext {
   } as unknown as CompletionContext;
 }
 
-describe('sourceLanguageCompletionSource (FR-031)', () => {
+describe('sourceLanguageCompletionSource', () => {
   test('offers languages inside [source,<here>]', () => {
     const result = sourceLanguageCompletionSource(contextFor('[source,'));
     expect(result).not.toBeNull();

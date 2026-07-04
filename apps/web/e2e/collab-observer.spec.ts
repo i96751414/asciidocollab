@@ -8,7 +8,7 @@ import {
   createViewerInProject,
 } from './helpers/test-project';
 
-// US4 / FR-012: a project viewer connects as an observer — the editor is
+// A project viewer connects as an observer — the editor is
 // read-only, live edits/presence remain visible, and edit attempts are rejected.
 // Requires apps/api AND apps/collab running.
 
@@ -19,7 +19,7 @@ async function openFileInEditor(page: Page, projectId: string, fileName: string)
   await expect(page.locator('.cm-editor .cm-content')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('Observer read-only collaboration (US4)', () => {
+test.describe('Observer read-only collaboration', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

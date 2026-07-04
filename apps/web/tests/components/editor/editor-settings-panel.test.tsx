@@ -149,7 +149,7 @@ describe('EditorSettingsPanel', () => {
     expect(mockSetTheme).not.toHaveBeenCalled();
   });
 
-  // T043: soft-wrap toggle
+  // Soft-wrap toggle
   test('soft-wrap toggle renders after theme selector', () => {
     const mockSetSoftWrap = jest.fn();
     render(

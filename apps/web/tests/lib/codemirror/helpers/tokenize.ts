@@ -6,7 +6,7 @@ import type { Tree } from '@lezer/common';
 import { createTestBlockTokenizer } from '../../../helpers/asciidoc-test-tokenizer';
 
 /**
- * Shared Lezer tokenizer test harness (T006). Builds the AsciiDoc parser from
+ * Shared Lezer tokenizer test harness. Builds the AsciiDoc parser from
  * the grammar source + the test external tokenizer and parses a string into a
  * flat list of `(nodeName, text, level)` tuples — so grammar/tokenizer tests can
  * assert which constructs tokenize (and that adjacent text is unaffected)

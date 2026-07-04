@@ -7,7 +7,7 @@ const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * Runs a single purge pass of expired failed sign-in telemetry and logs the
- * deleted count (FR-030 observability). Exported for deterministic testing.
+ * deleted count (observability). Exported for deterministic testing.
  *
  * @param app - The Fastify instance (provides config + repos).
  * @returns The number of telemetry buckets purged.
@@ -22,7 +22,7 @@ export async function runFailedSignInPurge(app: FastifyInstance): Promise<number
 }
 
 /**
- * Schedules the failed sign-in telemetry purge on a fixed interval (FR-030). The
+ * Schedules the failed sign-in telemetry purge on a fixed interval. The
  * timer is unref'd so it never keeps the process alive, and cleared on close.
  */
 async function plugin(app: FastifyInstance): Promise<void> {

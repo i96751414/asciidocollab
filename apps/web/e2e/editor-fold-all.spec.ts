@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, foldPlaceholders, foldGutterMarkers } from './helpers/editor';
 
-// US10 / FR-042/043: fold-all / unfold-all / fold-to-level, and persisted folds
+// Fold-all / unfold-all / fold-to-level, and persisted folds
 // restored on reopen.
 
 const DOC = [
@@ -19,7 +19,7 @@ const DOC = [
   '',
 ].join('\n');
 
-test.describe('US10 whole-document fold controls', () => {
+test.describe('Whole-document fold controls', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -35,7 +35,7 @@ test.describe('US10 whole-document fold controls', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('a fold is persisted and restored across reload (FR-043)', async ({ page }) => {
+  test('a fold is persisted and restored across reload', async ({ page }) => {
     await createAdocFile(page, projectId, 'foldall.adoc', DOC);
     await openProject(page, projectId);
     await openFile(page, 'foldall.adoc');

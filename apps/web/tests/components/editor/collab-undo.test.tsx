@@ -19,7 +19,7 @@ function runUndo(view: EditorView): void {
   if (binding?.run) binding.run(view);
 }
 
-// US3 / FR-011: per-user undo. The Yjs UndoManager tracks only the local sync
+// Per-user undo. The Yjs UndoManager tracks only the local sync
 // origin, so undo reverts the local user's own edits and never a remote peer's.
 describe('collaborative per-user undo', () => {
   test('undo reverts the local edit but leaves a remote-origin edit untouched', () => {

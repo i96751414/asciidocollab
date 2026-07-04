@@ -1,8 +1,8 @@
 /**
- * Extensible registry of known inline styles / roles for editor emphasis (US14, FR-021c).
+ * Extensible registry of known inline styles / roles for editor emphasis.
  *
  * AsciiDoc role spans `[.role]#text#` carry an arbitrary CSS role name. The grammar tokenises EVERY
- * role span the same way, so the editor always highlights one generically (FR-021b). On top of that,
+ * role span the same way, so the editor always highlights one generically. On top of that,
  * a small set of well-known roles (the built-in AsciiDoc inline styles plus the colour/semantic roles
  * we ship) earn a DISTINCT emphasis so they read differently from an arbitrary custom role. That
  * known-vs-unknown decision lives here, decoupled from the grammar, because it is presentation policy
@@ -68,7 +68,7 @@ export function registerInlineStyle(name: string): void {
 /**
  * Report whether `role` is a known inline style — either a built-in or a custom-registered one. Known
  * roles earn a distinct emphasis in the editor; any OTHER (unknown) role is still a valid role span and
- * is highlighted generically (FR-021b/c). Matched case-insensitively.
+ * is highlighted generically. Matched case-insensitively.
  *
  * @param role - The role name from a `[.role]#…#` span.
  * @returns `true` when the role is built-in or has been registered.
@@ -88,7 +88,7 @@ export function resetCustomInlineStyles(): void {
 
 /**
  * CSS class flagging a role span `[.role]#…#` whose role is KNOWN to the registry. Layered on top of
- * the grammar's generic role-span highlight so a known role reads with a distinct emphasis (FR-021c).
+ * the grammar's generic role-span highlight so a known role reads with a distinct emphasis.
  */
 export const KNOWN_INLINE_STYLE_CLASS = 'cm-ad-inline-style-known';
 
@@ -107,7 +107,7 @@ export interface KnownRoleSpanMark {
 /**
  * Compute the ranges of every role span `[.role]#…#` that carries at least one KNOWN role (built-in or
  * registered). Unknown-only role spans are intentionally excluded — they remain highlighted generically
- * by the grammar; only known roles earn this additional distinct emphasis (FR-021b/c).
+ * by the grammar; only known roles earn this additional distinct emphasis.
  *
  * @param documentText - The open file's full text.
  * @returns The known-role-span ranges in document order.
@@ -134,7 +134,7 @@ function buildRoleSpanDecorations(view: EditorView): DecorationSet {
 }
 
 /**
- * CM6 extension giving role spans `[.role]#…#` with a KNOWN role a distinct emphasis (FR-021c). The
+ * CM6 extension giving role spans `[.role]#…#` with a KNOWN role a distinct emphasis. The
  * grammar already highlights every role span generically; this decoration layers {@link
  * KNOWN_INLINE_STYLE_CLASS} only on those whose role the registry knows, so registered/built-in roles
  * read distinctly. Registering a new role (see {@link registerInlineStyle}) needs no change here —

@@ -37,18 +37,18 @@ interface EditorNavigation {
   revealLine: (line: number) => void;
   // Ctrl+click on a macro path: asks the file tree to reveal + select that file.
   handleNavigateToFile: (path: string) => void;
-  // Cross-reference go-to-definition (FR-049): same-file reveal or cross-file switch.
+  // Cross-reference go-to-definition: same-file reveal or cross-file switch.
   handleNavigateToXref: (target: XrefTarget) => void;
   // Ctrl+click on a link or URL: opens it in a new tab.
   handleOpenUrl: (url: string) => void;
-  /** Go to Symbol palette open state (FR-061). */
+  /** Go to Symbol palette open state. */
   goToSymbolOpen: boolean;
   setGoToSymbolOpen: (open: boolean) => void;
   // Resolves a symbol file id to its path via the live index.
   symbolPathOf: (id: string) => string | null;
   // Selecting a symbol reuses the xref go-to-definition path.
   handleSelectSymbol: (symbol: ProjectSymbol) => void;
-  /** Cross-file refactoring dialog open state (US12/FR-064-065). */
+  /** Cross-file refactoring dialog open state. */
   refactorOpen: boolean;
   setRefactorOpen: (open: boolean) => void;
   /** Symbol the refactor dialog opens seeded with (the cursor symbol), or null for a cold open. */
@@ -72,7 +72,7 @@ export function useEditorNavigation({
   refreshProjectIndex,
 }: EditorNavigationOptions): EditorNavigation {
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
-  // Live editor reveal request (same-file go-to-definition, FR-049); each nonce reveals once.
+  // Live editor reveal request (same-file go-to-definition); each nonce reveals once.
   const [revealRequest, setRevealRequest] = useState<{ line: number; nonce: number } | null>(null);
   const revealNonce = useRef(0);
   // Track the last line scrolled via scroll-sync to deduplicate rapid fire events.
@@ -113,7 +113,7 @@ export function useEditorNavigation({
     openPathNonce.current += 1;
     setOpenPathRequest({ path, nonce: openPathNonce.current });
   }, []);
-  // Cross-reference go-to-definition (FR-049): reveal in place when the target is the open file,
+  // Cross-reference go-to-definition: reveal in place when the target is the open file,
   // otherwise switch to the defining file (carrying the line to reveal once it mounts).
   const handleNavigateToXref = useCallback((target: XrefTarget) => {
     if (target.sameFile || target.path === null) {
@@ -125,7 +125,7 @@ export function useEditorNavigation({
     handleNavigateToFile(target.path);
   }, [handleNavigateToFile]);
 
-  // Go to Symbol palette (FR-061): jump to any section/anchor across the project tree. Selecting a
+  // Go to Symbol palette: jump to any section/anchor across the project tree. Selecting a
   // symbol reuses the xref go-to-definition path (same-file reveal or cross-file switch).
   const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
   const symbolPathOf = useCallback((id: string) => projectIndex?.pathOf(id) ?? null, [projectIndex]);
@@ -152,7 +152,7 @@ export function useEditorNavigation({
     return () => globalThis.removeEventListener('keydown', onKey);
   }, []);
 
-  // Cross-file refactoring dialog (US12/FR-064-065): find-usages + rename id/anchor/attribute.
+  // Cross-file refactoring dialog: find-usages + rename id/anchor/attribute.
   const [refactorOpen, setRefactorOpen] = useState(false);
   // Symbol seeding the dialog when opened from the toolbar with the cursor on a symbol; null seeds
   // a blank dialog (keyboard shortcut, or cursor not on a symbol).

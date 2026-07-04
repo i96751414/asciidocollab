@@ -68,7 +68,7 @@ function run(harness: Harness): { handled: boolean; doc: string; head: number } 
   };
 }
 
-describe('continueList — G1 continue (unordered, US1)', () => {
+describe('continueList — G1 continue (unordered)', () => {
   test('`* first` → new `* ` line, cursor after marker', () => {
     const h = setup('* first', 7);
     const r = run(h);
@@ -96,7 +96,7 @@ describe('continueList — G1 continue (unordered, US1)', () => {
   });
 });
 
-describe('continueList — ordered (US2)', () => {
+describe('continueList — ordered', () => {
   test('implicit `. one` continues `. `', () => {
     const r = run(setup('. one', 5));
     expect(r.doc).toBe('. one\n. ');
@@ -108,7 +108,7 @@ describe('continueList — ordered (US2)', () => {
     expect(r.doc).toBe('.. sub\n.. ');
   });
 
-  test('explicit `1. one` continues `2. ` (next number, FR-003)', () => {
+  test('explicit `1. one` continues `2. ` (next number)', () => {
     const r = run(setup('1. one', 6));
     expect(r.doc).toBe('1. one\n2. ');
     expect(r.head).toBe(10);
@@ -126,14 +126,14 @@ describe('continueList — ordered (US2)', () => {
   });
 });
 
-describe('continueList — checklist (US3)', () => {
+describe('continueList — checklist', () => {
   test('`* [ ] Task` continues `* [ ] `', () => {
     const r = run(setup('* [ ] Task', 10));
     expect(r.doc).toBe('* [ ] Task\n* [ ] ');
     expect(r.head).toBe(17);
   });
 
-  test('`* [x] Done` continues UNCHECKED `* [ ] ` (FR-004)', () => {
+  test('`* [x] Done` continues UNCHECKED `* [ ] `', () => {
     const r = run(setup('* [x] Done', 10));
     expect(r.doc).toBe('* [x] Done\n* [ ] ');
   });
@@ -150,7 +150,7 @@ describe('continueList — checklist (US3)', () => {
   });
 });
 
-describe('continueList — description (US4)', () => {
+describe('continueList — description', () => {
   test('`CPU:: The brain` continues `:: ` (cursor after separator)', () => {
     const r = run(setup('CPU:: The brain', 15));
     expect(r.doc).toBe('CPU:: The brain\n:: ');
@@ -275,7 +275,7 @@ describe('continueList — G7 single-step undo', () => {
   });
 });
 
-describe('continueList — F2 source-only minimal change (FR-009)', () => {
+describe('continueList — F2 source-only minimal change', () => {
   test('the Continue change set is a single insertion at the cursor', () => {
     const h = setup('* first', 7);
     run(h);

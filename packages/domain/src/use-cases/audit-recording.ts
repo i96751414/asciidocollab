@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
  * Best-effort persistence of an audit record: the write must never fail the
  * surrounding operation (e.g. It runs after an already-committed, non-retryable
  * change), but its failure must remain observable rather than silently dropped
- * (FR-021). Swallows the error and reports it via the optional logger.
+ * Swallows the error and reports it via the optional logger.
  *
  * Takes a `build` factory rather than a prebuilt record so that **both** building
  * the record (id/value-object validation, metadata shaping) and saving it are
@@ -59,7 +59,7 @@ export interface AuditSuccessRecord {
  * success-record shape — id generation, timestamp, and origin-metadata merge —
  * so the use cases that audit a completed mutation don't each hand-roll it, and
  * so a record failure can never convert an already-committed success into an error
- * (FR-021). The success-path counterpart to {@link recordAuthorizationDenial}.
+ * The success-path counterpart to {@link recordAuthorizationDenial}.
  *
  * @param repo - Audit-log repository.
  * @param record - The action to record.

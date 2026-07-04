@@ -282,7 +282,7 @@ describe('GET /projects/:projectId/download — live content in ZIP', () => {
   });
 });
 
-describe('GET /projects/:projectId/download — resilience (US3)', () => {
+describe('GET /projects/:projectId/download — resilience', () => {
   afterEach(() => jest.restoreAllMocks());
 
   test('one file reader errors → archive finalizes with other files, no archive abort', async () => {

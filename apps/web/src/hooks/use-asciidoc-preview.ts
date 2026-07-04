@@ -15,7 +15,7 @@ interface RenderRequest {
   files?: Record<string, string>;
   rootFileId?: string | null;
   openFileId?: string;
-  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
 }
 
@@ -24,7 +24,7 @@ interface RenderResult {
   ok: boolean;
   html: string | null;
   error: string | null;
-  /** True when the worker detected in-effect STEM math (resolved `:stem:` + stem markup, US15). */
+  /** True when the worker detected in-effect STEM math (resolved `:stem:` + stem markup). */
   mathPresent?: boolean;
 }
 
@@ -51,21 +51,21 @@ export interface UseAsciidocPreviewOptions {
   imagesDir?: string;
   /**
    * Project-relative path of the configured main file. When set with {@link getFiles}, the preview
-   * renders the assembled main document (includes inlined, sandbox-confined) instead of `content`
-   * (FR-068). Leave unset to render the open file as-is (exact source-line scroll-sync).
+   * renders the assembled main document (includes inlined, sandbox-confined) instead of `content`.
+   * Leave unset to render the open file as-is (exact source-line scroll-sync).
    */
   mainPath?: string;
   /** Returns the path→content snapshot the include assembler needs; read lazily at render time. */
   getFiles?: () => Record<string, string>;
   /**
-   * Project main-file path (root) for cross-document attribute resolution (US1/FR-002a): the open
+   * Project main-file path (root) for cross-document attribute resolution: the open
    * file's `{name}` references resolve to the value in effect at its first include-point under this
-   * root. `null`/unset ⇒ standalone resolution (the file's own attributes only, FR-002b).
+   * root. `null`/unset ⇒ standalone resolution (the file's own attributes only).
    */
   rootFileId?: string | null;
-  /** The previewed open file's path, whose inherited attribute scope the worker seeds (FR-002a). */
+  /** The previewed open file's path, whose inherited attribute scope the worker seeds. */
   openFileId?: string;
-  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
 }
 
@@ -80,8 +80,8 @@ export interface UseAsciidocPreviewResult {
   /** Ref to attach to the preview scroll container. */
   previewRef: React.RefObject<HTMLDivElement | null>;
   /**
-   * True when the latest rendered HTML contains in-effect STEM math (US15). The preview uses this to
-   * lazy-load MathJax and typeset the container only when there is math to render (FR-021d).
+   * True when the latest rendered HTML contains in-effect STEM math. The preview uses this to
+   * lazy-load MathJax and typeset the container only when there is math to render.
    */
   mathPresent: boolean;
 }
@@ -115,7 +115,7 @@ export function useAsciidocPreview({
   mainPathReference.current = mainPath;
   const getFilesReference = useRef(getFiles);
   getFilesReference.current = getFiles;
-  // Cross-document attribute-scope inputs (US1/FR-002a), read lazily at render time so editing a
+  // Cross-document attribute-scope inputs, read lazily at render time so editing a
   // parent's attribute re-resolves on the next debounced render without re-running the debounce effect.
   const rootFileIdReference = useRef(rootFileId);
   rootFileIdReference.current = rootFileId;
@@ -165,7 +165,7 @@ export function useAsciidocPreview({
       debounceReference.current = null;
       requestIdReference.current += 1;
       setState('rendering');
-      // When a main file is configured, assemble its include tree (FR-068); the worker confines
+      // When a main file is configured, assemble its include tree; the worker confines
       // every target via resolveSandboxedPath and renders the assembled document. Only assemble once
       // the root file's content is actually available — otherwise fall back to rendering `content`
       // (the open file = the main file here), so the preview never blanks while the tree loads.
@@ -175,7 +175,7 @@ export function useAsciidocPreview({
       // Always fetch files when any open file has an id (for assembly + scope), not only for main file.
       const needsFiles = openId !== undefined || mainFilePath !== undefined || (rootId != null);
       const files = needsFiles ? getFilesReference.current?.() : undefined;
-      // Assemble rooted at the OPEN file for any file (FR-014): the worker takes openFileId as the
+      // Assemble rooted at the OPEN file for any file: the worker takes openFileId as the
       // root. Assembly runs when the open file's content is in the snapshot (even if it's not main).
       const canAssemble = openId !== undefined && files !== undefined && files[openId] !== undefined;
       // Resolve the inherited scope only when the open file is reachable in the snapshot AND is not
@@ -228,7 +228,7 @@ export function useAsciidocPreview({
   // being, the configured main file) so the preview switches between assembled and open-file modes,
   // and when the project main-file setting changes the resolution root (rootFileId) so an open CHILD
   // file re-resolves its inherited cross-document attribute scope under the new root with no document
-  // edit — live re-resolution on main-file change for every open file (FR-007b/SC-009).
+  // edit — live re-resolution on main-file change for every open file.
   useEffect(() => {
     if (!isEnabled || !content) return;
     scheduleRender(content);

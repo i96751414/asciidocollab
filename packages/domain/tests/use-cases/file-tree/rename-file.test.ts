@@ -347,7 +347,7 @@ describe('RenameFileUseCase with fileStore — filesystem rollback on DB failure
   });
 });
 
-describe('RenameFileUseCase — US12 reference rewrite + main-file consistency', () => {
+describe('RenameFileUseCase — reference rewrite + main-file consistency', () => {
   const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
   const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
   const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
@@ -396,7 +396,7 @@ describe('RenameFileUseCase — US12 reference rewrite + main-file consistency',
     expect(book).not.toContain('include::intro.adoc');
   });
 
-  it('keeps the main-file configuration when the main file is renamed to another .adoc (FR-070)', async () => {
+  it('keeps the main-file configuration when the main file is renamed to another .adoc', async () => {
     projectEntity.setMainFile(introId);
     await projectRepo.save(projectEntity);
 
@@ -408,7 +408,7 @@ describe('RenameFileUseCase — US12 reference rewrite + main-file consistency',
     expect(reloaded!.mainFileNodeId!.value).toBe(introId.value);
   });
 
-  it('clears the main-file configuration when the main file is renamed to a non-adoc name (FR-070)', async () => {
+  it('clears the main-file configuration when the main file is renamed to a non-adoc name', async () => {
     projectEntity.setMainFile(introId);
     await projectRepo.save(projectEntity);
 

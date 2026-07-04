@@ -145,7 +145,7 @@ describe('RequestPasswordResetUseCase', () => {
       expect(result.success).toBe(true);
     });
 
-    test('a telemetry failure does NOT fail the request and is logged (FR-021)', async () => {
+    test('a telemetry failure does NOT fail the request and is logged', async () => {
       const throwing = { record: jest.fn().mockRejectedValue(new Error('telemetry db down')) } as never;
       const logger = { warn: jest.fn() };
       const useCase = new RequestPasswordResetUseCase(

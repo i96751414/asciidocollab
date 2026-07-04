@@ -10,7 +10,7 @@ import { signIn, createProject } from './helpers/test-project';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-test.describe('Admin user management (US3)', () => {
+test.describe('Admin user management', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

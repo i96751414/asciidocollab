@@ -146,7 +146,7 @@ describe('PrismaEditorPreferencesRepository', () => {
   });
 
   // Unlike `theme`, a corrupt previewStyle must fall back to the default rather than throw,
-  // so the preview keeps rendering (FR-015).
+  // so the preview keeps rendering.
   it('falls back to the default when the DB row contains an unrecognised previewStyle', async () => {
     await client.editorPreferences.create({
       data: {

@@ -11,7 +11,7 @@ export interface CollabConnectionDenial {
 }
 
 /**
- * Audits a collaboration WebSocket connection denial (Security Constitution §Audit / SEC4) in one
+ * Audits a collaboration WebSocket connection denial (Security Constitution §Audit) in one
  * consistent shape, never logging the session cookie or other secrets. `actor` is dropped from the
  * output when undefined, such as origin/auth failures that occur before the user is authenticated.
  */

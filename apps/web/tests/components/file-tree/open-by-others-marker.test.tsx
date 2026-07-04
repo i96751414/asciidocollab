@@ -20,7 +20,7 @@ describe('OpenByOthersMarker', () => {
     expect(marker).toHaveAttribute('title', 'Bea');
   });
 
-  test('is keyboard-focusable so the identity is revealed on focus (FR-004/FR-010)', () => {
+  test('is keyboard-focusable so the identity is revealed on focus', () => {
     render(<OpenByOthersMarker participants={[participant('u-bea', 'Bea')]} />);
     expect(screen.getByTestId('open-by-others-marker')).toHaveAttribute('tabindex', '0');
   });

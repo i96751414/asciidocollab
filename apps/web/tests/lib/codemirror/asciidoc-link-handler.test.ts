@@ -435,7 +435,7 @@ describe('createLinkHandler — attribute and imagesdir resolution', () => {
   });
 });
 
-describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
+describe('createLinkHandler — xref go-to-definition', () => {
   const FILES: Record<string, { path: string; content: string }> = {
     open: {
       path: 'open.adoc',
@@ -574,7 +574,7 @@ describe('createLinkHandler — xref go-to-definition (FR-034/049)', () => {
   });
 });
 
-describe('createLinkHandler — attribute go-to-definition (FR-020/021)', () => {
+describe('createLinkHandler — attribute go-to-definition', () => {
   // `:localvar:` + `{set:setvar:…}` are defined in the open file; `:remotevar:` only in the included
   // file. Ctrl+clicking each `{name}` reference must jump to where it is defined.
   const FILES: Record<string, { path: string; content: string }> = {
@@ -612,7 +612,7 @@ describe('createLinkHandler — attribute go-to-definition (FR-020/021)', () => 
     expect(onNavigateToXref).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'open', sameFile: true, line: 1 }));
   });
 
-  test('Ctrl+click on {remotevar} switches to the INCLUDED file where it is defined (FR-021)', () => {
+  test('Ctrl+click on {remotevar} switches to the INCLUDED file where it is defined', () => {
     const onNavigateToXref = jest.fn();
     clickAttribute('{remotevar}', onNavigateToXref);
     expect(onNavigateToXref).toHaveBeenCalledWith(

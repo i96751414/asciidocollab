@@ -28,7 +28,7 @@ describe('useFileSelection', () => {
     jest.clearAllMocks();
   });
 
-  // T014 (a): selectFile triggers fetch to correct URL
+  // (a): selectFile triggers fetch to correct URL
   it('selectFile fetches content from correct URL', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       makeFetchResponse('hello', 'text/plain'),
@@ -72,7 +72,7 @@ describe('useFileSelection', () => {
     });
   });
 
-  // T014 (b): text/plain response sets content and isLoading=false
+  // (b): text/plain response sets content and isLoading=false
   it('text/plain response sets contentState.content and isLoading=false', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(
       makeFetchResponse('Hello World', 'text/plain'),
@@ -90,7 +90,7 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.isBinary).toBe(false);
   });
 
-  // T014 (c): image/png response sets isBinary=true, content=null
+  // (c): image/png response sets isBinary=true, content=null
   it('image/png response sets isBinary=true and content=null', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(
       makeFetchResponse('', 'image/png'),
@@ -139,7 +139,7 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.isBinary).toBe(true);
   });
 
-  // T014 (d): network error sets contentState.error
+  // (d): network error sets contentState.error
   it('network error sets contentState.error', async () => {
     globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network failure'));
 
@@ -195,7 +195,7 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.error).toBeNull();
   });
 
-  // T014 (e): calling selectFile twice aborts the first fetch
+  // (e): calling selectFile twice aborts the first fetch
   it('calling selectFile twice aborts the first fetch via AbortController', async () => {
     let firstSignalAborted = false;
     let resolveFirst!: () => void;
@@ -295,7 +295,7 @@ describe('useFileSelection', () => {
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
-  // T016 / US3: a non-OK (404) content response must surface a `notFound` signal without
+  // A non-OK (404) content response must surface a `notFound` signal without
   // populating content or error, so the layout can clear stale memory and fall back gracefully.
   it('non-OK (404) content response sets notFound and leaves content/error empty', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(
@@ -323,7 +323,7 @@ describe('useFileSelection', () => {
     expect(result.current.contentState.notFound).toBe(false);
   });
 
-  // T014 (f): clearSelection resets state
+  // (f): clearSelection resets state
   it('clearSelection resets selectedFile and contentState', async () => {
     globalThis.fetch = jest.fn().mockResolvedValue(
       makeFetchResponse('content', 'text/plain'),
@@ -347,7 +347,7 @@ describe('useFileSelection', () => {
   });
 });
 
-// T018 / US1: on the collab path the GET /content fetch must be SKIPPED (the
+// On the collab path the GET /content fetch must be SKIPPED (the
 // collaboration server owns load/save); on 404 (asset) the legacy fetch runs.
 describe('useFileSelection — collab path (REST-skip refactor guard)', () => {
   it('skips the GET /content fetch when the file is a collaborative document', async () => {

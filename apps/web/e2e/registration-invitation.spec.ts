@@ -9,7 +9,7 @@ import { waitForEmail, extractInvitationToken } from './helpers/mailpit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-test.describe('Registration via invitation (US1)', () => {
+test.describe('Registration via invitation', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

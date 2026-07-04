@@ -35,7 +35,7 @@ import {
  * `import { … as … }` aliases) so the hot-path tokenizer body reads free local bindings.
  */
 
-// Conditional preprocessor directives — highlighted distinctly from generic block macros (FR-051).
+// Conditional preprocessor directives — highlighted distinctly from generic block macros.
 const CONDITIONAL_DIRECTIVES = ['ifdef::', 'ifndef::', 'ifeval::', 'endif::'];
 
 /**
@@ -78,7 +78,7 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
 
     // Inline emphasis marks (`*bold*` / `_italic_` / `` `mono` ``) — emitted as a SINGLE
     // boundary-checked span token so AsciiDoc's constrained/unconstrained word-boundary rule is
-    // enforced with the lookbehind the `@tokens` DFA cannot express (FR-044; SC-016). Checked before
+    // enforced with the lookbehind the `@tokens` DFA cannot express. Checked before
     // the line-start gate so it is recognised mid-line; `scanInlineMark` (which sees the preceding
     // char via `peek(-1)`) returns null for an in-word mark (`a*b*c`, `2*3*4`), leaving the lone mark
     // to fall through to the grammar's plain-text `markFallback`.
@@ -292,7 +292,7 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       while (input.peek(count) === DOT) count++;
       const afterDots = input.peek(count);
       // Literal block delimiter: 4+ dots alone on a line (`....`). Checked before the ordered
-      // marker so `.... ` (4 dots + space) still tokenizes as an ordered depth-4 item (FR-008).
+      // marker so `.... ` (4 dots + space) still tokenizes as an ordered depth-4 item.
       if (count >= 4 && (afterDots === NEWLINE || afterDots === -1)) {
         consumeToEOL(input); input.acceptToken(literalDelim); return;
       }
@@ -319,20 +319,20 @@ export function createBlockTokenLogic(T: Record<string, number>): (input: InputS
       if (peekString(input, '[WARNING]'))   { consumeToEOL(input); input.acceptToken(admonWarningAttrToken); return; }
       if (peekString(input, '[IMPORTANT]')) { consumeToEOL(input); input.acceptToken(admonImportantAttrToken); return; }
       if (peekString(input, '[CAUTION]'))   { consumeToEOL(input); input.acceptToken(admonCautionAttrToken); return; }
-      // Table column-format specifier line `[cols="1,>2"]` / `[cols=2*]` (FR-046) — emitted as a
+      // Table column-format specifier line `[cols="1,>2"]` / `[cols=2*]` — emitted as a
       // distinct token (before the generic block-attribute branch) so the cols spec highlights
       // distinctly. Matched only when it is a well-formed block-attribute line beginning `[cols`.
       if ((peekString(input, '[cols=') || peekString(input, '[cols ')) && isBlockAttributeLine(input)) {
         consumeToEOL(input); input.acceptToken(blockColsToken); return;
       }
-      // Generic block-attribute line `[source,ruby]`, `[.lead]`, … (FR-025).
+      // Generic block-attribute line `[source,ruby]`, `[.lead]`, and similar.
       if (isBlockAttributeLine(input)) { consumeToEOL(input); input.acceptToken(blockAttributeToken); return; }
       return;
     }
 
     // ── Letters ───────────────────────────────────────────────────────────────
     if ((ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122)) {
-      // Conditional preprocessor directives — distinct from generic block macros (FR-051).
+      // Conditional preprocessor directives — distinct from generic block macros.
       for (const directive of CONDITIONAL_DIRECTIVES) {
         if (peekString(input, directive)) { consumeToEOL(input); input.acceptToken(conditionalToken); return; }
       }

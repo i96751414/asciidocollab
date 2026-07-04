@@ -4,7 +4,7 @@ import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/p
 import type { ConnectionState } from '@/hooks/use-collab-document';
 import type { CollabAuthRole } from '@asciidocollab/shared';
 
-// US4 / FR-012, FR-013: the offline read-only fallback and mid-session role
+// the offline read-only fallback and mid-session role
 // demotion are derived in the layout (research D6, EditorMode). These tests
 // drive the collaboration mode by controlling useCollabDocument + the file
 // selection, and assert the props the editor receives.
@@ -103,7 +103,7 @@ beforeEach(() => {
   mockGetDocumentContent.mockResolvedValue('');
 });
 
-describe('ProjectEditorLayout — offline read-only fallback (T044)', () => {
+describe('ProjectEditorLayout — offline read-only fallback', () => {
   test('when offline, the editor is read-only, seeded from GET /content, with the offline state', async () => {
     mockConnectionState = 'offline';
     mockGetDocumentContent.mockResolvedValue('= Offline Content');
@@ -122,7 +122,7 @@ describe('ProjectEditorLayout — offline read-only fallback (T044)', () => {
   });
 });
 
-describe('ProjectEditorLayout — observer role (T043 integration)', () => {
+describe('ProjectEditorLayout — observer role (integration)', () => {
   test('an observer gets a read-only collab editor', () => {
     mockCollabRole = 'observer';
     mockConnectionState = 'synced';
@@ -135,7 +135,7 @@ describe('ProjectEditorLayout — observer role (T043 integration)', () => {
   });
 });
 
-describe('ProjectEditorLayout — mid-session role demotion (T046)', () => {
+describe('ProjectEditorLayout — mid-session role demotion', () => {
   test('a reconnect that re-checks the role to observer flips the editor read-only', async () => {
     mockConnectionState = 'synced';
     mockCollabRole = 'editor';

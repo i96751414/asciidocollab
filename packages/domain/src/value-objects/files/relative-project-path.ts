@@ -1,7 +1,7 @@
 /**
  * Computes the relative reference target that, written in `fromFile`, points at
  * `toFile` — the inverse of {@link resolveSandboxedPath}. Used by the domain
- * move/rename use cases (US12/FR-066) to rewrite `include::`/`image::`/`xref:`
+ * move/rename use cases to rewrite `include::`/`image::`/`xref:`
  * targets so they keep resolving after a referenced file moves. Both inputs are
  * normalized project-relative POSIX paths WITHOUT a leading slash (the same
  * convention `resolveSandboxedPath` consumes); the result is suitable to drop

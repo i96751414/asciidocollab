@@ -47,9 +47,9 @@ beforeEach(() => {
   });
 });
 
-// ── T011: AsciiDocPreview placeholder interaction ────────────────────────────
+// ── AsciiDocPreview placeholder interaction ────────────────────────────
 
-describe('AsciiDocPreview placeholder click/interaction (T011)', () => {
+describe('AsciiDocPreview placeholder click/interaction', () => {
   // Test 1: Click on placeholder calls onOpenInclude with target
   it('calls onOpenInclude with the include target when placeholder is clicked', () => {
     withPlaceholderHtml();

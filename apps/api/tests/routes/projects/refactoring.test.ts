@@ -33,18 +33,28 @@ function nodes(): FileNode[] {
 interface ServerOptions {
   role?: string | null;
   rateLimitMax?: number;
+  suggestionRateLimitMax?: number;
   store?: Map<string, string>;
 }
 
 async function buildServer(options: ServerOptions = {}): Promise<{ app: FastifyInstance; store: Map<string, string>; writes: jest.Mock }> {
-  const { role = 'editor', rateLimitMax = 60 } = options;
+  const { role = 'editor', rateLimitMax = 60, suggestionRateLimitMax = 600 } = options;
   const store = options.store ?? new Map<string, string>([['/book.adoc', BOOK], ['/chapter.adoc', CHAPTER]]);
   const writes = jest.fn(async (_p: unknown, path: { value: string }, content: Buffer) => {
     store.set(path.value, content.toString('utf8'));
   });
   const app = Fastify();
   await app.register(rateLimit, { global: false });
-  app.decorate('config', { project: { refactoring: { rateLimitMax, rateLimitWindow: 60_000 } } } as never);
+  app.decorate('config', {
+    project: {
+      refactoring: {
+        rateLimitMax,
+        rateLimitWindow: 60_000,
+        suggestionRateLimitMax,
+        suggestionRateLimitWindow: 60_000,
+      },
+    },
+  } as never);
   app.decorate('repos', {
     projectMember: {
       findByCompositeKey: jest.fn(async () => (role === null ? null : { role: { value: role } })),
@@ -125,6 +135,25 @@ describe('GET /projects/:projectId/symbol-usages', () => {
     const { app } = await buildServer();
     const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro&kind=bogus` });
     expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  test('429 — exceeding the detection (suggestion) rate-limit budget', async () => {
+    const { app } = await buildServer({ suggestionRateLimitMax: 1 });
+    const first = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro` });
+    expect(first.statusCode).toBe(200);
+    const second = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro` });
+    expect(second.statusCode).toBe(429);
+    await app.close();
+  });
+
+  test('detection budget is independent of the apply (rename) budget', async () => {
+    // A tiny apply budget must NOT throttle the read-only detection path.
+    const { app } = await buildServer({ rateLimitMax: 1, suggestionRateLimitMax: 5 });
+    for (let index = 0; index < 3; index++) {
+      const response = await app.inject({ method: 'GET', url: `/projects/${PROJECT_ID}/symbol-usages?name=intro` });
+      expect(response.statusCode).toBe(200);
+    }
     await app.close();
   });
 });

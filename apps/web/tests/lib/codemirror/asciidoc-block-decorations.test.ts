@@ -14,7 +14,7 @@ import { asciidocHighlightTags } from '@/lib/codemirror/asciidoc-highlight-tags'
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
 /**
- * Block-marker decoration tests (feature 030, FR-031/046). The leading `.` of a block title recedes,
+ * Block-marker decoration tests (feature 030). The leading `.` of a block title recedes,
  * table `|` separators recede, and header-row cells go bold — cues the grammar cannot carry by token
  * tag alone because only PART of the node changes while its body stays readable.
  */

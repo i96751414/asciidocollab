@@ -59,7 +59,7 @@ describe('asciidoc()', () => {
     expect(asciidoc()).not.toBe(asciidoc());
   });
 
-  // Load-bearing for source highlighting (US5): the loader forces a re-parse via
+  // Load-bearing for source highlighting: the loader forces a re-parse via
   // `compartment.reconfigure(asciidoc({ fresh: true }))`, and CodeMirror only restarts parsing when
   // the language facet's Language object actually changes. So `{ fresh: true }` must wrap a DISTINCT
   // Language (≠ the singleton, and ≠ each other) — otherwise `[source,<lang>]` blocks stay

@@ -136,14 +136,14 @@ describe('FileTree', () => {
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
   });
 
-  // T005 (a): canEdit=false hides action buttons
+  // canEdit=false hides action buttons
   it('canEdit=false — no FileTreeActions buttons rendered', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
     expect(screen.queryByTestId('actions-doc.adoc')).not.toBeInTheDocument();
   });
 
-  // T005 (b): onSelectFile called with (nodeId, nodeName, nodePath) on file click
+  // onSelectFile called with (nodeId, nodeName, nodePath) on file click
   it('calls onSelectFile with nodeId, nodeName, nodePath when file node is clicked', async () => {
     const onSelectFile = jest.fn();
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={onSelectFile} selectedNodeId={null} />);
@@ -152,7 +152,7 @@ describe('FileTree', () => {
     expect(onSelectFile).toHaveBeenCalledWith('file-1', 'doc.adoc', '/doc.adoc', 'file');
   });
 
-  // T005 (c): empty children renders "No files yet" text
+  // empty children renders "No files yet" text
   it('renders empty state when tree has no children', async () => {
     const emptyRoot = { ...rootNode, children: [] };
     mockFetch(emptyRoot);
@@ -307,8 +307,8 @@ describe('FileTree', () => {
     await waitFor(() => expect(screen.getByTestId('node-new.adoc')).toBeInTheDocument());
   });
 
-  // T008: role="alert" error banner renders in panel header area after failed file operation
-  it('T008: renders role="alert" error banner after a failed file operation and it is outside tree rows', async () => {
+  // role="alert" error banner renders in panel header area after failed file operation
+  it('renders role="alert" error banner after a failed file operation and it is outside tree rows', async () => {
     render(<FileTree projectId={projectId} canEdit={true} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
 
@@ -322,8 +322,8 @@ describe('FileTree', () => {
     expect(treeNode).not.toContainElement(alert);
   });
 
-  // T020: Ctrl+F opens FindPanel, typing highlights first match, next/prev cycles, Escape dismisses
-  it('T020: Ctrl+F opens FindPanel; typing a query shows match counter; Escape dismisses', async () => {
+  // Ctrl+F opens FindPanel, typing highlights first match, next/prev cycles, Escape dismisses
+  it('Ctrl+F opens FindPanel; typing a query shows match counter; Escape dismisses', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
 
@@ -339,8 +339,8 @@ describe('FileTree', () => {
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
   });
 
-  // T002: tree items render in case-insensitive alphabetical order on initial load
-  it('T002: renders tree children in case-insensitive alphabetical order on initial load', async () => {
+  // tree items render in case-insensitive alphabetical order on initial load
+  it('renders tree children in case-insensitive alphabetical order on initial load', async () => {
     const unorderedRoot = {
       id: 'root-1',
       name: 'root',
@@ -365,8 +365,8 @@ describe('FileTree', () => {
     expect(names).toEqual(sorted);
   });
 
-  // T003: created SSE event inserts file at correct alphabetical position
-  it('T003: created SSE event inserts file at correct alphabetical position', async () => {
+  // created SSE event inserts file at correct alphabetical position
+  it('created SSE event inserts file at correct alphabetical position', async () => {
     const treeRoot = {
       id: 'root-1',
       name: 'root',
@@ -400,8 +400,8 @@ describe('FileTree', () => {
     expect(names).toEqual(sorted);
   });
 
-  // T004: renamed SSE event re-positions file to correct alphabetical position
-  it('T004: renamed SSE event re-positions file to correct alphabetical position', async () => {
+  // renamed SSE event re-positions file to correct alphabetical position
+  it('renamed SSE event re-positions file to correct alphabetical position', async () => {
     const treeRoot = {
       id: 'root-1',
       name: 'root',
@@ -463,9 +463,9 @@ describe('FileTree', () => {
 
 });
 
-// T006 / FR-012: auto-reveal a programmatically-selected node that is hidden behind
-// collapsed folders. Contract cases R1–R7 from contracts/tree-reveal-on-select.md.
-describe('FileTree auto-reveal on selection (R1–R7)', () => {
+// Auto-reveal a programmatically-selected node that is hidden behind
+// collapsed folders. Contract cases from contracts/tree-reveal-on-select.md.
+describe('FileTree auto-reveal on selection', () => {
   // root
   // ├── docs (folder, top-level → auto-expanded)
   // │   ├── chapters (folder, collapsed) → intro.adoc (hidden)
@@ -504,7 +504,7 @@ describe('FileTree auto-reveal on selection (R1–R7)', () => {
     (globalThis as unknown as Record<string, unknown>).__lastOnEvent = undefined;
   });
 
-  it('R1/R2: a selected node nested in collapsed folders becomes visible and is scrolled into view', async () => {
+  it('a selected node nested in collapsed folders becomes visible and is scrolled into view', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="intro" />);
     // Tree loads; readme is visible immediately, intro is hidden behind collapsed `chapters`.
     await waitFor(() => expect(screen.getByTestId('node-readme.adoc')).toBeInTheDocument());
@@ -514,13 +514,13 @@ describe('FileTree auto-reveal on selection (R1–R7)', () => {
     expect(scrollIntoViewMock).toHaveBeenCalled();
   });
 
-  it('R3: a root-level/visible node needs no expand but is still scrolled, without error', async () => {
+  it('a root-level/visible node needs no expand but is still scrolled, without error', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="readme" />);
     await waitFor(() => expect(screen.getByTestId('node-readme.adoc')).toBeInTheDocument());
     await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalled());
   });
 
-  it('R4: manually collapsing the folder holding the selected node does NOT re-expand it', async () => {
+  it('manually collapsing the folder holding the selected node does NOT re-expand it', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="intro" />);
     await waitFor(() => expect(screen.getByTestId('node-intro.adoc')).toBeInTheDocument());
     scrollIntoViewMock.mockClear();
@@ -533,7 +533,7 @@ describe('FileTree auto-reveal on selection (R1–R7)', () => {
     expect(scrollIntoViewMock).not.toHaveBeenCalled();
   });
 
-  it('R5: selectedNodeId=null performs no reveal and no error', async () => {
+  it('selectedNodeId=null performs no reveal and no error', async () => {
     render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId={null} />);
     await waitFor(() => expect(screen.getByTestId('node-readme.adoc')).toBeInTheDocument());
     // Give any pending setTimeout-based scroll a chance to (not) run.
@@ -541,7 +541,7 @@ describe('FileTree auto-reveal on selection (R1–R7)', () => {
     expect(scrollIntoViewMock).not.toHaveBeenCalled();
   });
 
-  it('R6: changing the selection to a new hidden node reveals it', async () => {
+  it('changing the selection to a new hidden node reveals it', async () => {
     const { rerender } = render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="intro" />);
     await waitFor(() => expect(screen.getByTestId('node-intro.adoc')).toBeInTheDocument());
     scrollIntoViewMock.mockClear();
@@ -551,7 +551,7 @@ describe('FileTree auto-reveal on selection (R1–R7)', () => {
     expect(scrollIntoViewMock).toHaveBeenCalled();
   });
 
-  it('R7: re-rendering with an unchanged selectedNodeId does not re-reveal', async () => {
+  it('re-rendering with an unchanged selectedNodeId does not re-reveal', async () => {
     const { rerender } = render(<FileTree projectId={projectId} canEdit={false} onSelectFile={jest.fn()} selectedNodeId="intro" />);
     await waitFor(() => expect(screen.getByTestId('node-intro.adoc')).toBeInTheDocument());
     await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalled());

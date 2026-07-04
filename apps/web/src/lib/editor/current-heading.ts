@@ -2,7 +2,7 @@ import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 
 /**
  * Returns the index of the outline entry whose section contains `line` — the last entry whose
- * open-file line is `<= line` (028/US2). The cursor "belongs" to the nearest preceding heading, so
+ * open-file line is `<= line`. The cursor "belongs" to the nearest preceding heading, so
  * exactly one row is ever current. Returns -1 when the cursor is before the first heading, when
  * `line` is null, or when the outline is empty.
  *
@@ -10,7 +10,7 @@ import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
  * line within its own source file) when present, falling back to `line` (the assembled-document
  * line) otherwise. In the full-document outline these diverge — an include shifts later sections down
  * in the assembled text — and the caller has already restricted `entries` to open-file rows, so the
- * source line is the correct basis for comparison (FR-011).
+ * source line is the correct basis for comparison.
  *
  * @param entries - The section outline, in document (ascending-line) order.
  * @param line - The 1-based cursor line within the open file, or null when unknown.

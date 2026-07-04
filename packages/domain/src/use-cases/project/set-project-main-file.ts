@@ -24,7 +24,7 @@ export interface SetProjectMainFileInput {
 }
 
 /**
- * Sets or clears the project's configured main AsciiDoc file (FR-045).
+ * Sets or clears the project's configured main AsciiDoc file.
  *
  * Authorization is enforced **in the use case** (mirroring `UpdateProjectUseCase`):
  * the caller must be a project editor or owner, else a `PermissionDeniedError`

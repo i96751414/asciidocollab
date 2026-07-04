@@ -3,8 +3,8 @@
  *
  * Registered at `Prec.high` so it is consulted before `defaultKeymap`'s newline binding:
  * when the cursor is on a recognized list item the command continues or exits the list in a
- * single transaction (one undo step, FR-010) and returns `true` to consume the keystroke;
- * otherwise it returns `false` and the plain newline runs unchanged (FR-011).
+ * single transaction (one undo step) and returns `true` to consume the keystroke;
+ * otherwise it returns `false` and the plain newline runs unchanged.
  */
 import { keymap, type EditorView } from '@codemirror/view';
 import { Prec, type EditorState } from '@codemirror/state';
@@ -14,7 +14,7 @@ import { parseListMarker, type ListMarker } from './asciidoc-list-item';
 
 /**
  * Verbatim / delimited block node kinds inside which a leading `*` or `.` is literal text, so
- * continuation must be suppressed (FR-008). The literal `....` block (`LiteralBlock`) is added
+ * continuation must be suppressed. The literal `....` block (`LiteralBlock`) is added
  * by feature 021 alongside the blocks the grammar already covers.
  */
 const SUPPRESSING_BLOCKS = new Set([
@@ -24,8 +24,8 @@ const SUPPRESSING_BLOCKS = new Set([
 
 /**
  * Returns the marker text (without a trailing space) to emit for the continued item:
- * checklists reset to an unchecked box keeping their `*`/`-` marker (FR-004); explicit ordered
- * items advance to the next number (FR-003); every other family reuses its own marker.
+ * checklists reset to an unchecked box keeping their `*`/`-` marker; explicit ordered
+ * items advance to the next number; every other family reuses its own marker.
  */
 function nextMarkerText(marker: ListMarker): string {
   if (marker.kind === 'checklist') return `${marker.marker} [ ]`;
@@ -36,7 +36,7 @@ function nextMarkerText(marker: ListMarker): string {
 /**
  * Walks the syntax-tree ancestry at `pos` looking for an enclosing verbatim/delimited block.
  * The cursor's direct node inside such a block is typically an internal error node, so the
- * suppressing block is found as an ancestor, not the node itself (FR-008).
+ * suppressing block is found as an ancestor, not the node itself.
  */
 function isInVerbatimBlock(state: EditorState, pos: number): boolean {
   const tree = ensureSyntaxTree(state, pos) ?? syntaxTree(state);
@@ -53,11 +53,11 @@ function isInVerbatimBlock(state: EditorState, pos: number): boolean {
  *
  * Continue (recognized, non-empty item): replaces any selection and inserts `\n` + the item's
  * leading indentation + the continued marker + a space, leaving the cursor after the marker;
- * text after the cursor moves into the new item (the split is FR-007). Exit (empty item):
- * removes the marker, leaving an ordinary blank line at the original indentation (FR-006).
+ * text after the cursor moves into the new item. Exit (empty item):
+ * removes the marker, leaving an ordinary blank line at the original indentation.
  * Fall through (not a list, or inside a verbatim block): returns `false` so `defaultKeymap`
- * inserts a plain newline (FR-008/FR-011). A single `dispatch` per Enter means a single undo
- * step on both the native-history and Yjs-UndoManager paths (FR-010).
+ * inserts a plain newline. A single `dispatch` per Enter means a single undo
+ * step on both the native-history and Yjs-UndoManager paths.
  *
  * @param view - The active editor view.
  * @returns `true` when the keystroke was handled, `false` to fall through to the next binding.
@@ -72,7 +72,7 @@ export function continueList(view: EditorView): boolean {
   const range = state.selection.main;
   // Parse (and check suppression) at the line where content resumes after the edit — the start
   // of the selection, which equals the cursor for a collapsed range. Using the selection HEAD
-  // would key off the wrong line for a multi-line or backward selection (FR-012).
+  // would key off the wrong line for a multi-line or backward selection.
   const line = state.doc.lineAt(range.from);
   const marker = parseListMarker(line.text);
   if (!marker) return false;
@@ -92,7 +92,7 @@ export function continueList(view: EditorView): boolean {
 
   // Don't continue when the edit starts within the indentation or the marker itself (e.g. Enter
   // at column 0 of a bullet) — inserting there would duplicate the marker (`* * x`). Fall through
-  // to a plain newline instead, which pushes the item down (FR-011).
+  // to a plain newline instead, which pushes the item down.
   if (range.from < line.from + marker.contentStart) return false;
 
   // Continue: replace any selection with the new line + indent + continued marker + space.

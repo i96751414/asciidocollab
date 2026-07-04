@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US3 / FR-009/010/071/072: effective heading-level styling from in-file
+// Effective heading-level styling from in-file
 // :leveloffset:, discrete headings styled + excluded from the outline, and
 // effective level beyond the max not styled as a heading.
 
@@ -27,7 +27,7 @@ const DOC = [
   '',
 ].join('\n');
 
-test.describe('US3 effective header levels', () => {
+test.describe('Effective header levels', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

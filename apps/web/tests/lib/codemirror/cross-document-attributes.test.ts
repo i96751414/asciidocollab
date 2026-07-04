@@ -23,7 +23,7 @@ function mountView(documentContent: string, known: Set<string>): EditorView {
   return view;
 }
 
-describe('computeKnownAttributeMarks (FR-020)', () => {
+describe('computeKnownAttributeMarks', () => {
   test('marks a {name} reference whose definition is in the inherited cross-document scope', () => {
     // `productName` is defined only in a parent/included file → it arrives via the resolved scope.
     const source = 'See {productName} for details.\n';

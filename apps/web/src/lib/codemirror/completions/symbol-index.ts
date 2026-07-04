@@ -4,7 +4,7 @@ import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index'
 /** Accessor for the live cross-file symbol index (null ⇒ current-file-only completion). */
 export type ProjectIndexGetter = () => ProjectSymbolIndex | null;
 
-/** Names of the index's symbols matching the given kinds — the cross-file completion targets (US8/FR-029/030). */
+/** Names of the index's symbols matching the given kinds — the cross-file completion targets. */
 export function crossFileSymbolNames(
   getIndex: ProjectIndexGetter | undefined,
   kinds: ProjectSymbol['kind'][],

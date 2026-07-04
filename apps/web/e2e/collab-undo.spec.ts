@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser, createInvitedUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject, createTestFile } from './helpers/test-project';
 
-// US3 / FR-011, SC-004: per-user undo. With interleaved edits from A and B,
+// Per-user undo. With interleaved edits from A and B,
 // A's undo reverts only A's own edits — never B's — and redo restores them; all
 // clients converge. Requires apps/api AND apps/collab running.
 
@@ -30,7 +30,7 @@ async function openFileInEditor(page: Page, projectId: string, fileName: string)
   await expect(page.locator('.cm-editor .cm-content')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('Collaborative per-user undo (US3)', () => {
+test.describe('Collaborative per-user undo', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

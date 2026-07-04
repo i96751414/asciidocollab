@@ -78,7 +78,7 @@ export class ConfirmEmailChangeUseCase {
 
     // Best-effort: the email change already committed and the token is single-use, so an
     // audit-store failure must NOT surface as the result (the failure reason must stay
-    // business-only). Swallowed but kept observable via the logger (FR-021).
+    // business-only). Swallowed but kept observable via the logger.
     await recordAuditSuccess(this.auditLogRepo, {
       actorId: user.id,
       projectId: null,

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, lintMarkers, expectActiveFile } from './helpers/editor';
 
-// US12 / FR-064/065: cross-file refactoring from the editor — find-usages lists every reference to a
+// Cross-file refactoring from the editor — find-usages lists every reference to a
 // symbol across the project, and rename rewrites the id/anchor + every <<id>>/xref reference in all files.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -16,7 +16,7 @@ async function readContent(page: import('@playwright/test').Page, projectId: str
   return response.text();
 }
 
-test.describe('US12 cross-file refactoring', () => {
+test.describe('cross-file refactoring', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

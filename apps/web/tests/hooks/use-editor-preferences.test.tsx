@@ -362,7 +362,7 @@ test('ignores server response fields with the wrong types and keeps previous val
   expect(typeof result.current.softWrap).toBe('boolean');
 });
 
-// ── previewStyle (US1 + US2) ────────────────────────────────────────────────────
+// ── previewStyle ────────────────────────────────────────────────────
 
 test('previewStyle defaults to asciidocollab', () => {
   const { result } = renderHook(() => useEditorPreferences());
@@ -437,7 +437,7 @@ test('localStorage cache updated when previewStyle changes', async () => {
   expect(stored.previewStyle).toBe('asciidoctor');
 });
 
-// T040 — offline reconciliation: a transient save failure must not lose the choice; it
+// Offline reconciliation: a transient save failure must not lose the choice; it
 // applies for the session and rides the next successful save to the account.
 test('previewStyle applies for the session and reconciles on the next successful save when a save fails', async () => {
   const { result } = renderHook(() => useEditorPreferences());

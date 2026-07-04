@@ -6,11 +6,11 @@ import { markdownSubsetToAsciidoc } from './html-to-asciidoc';
 import { isImageFile } from './asciidoc-image-extensions';
 
 /**
- * Paste / drop conveniences (US9, FR-039/040/062). All externally-sourced content
+ * Paste / drop conveniences. All externally-sourced content
  * crosses the Constitution IX boundary here:
- *  - paste a URL over a selection → `link:`/bare-URL macro (FR-039),
- *  - paste HTML → DOMPurify-sanitize → turndown (HTML→MD) → AsciiDoc mapper (FR-062),
- *  - paste/drop an image → upload via the asset API → insert `image::` (FR-040),
+ *  - paste a URL over a selection → `link:`/bare-URL macro,
+ *  - paste HTML → DOMPurify-sanitize → turndown (HTML→MD) → AsciiDoc mapper,
+ *  - paste/drop an image → upload via the asset API → insert `image::`,
  *    with type validation and graceful fallback.
  *
  * The conversion helpers are pure (DOM-dependent ones run under jsdom) so they
@@ -35,7 +35,7 @@ export function urlToLinkMarkup(url: string, label: string): string {
   return `link:${trimmed}[${text}]`;
 }
 
-/** Sanitize pasted HTML then convert it (via Markdown) to an AsciiDoc subset (FR-062). */
+/** Sanitize pasted HTML then convert it (via Markdown) to an AsciiDoc subset. */
 export function htmlToAsciidoc(html: string): string {
   const safe = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
   const markdown = turndown.turndown(safe);

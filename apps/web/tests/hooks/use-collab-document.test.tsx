@@ -172,7 +172,7 @@ describe('useCollabDocument', () => {
     expect(view.result.current.connectionState).toBe('reconnecting');
   });
 
-  test('publishes the local user presence identity on the awareness "user" field (US2)', () => {
+  test('publishes the local user presence identity on the awareness "user" field', () => {
     let provider: FakeProvider | undefined;
     const createProvider: CreateCollabProvider = (arguments_) => {
       provider = new FakeProvider(arguments_);

@@ -14,7 +14,7 @@ interface ManagedCollabOptions {
   selectedFile: SelectedFile | null;
   contentState: FileContentState;
   canEdit: boolean;
-  // 1-based cursor line in the open file, published via awareness for outline presence (FR-019).
+  // 1-based cursor line in the open file, published via awareness for outline presence.
   cursorLine?: number | null;
 }
 
@@ -37,7 +37,7 @@ interface ManagedCollab {
 
 /**
  * Collaboration orchestration for the open file: the Yjs binding, mid-session role enforcement
- * (FR-012), the offline read-only fallback (FR-013), project-wide presence (feature 024), and the
+ * the offline read-only fallback, project-wide presence (feature 024), and the
  * editor props derived from the resulting collaboration mode (research D6 / EditorMode).
  */
 export function useManagedCollab({
@@ -70,7 +70,7 @@ export function useManagedCollab({
     cursorLine,
   });
 
-  // Mid-session role enforcement (FR-012 / edge case "permission change mid-session"): the role
+  // Mid-session role enforcement (edge case "permission change mid-session"): the role
   // is re-checked on reconnect, so a user demoted to viewer flips to read-only without a reload.
   const [liveRole, setLiveRole] = useState<CollabAuthRole | null>(null);
   useEffect(() => {
@@ -96,7 +96,7 @@ export function useManagedCollab({
   // rather than briefly mounting the legacy REST editor.
   const collabPending = collabInfo != null && collabBinding == null;
 
-  // Offline fallback (FR-013): the collab server never synced within the timeout. Drop the
+  // Offline fallback: the collab server never synced within the timeout. Drop the
   // (empty) Yjs binding and open the file read-only, seeded from GET /content, with a banner —
   // no edits are accepted, so nothing is silently lost.
   const offline = collabInfo != null && connectionState === 'offline';

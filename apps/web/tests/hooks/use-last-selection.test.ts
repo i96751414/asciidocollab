@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 describe('lastSelectionKey', () => {
-  it('builds a user- and project-scoped key (FR-011, no magic strings)', () => {
+  it('builds a user- and project-scoped key (no magic strings)', () => {
     expect(lastSelectionKey(USER, PROJECT)).toBe('asciidocollab:last-selection:user-1:proj-1');
   });
 });
@@ -162,7 +162,7 @@ describe('clearLastSelection', () => {
 });
 
 describe('isolation', () => {
-  it('C11: two projectIds for the same user are independent (FR-003)', () => {
+  it('C11: two projectIds for the same user are independent', () => {
     const fileA: LastSelection = { ...FILE, nodeId: 'a' };
     const fileB: LastSelection = { ...FILE, nodeId: 'b' };
     rememberFile(USER, 'proj-a', fileA);
@@ -171,7 +171,7 @@ describe('isolation', () => {
     expect(readLastSelection(USER, 'proj-b')).toEqual(fileB);
   });
 
-  it('C12: two userIds for the same project are independent — user A never reads user B (FR-011)', () => {
+  it('C12: two userIds for the same project are independent — user A never reads user B', () => {
     const fileA: LastSelection = { ...FILE, nodeId: 'a' };
     const fileB: LastSelection = { ...FILE, nodeId: 'b' };
     rememberFile('user-a', PROJECT, fileA);
@@ -181,10 +181,10 @@ describe('isolation', () => {
   });
 });
 
-// --- Per-file cursor map (US7 / FR-022–027) --------------------------------------------------
+// --- Per-file cursor map --------------------------------------------------
 
 describe('fileCursorsKey', () => {
-  it('builds a user- and project-scoped key (FR-024, no magic strings)', () => {
+  it('builds a user- and project-scoped key (no magic strings)', () => {
     expect(fileCursorsKey(USER, PROJECT)).toBe('asciidocollab:file-cursors:user-1:proj-1');
   });
 
@@ -194,7 +194,7 @@ describe('fileCursorsKey', () => {
 });
 
 describe('readCursorLine', () => {
-  it('returns undefined when no entry exists (caller opens at top, FR-026)', () => {
+  it('returns undefined when no entry exists (caller opens at top)', () => {
     expect(readCursorLine(USER, PROJECT, 'n1')).toBeUndefined();
   });
 
@@ -310,21 +310,21 @@ describe('pruneCursor', () => {
 });
 
 describe('cursor-map isolation', () => {
-  it('two projectIds for the same user are independent (FR-024)', () => {
+  it('two projectIds for the same user are independent', () => {
     rememberCursorLine(USER, 'proj-a', 'n1', 3);
     rememberCursorLine(USER, 'proj-b', 'n1', 8);
     expect(readCursorLine(USER, 'proj-a', 'n1')).toBe(3);
     expect(readCursorLine(USER, 'proj-b', 'n1')).toBe(8);
   });
 
-  it('two userIds on one browser are independent — user A never reads user B (FR-024)', () => {
+  it('two userIds on one browser are independent — user A never reads user B', () => {
     rememberCursorLine('user-a', PROJECT, 'n1', 3);
     rememberCursorLine('user-b', PROJECT, 'n1', 8);
     expect(readCursorLine('user-a', PROJECT, 'n1')).toBe(3);
     expect(readCursorLine('user-b', PROJECT, 'n1')).toBe(8);
   });
 
-  it('is independent from the last-selection store (FR-027 coexistence)', () => {
+  it('is independent from the last-selection store (coexistence)', () => {
     rememberFile(USER, PROJECT, FILE);
     rememberLine(USER, PROJECT, 5);
     rememberCursorLine(USER, PROJECT, FILE.nodeId, 50);

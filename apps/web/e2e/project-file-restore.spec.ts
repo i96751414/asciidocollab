@@ -96,7 +96,7 @@ test.describe('Persist & restore file selection', () => {
   // "stuck on Loading… forever" regression (the restored content must actually appear).
   test('restores a typed nested file: reveal, content, cursor line, and preview on return', async ({ page }) => {
     // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
-    test.setTimeout(75_000);
+    test.setTimeout(90_000);
     const guide = await createTestFolder(page, projectId, null, 'guide');
     const chapters = await createTestFolder(page, projectId, guide, 'chapters');
     await createTestFile(page, projectId, chapters, 'intro.adoc');
@@ -135,8 +135,10 @@ test.describe('Persist & restore file selection', () => {
     // Wait for the collaboration sync to finish before asserting the synced content — under heavy
     // parallel load the post-navigation Yjs sync can lag many seconds.
     await waitCollabSynced(page);
-    // The content is shown — must NOT stay stuck loading.
-    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 20_000 });
+    // The content is shown — must NOT stay stuck loading. The editor stays read-only and empty until
+    // the post-navigation Yjs re-sync lands the document, which under heavy parallel load can lag past
+    // 20s (observed: 44× empty over 20s, editor still contenteditable="false"), so allow real headroom.
+    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 30_000 });
     // The cursor is back on line 3.
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 3, /)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Third line is where the cursor lands.');
@@ -201,7 +203,7 @@ test.describe('Persist & restore file selection', () => {
     await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 20_000 });
   });
 
-  // Distinct behaviour: each project remembers its own file independently (FR-003).
+  // Distinct behaviour: each project remembers its own file independently.
   test('restores each project to its own remembered file', async ({ page }) => {
     // Headroom for repeated collaborative Yjs syncs as we hop between projects under parallel load.
     test.setTimeout(75_000);
@@ -234,7 +236,7 @@ test.describe('Persist & restore file selection', () => {
     }
   });
 
-  // Distinct behaviour: the remembered selection is per-user (FR-011). A second account signing in
+  // Distinct behaviour: the remembered selection is per-user. A second account signing in
   // on the same browser must NOT inherit the first user's selection.
   test('does not leak a selection to a different account on the same browser', async ({ page }) => {
     const viewer = await createViewerInProject(page, projectId);
@@ -262,7 +264,7 @@ test.describe('Persist & restore file selection', () => {
   });
 
   // Distinct behaviour: the cursor clamps to the last valid line when the document shrank below
-  // the remembered line (FR-005), with no error.
+  // the remembered line, with no error.
   test('clamps the cursor to the last line when the remembered line exceeds the document', async ({ page }) => {
     // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
     test.setTimeout(75_000);
@@ -278,7 +280,7 @@ test.describe('Persist & restore file selection', () => {
     // Leave the editor FIRST (which flushes log.adoc's live cursor line), then — while the editor is
     // unmounted so nothing overwrites it — seed a remembered line that now exceeds the document, the
     // state left behind when a collaborator deletes lines below the remembered position. The per-file
-    // cursor map (US7) is the authority the restore reads first; the legacy entry covers old projects.
+    // cursor map is the authority the restore reads first; the legacy entry covers old projects.
     await page.getByRole('link', { name: /back to projects/i }).click();
     await page.waitForURL(/\/dashboard$/);
     await page.evaluate((nodeId) => {
@@ -310,7 +312,7 @@ test.describe('Persist & restore file selection', () => {
   });
 
   // Distinct behaviour: when the remembered file no longer exists, fall back to the empty state
-  // (no error) and clear the stale memory so it is not retried (US3 / FR-009).
+  // (no error) and clear the stale memory so it is not retried.
   test('falls back to the empty state and forgets a deleted file', async ({ page }) => {
     const fileNodeId = await createTestFile(page, projectId, null, 'temp.adoc');
 

@@ -11,14 +11,14 @@ import {
   expectActiveFile,
 } from './helpers/editor';
 
-// US8 / FR-032/034/049/061: cross-file editor intelligence over the project symbol index —
+// Cross-file editor intelligence over the project symbol index —
 // diagnostics that resolve references across the include tree, project-wide Go to Symbol, and
 // xref go-to-definition that switches the active file.
 
 const MAIN = '= Book\n\n[[intro]]\n== Intro\n\ninclude::chapter.adoc[]\n';
 const CHAPTER = 'See <<intro>> and <<ghost>>.\n';
 
-test.describe('US8 cross-file intelligence', () => {
+test.describe('cross-file intelligence', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -30,7 +30,7 @@ test.describe('US8 cross-file intelligence', () => {
     projectId = await createProject(page, `Intelligence ${Date.now()}`);
     await createAdocFile(page, projectId, 'main.adoc', MAIN);
     const chapterId = await createAdocFile(page, projectId, 'chapter.adoc', CHAPTER);
-    // Configure main.adoc as the project main file so the index roots at it (FR-045).
+    // Configure main.adoc as the project main file so the index roots at it.
     const mainId = await page.request
       .get(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/projects/${projectId}/files`)
       .then((r) => r.json())

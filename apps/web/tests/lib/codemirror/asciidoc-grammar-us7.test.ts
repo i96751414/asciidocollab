@@ -1,10 +1,10 @@
 import { hasToken, tokenAt, tokensOfType } from './helpers/tokenize';
 
-// US7 / FR-051/053/025 + contracts/grammar-tokens.md: complete highlighting
+// contracts/grammar-tokens.md: complete highlighting
 // coverage. These assert the new block-level grammar tokens are produced AND
 // that existing tokenization is not regressed.
 
-describe('US7 grammar — conditional directives (FR-051)', () => {
+describe('grammar — conditional directives', () => {
   test.each(['ifdef::env[]\n', 'ifndef::env[]\n', 'ifeval::[1==1]\n', 'endif::[]\n'])(
     'recognises %j as a Conditional (not a generic BlockMacro)',
     (input) => {
@@ -18,7 +18,7 @@ describe('US7 grammar — conditional directives (FR-051)', () => {
   });
 });
 
-describe('US7 grammar — generic block-attribute line (FR-025)', () => {
+describe('grammar — generic block-attribute line', () => {
   test.each([
     '[source,ruby]\n',
     '[%header]\n',
@@ -28,7 +28,7 @@ describe('US7 grammar — generic block-attribute line (FR-025)', () => {
     expect(hasToken(input, 'BlockAttributeLine')).toBe(true);
   });
 
-  // A `[cols="…"]` line now routes to the distinct TableCols node (FR-046, US12), NOT the generic
+  // A `[cols="…"]` line now routes to the distinct TableCols node, NOT the generic
   // block-attribute line — the cols specifier is highlighted distinctly.
   test('[cols="1,1"] routes to a TableCols node, not the generic block-attribute line', () => {
     expect(hasToken('[cols="1,1"]\n', 'TableCols')).toBe(true);
@@ -54,7 +54,7 @@ describe('US7 grammar — generic block-attribute line (FR-025)', () => {
   });
 });
 
-describe('US7 grammar — CSV / DSV tables (FR-053)', () => {
+describe('grammar — CSV / DSV tables', () => {
   test('recognises a ,=== CSV table block', () => {
     const source = ',===\na,b\nc,d\n,===\n';
     expect(hasToken(source, 'CsvTableBlock')).toBe(true);
@@ -70,7 +70,7 @@ describe('US7 grammar — CSV / DSV tables (FR-053)', () => {
   });
 });
 
-describe('US7 grammar — existing tokenization not regressed', () => {
+describe('grammar — existing tokenization not regressed', () => {
   test('bold/italic/monospace still tokenize', () => {
     expect(hasToken('a *b* _i_ `c`\n', 'Bold')).toBe(true);
     expect(hasToken('a *b* _i_ `c`\n', 'Italic')).toBe(true);

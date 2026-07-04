@@ -69,7 +69,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('tokenizeWords (FR-063)', () => {
+describe('tokenizeWords', () => {
   test('splits prose into word tokens with absolute offsets', () => {
     const tokens = tokenizeWords('hello world', 10);
     expect(tokens.map((t) => t.word)).toEqual(['hello', 'world']);
@@ -83,7 +83,7 @@ describe('tokenizeWords (FR-063)', () => {
 
 const isCorrect = (word: string) => ['hello', 'world'].includes(word.toLowerCase());
 
-describe('selectMisspelled (FR-063)', () => {
+describe('selectMisspelled', () => {
   test('flags words rejected by the checker', () => {
     const tokens = tokenizeWords('hello wrld');
     expect(selectMisspelled(tokens, isCorrect, []).map((t) => t.word)).toEqual(['wrld']);
@@ -104,7 +104,7 @@ describe('SPELLCHECK_SKIP_NODES', () => {
     expect(SPELLCHECK_SKIP_NODES.has('Monospace')).toBe(true);
     expect(SPELLCHECK_SKIP_NODES.has('InlineMacro')).toBe(true);
     expect(SPELLCHECK_SKIP_NODES.has('AttributeEntry')).toBe(true);
-    // New non-prose inline nodes (T019) — URLs, macros, math, anchors, callouts,
+    // New non-prose inline nodes — URLs, macros, math, anchors, callouts,
     // entities, and passthroughs must not be spell-checked as prose.
     for (const node of ['Link', 'InlineStem', 'UiMacro', 'Callout', 'Entity', 'Passthrough', 'InlineAnchor', 'BiblioAnchor', 'InlineSet']) {
       expect(SPELLCHECK_SKIP_NODES.has(node)).toBe(true);
@@ -212,7 +212,7 @@ describe('SPELLCHECK_SKIP_NODES', () => {
   });
 });
 
-describe('loadSpellChecker (FR-063)', () => {
+describe('loadSpellChecker', () => {
   test('builds an nspell checker from the self-hosted aff/dic files', async () => {
     const fetchMock = jest.fn(async (input: RequestInfo | URL) =>
       okResponse(String(input).endsWith('.aff') ? FAKE_AFF : FAKE_DIC),
@@ -280,7 +280,7 @@ describe('loadSpellChecker (FR-063)', () => {
   });
 });
 
-describe('asciidocSpellcheckSource (FR-063)', () => {
+describe('asciidocSpellcheckSource', () => {
   test('returns no diagnostics when the dictionary is not loaded', async () => {
     globalThis.fetch = (async () => {
       throw new Error('offline');

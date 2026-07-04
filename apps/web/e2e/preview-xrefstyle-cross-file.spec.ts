@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US4 / FR-014/FR-015/FR-016 (cross-references honor xrefstyle): the main file sets `:xrefstyle:`
+// Cross-references honor xrefstyle: the main file sets `:xrefstyle:`
 // before including a child; a `<<id>>` reference in the child renders with the inherited style's
 // link text in the assembled preview.
 
@@ -16,7 +16,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US4 cross-references honor xrefstyle across files', () => {
+test.describe('cross-references honor xrefstyle across files', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -48,7 +48,9 @@ test.describe('US4 cross-references honor xrefstyle across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty pre-sync document
+    // schedules no render, so `asciidoc-output` would never mount within expandPreview's budget.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

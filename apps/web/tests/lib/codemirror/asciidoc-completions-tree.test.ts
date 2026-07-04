@@ -1,7 +1,7 @@
 /* @jest-environment jsdom */
 
 /**
- * Live-view behaviour checks for the table completion sources (US9, table
+ * Live-view behaviour checks for the table completion sources (table
  * cell/skeleton) against a fully-parsed document. The headless `EditorState`
  * parses lazily, so these mount a real `EditorView` (jsdom) and force a complete
  * parse before invoking the sources — the closest stand-in for the editor at

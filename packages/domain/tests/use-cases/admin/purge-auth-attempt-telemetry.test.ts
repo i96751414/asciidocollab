@@ -12,7 +12,7 @@ describe('PurgeAuthAttemptTelemetryUseCase', () => {
     useCase = new PurgeAuthAttemptTelemetryUseCase(repo);
   });
 
-  test('INV-4: deletes buckets older than now - retentionWindow and returns the count', async () => {
+  test('deletes buckets older than now - retentionWindow and returns the count', async () => {
     const now = new Date('2026-06-10T00:00:00.000Z');
     const old = new Date(now.getTime() - 100 * DAY_MS);
     const recent = new Date(now.getTime() - 10 * DAY_MS);

@@ -4,7 +4,7 @@ import { createTestFile } from './test-project';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /**
- * Shared Playwright helpers for the AsciiDoc editor e2e specs (T005). These
+ * Shared Playwright helpers for the AsciiDoc editor e2e specs. These
  * drive the live CodeMirror surface — opening a project file, reading/typing
  * content, asserting token classes, folding, autocomplete, lint markers, and
  * active-file switches — so each per-story spec stays focused on its behaviour.
@@ -39,7 +39,7 @@ export async function createAdocFile(
   return fileNodeId;
 }
 
-/** Configure (or clear, with null) the project's main file via the REST endpoint (US8/FR-045). */
+/** Configure (or clear, with null) the project's main file via the REST endpoint. */
 export async function setMainFile(
   page: Page,
   projectId: string,
@@ -60,10 +60,26 @@ export async function openProject(page: Page, projectId: string): Promise<void> 
   await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 }
 
-/** Open a file from the project tree and wait for the editor to mount. */
-export async function openFile(page: Page, fileName: string): Promise<void> {
+/**
+ * Open a file from the project tree and wait for the editor to mount.
+ *
+ * Pass `expectText` to ALSO wait for the collaborative document to sync its
+ * content in. The editor mounts (`.cm-content` becomes visible) before its Yjs
+ * document has synced, so under load a content-dependent assertion — or an
+ * `expandPreview()` call, which silently schedules no render while `content` is
+ * empty — can race the empty pre-sync document. Waiting for known text here
+ * collapses that race and keeps the sync lag out of later timeout budgets.
+ */
+export async function openFile(
+  page: Page,
+  fileName: string,
+  expectText?: string | RegExp,
+): Promise<void> {
   await page.getByTestId(`tree-node-${fileName}`).click();
-  await expect(editorContent(page)).toBeVisible({ timeout: 10_000 });
+  await expect(editorContent(page)).toBeVisible({ timeout: 15_000 }); // cold editor mount under gate load
+  if (expectText !== undefined) {
+    await expect(editorContent(page)).toContainText(expectText, { timeout: 15_000 });
+  }
 }
 
 /** Locator for the CodeMirror editable content. */
@@ -77,6 +93,28 @@ export async function getEditorText(page: Page): Promise<string> {
   return lines.join('\n');
 }
 
+/**
+ * Rename the first occurrence of `word` in the editor to `replacement` by double-clicking it and
+ * typing over the selection.
+ *
+ * Robust against the collab-sync race: the editor mounts read-only (`contenteditable="false"`) and
+ * only becomes editable once its Yjs document has synced, so under parallel gate load a double-click +
+ * type issued too early is silently dropped — the definition never changes, the rename is never
+ * detected, and the offer never appears. This waits for the editor to be editable first, then confirms
+ * the edit actually registered before returning.
+ *
+ * @param page - The Playwright page.
+ * @param word - The exact word to double-click (its first DOM occurrence).
+ * @param replacement - The text typed over the selected word.
+ */
+export async function renameFirstWord(page: Page, word: string, replacement: string): Promise<void> {
+  const content = editorContent(page);
+  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
+  await content.getByText(word, { exact: false }).first().dblclick();
+  await page.keyboard.type(replacement);
+  await expect(content).toContainText(replacement, { timeout: 10_000 }); // the edit registered
+}
+
 /** Place the cursor at the end of the document and type `text`. */
 export async function typeAtEnd(page: Page, text: string): Promise<void> {
   await editorContent(page).click();
@@ -86,8 +124,23 @@ export async function typeAtEnd(page: Page, text: string): Promise<void> {
 
 /** Toggle the HTML preview open (expand) / closed. */
 export async function expandPreview(page: Page): Promise<void> {
+  // Collapse the pre-sync race systemically: expanding while the collaborative (Yjs) document is
+  // still empty schedules NO preview render, so the panel would stay blank and cross-file assertions
+  // would flake. Wait for the editor to show synced (non-whitespace) content first. Soft (`.catch`)
+  // so a legitimately empty document still expands — that path just eats the short wait.
+  await page
+    .locator('.cm-editor .cm-content')
+    .filter({ hasText: /\S/ })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .catch(() => {
+      /* genuinely empty document — expand anyway */
+    });
   await page.getByRole('button', { name: /expand preview/i }).click();
-  await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 15_000 });
+  // Cold-start tolerant: the first preview render must spin up the AsciiDoc→HTML web worker (bundle
+  // load + Asciidoctor init), which under gate load occasionally exceeds a tighter budget on the
+  // first attempt (warm on retry). Kept within the per-test timeout so it absorbs the cold start.
+  await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 25_000 });
 }
 
 export async function collapsePreview(page: Page): Promise<void> {

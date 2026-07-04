@@ -11,7 +11,7 @@ import {
 // jsdom environment (.test.tsx) — DOMPurify + turndown need a DOM, and the CM6
 // paste/drop handlers (`asciidocPasteHandlers`) need a live EditorView.
 
-describe('looksLikeUrl (FR-039)', () => {
+describe('looksLikeUrl', () => {
   test('accepts http/https/mailto URLs', () => {
     expect(looksLikeUrl('https://example.com/a')).toBe(true);
     expect(looksLikeUrl('  http://x.io ')).toBe(true);
@@ -23,7 +23,7 @@ describe('looksLikeUrl (FR-039)', () => {
   });
 });
 
-describe('urlToLinkMarkup (FR-039)', () => {
+describe('urlToLinkMarkup', () => {
   test('http URL → url[label]', () => {
     expect(urlToLinkMarkup('https://x.io', 'site')).toBe('https://x.io[site]');
   });
@@ -35,13 +35,13 @@ describe('urlToLinkMarkup (FR-039)', () => {
   });
 });
 
-describe('imageMacro (FR-040)', () => {
+describe('imageMacro', () => {
   test('builds an image:: block macro', () => {
     expect(imageMacro('assets/diagram.png')).toBe('image::assets/diagram.png[]');
   });
 });
 
-describe('htmlToAsciidoc (FR-062)', () => {
+describe('htmlToAsciidoc', () => {
   test('converts headings, bold, and lists', () => {
     const result = htmlToAsciidoc('<h2>Title</h2><p>a <strong>bold</strong> word</p><ul><li>one</li><li>two</li></ul>');
     expect(result).toContain('== Title');
@@ -124,7 +124,7 @@ afterEach(() => {
   view.destroy();
 });
 
-describe('asciidocPasteHandlers — paste (FR-039/062)', () => {
+describe('asciidocPasteHandlers — paste', () => {
   test('converts pasted HTML to AsciiDoc and replaces the selection', () => {
     view = makeView();
     view.dispatch({ selection: { anchor: 0, head: 0 } });
@@ -210,7 +210,7 @@ describe('asciidocPasteHandlers — defaults', () => {
   });
 });
 
-describe('asciidocPasteHandlers — drop (FR-040)', () => {
+describe('asciidocPasteHandlers — drop', () => {
   test('uploads a dropped image file and inserts an image:: macro', async () => {
     const uploadImage = jest.fn(async () => 'assets/drop.png');
     view = makeView(uploadImage);

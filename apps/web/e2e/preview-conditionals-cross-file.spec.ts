@@ -10,7 +10,7 @@ import {
   editorContent,
 } from './helpers/editor';
 
-// US8 / FR-029..FR-031 (conditional preprocessor directives):
+// Conditional preprocessor directives:
 //  - A content-level conditional gated on a main-file attribute shows/hides content, and toggling the
 //    attribute updates the preview live (Asciidoctor evaluates the conditional with the seeded scope).
 //  - A conditional wrapping an `include::` includes/skips the target in the ASSEMBLER (an inactive
@@ -25,7 +25,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US8 preview conditionals across files', () => {
+test.describe('preview conditionals across files', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -52,7 +52,7 @@ test.describe('US8 preview conditionals across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
 
     const output = page.getByTestId('asciidoc-output');
@@ -79,7 +79,7 @@ test.describe('US8 preview conditionals across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

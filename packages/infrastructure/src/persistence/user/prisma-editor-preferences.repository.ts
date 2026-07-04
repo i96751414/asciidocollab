@@ -58,7 +58,7 @@ export class PrismaEditorPreferencesRepository implements EditorPreferencesRepos
       throw new Error(`EditorPreferences row ${row.id} has unrecognised theme "${row.theme}": ${themeResult.error.message}`);
     }
     // A corrupt/unknown stored preview style must not break rendering — fall back to the
-    // default rather than throwing (FR-015), unlike the stricter handling of `theme`.
+    // default rather than throwing, unlike the stricter handling of `theme`.
     const previewStyle = PreviewStyle.parseOrDefault(row.previewStyle);
     return new EditorPreferences(
       EditorPreferencesId.create(row.id),

@@ -28,7 +28,7 @@ interface UserState {
 
 /**
  * In-app rate limiting and connection/room caps for the public collaboration
- * WebSocket (SEC1, NFR-001). Wired into the `onConnect`/`onDisconnect` seam after
+ * WebSocket. Wired into the `onConnect`/`onDisconnect` seam after
  * the auth hook, keyed on the authenticated user id it stores on the context. The
  * server listens directly via Hocuspocus (not behind Fastify), so it inherits none
  * of the API's protections — these are enforced here.

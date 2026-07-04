@@ -19,7 +19,7 @@ function renderPalette(overrides: Partial<React.ComponentProps<typeof EditorGoTo
   return { onSelect, onClose };
 }
 
-describe('EditorGoToSymbol (US8/FR-061)', () => {
+describe('EditorGoToSymbol', () => {
   test('renders nothing when closed', () => {
     const { container } = render(
       <EditorGoToSymbol open={false} symbols={SYMBOLS} pathOf={pathOf} onSelect={jest.fn()} onClose={jest.fn()} />,

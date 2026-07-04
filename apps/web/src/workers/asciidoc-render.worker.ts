@@ -1,7 +1,7 @@
 import Asciidoctor from 'asciidoctor';
 import hljs from 'highlight.js/lib/common';
 import { assembleIncludes } from './assemble-includes';
-import { resolveAttributeScope } from '../lib/asciidoc/extraction';
+import { resolveAttributeScope } from '@asciidocollab/asciidoc-core';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../lib/asciidoc/render-intrinsics';
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 
@@ -12,27 +12,27 @@ interface RenderRequest {
   imagesDir?: string;
   /**
    * When set together with {@link RenderRequest.files}, the worker assembles the include tree rooted
-   * at this project-relative main-file path (sandbox-confined via `resolveSandboxedPath`, FR-068) and
+   * at this project-relative main-file path (sandbox-confined via `resolveSandboxedPath`) and
    * renders the assembled document instead of `content`. Absent ⇒ render `content` as-is.
    */
   mainPath?: string;
-  /** Project-relative path → content map supplying the include assembly (FR-068). */
+  /** Project-relative path → content map supplying the include assembly. */
   files?: Record<string, string>;
   /**
-   * Project main-file path (root) for cross-document attribute resolution (US1/FR-002a). The open
+   * Project main-file path (root) for cross-document attribute resolution. The open
    * file's `{name}` references resolve to the value in effect at its first include-point under this
-   * root. `null`/absent ⇒ standalone resolution (the file's own attributes only, FR-002b).
+   * root. `null`/absent ⇒ standalone resolution (the file's own attributes only).
    */
   rootFileId?: string | null;
-  /** The previewed open file's path — the scope whose inherited attributes are seeded (FR-002a). */
+  /** The previewed open file's path — the scope whose inherited attributes are seeded. */
   openFileId?: string;
-  /** When false (default), the assembler hides included bodies and emits placeholders (FR-002/FR-003). */
+  /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
 }
 
 // Asciidoctor convention: a value ending in `@` is an overridable "soft" default — an in-document
 // attribute entry of the same name may still override it. We mark every seeded inherited-scope value
-// this way so a file's own definitions win, matching the resolution model's precedence (FR-002a).
+// this way so a file's own definitions win, matching the resolution model's precedence.
 const SOFT_DEFAULT_SUFFIX = '@';
 
 /**
@@ -87,16 +87,16 @@ function seedAttributesFromScope(
   if (scope.origin !== 'inherited') return {};
   const seeded: Record<string, string> = {};
   // Seed the WHOLE resolved scope with no allow-list filtering, so the full inherited family flows
-  // through as native document attributes: `idprefix`/`idseparator` (auto-ID generation, US3),
-  // `xrefstyle` (cross-reference text, US4), and the caption/label/signifier family — `table-caption`,
+  // through as native document attributes: `idprefix`/`idseparator` (auto-ID generation),
+  // `xrefstyle` (cross-reference text), and the caption/label/signifier family — `table-caption`,
   // `figure-caption`, `example-caption`, admonition `*-caption`, `appendix-caption`, `toc-title`,
   // `chapter-signifier`, `part-signifier`, `section-refsig`, `version-label`, `last-update-label`
-  // (US5) — plus `sectnums`/`toc`/`leveloffset` etc. The resolution model already enforces AsciiDoc
+  // — plus `sectnums`/`toc`/`leveloffset` etc. The resolution model already enforces AsciiDoc
   // unset/empty semantics: an unset attribute (`:name!:`) is deleted from `scope.values` and so is
   // simply never seeded (label removed), while an EMPTY value (`:name:`) is a real entry kept as ''.
   // The `@` soft-default suffix on an empty value yields the literal '@', which Asciidoctor treats
   // exactly like an empty in-document caption (blank prefix, auto-number retained) — i.e. the suffix
-  // does NOT corrupt empty-value semantics (US5/FR-019a).
+  // does NOT corrupt empty-value semantics.
   for (const [name, value] of scope.values) {
     seeded[name] = value + SOFT_DEFAULT_SUFFIX;
   }
@@ -164,10 +164,10 @@ interface RenderResult {
   error: string | null;
   /**
    * True when the rendered document contains STEM (math) output that is in effect, meaning the
-   * resolved `:stem:` attribute is set AND Asciidoctor emitted stem markup carrying its delimiters
-   * (US15/FR-021d-f). The worker never renders math itself (client-side per R5); this flag lets the
+   * resolved `:stem:` attribute is set AND Asciidoctor emitted stem markup carrying its delimiters.
+   * The worker never renders math itself (client-side); this flag lets the
    * preview lazy-load MathJax only when there is math to typeset. Absent/`false` means no MathJax
-   * load, so stem delimiters written where `:stem:` is not in effect stay as literal text (FR-021e).
+   * load, so stem delimiters written where `:stem:` is not in effect stay as literal text.
    */
   mathPresent?: boolean;
 }
@@ -183,8 +183,8 @@ const STEM_INLINE_MACRO_RE = /(?:stem|latexmath|asciimath):\[/;
  * Whether the document carries STEM math the client must typeset. STEM must be in effect AND real
  * stem markup must be present. STEM is in effect when the resolved `:stem:` value is set (the empty
  * string for the bare AsciiMath default, or a notation such as `latexmath`); an `undefined`/`null`
- * value means the author opted out with `:stem!:`, so even real markup is left as literal text
- * (FR-021e). Real markup is a `stemblock` wrapper in the output OR an inline `stem:`/`latexmath:`/
+ * value means the author opted out with `:stem!:`, so even real markup is left as literal text.
+ * Real markup is a `stemblock` wrapper in the output OR an inline `stem:`/`latexmath:`/
  * `asciimath:` macro in the source. This deliberately does NOT key on the bare `\(`/`\[`/`\$`
  * output delimiters, because Asciidoctor also emits those for escaped text and for backslash or
  * regex content inside code (such as a `/\[0-9\]+/` regex in a listing block); keying on them would
@@ -216,7 +216,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // prepended to relative image targets so `image::diagram.png[]` resolves to the project's
     // asset endpoint; absolute-URL targets are left untouched by Asciidoctor.
     //
-    // Section numbering & TOC across includes (US10/FR-037/FR-038/FR-039): `sectnums`/`sectnumlevels`
+    // Section numbering & TOC across includes: `sectnums`/`sectnumlevels`
     // and `toc`/`toclevels` are NOT special-cased here — they ride through the full inherited-scope
     // seeding below (`seedAttributesFromScope`, no allow-list filtering). Combined with the assembler's
     // absolute `:leveloffset:` set/restore entries, Asciidoctor natively numbers sections and builds the
@@ -224,7 +224,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // continuously (1, 2) and the TOC lists them at their effective (offset) levels. Embedded output
     // (`showtitle`, no header/footer) still emits the `<div id="toc">` block when `toc` is set as a
     // document attribute, so no placement fix is needed.
-    // The open file's cross-document attribute scope (US1/FR-002a) — the values it inherits at its
+    // The open file's cross-document attribute scope — the values it inherits at its
     // first include-point under the project main file (including a resolved `:leveloffset:`), so a
     // `{name}` defined only in a parent resolves here — is seeded FIRST as overridable soft-defaults.
     // Host render controls are applied AFTER it so they win: `showtitle` renders the title in embedded
@@ -233,7 +233,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // standalone/root behavior preserved.
     const attributes: Record<string, string> = {
       // Enable STEM by default so an author who writes `stem:[…]`/`[stem]` sees rendered math in the
-      // preview WITHOUT having to remember the `:stem:` header (US15). The value `'@'` is an empty
+      // preview WITHOUT having to remember the `:stem:` header. The value `'@'` is an empty
       // value carrying the overridable soft-default marker, so it resolves to the AsciiMath default
       // ('') when the document says nothing, yet a document can still pick a notation (`:stem:
       // latexmath`), inherit one from its cross-document scope below, or opt out entirely (`:stem!:`
@@ -245,14 +245,14 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
       ...(imagesDir ? { imagesdir: imagesDir } : {}),
     };
     // When a main file + its tree's contents are supplied, assemble the include tree (sandbox-
-    // confined, FR-068) and render that; otherwise render the open file's content unchanged so the
+    // confined) and render that; otherwise render the open file's content unchanged so the
     // default preview keeps exact source-line mapping for scroll-sync (Constitution VIII). The
     // assembler is seeded with the same document-start attribute state Asciidoctor will resolve (the
     // intrinsics + these API attributes) so its conditional include-gating and `{attr}` target
     // substitution agree with the render — an include guarded by `ifdef::backend-html5[]` is kept,
     // not silently dropped (Finding#1).
-    // Assemble rooted at the open file for ANY file with includes (FR-014).
-    // `readFile` overlays the live editor buffer for the root path (FR-015/R8):
+    // Assemble rooted at the open file for ANY file with includes.
+    // `readFile` overlays the live editor buffer for the root path:
     // content is always the most current keystroke, while files[openPath] may lag.
     // Only overlay content when openFileId is explicitly provided (the live editor buffer IS that
     // file); when falling back to mainPath the content field may be for a different file.
@@ -310,7 +310,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     let html = String(asciidocDocument.convert());
 
     // Gate client-side math on the RESOLVED `:stem:` value (cross-document scope already seeded
-    // above), not on the raw delimiters Asciidoctor always emits for stem macros (US15/FR-021e).
+    // above), not on the raw delimiters Asciidoctor always emits for stem macros.
     const stemAttribute =
       typeof asciidocDocument.getAttribute === 'function' ? asciidocDocument.getAttribute('stem') : undefined;
     const mathPresent = detectMathPresent(stemAttribute, source, html);

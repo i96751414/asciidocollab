@@ -15,7 +15,7 @@ export interface AuthHookOptions {
   /** Pino logger instance. */
   logger: Logger;
   /**
-   * Allowlist of accepted WebSocket-handshake Origins (SEC2, CSWSH defence). An empty
+   * Allowlist of accepted WebSocket-handshake Origins (CSWSH defence). An empty
    * list disables the check (development); in production it should list the web app origin(s).
    */
   allowedOrigins?: string[];
@@ -71,7 +71,7 @@ export class AuthHookExtension implements Extension {
   async onConnect(payload: onConnectPayload): Promise<void> {
     const { documentName, requestHeaders } = payload;
 
-    // SEC2: reject cross-site WebSocket hijacking attempts by enforcing an Origin allowlist
+    // Reject cross-site WebSocket hijacking attempts by enforcing an Origin allowlist
     // before doing any work. Skipped when no allowlist is configured (development).
     if (this.allowedOrigins.length > 0) {
       // Hocuspocus v4 delivers requestHeaders as a web Headers object (case-insensitive .get()).
@@ -104,7 +104,7 @@ export class AuthHookExtension implements Extension {
     const body: unknown = await response.json().catch(() => null);
 
     if (presence) {
-      // Presence: { userId } (no role). Enforce read-only at the WS layer (SEC2/FR-011) so a member
+      // Presence: { userId } (no role). Enforce read-only at the WS layer so a member
       // cannot write document updates into the presence room's shared doc; awareness (the presence
       // channel) is NOT gated by readOnly, so clients still publish which file they have open.
       if (typeof body === 'object' && body !== null && 'userId' in body && typeof body.userId === 'string') {
@@ -114,7 +114,7 @@ export class AuthHookExtension implements Extension {
       }
       this.deny(documentName, 'auth_malformed_response');
     } else {
-      // Document: { role, userId }. Enforce the read-only boundary for observers (SEC2/FR-012):
+      // Document: { role, userId }. Enforce the read-only boundary for observers:
       // Hocuspocus rejects inbound document updates on a read-only connection, so client-side
       // read-only is not relied upon as the authorization boundary.
       if (

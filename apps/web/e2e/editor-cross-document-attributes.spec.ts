@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// US6 / FR-020 / FR-021: the editor highlights `{name}` references that resolve ANYWHERE in the
+// The editor highlights `{name}` references that resolve ANYWHERE in the
 // include tree as known. A reference to an attribute defined only in a parent (including) file marks
 // as known in the child, and a reference to an attribute defined only in an included child marks as
 // known in the parent. The mark is the `cm-ad-attr-known` decoration. Because the resolved value is
@@ -12,7 +12,7 @@ import { createAdocFile, setMainFile, openProject, openFile, editorContent } fro
 
 const KNOWN = '.cm-ad-attr-known';
 
-test.describe('US6 editor cross-document attribute highlighting', () => {
+test.describe('Editor cross-document attribute highlighting', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -28,7 +28,7 @@ test.describe('US6 editor cross-document attribute highlighting', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('an attribute defined in a parent is highlighted as known in the child (FR-020)', async ({ page }) => {
+  test('an attribute defined in a parent is highlighted as known in the child', async ({ page }) => {
     // main.adoc defines :productName: then includes child.adoc, which references {productName}.
     const childId = await createAdocFile(page, projectId, 'child.adoc', 'See {productName} today.\n');
     const mainId = await createAdocFile(
@@ -52,7 +52,7 @@ test.describe('US6 editor cross-document attribute highlighting', () => {
     expect(childId).toBeTruthy();
   });
 
-  test('an attribute defined in an included file is highlighted as known in the parent (FR-021)', async ({ page }) => {
+  test('an attribute defined in an included file is highlighted as known in the parent', async ({ page }) => {
     // child.adoc defines :edition:, main.adoc includes it and then references {edition}.
     await createAdocFile(page, projectId, 'child.adoc', ':edition: Pro\n');
     const mainId = await createAdocFile(
@@ -65,13 +65,13 @@ test.describe('US6 editor cross-document attribute highlighting', () => {
     await openProject(page, projectId);
     await openFile(page, 'main.adoc');
 
-    // {edition} is defined in the included file → known anywhere in the tree (FR-021). The root's
+    // {edition} is defined in the included file → known anywhere in the tree. The root's
     // position-aware fold does not collapse a descendant's attribute, so {edition} stays raw source
     // and carries the known cross-document mark directly (no reveal needed).
     await expect(page.locator(KNOWN).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('an attribute defined in one included file is known in a sibling included AFTER it (FR-021)', async ({ page }) => {
+  test('an attribute defined in one included file is known in a sibling included AFTER it', async ({ page }) => {
     // main includes alpha.adoc THEN beta.adoc. alpha defines :sharedAttr:; beta — included after alpha
     // under the same parent — references {sharedAttr}. Because alpha is included before beta, its
     // definition is in scope (document order) where beta is assembled, so beta INHERITS it: the

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, editorContent, typeAtEnd } from './helpers/editor';
 
-// US12 / FR-064 collab-safety: a symbol rename (attribute / anchor) must treat the Yjs document
+// Collab-safety: a symbol rename (attribute / anchor) must treat the Yjs document
 // as the SOURCE OF TRUTH for any file currently open for collaborative editing. Writing the
 // rewrite straight to the plain-text file store is unsafe: the editing user never sees it AND the
 // next Yjs writeback (debounce ~2s / on disconnect) overwrites the file with the stale live

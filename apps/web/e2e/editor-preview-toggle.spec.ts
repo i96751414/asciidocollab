@@ -11,7 +11,7 @@ import {
   collapsePreview,
 } from './helpers/editor';
 
-// US1 / FR-001–005: toggling the HTML preview must never blank, reset, or lose
+// Toggling the HTML preview must never blank, reset, or lose
 // editor content — and the cursor/scroll position must be preserved — on both
 // the collab and offline/REST paths. The root cause was a remount: the editor
 // lived in a PanelGroup>Panel when the preview was open and a bare <div> when it
@@ -20,7 +20,7 @@ import {
 const SEED = '= Preview Toggle\n\nFirst paragraph.\n\nSecond paragraph.\n';
 const TYPED = '\n\nA line typed by the test that must survive preview toggles.';
 
-test.describe('US1 preview toggle preserves editor content', () => {
+test.describe('preview toggle preserves editor content', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -59,7 +59,7 @@ test.describe('US1 preview toggle preserves editor content', () => {
 
     const after = await getEditorText(page);
     expect(after, 'editor content must be byte-identical after toggling the preview').toBe(before);
-    // Cursor preserved (FR-005): the editor was never remounted, so CM keeps its selection.
+    // Cursor preserved: the editor was never remounted, so CM keeps its selection.
     expect(await cursorLocator.textContent(), 'cursor (Ln, Col) must be preserved across toggles').toBe(cursorBefore);
   });
 

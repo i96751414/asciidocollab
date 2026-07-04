@@ -19,7 +19,7 @@ export interface PurgeAuthAttemptTelemetryResult {
 /**
  * Deletes expired account-security telemetry — failed sign-ins and password-reset
  * requests alike, since both share one retention-bounded store — older than the
- * bounded retention window (FR-030). Takes `now` as input so the cutoff is
+ * bounded retention window. Takes `now` as input so the cutoff is
  * deterministic and unit-testable. The caller (scheduled task) reports the
  * returned count for observability.
  */

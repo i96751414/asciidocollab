@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { collabExtensions, COLLAB_YTEXT_KEY } from '@/components/editor/editor-collab-extensions';
 
-// T043 / US4 / FR-012, research D8: an observer's editor is read-only
+// Research D8: an observer's editor is read-only
 // (EditorState.readOnly + EditorView.editable false), yet remote (Yjs-applied)
 // updates still flow in so observers see live edits.
 function mountReadOnly(doc: Y.Doc, awareness: Awareness) {

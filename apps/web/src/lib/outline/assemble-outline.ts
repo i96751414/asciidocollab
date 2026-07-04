@@ -13,7 +13,7 @@ export interface AssembledOutline {
   entries: SectionOutlineEntry[];
   /** The effective scope after fallback resolution. */
   scope: ResolvedScope;
-  /** Unresolved includes passed through from assembleIncludes (graceful degradation, FR-014). */
+  /** Unresolved includes passed through from assembleIncludes (graceful degradation). */
   unresolved: UnresolvedInclude[];
   /** Main document used; null when no main document (current-file fallback). */
   rootFileId: string | null;
@@ -21,7 +21,7 @@ export interface AssembledOutline {
 
 /** Input options for {@link assembleOutline}. */
 export interface AssembleOutlineInput {
-  /** Main document path; null ⇒ current-file fallback (FR-005). */
+  /** Main document path; null ⇒ current-file fallback. */
   rootPath: string | null;
   /** Path of the open file. */
   openFilePath: string;
@@ -139,8 +139,8 @@ function extractHeadingsFromText(
  *
  * Resolves the effective scope per data-model §2:
  *  - scopePreference='current' → always current-file
- *  - scopePreference='full', rootPath null → current-file fallback (FR-005)
- *  - scopePreference='full', open file not reachable from root → current-file fallback (FR-006)
+ *  - scopePreference='full', rootPath null → current-file fallback
+ *  - scopePreference='full', open file not reachable from root → current-file fallback
  *  - scopePreference='full', open file reachable → full assembled outline.
  */
 export function assembleOutline(input: AssembleOutlineInput): AssembledOutline {

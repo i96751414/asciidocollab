@@ -11,7 +11,7 @@ export interface AuthorizationDenial {
 }
 
 /**
- * Audits an authorization denial (Security Constitution §Audit / SEC4): logs the actor, resource,
+ * Audits an authorization denial (Security Constitution §Audit): logs the actor, resource,
  * and reason in one consistent shape and never includes the session cookie or other secrets.
  * Centralized so the audit contract is enforced identically everywhere it is emitted.
  */

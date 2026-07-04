@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US3 / FR-011/FR-012/FR-013 (auto IDs honor idprefix/idseparator): the main file defines
+// Auto IDs honor idprefix/idseparator: the main file defines
 // `:idprefix:` and `:idseparator:` before including a child; the child's auto-generated heading
 // IDs use the inherited prefix/separator in the assembled preview. Explicit IDs are preserved.
 
@@ -16,7 +16,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US3 auto IDs honor idprefix/idseparator across files', () => {
+test.describe('auto IDs honor idprefix/idseparator across files', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

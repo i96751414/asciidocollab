@@ -200,7 +200,7 @@ describe('MoveFileUseCase', () => {
   });
 });
 
-describe('MoveFileUseCase — US12 reference rewrite + main-file consistency', () => {
+describe('MoveFileUseCase — reference rewrite + main-file consistency', () => {
   const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
   const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
   const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');
@@ -254,7 +254,7 @@ describe('MoveFileUseCase — US12 reference rewrite + main-file consistency', (
     expect(book).not.toContain('chapters/intro.adoc');
   });
 
-  it('keeps the project main-file configuration pointing at the moved file (FR-070)', async () => {
+  it('keeps the project main-file configuration pointing at the moved file', async () => {
     projectEntity.setMainFile(introId);
     await projectRepo.save(projectEntity);
 

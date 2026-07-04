@@ -3,15 +3,15 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US2 / FR-006–008: the soft-wrap toggle must be reachable from the editor next
-// to Font Size / Theme (≤2 interactions, SC-002), change wrapping immediately,
+// The soft-wrap toggle must be reachable from the editor next
+// to Font Size / Theme (≤2 interactions), change wrapping immediately,
 // and persist across reloads.
 
 const LONG_LINE =
   '= Wrap\n\n' +
   'This is a deliberately long single line of prose that exceeds the editor viewport width so that soft wrapping is observable when it is enabled and absent when it is disabled.\n';
 
-test.describe('US2 line-wrap toggle', () => {
+test.describe('line-wrap toggle', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

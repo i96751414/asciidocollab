@@ -308,7 +308,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/download — live content',
   });
 });
 
-describe('GET /projects/:projectId/files/:fileNodeId/download — resilience (US3)', () => {
+describe('GET /projects/:projectId/files/:fileNodeId/download — resilience', () => {
   test('active session + reader returns error → 200 with disk bytes, no internal error in response', async () => {
     const storedContent = Buffer.from('= Stored Fallback');
     const fakeDocument = {

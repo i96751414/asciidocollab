@@ -29,7 +29,7 @@ export class User {
      */
     public readonly passwordHash: string | null,
     /**
-     * Argon2id hashes of the last N passwords for history enforcement (FR-027).
+     * Argon2id hashes of the last N passwords for history enforcement.
      * Oldest first. Empty array when no history exists.
      */
     public readonly passwordHistory: string[],

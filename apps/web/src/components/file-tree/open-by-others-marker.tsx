@@ -10,8 +10,8 @@ const MAX_AVATARS = 3;
  * Marks a file-tree node that is currently open by OTHER users (feature 024). Shows a small avatar
  * cluster (coloured initial fallback, matching the in-editor presence bar) and reveals who on
  * hover/focus via the accessible label + native title. Renders nothing when no other user has the
- * file open, so it never appears for the viewer's own file (FR-002/FR-003). Uses design tokens, so
- * it is correct in light and dark themes (FR-010/SC-006).
+ * file open, so it never appears for the viewer's own file. Uses design tokens, so
+ * it is correct in light and dark themes.
  */
 export function OpenByOthersMarker({ participants }: { participants: readonly ParticipantPresence[] }) {
   if (participants.length === 0) return null;

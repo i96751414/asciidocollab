@@ -1,7 +1,7 @@
 /**
  * Minimal observability port for best-effort side-effects (e.g. Audit writes)
  * that must never fail the surrounding operation but must remain observable
- * (FR-021: audit-write failures must not be silently discarded).
+ * (audit-write failures must not be silently discarded).
  *
  * Infrastructure/delivery provides an adapter (e.g. Over the request logger);
  * the domain depends only on this interface. It is intentionally optional at

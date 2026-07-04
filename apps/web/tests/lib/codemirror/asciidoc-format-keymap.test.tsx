@@ -13,7 +13,7 @@ import {
 import { createTestBlockTokenizer } from '../../helpers/asciidoc-test-tokenizer';
 
 /**
- * Coverage for the formatting keymap (US9, FR-036/037/041): the pure `wrapWith`
+ * Coverage for the formatting keymap: the pure `wrapWith`
  * helper, the Mod-b/i/` wrap commands, the Mod-/ comment toggle, and the
  * type-over-selection auto-wrap input handler — all driven through a real,
  * mounted `EditorView` in jsdom.
@@ -169,7 +169,7 @@ describe('Mod-/ — toggleComment', () => {
 });
 
 describe('autoWrapInputHandler', () => {
-  test('typing an emphasis mark over a selection wraps it and selects the inner text (FR-037)', () => {
+  test('typing an emphasis mark over a selection wraps it and selects the inner text', () => {
     const view = setup('a word b', 2, 6); // select "word"
     const handled = typeInput(view, 2, 6, '*');
     expect(handled).toBe(true);

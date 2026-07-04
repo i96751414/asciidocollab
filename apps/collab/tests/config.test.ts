@@ -89,7 +89,7 @@ describe('createCollabConfig', () => {
     });
   });
 
-  // T053 / CFG1: security config keys.
+  // Security config keys.
   describe('security config keys', () => {
     it('provides safe defaults for the security keys', () => {
       const config = createCollabConfig();

@@ -87,7 +87,7 @@ describe('POST /auth/login', () => {
     expect(m.record.mock.calls[0][0].identifier).toBe('user@example.com');
   });
 
-  it('INV-5: still returns 401 when telemetry recording fails (best-effort)', async () => {
+  it('still returns 401 when telemetry recording fails (best-effort)', async () => {
     const { app, m } = buildApp({
       verify: jest.fn().mockResolvedValue(false),
       record: jest.fn().mockRejectedValue(new Error('db down')),

@@ -10,7 +10,7 @@ import {
   editorContent,
 } from './helpers/editor';
 
-// US1 / FR-001 / FR-002a (cross-document attributes): a `{name}` reference in the previewed open
+// Cross-document attributes: a `{name}` reference in the previewed open
 // file resolves to the value in effect at the file's first include-point in the assembled tree,
 // anchored to the project main file (root). Editing the parent's value updates the preview live.
 
@@ -23,7 +23,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US1 preview cross-document attributes', () => {
+test.describe('preview cross-document attributes', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -52,7 +52,7 @@ test.describe('US1 preview cross-document attributes', () => {
 
     await openProject(page, projectId);
     // Open the CHILD file — its preview must resolve {productName} from the parent's scope.
-    await openFile(page, 'child.adoc');
+    await openFile(page, 'child.adoc', 'Child');
     await expandPreview(page);
 
     const output = page.getByTestId('asciidoc-output');
@@ -62,13 +62,13 @@ test.describe('US1 preview cross-document attributes', () => {
 
     // Edit the PARENT's value, then re-open the child; the preview reflects the new value (live
     // re-resolution rooted at the main file).
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await editorContent(page).click();
     // Replace "Acme" with "Globex" in the main file's attribute definition.
     await page.keyboard.press('Control+a');
     await page.keyboard.type('= Book\n:productName: Globex\n\ninclude::child.adoc[]\n');
     // Give the live buffer + symbol index time to settle, then re-open the child.
-    await openFile(page, 'child.adoc');
+    await openFile(page, 'child.adoc', 'Child');
     await expect(output).toContainText('Product is Globex.', { timeout: 15_000 });
     await expect(output).not.toContainText('Acme');
   });
@@ -84,7 +84,7 @@ test.describe('US1 preview cross-document attributes', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'child.adoc');
+    await openFile(page, 'child.adoc', 'Child');
     await expandPreview(page);
 
     const output = page.getByTestId('asciidoc-output');

@@ -1,7 +1,10 @@
 import { FindReferencesUseCase } from '../../../src/use-cases/content/find-references';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
+import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
+import { Project } from '../../../src/entities/project';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
 import { UserId } from '../../../src/value-objects/ids/user-id';
@@ -19,7 +22,7 @@ import { MimeType } from '../../../src/value-objects/files/mime-type';
 import type { CollaborativeContentReader } from '../../../src/ports/storage/collaborative-content-reader';
 import type { Result } from '../../../src/types/result';
 
-// US12 / FR-065: project-wide find-usages of a section id / anchor / attribute.
+// Project-wide find-usages of a section id / anchor / attribute.
 
 const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
 const nonMember = UserId.create('660e8400-e29b-41d4-a716-446655440002');
@@ -80,6 +83,21 @@ describe('FindReferencesUseCase', () => {
     expect(result.value[0].path).toBe('book.adoc');
   });
 
+  it('returns an auto-generated section id (a plain heading with no explicit anchor) as a definition', async () => {
+    // A heading's derived id lives in the same xref namespace as an explicit anchor, so find-usages
+    // must report the heading itself as a definition — otherwise a rename that would collide two
+    // headings on the same slug is invisible to the collision guard (feature 033).
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('= Book\n\n== Setup\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('See <<_setup>>.\n'));
+    const result = await useCase.execute(actorId, projectId, '_setup', 'anchor');
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const definitions = result.value.filter((usage) => usage.kind === 'definition');
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0].path).toBe('book.adoc');
+    expect(result.value.some((usage) => usage.kind === 'xref' && usage.path === 'chapter.adoc')).toBe(true);
+  });
+
   it('restricts results to the selected kind when an id and an attribute share a name', async () => {
     // Bug repro: `intro` is both a section id (`[[intro]]` + `<<intro>>`) and an attribute
     // (`:intro:` + `{intro}`). Selecting "id / anchor" must NOT list the attribute usages.
@@ -101,6 +119,42 @@ describe('FindReferencesUseCase', () => {
     expect(both.success).toBe(true);
     if (!both.success) return;
     expect(both.value.map((u) => u.kind).toSorted()).toEqual(['attributeRef', 'definition', 'definition', 'xref']);
+  });
+
+  it('derives a section id with the idprefix/idseparator a PARENT set above the include', async () => {
+    // book.adoc sets `:idprefix: sec_` / `:idseparator: -` then includes chapter.adoc, so the
+    // chapter's `== My Section` renders as id `sec_my-section` (not the default `_my_section`).
+    // find-usages must derive the SAME inherited id so the `<<sec_my-section>>` xref resolves to it —
+    // it can only do that when the project main file is known (via the project repo).
+    await fileStore.write(
+      projectId,
+      FilePath.create('/book.adoc'),
+      Buffer.from('= Book\n:idprefix: sec_\n:idseparator: -\n\ninclude::chapter.adoc[]\n\nSee <<sec_my-section>>.\n'),
+    );
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('== My Section\n\nBody.\n'));
+
+    // Without the project repo the main file is unknown → no inheritance → the chapter id is the
+    // default `_my_section`, so the inherited-id query matches the literal `<<sec_my-section>>` xref
+    // but never the section DEFINITION (its derived id doesn't match).
+    const blind = await useCase.execute(actorId, projectId, 'sec_my-section', 'anchor');
+    expect(blind.success).toBe(true);
+    if (blind.success) expect(blind.value.some((usage) => usage.kind === 'definition')).toBe(false);
+
+    // With the main file configured, the inherited prefix/separator resolve the id.
+    const projectRepo = new InMemoryProjectRepository();
+    const project = new Project(projectId, ProjectName.create('Book'), null, [], rootId, undefined, null, bookId);
+    await projectRepo.save(project);
+    const inheritanceAware = new FindReferencesUseCase(
+      memberRepo, fileNodeRepo, fileStore, undefined, undefined, undefined, projectRepo,
+    );
+
+    const result = await inheritanceAware.execute(actorId, projectId, 'sec_my-section', 'anchor');
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const definitions = result.value.filter((usage) => usage.kind === 'definition');
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0].path).toBe('chapter.adoc');
+    expect(result.value.some((usage) => usage.kind === 'xref' && usage.path === 'book.adoc')).toBe(true);
   });
 
   it('returns no usages for a name that appears nowhere', async () => {

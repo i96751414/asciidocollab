@@ -52,7 +52,7 @@ describe('CollabPresenceBar', () => {
     expect(screen.getByTestId('collab-presence-count')).toHaveTextContent('2');
   });
 
-  test('renders a coloured initial when the participant has no avatar (T035)', () => {
+  test('renders a coloured initial when the participant has no avatar', () => {
     const states = new Map([
       [1, user('u-local', 'Me')],
       [2, user('u-bea', 'Bea')],

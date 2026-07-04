@@ -4,7 +4,7 @@ import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, editorContent, expectActiveFile } from './helpers/editor';
 
 // Ctrl+click on an attribute reference `{name}` jumps to where the attribute is DEFINED — in the
-// current file or another file in the include tree (FR-020/021). Mirrors the cross-file xref
+// current file or another file in the include tree. Mirrors the cross-file xref
 // go-to-definition; the logic itself is exhaustively unit-tested in asciidoc-link-handler.test.ts.
 
 test.describe('editor attribute go-to-definition (Ctrl+click)', () => {

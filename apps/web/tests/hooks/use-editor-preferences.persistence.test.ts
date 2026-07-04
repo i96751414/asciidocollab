@@ -1,10 +1,10 @@
 /* @jest-environment jsdom */
 /**
- * T024 — US3 persistence tests for `showIncludedFiles`.
+ * Persistence tests for `showIncludedFiles`.
  *
- * These are green verification tests: T006 already implements the full
+ * These are green verification tests: the implementation already provides the full
  * client-only persistence behaviour. This suite confirms the same-browser
- * persistence story (US3) and the client-only guarantee.
+ * persistence story and the client-only guarantee.
  */
 import { renderHook, act } from '@testing-library/react';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
@@ -38,7 +38,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-// ── T024 persistence tests ───────────────────────────────────────────────────
+// ── persistence tests ───────────────────────────────────────────────────
 
 test('persistence round-trip: setShowIncludedFiles(true) is read back by a new hook instance', () => {
   // First hook instance — simulate the user toggling the preference on.

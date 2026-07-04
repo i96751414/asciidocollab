@@ -7,7 +7,7 @@ import {
 } from '../../../src/use-cases/content/rename-symbol-rewrite';
 
 /**
- * Direct unit coverage for the pure rename-rewrite core (US12/FR-064). These cases also pin the
+ * Direct unit coverage for the pure rename-rewrite core. These cases also pin the
  * anchor↔section-id interaction: a code review flagged that renaming an anchor whose id collides
  * with a section heading might rewrite `<<id>>` references without updating the heading. That does
  * not happen because (a) an explicit-id heading (`[#id]` / `[[id]]`) is extracted as an ANCHOR

@@ -5,7 +5,7 @@ import { computeHeadingLevels, type HeadingLevelInfo } from './asciidoc-heading-
 import { foldRangeForSection } from './asciidoc-fold';
 
 /**
- * Whole-document folding controls + persistence (US10, FR-042/043):
+ * Whole-document folding controls + persistence:
  * fold-all / unfold-all / fold-to-level, and fold state persisted per
  * `userId:projectId:fileId` (here, browser-scoped localStorage keyed by
  * project:file — localStorage is already per-user/per-browser) and restored on

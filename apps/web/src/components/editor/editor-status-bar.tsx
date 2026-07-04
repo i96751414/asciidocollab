@@ -20,9 +20,9 @@ interface EditorStatusBarProperties {
   totalLines: number;
   saveState: EditorSaveState;
   onRetry: () => void;
-  /** Live word count (US11/FR-044); omitted ⇒ not shown. */
+  /** Live word count; omitted ⇒ not shown. */
   wordCount?: number;
-  /** Estimated reading time in minutes (US11/FR-044); omitted ⇒ not shown. */
+  /** Estimated reading time in minutes; omitted ⇒ not shown. */
   readingTimeMin?: number;
 }
 

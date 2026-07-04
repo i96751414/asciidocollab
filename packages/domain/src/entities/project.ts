@@ -52,7 +52,7 @@ export class Project {
      *  `createdAt`.
      */
     initialArchivedAt: Date | null = null,
-    /** Configured main/master AsciiDoc file (FR-045), or null when unset. */
+    /** Configured main/master AsciiDoc file, or null when unset. */
     initialMainFileNodeId: FileNodeId | null = null,
     /**
      * Document language used for spellcheck, or null when unset (the editor then
@@ -132,14 +132,14 @@ export class Project {
     this._rootFolderId = folderId;
   }
 
-  /** @returns The configured main AsciiDoc file id (FR-045), or null when unset. */
+  /** @returns The configured main AsciiDoc file id, or null when unset. */
   get mainFileNodeId(): FileNodeId | null {
     return this._mainFileNodeId;
   }
 
   /**
    * Sets or clears the project's configured main AsciiDoc file and bumps the
-   * update timestamp. Passing null clears the configuration (FR-045/070).
+   * update timestamp. Passing null clears the configuration.
    *
    * @param nodeId - The main file node id, or null to clear.
    */

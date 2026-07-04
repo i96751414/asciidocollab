@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// US7 / FR-022–027: per-file, per-user cursor memory. Each file remembers its own last cursor
+// Per-file, per-user cursor memory. Each file remembers its own last cursor
 // line; reopening a file restores that file's position (not just the last-opened file's), with
 // positions isolated per file. Persists across an editor leave/return on the same browser.
 
@@ -37,7 +37,7 @@ async function leaveAndReturnViaDashboard(page: import('@playwright/test').Page,
   await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 }
 
-test.describe('US7 per-file cursor memory', () => {
+test.describe('per-file cursor memory', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -87,7 +87,7 @@ test.describe('US7 per-file cursor memory', () => {
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 5, /)).toBeVisible({ timeout: 8000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Beta line 5 marker.');
 
-    // Persistence across a full editor leave/return on the same browser (FR-027). The last-opened
+    // Persistence across a full editor leave/return on the same browser. The last-opened
     // file (beta) restores at its remembered line on return.
     await leaveAndReturnViaDashboard(page, projectName);
     await expect(editorContent(page)).toContainText('Beta line 5 marker.', { timeout: 10_000 });

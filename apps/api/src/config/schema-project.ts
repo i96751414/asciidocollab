@@ -15,6 +15,14 @@ export interface ProjectConfig {
     rateLimitMax: number;
     /** Refactoring rate limit window in milliseconds. */
     rateLimitWindow: number;
+    /**
+     * Maximum read-only symbol-usages requests per user/IP per window for the
+     * proactive rename-suggestion detection path. Sized higher than the apply
+     * budget because detection auto-fires as the author edits a symbol.
+     */
+    suggestionRateLimitMax: number;
+    /** Detection (symbol-usages) rate limit window in milliseconds. */
+    suggestionRateLimitWindow: number;
   };
 }
 
@@ -46,6 +54,18 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
       format: 'integer',
       default: 3_600_000,
       env: 'ASCIIDOCOLLAB_PROJECT_REFACTORING_RATE_LIMIT_WINDOW',
+    },
+    suggestionRateLimitMax: {
+      doc: 'Maximum read-only symbol-usages (rename-suggestion detection) requests per user/IP per window.',
+      format: 'integer',
+      default: 600,
+      env: 'ASCIIDOCOLLAB_PROJECT_REFACTORING_SUGGESTION_RATE_LIMIT_MAX',
+    },
+    suggestionRateLimitWindow: {
+      doc: 'Rename-suggestion detection (symbol-usages) rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_REFACTORING_SUGGESTION_RATE_LIMIT_WINDOW',
     },
   },
 };

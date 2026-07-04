@@ -1,4 +1,4 @@
-// T001: Failing tests for buildPasswordSchema — all policy rule combinations
+// Failing tests for buildPasswordSchema — all policy rule combinations
 import { buildPasswordSchema } from '@/lib/password-schema';
 import type { PasswordPolicyDto } from '@asciidocollab/shared';
 

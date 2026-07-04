@@ -1,4 +1,4 @@
-// T005: Tests for assembleOutline (feature 032)
+// Tests for assembleOutline (feature 032)
 import { assembleOutline } from '@/lib/outline/assemble-outline';
 
 function makeReader(files: Record<string, string>) {

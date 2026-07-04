@@ -125,7 +125,7 @@ export function useFileSelection(projectId: string) {
 
         // A non-OK response means the node no longer exists (deleted/moved → id changed) or is
         // forbidden. Surface a `notFound` signal — no body read, no error UI — so the caller can
-        // clear stale memory and fall back gracefully (FR-009).
+        // clear stale memory and fall back gracefully.
         if (!response.ok) {
           setContentState({ content: null, etag: null, isLoading: false, error: null, isBinary: false, notFound: true, collab: null, collabUnavailable: false });
           return;

@@ -10,7 +10,7 @@ import { clearMailpit, waitForEmail, extractVerificationToken } from './helpers/
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-test.describe('Self-registration with email verification (US2)', () => {
+test.describe('Self-registration with email verification', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

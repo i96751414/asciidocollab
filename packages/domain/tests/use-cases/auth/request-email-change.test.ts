@@ -1,4 +1,4 @@
-// T034: Domain unit tests for RequestEmailChangeUseCase
+// Domain unit tests for RequestEmailChangeUseCase
 import { RequestEmailChangeUseCase } from '../../../src/use-cases/auth/request-email-change';
 import { User } from '../../../src/entities/user';
 import { UserId } from '../../../src/value-objects/ids/user-id';

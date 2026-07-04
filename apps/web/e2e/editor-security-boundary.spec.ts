@@ -5,7 +5,7 @@ import { createAdocFile, setMainFile, openProject, openFile, expandPreview, getE
 
 // Phase 16 / Constitution IX (security boundary): the editor + preview must never read outside the
 // project sandbox and must never render untrusted markup as live HTML. The 429 rate-limit on the
-// main-file / refactoring endpoints and the bounded symbol-index fan-out (FR-073/SC-025) are proven
+// main-file / refactoring endpoints and the bounded symbol-index fan-out are proven
 // at the route + hook unit layers; this spec covers the browser-observable boundaries.
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -46,7 +46,10 @@ test.describe('editor security boundary (Constitution IX)', () => {
     });
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty
+    // pre-sync document schedules no render, so `asciidoc-output` would never
+    // mount within expandPreview's budget under load.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 
@@ -140,7 +143,10 @@ test.describe('editor security boundary (Constitution IX)', () => {
     await setMainFile(page, projectId, await mainFileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty
+    // pre-sync document schedules no render, so `asciidoc-output` would never
+    // mount within expandPreview's budget under load.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

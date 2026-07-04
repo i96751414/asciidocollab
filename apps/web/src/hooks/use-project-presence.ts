@@ -15,7 +15,7 @@ interface PresenceState {
   /** File node id the publishing user currently has open, or null when none. */
   openFileNodeId?: string | null;
   /**
-   * 1-based cursor line in the open file (FR-019). Absent for older clients that don't publish it.
+   * 1-based cursor line in the open file. Absent for older clients that don't publish it.
    * Consumers skip it when absent rather than treating it as line 0.
    */
   cursorLine?: number;
@@ -89,8 +89,8 @@ export interface UseProjectPresenceOptions {
   openFileNodeId: string | null;
   /**
    * 1-based line where the local user's cursor sits in the open file. Published via awareness
-   * (debounced ~300 ms) so collaborators can attribute cursor positions to outline headings
-   * (FR-019/FR-023). Absent or null ⇒ no cursor-line entry published.
+   * (debounced ~300 ms) so collaborators can attribute cursor positions to outline headings.
+   * Absent or null ⇒ no cursor-line entry published.
    */
   cursorLine?: number | null;
   /** Overrides the provider factory in tests. */
@@ -99,7 +99,7 @@ export interface UseProjectPresenceOptions {
 
 /**
  * Reduces all peers' awareness into other-users-per-file: excludes the local user — both this tab
- * and the same user's other tabs/devices (FR-003) — and dedupes a user across tabs per file (FR-009).
+ * and the same user's other tabs/devices — and dedupes a user across tabs per file.
  *
  * @param awareness - The presence-room awareness.
  * @param localUserId - The viewer's user id, so their own other tabs are not reported as "others".
@@ -144,7 +144,7 @@ function byFileEqual(a: Map<string, ParticipantPresence[]>, b: Map<string, Parti
     for (const [index, participant] of listA.entries()) {
       if (participant.userId !== listB[index].userId || participant.name !== listB[index].name) return false;
       // Compare cursorLine too: a peer moving their cursor changes only this field, and the outline
-      // attributes presence markers by it (FR-021). Without this, a cursor move is suppressed as a
+      // attributes presence markers by it. Without this, a cursor move is suppressed as a
       // no-op and the marker never appears / never moves.
       if (participant.cursorLine !== listB[index].cursorLine) return false;
     }
@@ -157,7 +157,7 @@ function byFileEqual(a: Map<string, ParticipantPresence[]>, b: Map<string, Parti
  * file the viewer has open and observe which files OTHER users have open. Returns a map of
  * fileNodeId → the other participants holding that file open, updated in near-real-time and cleared
  * automatically when a peer disconnects. Presence is awareness-only: it never writes shared document
- * content (FR-011).
+ * content.
  */
 export function useProjectPresence(options: UseProjectPresenceOptions): ReadonlyMap<string, ParticipantPresence[]> {
   const { projectId, enabled, user, openFileNodeId, cursorLine, createProvider } = options;
@@ -221,7 +221,7 @@ export function useProjectPresence(options: UseProjectPresenceOptions): Readonly
     awarenessReference.current?.setLocalStateField('openFileNodeId', openFileNodeId);
   }, [openFileNodeId]);
 
-  // Publish cursorLine debounced (~300 ms) so every keystroke doesn't spam awareness (FR-019).
+  // Publish cursorLine debounced (~300 ms) so every keystroke doesn't spam awareness.
   // When cursorLine becomes null (file switch), immediately clear the field from awareness so peers
   // don't see a stale marker from the previous file (the open-file marker updates in parallel).
   useEffect(() => {

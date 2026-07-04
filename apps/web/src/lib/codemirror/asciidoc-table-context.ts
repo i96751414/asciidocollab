@@ -23,7 +23,7 @@ export interface TableContext {
 
 /**
  * Reports whether a table's leading `[...]` block-attribute line marks the first row as a header via
- * the explicit `options="header"` long form or the `%header` / `[header,…]` shorthands (FR-046). This
+ * the explicit `options="header"` long form or the `%header` / `[header,…]` shorthands. This
  * is the single source of truth for explicit-header detection, shared by the cursor-context parser
  * here and the header-cell bolding decoration (asciidoc-block-decorations.ts), so the two never
  * disagree on what counts as a header.

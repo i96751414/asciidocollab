@@ -10,7 +10,7 @@ describe('InMemoryAuthAttemptTelemetryRepository', () => {
     repo = new InMemoryAuthAttemptTelemetryRepository();
   });
 
-  test('INV-1: coalesces repeated failures for the same (identifier, ip, window) into one bucket', async () => {
+  test('coalesces repeated failures for the same (identifier, ip, window) into one bucket', async () => {
     for (let index = 0; index < 5; index++) {
       await repo.record({
         identifier: 'user@example.com',
@@ -27,7 +27,7 @@ describe('InMemoryAuthAttemptTelemetryRepository', () => {
     expect(all[0].firstAttemptAt.getTime()).toBe(WINDOW.getTime());
   });
 
-  test('INV-1: coalesces equally when the IP is the "unknown" sentinel', async () => {
+  test('coalesces equally when the IP is the "unknown" sentinel', async () => {
     for (let index = 0; index < 3; index++) {
       await repo.record({
         identifier: 'user@example.com',
@@ -50,7 +50,7 @@ describe('InMemoryAuthAttemptTelemetryRepository', () => {
     expect(await repo.findAll()).toHaveLength(4);
   });
 
-  test('INV-4: deleteOlderThan removes only buckets older than the cutoff and returns the count', async () => {
+  test('deleteOlderThan removes only buckets older than the cutoff and returns the count', async () => {
     await repo.record({ identifier: 'a@x.com', ipAddress: '1.1.1.1', userAgent: null, windowStart: WINDOW, now: WINDOW });
     await repo.record({ identifier: 'a@x.com', ipAddress: '1.1.1.1', userAgent: null, windowStart: LATER_WINDOW, now: LATER_WINDOW });
     const deleted = await repo.deleteOlderThan(new Date('2026-06-10T12:30:00.000Z'));

@@ -26,7 +26,7 @@ type RememberedFile = Omit<LastSelection, 'line'>;
 
 /**
  * Builds the user- and project-scoped storage key. Scoping by `userId` keeps two
- * accounts sharing a browser profile isolated (FR-011). Named helper — no inline
+ * accounts sharing a browser profile isolated. Named helper — no inline
  * string literals, mirroring `use-editor-preferences.ts`.
  */
 export function lastSelectionKey(userId: string, projectId: string): string {
@@ -96,7 +96,7 @@ export function clearLastSelection(userId: string, projectId: string): void {
   } catch { /* localStorage unavailable — nothing to clear */ }
 }
 
-// --- Per-file cursor memory (US7 / FR-022–027) -----------------------------------------------
+// --- Per-file cursor memory -----------------------------------------------
 //
 // A second, independent store remembers each file's last cursor line — not just the single
 // last-opened file above, but EVERY file the user has visited in the project. Value shape is a
@@ -110,7 +110,7 @@ interface CursorEntry {
 
 /**
  * Builds the user- and project-scoped key for the per-file cursor map. Scoping mirrors
- * `lastSelectionKey` so two accounts sharing a browser profile stay isolated (FR-024). Named
+ * `lastSelectionKey` so two accounts sharing a browser profile stay isolated. Named
  * helper — no inline string literals.
  */
 export function fileCursorsKey(userId: string, projectId: string): string {
@@ -160,7 +160,7 @@ export function rememberCursorLine(userId: string, projectId: string, nodeId: st
 
 /**
  * Reads one file's remembered 1-based cursor line, or `undefined` when none/invalid (the caller
- * opens at the top, FR-026). Clamp-to-valid is the caller's concern at restore time, against the
+ * opens at the top). Clamp-to-valid is the caller's concern at restore time, against the
  * actual document length. Never throws.
  */
 export function readCursorLine(userId: string, projectId: string, nodeId: string): number | undefined {

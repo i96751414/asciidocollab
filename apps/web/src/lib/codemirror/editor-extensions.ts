@@ -11,6 +11,7 @@ import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
+import { inheritedAttributesField } from '@/lib/codemirror/inherited-attributes-field';
 import { asciidocCrossDocumentAttributes } from '@/lib/codemirror/cross-document-attributes';
 import { asciidocConditionalDimming } from '@/lib/codemirror/conditional-dimming';
 import { asciidocBlockDecorations } from '@/lib/codemirror/asciidoc-block-decorations';
@@ -40,9 +41,9 @@ import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linte
 export interface EditorCompartments {
   /** Read-only / editability compartment, reconfigured when `canEdit` toggles. */
   readOnly: Compartment;
-  /** Language compartment, reconfigured by the source-highlight loader to force a re-parse (US5). */
+  /** Language compartment, reconfigured by the source-highlight loader to force a re-parse. */
   language: Compartment;
-  /** Soft-wrap compartment, reconfigured when the soft-wrap preference toggles (US2/FR-007). */
+  /** Soft-wrap compartment, reconfigured when the soft-wrap preference toggles. */
   lineWrap: Compartment;
   /** Spell-check lint compartment, reconfigured when the language/enabled/ignore prefs change. */
   spellcheck: Compartment;
@@ -56,7 +57,7 @@ export interface BuildEditorExtensionsOptions {
   canEdit: boolean;
   /** Whether soft-wrap is enabled at mount (drives the lineWrap compartment's initial value). */
   softWrap: boolean;
-  /** Persistence key for per-file fold state (US10); null ⇒ folds not persisted. */
+  /** Persistence key for per-file fold state; null ⇒ folds not persisted. */
   foldStorageKey: string | null;
   /** Returns the current spell-check ignore list. */
   getSpellIgnore: () => string[];
@@ -65,7 +66,7 @@ export interface BuildEditorExtensionsOptions {
   /** When false, spell-check produces no diagnostics regardless of language. */
   spellcheckEnabled: boolean;
   /**
-   * Uploads a pasted/dropped image (US9/FR-040).
+   * Uploads a pasted/dropped image.
    *
    * @param file - The image file to upload.
    * @returns The inserted project-relative path, or null on failure.
@@ -81,13 +82,13 @@ export interface BuildEditorExtensionsOptions {
   getCurrentAttributes: () => ReadonlyMap<string, string>;
   /**
    * Returns the attributes the open file inherits from the documents that include it, seeding the
-   * `{attr}` collapse-to-value display so cross-document references resolve (US8/FR-045a).
+   * `{attr}` collapse-to-value display so cross-document references resolve.
    */
   getInheritedAttributes: () => ReadonlyMap<string, string>;
   /**
    * Returns the names (lowercase) KNOWN ANYWHERE in the include tree — the symbol index's project-wide
    * `attributes` view (every file's definitions unioned), used to highlight a `{name}` whose attribute
-   * is defined in a parent (FR-020) OR an included file (FR-021) as known. Deliberately broader than
+   * is defined in a parent OR an included file as known. Deliberately broader than
    * the position-resolved value scope ({@link BuildEditorExtensionsOptions.getOutlineResolvedScope} /
    * the `{attr}` fold), so a `{name}` can be highlighted-known yet not collapse to a value at a
    * reference above its definition.
@@ -97,13 +98,13 @@ export interface BuildEditorExtensionsOptions {
    * Returns the open file's RESOLVED cross-document attribute scope (lowercase name → value). The
    * section outline reads it to resolve `{attr}` references in heading titles and to evaluate
    * conditional (`ifdef`/`ifndef`/`ifeval`) regions so inactive-branch headings are excluded, keeping
-   * the outline consistent with the rendered preview (R11/FR-032). Read lazily; the outline recomputes
+   * the outline consistent with the rendered preview. Read lazily; the outline recomputes
    * via the shared {@link refreshHeadingLevelsEffect} when the resolved scope changes.
    */
   getOutlineResolvedScope: () => ReadonlyMap<string, string>;
   /** Returns the latest project symbol index (or null for current-file scope). */
   projectIndexAccessor: () => ProjectSymbolIndex | null;
-  /** Returns the inherited include-path heading-level offset (US3/FR-071). */
+  /** Returns the inherited include-path heading-level offset. */
   getInheritedOffset: () => number;
   /** Returns the include resolution context for heading-level include tracing, or null. */
   getIncludeContext?: () => IncludeResolutionContext | null;
@@ -154,8 +155,12 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
   const collab = collabExtension ? [collabExtension] : [];
 
   return [
+    // The open file's inherited-attribute seed, read by the rename detector and xref completion to
+    // derive heading ids under a parent-set idprefix/idseparator. Installed in the base set so those
+    // consumers never depend on an optional feature extension being present; seeded from use-editor-mount.
+    inheritedAttributesField,
     // The language lives in a compartment so the source-highlight loader can
-    // reconfigure it (forcing a re-parse) once an embedded language loads (US5).
+    // reconfigure it (forcing a re-parse) once an embedded language loads.
     compartments.language.of(asciidoc()),
     // `{ fresh: true }`: reconfiguring with a NEW Language is what forces CodeMirror to restart
     // parsing so the just-loaded embedded parser is injected (see asciidoc-language.ts).
@@ -169,9 +174,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // Native history is omitted on the collab path (Yjs UndoManager owns undo there).
     ...nativeHistory,
     // List auto-continuation Enter command — registered before defaultKeymap (and at
-    // Prec.high) so it handles list lines first and all other lines fall through (FR-011).
+    // Prec.high) so it handles list lines first and all other lines fall through.
     listContinuationKeymap,
-    // Formatting shortcuts (Mod-b/i/`, Mod-/) + type-over-selection auto-wrap (US9).
+    // Formatting shortcuts (Mod-b/i/`, Mod-/) + type-over-selection auto-wrap.
     // Bound before defaultKeymap so they win without overriding save/find/undo.
     keymap.of([...formatKeymap]),
     autoWrapInputHandler,
@@ -189,33 +194,33 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     asciidocFold,
     foldGutter(),
     // Whole-document fold controls (fold-all/unfold-all/to-level) + per-file
-    // fold persistence (US10).
+    // fold persistence.
     foldControlsKeymap,
     foldPersistence(foldStorageKey),
-    // Paste/drop conveniences: URL→link, HTML→AsciiDoc, image→upload+image:: (US9).
+    // Paste/drop conveniences: URL→link, HTML→AsciiDoc, image→upload+image::.
     asciidocPasteHandlers({ uploadImage }),
-    // Prose spell-check (US9) + cross-file/structural diagnostics (US8):
+    // Prose spell-check + cross-file/structural diagnostics:
     // each is its own lint source so they merge in the gutter/underlines.
     lintGutter(),
     compartments.spellcheck.of(
       createSpellcheckLinter(getSpellIgnore, spellcheckLanguage, spellcheckEnabled),
     ),
     linter(asciidocDiagnosticsSource(projectIndexAccessor)),
-    // Effective heading-level styling (US3): raw level + in-file :leveloffset:.
-    // Inherited (cross-file) offset is wired from the symbol index in US8/T066.
+    // Effective heading-level styling: raw level + in-file :leveloffset:.
+    // Inherited (cross-file) offset is wired from the symbol index.
     asciidocHeadingLevels(getInheritedOffset, getIncludeContext),
     // Expose the same inherited offset to the outline StateField so it derives effective levels
     // (and the beyond-max / leveloffset rules) identically to the heading highlight.
     inheritedHeadingOffsetFacet.of(getInheritedOffset),
-    // {attr} collapse-to-value display fold — source text unchanged (FR-057). Seeded with the
-    // attributes inherited from including documents so cross-file references collapse too (US8).
+    // {attr} collapse-to-value display fold — source text unchanged. Seeded with the
+    // attributes inherited from including documents so cross-file references collapse too.
     asciidocAttributeFold(getInheritedAttributes),
-    // Mark `{name}` references that resolve in the file's RESOLVED cross-document scope (US6/FR-020),
+    // Mark `{name}` references that resolve in the file's RESOLVED cross-document scope,
     // so the theme can distinguish known cross-document references from unknown ones. The accessor is
     // read lazily; a refresh effect re-evaluates the marks live as the symbol index resolves values.
     asciidocCrossDocumentAttributes(getCrossDocumentAttributeNames),
     // Dim the content of inactive conditional branches (`ifdef`/`ifndef`/`ifeval`) so the editor
-    // matches what the preview renders (US12/FR-032). The branch active/inactive decision evaluates
+    // matches what the preview renders. The branch active/inactive decision evaluates
     // each region against the SAME resolved cross-document scope the outline uses to exclude
     // inactive-branch headings (`getOutlineResolvedScope` = inherited attributes + the file's own
     // definitions), so the dimming and the outline never disagree — e.g. a branch gated on a
@@ -223,14 +228,14 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // document edit and on the shared cross-document refresh effect (dispatched when the scope changes).
     asciidocConditionalDimming(getOutlineResolvedScope),
     // Give role spans `[.role]#…#` with a KNOWN inline style (built-in or registered) a distinct
-    // emphasis on top of the grammar's generic role-span highlight (US14/FR-021c). Registering a new
+    // emphasis on top of the grammar's generic role-span highlight. Registering a new
     // role needs no change here — the decoration recomputes from the registry on each update.
     asciidocInlineStyleEmphasis(),
     // Recede block-title `.` markers and table `|` separators, and bold table header cells, layered
-    // over the grammar's token colours (FR-031/046).
+    // over the grammar's token colours.
     asciidocBlockDecorations(),
     // Feed the section outline the file's resolved cross-document scope so it resolves `{attr}` titles
-    // and excludes inactive conditional-branch headings (R11/FR-032); read lazily so the shared
+    // and excludes inactive conditional-branch headings; read lazily so the shared
     // refreshHeadingLevelsEffect re-evaluates it when the scope changes without a document edit.
     outlineResolvedScopeFacet.of(getOutlineResolvedScope),
     outlineField,
@@ -255,7 +260,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // CodeMirror mounts higher-precedence style modules last, so they win the cascade.
     Prec.highest(asciidocTheme),
     // Soft-wrap lives in a compartment so toggling the preference reconfigures
-    // the live editor without a remount (US2/FR-007).
+    // the live editor without a remount.
     compartments.lineWrap.of(softWrap ? [EditorView.lineWrapping] : []),
   ];
 }

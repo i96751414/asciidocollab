@@ -58,9 +58,9 @@ test.describe('Editor left panel: Outline view (028)', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  // US1 flagship: Files is the default; switch to Outline; the outline lists nested headings
+  // Flagship: Files is the default; switch to Outline; the outline lists nested headings
   // including the title; clicking a heading moves the editor and the preview follows; and typing a
-  // new heading makes a new outline row appear live (FR-007).
+  // new heading makes a new outline row appear live.
   test('default Files; switch to Outline; nested headings; navigate; live update', async ({ page }) => {
     test.setTimeout(75_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'guide.adoc');
@@ -95,14 +95,14 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await outlineRow(page, 'Reference').click();
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Reference', { timeout: 10_000 });
 
-    // FR-007: typing a new section heading makes a new outline row appear without a manual refresh.
+    // Typing a new section heading makes a new outline row appear without a manual refresh.
     await editorContent(page).click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type('\n\n== Appendix\n');
     await expect(outlineRow(page, 'Appendix')).toBeVisible({ timeout: 10_000 });
   });
 
-  // US2: the current-section highlight follows the cursor (exactly one current row).
+  // The current-section highlight follows the cursor (exactly one current row).
   test('current section highlight follows the cursor', async ({ page }) => {
     test.setTimeout(75_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'sections.adoc');
@@ -130,7 +130,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByRole('navigation', { name: /section outline/i }).locator('[aria-current="true"]')).toHaveCount(1);
   });
 
-  // US3: the chosen view persists across a reload (localStorage, per user, not the account API).
+  // The chosen view persists across a reload (localStorage, per user, not the account API).
   test('the chosen Outline view persists across a reload', async ({ page }) => {
     test.setTimeout(75_000);
     const fileNodeId = await createTestFile(page, projectId, null, 'persist.adoc');
@@ -148,7 +148,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(railTab(page, /outline/i)).toHaveAttribute('aria-selected', 'true', { timeout: 15_000 });
   });
 
-  // US4: graceful empty states.
+  // Graceful empty states.
   test('empty states: no document, then a heading-less document', async ({ page }) => {
     const fileNodeId = await createTestFile(page, projectId, null, 'flat.adoc');
     await writeFileContent(page, projectId, fileNodeId, 'Just a paragraph, no headings.\n');
@@ -167,10 +167,10 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByText('No headings yet — add a section title (=, ==, …).')).toBeVisible({ timeout: 20_000 });
   });
 
-  // T014 / US1: full-document outline across include directives (feature 032).
-  // SC-001: with a main document configured, the outline shows the complete heading hierarchy from
+  // Full-document outline across include directives (feature 032).
+  // With a main document configured, the outline shows the complete heading hierarchy from
   // all included files regardless of which file is open.
-  test('full-document outline: shows all headings from included files (SC-001)', async ({ page }) => {
+  test('full-document outline: shows all headings from included files', async ({ page }) => {
     test.setTimeout(90_000);
 
     // Create main.adoc (root document) and ch.adoc (included chapter).
@@ -195,14 +195,14 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
     await railTab(page, /outline/i).click();
 
-    // SC-001: all headings from both files appear in the outline (seamless, in order).
+    // All headings from both files appear in the outline (seamless, in order).
     await expect(outlineRow(page, 'Book Title')).toBeVisible({ timeout: 20_000 });
     await expect(outlineRow(page, 'Chapter One')).toBeVisible({ timeout: 10_000 });
     await expect(outlineRow(page, 'Chapter Two')).toBeVisible({ timeout: 10_000 });
   });
 
-  // SC-002 / SC-005: clicking a foreign-file heading navigates to that file at the source heading.
-  test('full-document outline: clicking a foreign-file heading opens that file (SC-002/SC-005)', async ({ page }) => {
+  // Clicking a foreign-file heading navigates to that file at the source heading.
+  test('full-document outline: clicking a foreign-file heading opens that file', async ({ page }) => {
     test.setTimeout(90_000);
 
     const mainId = await createTestFile(page, projectId, null, 'root.adoc');
@@ -225,7 +225,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await railTab(page, /outline/i).click();
     await expect(outlineRow(page, 'Chapter Section')).toBeVisible({ timeout: 20_000 });
 
-    // SC-002/SC-005: clicking the child-file heading opens chapter.adoc.
+    // Clicking the child-file heading opens chapter.adoc.
     await outlineRow(page, 'Chapter Section').click();
     // The file tree should now show chapter.adoc as the active file.
     await expect(page.getByTestId('tree-node-chapter.adoc')).toHaveAttribute(
@@ -235,9 +235,9 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(editorContent(page)).toContainText('Chapter body.', { timeout: 15_000 });
   });
 
-  // T019 / SC-008: with no active collab session on an included file, the outline shows the
+  // With no active collab session on an included file, the outline shows the
   // last-saved headings from that file (single-user verification of the persistence layer).
-  test('full-document outline: included file with no live session shows last-saved headings (SC-008)', async ({ page }) => {
+  test('full-document outline: included file with no live session shows last-saved headings', async ({ page }) => {
     test.setTimeout(90_000);
 
     const mainId = await createTestFile(page, projectId, null, 'doc.adoc');
@@ -257,14 +257,14 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
     await railTab(page, /outline/i).click();
 
-    // SC-008: shows last-saved headings from appendix.adoc even though nobody is editing it live.
+    // Shows last-saved headings from appendix.adoc even though nobody is editing it live.
     await expect(outlineRow(page, 'Appendix A')).toBeVisible({ timeout: 20_000 });
     await expect(outlineRow(page, 'Intro')).toBeVisible({ timeout: 10_000 });
   });
 
-  // T019 / SC-007: a heading edit made by a collaborator in an included file appears in another
+  // A heading edit made by a collaborator in an included file appears in another
   // user's full-document outline within ~2 s, without an explicit save.
-  test('full-document outline: live heading edit in included file updates outline (SC-007)', async ({ page, browser }) => {
+  test('full-document outline: live heading edit in included file updates outline', async ({ page, browser }) => {
     test.setTimeout(120_000);
 
     // Session B watches the outline; Session A edits the included file.
@@ -305,7 +305,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
       await pageA.keyboard.press('Shift+End');
       await pageA.keyboard.type('== Updated Chapter Heading');
 
-      // SC-007: Session B's outline should reflect the updated heading within ~2 s.
+      // Session B's outline should reflect the updated heading within ~2 s.
       await expect(outlineRow(page, 'Updated Chapter Heading')).toBeVisible({ timeout: 15_000 });
       await expect(outlineRow(page, 'Original Chapter Heading')).toHaveCount(0);
     } finally {
@@ -313,8 +313,8 @@ test.describe('Editor left panel: Outline view (028)', () => {
     }
   });
 
-  // T024 / US2: scope toggle narrows the outline to the open file and back; persists across reload.
-  test('scope toggle narrows outline to current file and persists across reload (US2/FR-012)', async ({ page }) => {
+  // Scope toggle narrows the outline to the open file and back; persists across reload.
+  test('scope toggle narrows outline to current file and persists across reload', async ({ page }) => {
     test.setTimeout(90_000);
 
     const mainId = await createTestFile(page, projectId, null, 'scope-main.adoc');
@@ -356,9 +356,9 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(outlineRow(page, 'Chapter Heading')).toBeVisible({ timeout: 10_000 });
   });
 
-  // T027 / US3 / SC-004: project with no main document configured → only the open file's headings
+  // Project with no main document configured → only the open file's headings
   // appear in the outline and the full-document scope toggle is not shown.
-  test('no-main-doc: shows only open-file headings with no scope toggle (SC-004)', async ({ page }) => {
+  test('no-main-doc: shows only open-file headings with no scope toggle', async ({ page }) => {
     test.setTimeout(75_000);
 
     // No setMainFile call → the project has no main document.
@@ -373,7 +373,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
     await railTab(page, /outline/i).click();
 
-    // SC-004: only open-file headings appear.
+    // Only open-file headings appear.
     await expect(outlineRow(page, 'Standalone Title')).toBeVisible({ timeout: 20_000 });
     await expect(outlineRow(page, 'Only Heading')).toBeVisible({ timeout: 5000 });
 
@@ -381,9 +381,9 @@ test.describe('Editor left panel: Outline view (028)', () => {
     await expect(page.getByRole('button', { name: /current file|full document/i })).toHaveCount(0);
   });
 
-  // T034 / US5 / SC-010 / SC-011: presence marker appears on B's section in A's outline,
+  // Presence marker appears on B's section in A's outline,
   // moves when B's cursor moves, reflects others only (not A's own entry).
-  test('outline shows presence marker on heading where B has cursor; reflects others only (SC-010/011)', async ({ page, browser }) => {
+  test('outline shows presence marker on heading where B has cursor; reflects others only', async ({ page, browser }) => {
     test.setTimeout(120_000);
 
     const email = `outline-presence-${Date.now()}@example.com`;
@@ -427,7 +427,7 @@ test.describe('Editor left panel: Outline view (028)', () => {
       // section-outline navigation to assert specifically on the outline's presence marker.
       const outlineMarker = page.getByRole('navigation', { name: /section outline/i }).getByTestId('open-by-others-marker');
 
-      // SC-011: A does NOT see a marker on their own session (self-exclusion).
+      // A does NOT see a marker on their own session (self-exclusion).
       await expect(outlineMarker).toHaveCount(0);
 
       // B places cursor on the "Child Section" heading line by clicking in the editor around line 7.
@@ -436,10 +436,10 @@ test.describe('Editor left panel: Outline view (028)', () => {
       // Move to line 7 (the include::child-presence.adoc[] line → child section at that area).
       for (let index = 0; index < 6; index++) await pageB.keyboard.press('ArrowDown');
 
-      // SC-010: A's outline should eventually show B's presence marker on whichever heading B is in.
+      // A's outline should eventually show B's presence marker on whichever heading B is in.
       await expect(outlineMarker).toBeVisible({ timeout: 15_000 });
 
-      // SC-011: B moves cursor up to the "Intro Section" area.
+      // B moves cursor up to the "Intro Section" area.
       for (let index = 0; index < 5; index++) await pageB.keyboard.press('ArrowUp');
 
       // The marker should move (appear somewhere in the outline — still present).
@@ -448,11 +448,11 @@ test.describe('Editor left panel: Outline view (028)', () => {
       await contextB.close();
     }
 
-    // SC-011: After B disconnects, the marker should clear from A's outline.
+    // After B disconnects, the marker should clear from A's outline.
     await expect(page.getByRole('navigation', { name: /section outline/i }).getByTestId('open-by-others-marker')).toHaveCount(0, { timeout: 15_000 });
   });
 
-  // US5: file create/options actions show only while Files is active.
+  // File create/options actions show only while Files is active.
   test('file actions are present on Files and absent on Outline', async ({ page }) => {
     // The document title MUST NOT be "Actions": this test matches the file-tree ⋯ control by its
     // accessible name (`aria-label="actions"`), and an outline entry renders a button named after the

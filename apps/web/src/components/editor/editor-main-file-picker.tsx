@@ -35,7 +35,7 @@ function collectAsciiDocFiles(node: FileTreeNode, into: AsciiDocFile[]): void {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
- * Project main-file picker (US8/FR-045): lists the project's AsciiDoc files (any
+ * Project main-file picker: lists the project's AsciiDoc files (any
  * AsciiDoc extension) and persists the selection via `setProjectMainFile`; the main file scopes cross-file
  * resolution (include graph, symbols, diagnostics, heading levels). Rendered only
  * for editors/owners — viewers configure nothing and fall back to current-file scope.
@@ -52,7 +52,7 @@ export function EditorMainFilePicker({
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
-  // Reflect an externally-changed main file (e.g. cleared by a move/rename, US12).
+  // Reflect an externally-changed main file (e.g. cleared by a move/rename).
   useEffect(() => {
     setSelected(currentMainFileNodeId ?? '');
   }, [currentMainFileNodeId]);

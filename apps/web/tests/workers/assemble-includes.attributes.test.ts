@@ -4,14 +4,14 @@ function reader(files: Record<string, string>) {
   return (path: string) => files[path] ?? null;
 }
 
-// ── T008 (US1/FR-005): assembler attribute fidelity in hide mode ──────────────────────────────
+// ── assembler attribute fidelity in hide mode ──────────────────────────────
 //
 // With `showIncludes:false` the assembler suppresses included body content, but it MUST still
 // emit attribute-set/unset lines so that later content (and Asciidoctor itself) sees the correct
 // attribute state — identical to full-inline mode in that regard. These tests verify five
-// distinct cases of that contract; they are expected to FAIL until T012 is implemented (the
+// distinct cases of that contract; they are expected to FAIL until hide mode is implemented (the
 // assembler currently ignores `showIncludes` and inlines everything).
-describe('assembleIncludes — attribute fidelity in hide mode (T008)', () => {
+describe('assembleIncludes — attribute fidelity in hide mode', () => {
   // 1. :leveloffset: from nested include still applies in hide mode
   //    root → child.adoc → grandchild.adoc (sets :leveloffset: 2)
   //    The attribute entry must appear in the assembled output even though the grandchild body is

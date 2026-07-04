@@ -16,14 +16,14 @@ interface OutlineViewProperties {
   // Called with the clicked heading so the layout can navigate the editor (reuses the line-click seam).
   onHeadingClick: (entry: SectionOutlineEntry) => void;
   // Full-document scope: when 'full', current-section tracking is restricted to open-file entries
-  // (FR-011) — the cursor has no position in a foreign file.
+  // — the cursor has no position in a foreign file.
   effectiveScope?: 'full' | 'current';
-  // Persisted user preference (FR-003/FR-004/FR-012); when provided along with onScopeChange,
+  // Persisted user preference; when provided along with onScopeChange,
   // a toggle button is rendered. Absent ⇒ no toggle (e.g. no main document / fallback mode).
   outlineScope?: OutlineScope;
   // Called when the user clicks the scope toggle; receives the NEW scope value.
   onScopeChange?: (scope: OutlineScope) => void;
-  // Keyed by `${sourceFileId}:${sourceLine}` — from mapOutlinePresence (FR-021/FR-022).
+  // Keyed by `${sourceFileId}:${sourceLine}` — from mapOutlinePresence.
   outlinePresence?: ReadonlyMap<string, ParticipantPresence[]>;
 }
 
@@ -33,7 +33,7 @@ interface OutlineViewProperties {
  * existing {@link EditorSectionOutline}; the current section is derived from the cursor line.
  *
  * When `outlineScope` + `onScopeChange` are both provided, a toggle button switches between the
- * full assembled document outline and the open file's headings only (FR-003/FR-004/FR-012).
+ * full assembled document outline and the open file's headings only.
  */
 export function OutlineView({ entries, currentLine, hasDocument, onHeadingClick, effectiveScope, outlineScope, onScopeChange, outlinePresence }: OutlineViewProperties) {
   // When the user has chosen 'current' scope, filter to only open-file entries before rendering.
@@ -46,7 +46,7 @@ export function OutlineView({ entries, currentLine, hasDocument, onHeadingClick,
 
   // The layout re-renders this view on every cursor move (currentLine) and every edit (entries), so
   // memoise the O(n) current-section scan over only its real inputs. In full-document scope the
-  // cursor only has a position within open-file entries (FR-011); foreign-file entries are skipped.
+  // cursor only has a position within open-file entries; foreign-file entries are skipped.
   const currentIndex = useMemo(() => {
     if (effectiveScope === 'full') {
       const openOnly = visibleEntries.filter((entry) => entry.isOpenFile !== false);

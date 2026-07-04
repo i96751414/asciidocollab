@@ -4,17 +4,23 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  // Per-test budget. Kept generous so a COLD first render — the AsciiDoc→HTML web worker and Yjs
+  // sync warming up on the first preview/editor mount after the stack starts — has room to complete
+  // within a single attempt under gate load, rather than tripping the deadline and surfacing as a
+  // flaky retry. Steady-state tests finish in a few seconds; only cold starts approach this.
+  timeout: 45_000,
   retries: process.env.CI ? 2 : 0,
   // Cap concurrency for the isolated stack: every collab-backed test opens Yjs sync session(s) against
   // a SINGLE test collaboration server, and collab pair-tests use two browser contexts each. The
   // Playwright default (one worker per CPU core) over-subscribes that server on a many-core machine, so
   // its Yjs sync lags and content-dependent assertions race an empty pre-sync document — surfacing as
   // intermittent failures in the heavy collab+preview specs (preview render, file-restore, outline).
-  // 4 keeps the server comfortably within sync budget while staying reasonably fast. The cap is applied
-  // UNCONDITIONALLY (not only under CI): a bare local `npx playwright test` must not oversubscribe
-  // either. Override with PLAYWRIGHT_WORKERS when you know the run won't contend (e.g. a single spec).
-  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 4,
+  // 3 keeps the collab server within sync budget under gate load — 4 still let the post-navigation
+  // re-sync lag past even the generous per-spec waits (observed as retried "preview render" / restore
+  // flakes) — while staying reasonably fast. The cap is applied UNCONDITIONALLY (not only under CI): a
+  // bare local `npx playwright test` must not oversubscribe either. Override with PLAYWRIGHT_WORKERS
+  // when you know the run won't contend (e.g. a single spec).
+  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 3,
   reporter: [['line']],
   use: {
     baseURL: WEB_URL,

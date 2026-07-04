@@ -1,4 +1,4 @@
-// Client-side STEM (math) rendering for the AsciiDoc preview (US15 / FR-021d-f; research R5).
+// Client-side STEM (math) rendering for the AsciiDoc preview.
 //
 // Asciidoctor emits stem expressions as inert delimiter markup — inline `\(…\)` (latexmath) and
 // `\$…\$` (asciimath), display `\[…\]`, wrapped for blocks in `<div class="stemblock">`. The render
@@ -21,7 +21,7 @@
 //   the raw expression through MathJax's explicit convert API, and REPLACE the delimited text/content
 //   node with the produced `mjx-container`. No delimiter survives → no stray `$`.
 //
-// Constraints (Constitution VI/VIII/IX; R5):
+// Constraints (Constitution VI/VIII/IX):
 // - Self-hosted only: MathJax loads from the web app's OWN `public/vendor/mathjax/` (copied from the
 //   `mathjax` npm package at build time by scripts/build-mathjax-assets.mjs). No CDN, no network.
 // - Real `<script>` tag, not `import()`: the package's `es5/*` files are browser IIFE bundles, not ES
@@ -492,7 +492,7 @@ export async function renderMath(container: HTMLElement): Promise<void> {
     mathJax.startup?.document?.updateDocument();
   } catch {
     // A failure here means the engine itself could not load/run; swallow it so the rest of the
-    // preview stays intact (FR-021; SC-008) — math simply remains as its source delimiters.
+    // preview stays intact — math simply remains as its source delimiters.
   }
 }
 

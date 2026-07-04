@@ -30,7 +30,7 @@ describe('useLastSelection (bound helpers)', () => {
     expect(localStorage.getItem(lastSelectionKey(USER, PROJECT))).toBeNull();
   });
 
-  it('round-trips a per-file cursor line and prunes it (US7)', () => {
+  it('round-trips a per-file cursor line and prunes it', () => {
     const { result } = renderHook(() => useLastSelection(USER, PROJECT));
 
     expect(result.current.readCursorLine('n1')).toBeUndefined();

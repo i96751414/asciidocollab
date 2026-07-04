@@ -23,3 +23,115 @@
   font-size: var(--editor-font-size, 14px);
   height: 100%;
 }
+
+/* ─── Rename refactor suggestion (feature 033) ───────────────────────────────
+ * All colours come from the shared design tokens (hsl(var(--…))), so the widget
+ * is correct in both light and dark mode without theme-specific overrides. */
+.asciidoc-editor .cm-ad-rename-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: nowrap;
+  margin: 0.3rem 0;
+  padding: 0.3rem 0.4rem 0.3rem 0.6rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.06),
+    0 2px 8px hsl(var(--foreground) / 0.04);
+}
+.asciidoc-editor .cm-ad-rename-suggestion[data-collision='true'] {
+  border-color: hsl(var(--destructive) / 0.55);
+  background: hsl(var(--destructive) / 0.06);
+}
+
+/* Message: a single, never-wrapping line — long identifiers clip (with a title tooltip) rather than
+ * pushing the buttons onto a second row, so the offer stays one line even in a narrow editor pane. */
+.asciidoc-editor .cm-ad-rename-suggestion-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-name {
+  display: inline-block;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  padding: 0.02rem 0.3rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: hsl(var(--muted));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-name-old {
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-name-new {
+  color: hsl(var(--accent-foreground));
+  background: hsl(var(--accent));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-arrow {
+  margin: 0 0.3rem;
+  color: hsl(var(--muted-foreground));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-meta {
+  margin-left: 0.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+}
+
+.asciidoc-editor .cm-ad-rename-suggestion-btn {
+  flex: 0 0 auto;
+  cursor: pointer;
+  min-height: 1.55rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-primary:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-primary:active {
+  background: hsl(var(--primary) / 0.82);
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-ghost {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-ghost:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-ghost:active {
+  background: hsl(var(--secondary));
+}

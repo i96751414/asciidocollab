@@ -1,9 +1,9 @@
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 
-/** A presence peer who has published a `cursorLine` field via Yjs awareness (FR-019). */
+/** A presence peer who has published a `cursorLine` field via Yjs awareness. */
 export interface OutlinePeer extends ParticipantPresence {
-  /** 1-based cursor line published by the peer via awareness (FR-019). */
+  /** 1-based cursor line published by the peer via awareness. */
   cursorLine: number;
 }
 
@@ -13,7 +13,7 @@ export interface OutlinePeer extends ParticipantPresence {
  * Each peer is attributed to the heading whose `sourceLine` is the greatest value ≤ `cursorLine`
  * within the same `sourceFileId`. Peers with `cursorLine ≤ 0`, with a cursorLine above the first
  * heading in their file, or belonging to a file not present in `entries` are silently dropped
- * (Principle IX / FR-024). Per-user deduplication is assumed to happen at the caller level
+ * (Principle IX). Per-user deduplication is assumed to happen at the caller level
  * (collectByFile already dedupes by user across tabs).
  *
  * @param entries - Full outline with provenance (sourceFileId, sourceLine required).

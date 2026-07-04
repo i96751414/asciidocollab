@@ -150,7 +150,7 @@ describe('ProjectEditorLayout', () => {
     mockClearLastSelection.mockReset();
   });
 
-  // T002: shell renders with required data-testids
+  // shell renders with required data-testids
   it('renders without crashing and has required data-testids', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
@@ -172,7 +172,7 @@ describe('ProjectEditorLayout', () => {
     await waitFor(() => expect(screen.getByTestId('preview-panel')).toBeInTheDocument());
   });
 
-  // T010: sidebar panel toggle
+  // sidebar panel toggle
   it('sidebar is visible initially and can be collapsed', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
@@ -186,7 +186,7 @@ describe('ProjectEditorLayout', () => {
     expect(screen.getByTestId('file-tree-panel')).toHaveClass('hidden');
   });
 
-  // T012 (a): canManage=true shows Settings and Members links
+  // (a): canManage=true shows Settings and Members links
   it('shows Settings and Members links for owner', async () => {
     render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
@@ -196,7 +196,7 @@ describe('ProjectEditorLayout', () => {
     expect(membersLink).toHaveAttribute('href', '/dashboard/projects/p1/members');
   });
 
-  // T012 (b): canManage=false hides Settings and Members links
+  // (b): canManage=false hides Settings and Members links
   it('does not show Settings or Members links for non-owner', async () => {
     render(<ProjectEditorLayout {...defaultProps} canManage={false} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
@@ -204,7 +204,7 @@ describe('ProjectEditorLayout', () => {
     expect(screen.queryByRole('link', { name: /members/i })).not.toBeInTheDocument();
   });
 
-  // T012 (c): Back to projects link always present
+  // (c): Back to projects link always present
   it('shows Back to projects link for all roles', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
@@ -212,8 +212,8 @@ describe('ProjectEditorLayout', () => {
     expect(backLink).toHaveAttribute('href', '/dashboard');
   });
 
-  // T022: collapse/expand buttons use Lucide icons, not raw unicode ‹/›
-  it('T022: sidebar collapse/expand buttons render SVG icons, not raw unicode ‹ or › characters', async () => {
+  // collapse/expand buttons use Lucide icons, not raw unicode ‹/›
+  it('sidebar collapse/expand buttons render SVG icons, not raw unicode ‹ or › characters', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
 
@@ -231,8 +231,8 @@ describe('ProjectEditorLayout', () => {
     expect(expandButton.querySelector('svg')).toBeInTheDocument();
   });
 
-  // T022b: header navigation links render as icon-bearing buttons (redesigned header)
-  it('T022b: header navigation links render lucide icons', async () => {
+  // header navigation links render as icon-bearing buttons (redesigned header)
+  it('header navigation links render lucide icons', async () => {
     render(<ProjectEditorLayout {...defaultProps} canManage={true} />);
     await waitFor(() => expect(screen.getByTestId('file-tree-panel')).toBeInTheDocument());
 
@@ -245,8 +245,8 @@ describe('ProjectEditorLayout', () => {
     }
   });
 
-  // T022c: the content panel is edge-to-edge (no padding) so the editor reaches the panel edges.
-  it('T022c: content panel has no padding', async () => {
+  // the content panel is edge-to-edge (no padding) so the editor reaches the panel edges.
+  it('content panel has no padding', async () => {
     render(<ProjectEditorLayout {...defaultProps} />);
     await waitFor(() => expect(screen.getByTestId('content-panel')).toBeInTheDocument());
 
@@ -254,7 +254,7 @@ describe('ProjectEditorLayout', () => {
     expect(contentPanel).not.toHaveClass('p-4');
   });
 
-  // T025: SSE wiring — useFileTreeEvents called with correct projectId and events propagate
+  // SSE wiring — useFileTreeEvents called with correct projectId and events propagate
   it('calls useFileTreeEvents with correct projectId and tree updates on SSE event', async () => {
     const treeWithFile = {
       ...emptyRoot,
@@ -434,7 +434,7 @@ describe('ProjectEditorLayout', () => {
     expect(editor).toHaveAttribute('data-file-node-id', 'file-abc');
   });
 
-  // T005 / US1: restore the last selection on mount and persist selections.
+  // restore the last selection on mount and persist selections.
   describe('last-selection restore & persistence', () => {
     const treeWithFile = {
       ...emptyRoot,
@@ -496,7 +496,7 @@ describe('ProjectEditorLayout', () => {
       expect(mockRememberFile).toHaveBeenCalledWith({ nodeId: 'file-1', nodeName: 'doc.adoc', nodeType: 'file', path: '/doc.adoc' });
     });
 
-    // T017 / US3: a restored file whose content 404s clears the stale memory and resets the view.
+    // a restored file whose content 404s clears the stale memory and resets the view.
     it('clears stored memory and resets selection when the restored file is not found', async () => {
       const clearSelection = jest.fn();
       jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({
@@ -582,7 +582,7 @@ describe('ProjectEditorLayout', () => {
         rerender(<ProjectEditorLayout {...defaultProps} />);
 
         // The switch FLUSHES the pending save to file A's PER-FILE entry — its cursor position is
-        // preserved, not dropped (US7/FR-022) — keyed by the captured nodeId so it lands on file A,
+        // preserved, not dropped — keyed by the captured nodeId so it lands on file A,
         // never file B. The single last-selection `line` is deliberately NOT written on a switch: it
         // now belongs to file B, so writing file A's line there would contaminate B's restore.
         expect(mockRememberCursorLine).toHaveBeenCalledWith('file-a', 10);
@@ -615,7 +615,7 @@ describe('ProjectEditorLayout', () => {
       }
     });
 
-    // FR-010: the view renders its default/interactive state immediately; restoration never blocks it.
+    // the view renders its default/interactive state immediately; restoration never blocks it.
     it('renders the default empty content state immediately even when a restore is pending', async () => {
       const selectFile = jest.fn();
       jest.requireMock('@/hooks/use-file-selection').useFileSelection.mockReturnValue({

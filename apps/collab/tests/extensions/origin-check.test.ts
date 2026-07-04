@@ -31,7 +31,7 @@ function makeExtension(
   });
 }
 
-// T056 / SEC2: reject handshakes whose Origin is not in the allowlist (CSWSH defence).
+// Reject handshakes whose Origin is not in the allowlist (CSWSH defence).
 describe('AuthHookExtension Origin allowlist', () => {
   it('rejects (1008) a disallowed Origin before contacting the auth endpoint', async () => {
     const fetchMock = jest.fn();

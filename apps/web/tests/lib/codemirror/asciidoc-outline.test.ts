@@ -120,7 +120,7 @@ describe('asciidoc-outline StateField', () => {
     expect(after).toBe(before);
   });
 
-  test('excludes a heading preceded by a [discrete] attribute line (FR-072)', () => {
+  test('excludes a heading preceded by a [discrete] attribute line', () => {
     const documentContent = [
       '== Real Section',
       '',
@@ -135,7 +135,7 @@ describe('asciidoc-outline StateField', () => {
     expect(titles).not.toContain('Discrete Heading');
   });
 
-  test('excludes a heading preceded by a [float] attribute line (FR-072)', () => {
+  test('excludes a heading preceded by a [float] attribute line', () => {
     const documentContent = [
       '== Real Section',
       '',
@@ -186,7 +186,7 @@ describe('asciidoc-outline StateField', () => {
     ]);
   });
 
-  test('excludes a heading pushed beyond the max level by :leveloffset: (FR-010)', () => {
+  test('excludes a heading pushed beyond the max level by :leveloffset:', () => {
     const documentContent = [
       '== Section Foo',
       '',
@@ -201,7 +201,7 @@ describe('asciidoc-outline StateField', () => {
     expect(outline.map((entry) => entry.title)).toEqual(['Section Foo']);
   });
 
-  test('includes the document title at level 0, in document order before sections (FR-028)', () => {
+  test('includes the document title at level 0, in document order before sections', () => {
     const outline = getOutline('= Title\n\n== Section\n');
     expect(outline).toEqual([
       expect.objectContaining({ title: 'Title', level: 0 }),

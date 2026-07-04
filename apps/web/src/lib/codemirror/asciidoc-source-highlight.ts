@@ -4,7 +4,7 @@ import type { Extension } from '@codemirror/state';
 import { canonicalSourceLanguageName, resolveSourceLanguage } from './source-languages';
 
 /**
- * In-editor source-language highlighting (US5, FR-017–019). The body of a
+ * In-editor source-language highlighting. The body of a
  * `[source,<lang>]` listing block is parsed by the embedded language's parser
  * via `parseMixed`; unknown/absent languages get no injection (plain text) and
  * AsciiDoc highlighting resumes after the block. Embedded code is inert data —

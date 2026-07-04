@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePanelResize } from '@/hooks/use-panel-resize';
 
 interface ProjectEditorStateOptions {
-  /** Configured main-file node id (US8/FR-045), or null when unset. */
+  /** Configured main-file node id, or null when unset. */
   mainFileNodeId: string | null;
   /** Node id of the open file, driving the per-file live-content reset. */
   selectedFileNodeId: string | null;
@@ -12,7 +12,7 @@ interface ProjectEditorStateOptions {
 }
 
 interface ProjectEditorState {
-  /** Live main-file selection (US8); updates when the picker persists a change. */
+  /** Live main-file selection; updates when the picker persists a change. */
   mainFile: string | null;
   setMainFile: (nodeId: string | null) => void;
   /** File-tree sidebar visibility + its resizable-width controller. */

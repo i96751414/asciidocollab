@@ -83,7 +83,7 @@ export class UpdateProjectUseCase {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    // Capture before-values to record what actually changed (FR-016).
+    // Capture before-values to record what actually changed.
     const before = {
       name: project.name.value,
       description: project.description,

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US9 / FR-033/FR-034/FR-035/FR-036 (partial includes): a `tags=` and a `lines=` partial include
+// Partial includes: a `tags=` and a `lines=` partial include
 // each render ONLY their selected slice in the assembled PREVIEW (with `leveloffset` applied to the
 // slice), while the non-selected content of the same child is absent. A non-matching selection
 // renders gracefully (nothing) without breaking the surrounding document.
@@ -17,7 +17,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US9 partial includes by tags= / lines=', () => {
+test.describe('partial includes by tags= / lines=', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -74,7 +74,7 @@ test.describe('US9 partial includes by tags= / lines=', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

@@ -2,7 +2,7 @@
 
 /**
  * Live-view coverage for the tree-based delimited-block fold path of
- * `asciidocFold` (US4, FR-012). A real `EditorView` (jsdom) is required because
+ * `asciidocFold`. A real `EditorView` (jsdom) is required because
  * the headless `EditorState` runs the Lezer parser lazily — `ensureSyntaxTree`
  * only yields a populated tree once a view drives the parse scheduler. With a
  * populated tree the fold service's `foldDelimitedAt` walk visits real block
@@ -67,7 +67,7 @@ function makeChildBearingView(documentContent: string): EditorView {
   return view;
 }
 
-describe('asciidocFold delimited-block tree path (FR-012)', () => {
+describe('asciidocFold delimited-block tree path', () => {
   test('the tree walk runs over a block opener line without throwing (spanning branch)', () => {
     // Folding the opener line drives `foldDelimitedAt`: the ListingBlock node spans
     // the line (node.from <= lineStart <= node.to), exercising the node-spanning

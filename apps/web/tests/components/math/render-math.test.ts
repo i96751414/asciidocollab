@@ -1,6 +1,6 @@
 /* @jest-environment jsdom */
 
-// Tests for render-math.ts (US15 / FR-021d-f).
+// Tests for render-math.ts.
 //
 // render-math loads MathJax via a real self-hosted `<script>` tag (`/vendor/mathjax/tex-mml-chtml.js`)
 // — not an ES import — because the package's `es5/*` files are browser IIFE bundles whose deferred

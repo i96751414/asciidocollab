@@ -10,7 +10,7 @@ const baseProperties = {
   onDiscardDraft: noop,
 };
 
-// T045 / US4 / FR-014: connection-state banners for the collab path.
+// Connection-state banners for the collab path.
 describe('EditorBanners connection-state strips', () => {
   test('shows a "connecting" banner', () => {
     render(<EditorBanners {...baseProperties} connectionState="connecting" />);

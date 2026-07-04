@@ -13,7 +13,7 @@ describe('RecordFailedSignInUseCase', () => {
     useCase = new RecordFailedSignInUseCase(repo);
   });
 
-  test('INV-1: failures within the same window coalesce into one bucket', async () => {
+  test('failures within the same window coalesce into one bucket', async () => {
     const base = new Date('2026-06-10T12:05:00.000Z');
     await useCase.execute({ identifier: Email.create('user@example.com'), context: { ipAddress: '1.1.1.1' }, now: base, windowSizeMs: WINDOW_MS });
     await useCase.execute({ identifier: Email.create('user@example.com'), context: { ipAddress: '1.1.1.1' }, now: new Date('2026-06-10T12:55:00.000Z'), windowSizeMs: WINDOW_MS });
@@ -25,7 +25,7 @@ describe('RecordFailedSignInUseCase', () => {
     expect(all[0].windowStart.toISOString()).toBe('2026-06-10T12:00:00.000Z');
   });
 
-  test('INV-2: record shape is identical regardless of account existence (no user lookup performed)', async () => {
+  test('record shape is identical regardless of account existence (no user lookup performed)', async () => {
     const now = new Date('2026-06-10T12:00:00.000Z');
     await useCase.execute({ identifier: Email.create('exists@example.com'), context: { ipAddress: '1.1.1.1' }, now, windowSizeMs: WINDOW_MS });
     await useCase.execute({ identifier: Email.create('ghost@example.com'), context: { ipAddress: '1.1.1.1' }, now, windowSizeMs: WINDOW_MS });
@@ -37,7 +37,7 @@ describe('RecordFailedSignInUseCase', () => {
     expect(a.attemptCount).toBe(b.attemptCount);
   });
 
-  test('INV-3: identifier is the validated email; no secret is part of the input', async () => {
+  test('identifier is the validated email; no secret is part of the input', async () => {
     const now = new Date('2026-06-10T12:00:00.000Z');
     await useCase.execute({ identifier: Email.create('User@Example.com'), context: {}, now, windowSizeMs: WINDOW_MS });
     const all = await repo.findAll();

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US8 / FR-068 (Constitution IX): the preview assembles the configured main document's includes
+// (Constitution IX): the preview assembles the configured main document's includes
 // (sandbox-confined) and renders the inlined content; out-of-sandbox targets are never read.
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -15,7 +15,7 @@ async function mainFileId(page: import('@playwright/test').Page, projectId: stri
   return node.id;
 }
 
-test.describe('US8 preview include assembly', () => {
+test.describe('preview include assembly', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

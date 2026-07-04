@@ -1,4 +1,4 @@
-// T013a: Rate limit test for POST /auth/password/reset/request
+// Rate limit test for POST /auth/password/reset/request
 // Separate file so env vars are set before the config singleton is created.
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/auth/register';

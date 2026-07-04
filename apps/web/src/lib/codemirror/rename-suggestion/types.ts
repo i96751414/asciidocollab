@@ -1,0 +1,80 @@
+/**
+ * Shared types for the in-editor symbol rename refactor suggestion (feature 033).
+ *
+ * The suggestion is transient, per-author editor state — none of this is persisted.
+ * The only durable side effects (document rewrites, audit log) come from the reused
+ * server-side rename implementation. See specs/033-symbol-rename-refactor/data-model.md.
+ */
+
+/** Kind of symbol whose definition-site rename can trigger a suggestion. */
+export type SymbolKind = 'anchor' | 'attribute' | 'heading';
+
+/** A half-open document range `[from, to)` in editor positions. */
+export interface DocumentRange {
+  /** Inclusive start offset. */
+  from: number;
+  /** Exclusive end offset. */
+  to: number;
+}
+
+/**
+ * Captured when the author edits a symbol definition. `oldName` is the name as of
+ * the moment editing began; `newName` is the current text after edits.
+ */
+export interface RenameCandidate {
+  /** Which kind of symbol the edited definition is. */
+  kind: SymbolKind;
+  /** Name at edit-start — the value searched for across the project. */
+  oldName: string;
+  /** Current name after the author's edits. */
+  newName: string;
+  /** Location of the definition token in the current document. */
+  definitionRange: DocumentRange;
+}
+
+/**
+ * Lifecycle of a suggestion: a live offer, or one already applied (showing its Undo affordance).
+ * Whether the offer is blocked is carried by the sibling `collision` flag, not encoded here.
+ */
+export type RenameSuggestionStatus = 'visible' | 'applied';
+
+/** The inline offer presented to the author, derived from an actionable candidate + usage lookup. */
+export interface RenameSuggestion {
+  /** The detected rename this suggestion is for. */
+  candidate: RenameCandidate;
+  /** Other occurrences (references + other definitions) of the old name, project-wide. */
+  usageCount: number;
+  /** Distinct files affected. */
+  fileCount: number;
+  /** Current lifecycle state. */
+  status: RenameSuggestionStatus;
+  /** True when the new name collides with an existing same-kind symbol → apply blocked. */
+  collision: boolean;
+  /**
+   * True while the offer is showing a name the author just typed on to, before the project-wide
+   * lookup has re-confirmed its usage/collision status. `collision` is not yet authoritative for the
+   * current `newName` in this window, so Apply is blocked until the next settle clears the flag.
+   */
+  revalidating: boolean;
+}
+
+/** Outcome of applying a refactor, surfaced back to the editor. */
+export interface RefactorResult {
+  /** Total usages rewritten. */
+  rewrittenReferences: number;
+  /** Distinct files changed. */
+  rewrittenFiles: number;
+  /** Warnings for occurrences that could not be safely rewritten (concurrent-edit / write conflict). */
+  warnings: string[];
+}
+
+/**
+ * The result of an apply plus its single-action undo. `undo` re-runs the reused rename in
+ * the opposite direction over the same file set, restoring the prior names in one action.
+ */
+export interface AppliedRefactor {
+  /** The outcome of the forward rename. */
+  result: RefactorResult;
+  /** Reverses the rename as a single action, resolving to the inverse outcome. */
+  undo: () => Promise<RefactorResult>;
+}

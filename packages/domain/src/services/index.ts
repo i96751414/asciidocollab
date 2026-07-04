@@ -1,24 +1,7 @@
 /** @file Barrel re-exports for domain services (interfaces + pure domain-service modules). */
-// Pure AsciiDoc analysis domain service — reference/symbol extraction + include-graph (stateless).
-export {
-  headingToId,
-  parseIncludeLevelOffset,
-  extractReferences,
-  extractSymbols,
-  extractAttributeDefinitions,
-  extractOwnAttributes,
-  resolveReference,
-  buildIncludeGraph,
-  buildIncludeGraphWithInheritance,
-  inheritedLevelOffset,
-  effectiveLevelOffset,
-  resolveAttributeScope,
-  parseIncludeTags,
-  parseIncludeLines,
-  parseConditional,
-  evaluateConditional,
-} from './asciidoc-extraction';
-export type { IncludeGraphResult } from './asciidoc-extraction';
+// The reference/symbol extraction + include-graph engine now lives in the zero-dependency
+// `@asciidocollab/asciidoc-core` leaf (imported directly by both the server and the editor); it is no
+// longer re-exported through the domain barrel.
 // Centralized include/image target resolution (attribute substitution + imagesdir + sandbox).
 export {
   substitutePathAttributes,

@@ -25,9 +25,9 @@ interface EditorChromeProperties {
   tableContext: TableContext | null;
   /** Awareness for the collab presence bar; null/undefined on the non-collab path. */
   awareness?: Awareness | null;
-  /** Opens the Go to Symbol palette (FR-061). */
+  /** Opens the Go to Symbol palette. */
   onGoToSymbol?: () => void;
-  // Opens the refactor dialog (US12), seeded with the symbol under the cursor.
+  // Opens the refactor dialog, seeded with the symbol under the cursor.
   onRefactor?: (initial: CursorSymbol | null) => void;
 }
 

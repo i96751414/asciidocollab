@@ -224,10 +224,10 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, pre
   }, [tree, toggleExpand]);
 
   // Auto-reveal: when `selectedNodeId` changes to a node that may be hidden behind collapsed
-  // folders (e.g. a restored selection), expand its ancestors (FR-012). Keyed on
+  // folders (e.g. a restored selection), expand its ancestors. Keyed on
   // `selectedNodeId` + `tree` (NOT `expandedState`) so manually collapsing a folder holding
-  // the selected node does not re-trigger a reveal (R4); the last-revealed ref makes it a
-  // one-shot per selection (R7). The scroll itself happens in the effect below, after the
+  // the selected node does not re-trigger a reveal; the last-revealed ref makes it a
+  // one-shot per selection. The scroll itself happens in the effect below, after the
   // ancestor expansion has committed and the node is in the DOM.
   useEffect(() => {
     if (!selectedNodeId || !tree) return;
@@ -239,7 +239,7 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, pre
 
   // Scroll a freshly-revealed node into view once it is actually rendered. Runs after the
   // expansion above commits (expandedState changes) and on the initial selection change; the
-  // pending ref ensures it fires exactly once per reveal and never on a manual collapse (R4).
+  // pending ref ensures it fires exactly once per reveal and never on a manual collapse.
   useEffect(() => {
     const target = pendingScrollReference.current;
     if (!target) return;

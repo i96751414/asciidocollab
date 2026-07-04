@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser, createInvitedUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject, createTestFile } from './helpers/test-project';
 
-// US2 / FR-007, FR-008: collaborators see each other's cursor, selection, and name;
+// Collaborators see each other's cursor, selection, and name;
 // a user never sees their own overlay. The presence bar lists the other
 // participants. Requires apps/api AND apps/collab running.
 
@@ -32,7 +32,7 @@ async function openFileInEditor(page: Page, projectId: string, fileName: string)
   await expect(page.locator('.cm-editor .cm-content')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('Presence and awareness (US2)', () => {
+test.describe('Presence and awareness', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

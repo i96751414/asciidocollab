@@ -271,7 +271,7 @@ describe('ProjectEditorLayout — collapse preview', () => {
   });
 
   // (b) clicking the collapse button closes the preview panel
-  it('clicking collapse preview hides the preview but keeps the editor mounted (US1)', () => {
+  it('clicking collapse preview hides the preview but keeps the editor mounted', () => {
     mockUseFileSelection.mockReturnValue({
       selectedFile: adocFile,
       contentState: makeContentState(),
@@ -285,7 +285,7 @@ describe('ProjectEditorLayout — collapse preview', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /collapse preview/i }));
 
-    // US1 fix: the editor lives in ONE stable PanelGroup that must NOT unmount on
+    // fix: the editor lives in ONE stable PanelGroup that must NOT unmount on
     // toggle — only the preview panel goes away. The editor element is preserved.
     expect(screen.getByTestId('panel-group')).toBeInTheDocument();
     expect(screen.getByTestId('asciidoc-editor')).toBe(editorBeforeCollapse);

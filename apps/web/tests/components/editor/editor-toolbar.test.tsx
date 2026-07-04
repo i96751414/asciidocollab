@@ -101,7 +101,7 @@ describe('EditorToolbar', () => {
     expect(tr.changes.insert).toBe('*hello*');
   });
 
-  test('clicking Code Block inserts a [source,<lang>] declaration with delimiters, cursor at the language (US6/FR-020-022)', () => {
+  test('clicking Code Block inserts a [source,<lang>] declaration with delimiters, cursor at the language', () => {
     const view = createMockView('');
     render(<EditorToolbar view={view} />);
     fireEvent.click(screen.getByRole('button', { name: /code block/i }));
@@ -203,7 +203,7 @@ describe('EditorToolbar', () => {
       expect(screen.queryByTestId('settings-panel')).toBeNull();
     });
 
-    test('passes softWrap + setSoftWrap to the settings panel so the Soft Wrap control renders (US2/FR-006)', () => {
+    test('passes softWrap + setSoftWrap to the settings panel so the Soft Wrap control renders', () => {
       const view = createMockView('');
       render(
         <EditorToolbar

@@ -21,7 +21,7 @@ export interface Project {
   tags: string[];
   /** Identifier of the project's root folder, or null if none has been created. */
   rootFolderId: string | null;
-  /** Configured main AsciiDoc file node id (US8/FR-045), or null when unset. */
+  /** Configured main AsciiDoc file node id, or null when unset. */
   mainFileNodeId: string | null;
   /** Document/spellcheck language (ISO 639-1), or null when unset (editor uses its default). */
   language: string | null;
@@ -109,7 +109,7 @@ export const projectsApi = {
 };
 
 /**
- * Set or clear a project's configured main AsciiDoc file (US8/FR-045) via
+ * Set or clear a project's configured main AsciiDoc file via
  * `PUT /projects/:projectId/main-file`. Passing null clears the configuration.
  * Authorization is enforced server-side in the use case (editors/owners only);
  * a 403 surfaces as a thrown error.
@@ -143,7 +143,7 @@ export async function setProjectMainFile(
   return parsed.data;
 }
 
-/** A single cross-file usage of a symbol (FR-065 find-usages). */
+/** A single cross-file usage of a symbol (find-usages). */
 export interface SymbolUsage {
   /** The file node containing the reference. */
   fileNodeId: string;
@@ -155,7 +155,7 @@ export interface SymbolUsage {
   range: { from: number; to: number };
 }
 
-/** The kind of symbol a rename targets (FR-064). */
+/** The kind of symbol a rename targets. */
 export type RenameSymbolKind = 'anchor' | 'attribute';
 
 /** Outcome of a successful project-wide symbol rename. */
@@ -176,7 +176,7 @@ function refactoringError(response: Response, body: { error?: { message?: string
 }
 
 /**
- * List every cross-file reference to a symbol (US12/FR-065) via
+ * List every cross-file reference to a symbol via
  * `GET /projects/:projectId/symbol-usages`. Requires project membership
  * (enforced server-side); a non-member surfaces as a thrown 403.
  *
@@ -204,7 +204,7 @@ export async function findSymbolUsages(
 
 /**
  * Rename a section id / anchor / attribute and update every reference to it
- * across the project (US12/FR-064) via `POST /projects/:projectId/symbol-rename`.
+ * across the project via `POST /projects/:projectId/symbol-rename`.
  * Requires editor/owner (enforced server-side); a 403 or a 400 (invalid name /
  * merge conflict) surfaces as a thrown error carrying `status`/`code`.
  *
@@ -214,7 +214,7 @@ export async function findSymbolUsages(
  */
 export async function renameSymbol(
   projectId: string,
-  input: { symbolKind: RenameSymbolKind; oldName: string; newName: string },
+  input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
 ): Promise<RenameSymbolResult> {
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}/symbol-rename`, {
     method: 'POST',

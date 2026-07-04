@@ -46,7 +46,7 @@ export function buildResolverDeps(
  * 4. Null (no live source) → stored silently. Error → warn (metadata only) + stored.
  *
  * The inline branch wraps the reader's value verbatim with `Buffer.from(value, 'utf8')` — no
- * re-assembly — so the returned bytes are a consistent, non-torn snapshot (FR-003/SC-005).
+ * re-assembly — so the returned bytes are a consistent, non-torn snapshot.
  * This function never reads the file store; the route streams the stored case.
  */
 export async function resolveDownloadContentSource(

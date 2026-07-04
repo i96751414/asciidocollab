@@ -39,7 +39,7 @@ export class PreviewStyle {
 
   /**
    * Parses a raw value, falling back to the default when it is absent or unrecognised.
-   * Used at persistence boundaries where a corrupt stored value must not break rendering (FR-015).
+   * Used at persistence boundaries where a corrupt stored value must not break rendering.
    *
    * @param raw - The raw style token, possibly undefined/invalid.
    * @returns A valid PreviewStyle — the parsed value or the default.

@@ -57,7 +57,7 @@ function renderUsages(
 }
 
 /**
- * Find-usages section of the symbol-refactor dialog (FR-065): the kind/name
+ * Find-usages section of the symbol-refactor dialog: the kind/name
  * toolbar and the cross-file usages list. Purely presentational; all state and
  * the network call live in the container.
  */

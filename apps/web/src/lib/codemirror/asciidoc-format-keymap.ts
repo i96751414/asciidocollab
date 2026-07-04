@@ -2,11 +2,11 @@ import { EditorView, type KeyBinding, type Command } from '@codemirror/view';
 import { toggleComment } from '@codemirror/commands';
 
 /**
- * Formatting shortcuts + auto-pair (US9, FR-036/037/041).
+ * Formatting shortcuts + auto-pair.
  *  - Mod-b / Mod-i / Mod-` wrap the selection in `*` / `_` / `` ` ``,
  *  - Mod-/ toggles a line comment,
  *  - typing an emphasis mark over a selection wraps it (auto-pair).
- * Bindings avoid clashing with save / find / undo (FR-041).
+ * Bindings avoid clashing with save / find / undo.
  *
  * The wrap computation is a pure helper so it unit-tests without a live editor.
  */
@@ -43,7 +43,7 @@ export const formatKeymap: readonly KeyBinding[] = [
 
 /**
  * Input handler that wraps a non-empty selection when an emphasis mark is typed
- * over it (FR-037), so selecting "word" and pressing `*` yields `*word*`.
+ * over it, so selecting "word" and pressing `*` yields `*word*`.
  */
 export const autoWrapInputHandler = EditorView.inputHandler.of((view, from, to, text) => {
   if (from === to || !AUTO_WRAP_MARKS.has(text)) return false;

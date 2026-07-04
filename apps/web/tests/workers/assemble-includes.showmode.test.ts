@@ -4,13 +4,13 @@ function reader(files: Record<string, string>) {
   return (path: string) => files[path] ?? null;
 }
 
-// ── T009 (US1): show-mode regression / equivalence guard ──────────────────────────────────────
+// ── show-mode regression / equivalence guard ──────────────────────────────────────
 // These tests confirm that `showIncludes: true` (and the default / no-option call) produces
 // byte-identical assembled output to the pre-feature behavior for representative inputs.
 // They MUST PASS now (the assembler already inlines everything) and MUST CONTINUE TO PASS after
-// T012 adds the `showIncludes` option — they are the regression barrier that ensures the default
+// the `showIncludes` option is added — they are the regression barrier that ensures the default
 // behavior is not accidentally changed by the hide-mode implementation.
-describe('assembleIncludes — show-mode regression / equivalence (T009)', () => {
+describe('assembleIncludes — show-mode regression / equivalence', () => {
   test('showIncludes: true produces the same output as calling without options (equivalence)', () => {
     // A file with a real include: both call-styles must agree byte-for-byte.
     const files = {
@@ -27,7 +27,7 @@ describe('assembleIncludes — show-mode regression / equivalence (T009)', () =>
     // root.adoc defines an attribute `:product: Acme`, includes a child that adds prose and uses
     // the attribute, and has a paragraph after the include.  With showIncludes:true the assembled
     // output must contain the included prose and the attribute entry, and must NOT contain any
-    // placeholder marker (regression guard against FR-003b leaking into show mode).
+    // placeholder marker (regression guard against the placeholder leaking into show mode).
     const files = {
       'root.adoc':
         '= Manual\n\n:product: Acme\n\ninclude::intro.adoc[]\n\nSee {product} documentation.\n',
@@ -51,7 +51,7 @@ describe('assembleIncludes — show-mode regression / equivalence (T009)', () =>
     expect(unresolved).toEqual([]);
   });
 
-  test('an include-free document assembles to itself byte-for-byte under any showIncludes value (FR-014)', () => {
+  test('an include-free document assembles to itself byte-for-byte under any showIncludes value', () => {
     // Scroll-sync no-regression: when no include:: directives exist, the output must equal the
     // input regardless of the showIncludes option.  Even unrelated option values must not corrupt
     // an include-free document.

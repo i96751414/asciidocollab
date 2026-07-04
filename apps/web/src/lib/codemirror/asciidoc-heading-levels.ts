@@ -3,7 +3,7 @@ import { Facet, RangeSetBuilder, StateEffect, type Extension } from '@codemirror
 import { computeHeadingLevels, type HeadingLevelInfo, type IncludeResolutionContext } from './asciidoc-effective-levels';
 
 /**
- * CodeMirror projection of the effective-heading-level rule (US3, FR-009/010/071/072).
+ * CodeMirror projection of the effective-heading-level rule.
  *
  * The effective-level computation is editor presentation logic and lives next to this module
  * ({@link computeHeadingLevels} in `./asciidoc-effective-levels`). It is deliberately NOT in
@@ -26,12 +26,12 @@ export function headingLevelClass(info: HeadingLevelInfo): string {
 /**
  * Dispatch this effect to force heading levels to recompute when nothing in the document changed,
  * such as when the include-path inherited offset changes because the project main file was
- * reconfigured (FR-045a/071).
+ * reconfigured.
  */
 export const refreshHeadingLevelsEffect = StateEffect.define<void>();
 
 /**
- * Facet carrying the include-path inherited heading-level offset accessor (FR-071). It lets
+ * Facet carrying the include-path inherited heading-level offset accessor. It lets
  * consumers that cannot take the accessor as a constructor argument — such as the outline
  * StateField — read the same offset the heading-levels ViewPlugin uses, so they derive identical
  * effective levels. It defaults to `() => 0` (the file is the include root).
@@ -40,10 +40,10 @@ export const inheritedHeadingOffsetFacet = Facet.define<() => number, () => numb
   combine: (values) => (values.length > 0 ? values[0] : () => 0),
 });
 
-/** Line-decoration class flagging a section marker whose effective level exceeds the max (FR-010). */
+/** Line-decoration class flagging a section marker whose effective level exceeds the max. */
 const SUPPRESSED_HEADING_CLASS = 'cm-ad-suppressed-heading';
 
-/** Mark decoration applied to the leading `=` run of a heading line (T016/FR-001). */
+/** Mark decoration applied to the leading `=` run of a heading line. */
 const HEADING_MARKER_DECO = Decoration.mark({ class: 'cm-ad-heading-marker' });
 
 function buildDecorations(
@@ -54,13 +54,13 @@ function buildDecorations(
   const builder = new RangeSetBuilder<Decoration>();
   const includeContext = getIncludeContext?.() ?? undefined;
   for (const info of computeHeadingLevels(view.state.doc.toString(), getInheritedOffset(), includeContext)) {
-    // A heading whose effective level exceeds the max is not a heading (FR-010). The Lezer grammar
+    // A heading whose effective level exceeds the max is not a heading. The Lezer grammar
     // still tokenises it as a Heading (it cannot know the active :leveloffset:), so tag the line to
     // neutralise the grammar's heading colour and render it as body text — see asciidoc-theme.ts.
     const cls = info.beyondMax ? SUPPRESSED_HEADING_CLASS : headingLevelClass(info);
     builder.add(info.from, info.from, Decoration.line({ class: cls }));
     // Recede the leading `=` marker run so structural punctuation fades behind the heading text
-    // (T016/FR-001). RangeSetBuilder requires same-from entries in ascending-to order, so the
+    // RangeSetBuilder requires same-from entries in ascending-to order, so the
     // zero-length line decoration (above) must always precede this positive-length mark.
     if (!info.beyondMax) {
       const markerLength = info.rawLevel + 1;
@@ -73,7 +73,7 @@ function buildDecorations(
 /**
  * CodeMirror extension that styles each heading line by its effective level, marks discrete
  * headings, and drops heading styling beyond the max level. `getInheritedOffset` supplies the
- * include-path offset (from the symbol index, US8); it is read lazily so a {@link
+ * include-path offset (from the symbol index); it is read lazily so a {@link
  * refreshHeadingLevelsEffect} re-evaluates levels when the offset changes without a doc edit.
  *
  * @param getInheritedOffset - Returns the current include-path inherited offset (default 0).

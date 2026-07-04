@@ -62,7 +62,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
     expect(JSON.parse(response.body)).toEqual({ yjsStateId: YJS_STATE_ID, role: 'observer' });
   });
 
-  it('returns 403 FORBIDDEN for a non-member and leaks no document details (T062)', async () => {
+  it('returns 403 FORBIDDEN for a non-member and leaks no document details', async () => {
     const app = buildTestServer({ memberRole: null });
     const response = await app.inject({
       method: 'GET',
@@ -94,7 +94,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
     expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
   });
 
-  it('logs the 403 denial with actor, resource, and reason (SEC4)', async () => {
+  it('logs the 403 denial with actor, resource, and reason', async () => {
     const warn = jest.fn();
     const recordingLogger = {
       level: 'info',

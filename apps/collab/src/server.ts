@@ -43,7 +43,7 @@ export interface SessionCallbacks {
 const MESSAGE_TOO_BIG = { code: 1009, reason: 'Message Too Big' };
 
 /**
- * Builds a `beforeHandleMessage` guard (SEC3, NFR-003) that rejects an inbound
+ * Builds a `beforeHandleMessage` guard that rejects an inbound
  * collaboration message larger than `maxPayloadBytes`, closing the connection
  * (code 1009) without crashing the server.
  */
@@ -99,7 +99,7 @@ export async function createCollabServer(
         // skip the document lookup + session open entirely (parseRoomName would also reject them).
         if (isPresenceRoom(payload.documentName)) return;
         // This hook creates the CollaborationSession row behind the active-session edit lock
-        // (spec-018 FR-011): while a room is open, REST PUT /content and delete on the file are
+        // (spec-018): while a room is open, REST PUT /content and delete on the file are
         // blocked. It therefore REJECTS (throws) on ANY failure rather than letting a live room
         // exist without its session row — an untracked-but-live room would let a concurrent REST
         // write bypass the lock and clobber live edits, AND would mismatch onDisconnect's
@@ -123,7 +123,7 @@ export async function createCollabServer(
           }
           const result = await sessionCallbacks.onRoomOpen(projectId, document.id);
           if (!result.success) {
-            logger.error({ err: result.error, documentName: payload.documentName }, 'Failed to open collaboration session; rejecting connection to preserve the FR-011 edit lock');
+            logger.error({ err: result.error, documentName: payload.documentName }, 'Failed to open collaboration session; rejecting connection to preserve the edit lock');
             throw result.error;
           }
           // Best-effort fast path: stash the documentId so onDisconnect can skip a DB lookup IF the

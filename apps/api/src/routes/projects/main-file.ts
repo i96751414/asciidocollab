@@ -13,7 +13,7 @@ import { requestContextFrom } from '../../lib/request-context';
 
 /**
  * Registers `PUT /projects/:projectId/main-file` — sets or clears the project's
- * configured main AsciiDoc file (FR-045). Authorization lives entirely in
+ * configured main AsciiDoc file. Authorization lives entirely in
  * `SetProjectMainFileUseCase`; this route only authenticates, validates the
  * request shape, opts into the per-route rate limit, and maps the typed
  * `Result` to HTTP (security_constitution: no route-level permission check).

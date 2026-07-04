@@ -5,7 +5,7 @@ import type { ProjectSymbol } from '@asciidocollab/shared';
 interface EditorGoToSymbolProperties {
   /** Whether the palette is open. */
   open: boolean;
-  /** All project symbols; the palette shows only sections and anchors (FR-061). */
+  /** All project symbols; the palette shows only sections and anchors. */
   symbols: ProjectSymbol[];
   // Maps a symbol's file id to its project-relative path (shown as the row detail).
   pathOf: (fileId: string) => string | null;
@@ -16,7 +16,7 @@ interface EditorGoToSymbolProperties {
 }
 
 /**
- * Project-wide "Go to Symbol" command palette (US8/FR-061): a filterable list of every section
+ * Project-wide "Go to Symbol" command palette: a filterable list of every section
  * heading and block anchor across the document tree. Arrow keys move the highlight, Enter jumps,
  * Escape closes. Navigation itself is delegated to `onSelect`, so it works the same in-file and
  * cross-file. Token-themed (Constitution V).

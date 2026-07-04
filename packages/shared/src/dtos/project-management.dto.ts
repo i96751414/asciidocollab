@@ -64,7 +64,7 @@ export interface ProjectDto {
   tags: string[];
   /** Root folder identifier. */
   rootFolderId: string | null;
-  /** Configured main AsciiDoc file node id (FR-045); null ⇒ current-file-only resolution. */
+  /** Configured main AsciiDoc file node id; null ⇒ current-file-only resolution. */
   mainFileNodeId: string | null;
   /** Document/spellcheck language (ISO 639-1); null ⇒ editor uses its default. */
   language: string | null;

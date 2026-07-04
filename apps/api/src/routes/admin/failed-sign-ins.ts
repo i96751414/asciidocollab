@@ -5,7 +5,7 @@ import { requireAdmin } from '../../plugins/require-admin';
 import '../../types/session';
 
 /**
- * Registers the admin failed-sign-in telemetry review route (FR-032). Separate
+ * Registers the admin failed-sign-in telemetry review route. Separate
  * from `/admin/audit-logs` so the governance and telemetry stores stay distinct.
  */
 export async function failedSignInsRoute(app: FastifyInstance): Promise<void> {

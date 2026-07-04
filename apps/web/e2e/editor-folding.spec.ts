@@ -9,7 +9,7 @@ import {
   foldGutterMarkers,
 } from './helpers/editor';
 
-// US4 / FR-012–016: fold sections, delimited blocks, tables, conditionals,
+// Fold sections, delimited blocks, tables, conditionals,
 // comment/attribute runs; unfold restores byte-identical text; a selection over
 // a collapsed region copies the full hidden text (CM default).
 
@@ -31,7 +31,7 @@ const DOC = [
   '',
 ].join('\n');
 
-test.describe('US4 folding', () => {
+test.describe('Folding', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -47,7 +47,7 @@ test.describe('US4 folding', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('fold a region hides its body; unfold restores it (FR-012/015)', async ({ page }) => {
+  test('fold a region hides its body; unfold restores it', async ({ page }) => {
     await createAdocFile(page, projectId, 'fold.adoc', DOC);
     await openProject(page, projectId);
     await openFile(page, 'fold.adoc');

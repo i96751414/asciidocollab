@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US7 / FR-051/053/025: complete highlighting coverage. The pure tokenizer tests
+// Complete highlighting coverage. The pure tokenizer tests
 // (asciidoc-grammar-us7.test.ts) assert the new nodes are produced; this spec
 // confirms the live editor renders the new block constructs as highlighted spans.
 //
@@ -32,7 +32,7 @@ const SAMPLE = [
   '',
 ].join('\n');
 
-test.describe('US7 highlighting coverage (live editor)', () => {
+test.describe('highlighting coverage (live editor)', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -67,7 +67,7 @@ test.describe('US7 highlighting coverage (live editor)', () => {
     await expect(attributeLine.locator('span').first()).toBeVisible();
   });
 
-  // T019/T020 — inline-construct rework: passthrough, inline/biblio anchors,
+  // Inline-construct rework: passthrough, inline/biblio anchors,
   // replacements, entities, callouts, and the thematic/page breaks now tokenize.
   // (Bare-URL / smart-quote / UI+math-macro / hard-break remain a tracked follow-up.)
   test('new inline & break constructs render as highlighted spans', async ({ page }) => {
