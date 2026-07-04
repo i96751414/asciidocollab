@@ -52,7 +52,7 @@ test.describe('preview conditionals across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
 
     const output = page.getByTestId('asciidoc-output');
@@ -79,7 +79,7 @@ test.describe('preview conditionals across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

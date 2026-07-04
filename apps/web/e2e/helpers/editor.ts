@@ -102,6 +102,18 @@ export async function typeAtEnd(page: Page, text: string): Promise<void> {
 
 /** Toggle the HTML preview open (expand) / closed. */
 export async function expandPreview(page: Page): Promise<void> {
+  // Collapse the pre-sync race systemically: expanding while the collaborative (Yjs) document is
+  // still empty schedules NO preview render, so the panel would stay blank and cross-file assertions
+  // would flake. Wait for the editor to show synced (non-whitespace) content first. Soft (`.catch`)
+  // so a legitimately empty document still expands — that path just eats the short wait.
+  await page
+    .locator('.cm-editor .cm-content')
+    .filter({ hasText: /\S/ })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .catch(() => {
+      /* genuinely empty document — expand anyway */
+    });
   await page.getByRole('button', { name: /expand preview/i }).click();
   // Cold-start tolerant: the first preview render must spin up the AsciiDoc→HTML web worker (bundle
   // load + Asciidoctor init), which under gate load occasionally exceeds a tighter budget on the

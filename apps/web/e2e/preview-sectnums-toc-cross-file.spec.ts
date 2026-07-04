@@ -51,7 +51,7 @@ test.describe('section numbering & TOC across includes', () => {
 
     await openProject(page, projectId);
     // Open the MAIN file so the include tree is assembled with the inherited numbering/TOC attributes.
-    await openFile(page, 'main.adoc');
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 
