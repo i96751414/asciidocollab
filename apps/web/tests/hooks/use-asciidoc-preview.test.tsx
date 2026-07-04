@@ -170,8 +170,8 @@ describe('useAsciidocPreview', () => {
     expect(lastWorker().postMessage.mock.calls[0][0].content).toBe('abcd');
   });
 
-  // (d2) include assembly (FR-068): openFileId + files are forwarded when the open file content is
-  // available. Assembly is now rooted at the open file (FR-014); mainPath is the project config but
+  // (d2) include assembly: openFileId + files are forwarded when the open file content is
+  // available. Assembly is now rooted at the open file; mainPath is the project config but
   // the hook routes assembly through openFileId so any open file can be assembled, not only main.
   it('forwards openFileId + files to the worker when the open file content is available', () => {
     renderHook(() =>
@@ -209,7 +209,7 @@ describe('useAsciidocPreview', () => {
     expect(message.content).toBe('= Book');
   });
 
-  // (d4) live re-resolution on main-file change (FR-007b/SC-009): changing the resolution root
+  // (d4) live re-resolution on main-file change: changing the resolution root
   // (rootFileId) for an open CHILD file re-posts the render so its inherited cross-document scope is
   // re-resolved under the new root — with no document edit.
   it('re-renders an open child file when the project main file (rootFileId) changes', () => {
@@ -719,7 +719,7 @@ describe('useAsciidocPreview', () => {
     expect(scrollSpySecond).not.toHaveBeenCalled();
   });
 
-  // (T012, US1/FR-002a) the hook forwards the open file's inherited context (rootFileId/openFileId)
+  // The hook forwards the open file's inherited context (rootFileId/openFileId)
   // so the worker can resolve cross-document `{attr}` references rooted at the project main file.
   it('forwards rootFileId and openFileId to the worker', () => {
     renderHook(() =>
@@ -769,7 +769,7 @@ describe('useAsciidocPreview', () => {
     expect(lastCall.files['main.adoc']).toContain('Globex');
   });
 
-  // (T042, US8/FR-031) Live conditional re-evaluation: toggling a gating attribute in the main file
+  // Live conditional re-evaluation: toggling a gating attribute in the main file
   // re-posts the assembler inputs (openFileId + the fresh files snapshot) so the worker re-assembles and
   // the include-gating decision is recomputed. The assembler (unit-tested) performs the gating; the
   // hook only needs to keep feeding it the current snapshot on each debounced edit.
@@ -812,11 +812,11 @@ describe('useAsciidocPreview', () => {
   });
 });
 
-// ── T010: useAsciidocPreview — showIncludes generalized root (029) ────────────
+// ── useAsciidocPreview — showIncludes generalized root (029) ────────────
 
 describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
-  // T010-a: showIncludes is forwarded in the RenderRequest
-  // Fails until: (1) UseAsciidocPreviewOptions gains `showIncludes?: boolean` (T002/T014)
+  // showIncludes is forwarded in the RenderRequest
+  // Fails until: (1) UseAsciidocPreviewOptions gains `showIncludes?: boolean`
   //              (2) the hook reads it and includes it in postMessage
   it('includes showIncludes:false in the worker RenderRequest when the option is false', () => {
     renderHook(() =>
@@ -824,7 +824,7 @@ describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
         content: '= Root\n\ninclude::child.adoc[]\n',
         isEnabled: true,
         scrollToLine: null,
-        // @ts-expect-error — showIncludes not yet in UseAsciidocPreviewOptions (T002/T014)
+        // @ts-expect-error — showIncludes not yet in UseAsciidocPreviewOptions
         showIncludes: false,
         openFileId: 'root.adoc',
         getFiles: () => ({ 'root.adoc': '= Root\n\ninclude::child.adoc[]\n', 'child.adoc': '== Child\n' }),
@@ -835,8 +835,8 @@ describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
     expect(message.showIncludes).toBe(false);
   });
 
-  // T010-b: assembly is rooted at the open file even when it is NOT the configured main file
-  // Fails until T014 removes the open==main gate and sends `files` + `openFileId` for any open file.
+  // Assembly is rooted at the open file even when it is NOT the configured main file
+  // Fails until the open==main gate is removed and it sends `files` + `openFileId` for any open file.
   it('sends files and openFileId in the RenderRequest even when openFileId differs from mainPath', () => {
     renderHook(() =>
       useAsciidocPreview({
@@ -862,8 +862,8 @@ describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
     expect(message.mainPath).toBeUndefined();
   });
 
-  // T010-c: the live content prop is used for the open file (not the stale snapshot copy)
-  // Fails until T014 ensures the hook's `content` prop (the live editor buffer) is what the worker
+  // The live content prop is used for the open file (not the stale snapshot copy)
+  // Fails until the hook's `content` prop (the live editor buffer) is what the worker
   // renders for the open file, overriding whatever `files[openFileId]` contains.
   it('uses the live content prop for the open file root, not the stale snapshot value', () => {
     const staleContentInSnapshot = '== Child\n\nSTALE content from snapshot.\n';
@@ -890,12 +890,12 @@ describe('useAsciidocPreview — showIncludes generalized root (029)', () => {
   });
 });
 
-// ── T019: useAsciidocPreview — live re-render on showIncludes change (029) ────
+// ── useAsciidocPreview — live re-render on showIncludes change (029) ────
 
-describe('useAsciidocPreview — live re-render on showIncludes change (T019)', () => {
-  // T019: Changing `showIncludes` triggers a new render request (no content edit needed).
+describe('useAsciidocPreview — live re-render on showIncludes change', () => {
+  // Changing `showIncludes` triggers a new render request (no content edit needed).
   // This is a GREEN test — showIncludes is already in the [mainPath, rootFileId, showIncludes]
-  // effect dependencies (T014), so the re-render fires automatically.
+  // effect dependencies, so the re-render fires automatically.
   it('triggers a new postMessage when showIncludes changes after an initial render', () => {
     const { rerender } = renderHook(
       ({ showIncludes }: { showIncludes: boolean | undefined }) =>

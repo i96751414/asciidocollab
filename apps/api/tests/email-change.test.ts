@@ -1,4 +1,4 @@
-// T041: Integration tests for email change endpoints
+// Integration tests for email change endpoints
 import { createHash } from 'node:crypto';
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/auth/register';

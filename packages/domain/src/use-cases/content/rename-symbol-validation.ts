@@ -1,12 +1,12 @@
 /**
- * Pure new-name validation for symbol renames (US12/FR-064). Each renamable kind
+ * Pure new-name validation for symbol renames. Each renamable kind
  * has its own validity rule: anchors allow a leading `_` and `:.-` (Asciidoctor id
  * syntax — auto-generated section ids begin with the `_` idprefix, feature 033) while
  * attributes are word-only. Kept separate from the use case so the rule lives in
  * one place and is independently testable.
  */
 
-/** The kind of project symbol that can be renamed (FR-064). */
+/** The kind of project symbol that can be renamed. */
 export type RenamableSymbolKind = 'anchor' | 'attribute';
 
 /** A new-name validity rule per symbol kind: anchors allow a leading `_` and `:.-`; attributes are word-only. */

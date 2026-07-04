@@ -32,7 +32,7 @@ function makeExtension(
   });
 }
 
-// T054 / SEC1 / NFR-001: per-user connection, room, and connect-rate caps.
+// Per-user connection, room, and connect-rate caps.
 describe('ConnectionLimitExtension', () => {
   it('accepts connections within all limits', async () => {
     const extension = makeExtension({ maxConnectionsPerUser: 3 });

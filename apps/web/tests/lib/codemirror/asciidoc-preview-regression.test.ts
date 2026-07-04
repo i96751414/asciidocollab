@@ -2,7 +2,7 @@
  * Preview regression baseline for feature 030 (syntax-highlighting rework).
  *
  * Parses the quickstart §2 representative sample through the AsciiDoc Lezer grammar
- * and asserts that every expected node type is present. This is the FR-021/SC-007
+ * and asserts that every expected node type is present. This is the
  * guard: the node-type set MUST remain stable through every later task in this
  * feature so the highlight layer never loses constructs it previously recognised.
  *

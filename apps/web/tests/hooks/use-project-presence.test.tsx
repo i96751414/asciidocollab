@@ -96,7 +96,7 @@ describe('useProjectPresence', () => {
     expect(result.current.has('file-a')).toBe(false);
   });
 
-  test('publishes the local user and openFileNodeId, and binds NO shared document content (FR-011)', () => {
+  test('publishes the local user and openFileNodeId, and binds NO shared document content', () => {
     const states = new Map<number, FakeState>([[1, {}]]);
     let capturedDoc: Y.Doc | undefined;
     const { awareness } = render({ states, localClientId: 1, openFileNodeId: 'file-a', capture: (d) => { capturedDoc = d; } });
@@ -199,7 +199,7 @@ describe('useProjectPresence', () => {
       [2, { user: fakeUser('u-local', 'Me'), openFileNodeId: 'file-a' }], // same user, another tab
     ]);
     const { result } = render({ states, localClientId: 1, openFileNodeId: null });
-    // The viewer's own other tab must NOT mark file-a as "open by others" (FR-003).
+    // The viewer's own other tab must NOT mark file-a as "open by others".
     expect(result.current.has('file-a')).toBe(false);
   });
 
@@ -237,7 +237,7 @@ describe('useProjectPresence', () => {
   });
 });
 
-// T030: cursorLine publish + aggregation (feature 032 / US5 / FR-019 / FR-020 / FR-023)
+// cursorLine publish + aggregation (feature 032)
 describe('useProjectPresence — cursorLine (feature 032)', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());

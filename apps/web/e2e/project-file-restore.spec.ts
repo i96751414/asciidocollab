@@ -203,7 +203,7 @@ test.describe('Persist & restore file selection', () => {
     await expect(editorContent(page)).toContainText('Reload survives this.', { timeout: 20_000 });
   });
 
-  // Distinct behaviour: each project remembers its own file independently (FR-003).
+  // Distinct behaviour: each project remembers its own file independently.
   test('restores each project to its own remembered file', async ({ page }) => {
     // Headroom for repeated collaborative Yjs syncs as we hop between projects under parallel load.
     test.setTimeout(75_000);
@@ -236,7 +236,7 @@ test.describe('Persist & restore file selection', () => {
     }
   });
 
-  // Distinct behaviour: the remembered selection is per-user (FR-011). A second account signing in
+  // Distinct behaviour: the remembered selection is per-user. A second account signing in
   // on the same browser must NOT inherit the first user's selection.
   test('does not leak a selection to a different account on the same browser', async ({ page }) => {
     const viewer = await createViewerInProject(page, projectId);
@@ -264,7 +264,7 @@ test.describe('Persist & restore file selection', () => {
   });
 
   // Distinct behaviour: the cursor clamps to the last valid line when the document shrank below
-  // the remembered line (FR-005), with no error.
+  // the remembered line, with no error.
   test('clamps the cursor to the last line when the remembered line exceeds the document', async ({ page }) => {
     // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
     test.setTimeout(75_000);
@@ -280,7 +280,7 @@ test.describe('Persist & restore file selection', () => {
     // Leave the editor FIRST (which flushes log.adoc's live cursor line), then — while the editor is
     // unmounted so nothing overwrites it — seed a remembered line that now exceeds the document, the
     // state left behind when a collaborator deletes lines below the remembered position. The per-file
-    // cursor map (US7) is the authority the restore reads first; the legacy entry covers old projects.
+    // cursor map is the authority the restore reads first; the legacy entry covers old projects.
     await page.getByRole('link', { name: /back to projects/i }).click();
     await page.waitForURL(/\/dashboard$/);
     await page.evaluate((nodeId) => {
@@ -312,7 +312,7 @@ test.describe('Persist & restore file selection', () => {
   });
 
   // Distinct behaviour: when the remembered file no longer exists, fall back to the empty state
-  // (no error) and clear the stale memory so it is not retried (US3 / FR-009).
+  // (no error) and clear the stale memory so it is not retried.
   test('falls back to the empty state and forgets a deleted file', async ({ page }) => {
     const fileNodeId = await createTestFile(page, projectId, null, 'temp.adoc');
 

@@ -51,7 +51,7 @@ describe('OutlineView', () => {
   });
 });
 
-// T010: OutlineView full-document mode (feature 032)
+// OutlineView full-document mode (feature 032)
 describe('OutlineView — full-document mode (feature 032)', () => {
   const fullEntries: SectionOutlineEntry[] = [
     { level: 0, title: 'Root Title', line: 1, from: 0, sourceFileId: 'id-main', sourcePath: 'main.adoc', sourceLine: 1, isOpenFile: true },
@@ -77,7 +77,7 @@ describe('OutlineView — full-document mode (feature 032)', () => {
     expect(screen.queryByRole('separator')).toBeNull();
   });
 
-  test('full-scope: current-section marks the nearest open-file entry (FR-011)', () => {
+  test('full-scope: current-section marks the nearest open-file entry', () => {
     // Cursor at line 4 in the open file — nearest open-file heading is Main Section (line 3)
     render(
       <OutlineView
@@ -133,7 +133,7 @@ describe('OutlineView — full-document mode (feature 032)', () => {
   });
 });
 
-// T022: OutlineView scope toggle (feature 032 / US2 / FR-003 / FR-004)
+// OutlineView scope toggle (feature 032)
 describe('OutlineView — scope toggle (feature 032)', () => {
   const mixed: SectionOutlineEntry[] = [
     { level: 0, title: 'Root', line: 1, from: 0, sourceFileId: 'id-a', sourcePath: 'a.adoc', sourceLine: 1, isOpenFile: true },
@@ -239,7 +239,7 @@ describe('OutlineView — scope toggle (feature 032)', () => {
   });
 });
 
-// T025: OutlineView — no-main-doc fallback (feature 032 / US3 / FR-005 / FR-006)
+// OutlineView — no-main-doc fallback (feature 032)
 describe('OutlineView — no-main-doc fallback (feature 032)', () => {
   const openFileEntries: SectionOutlineEntry[] = [
     { level: 0, title: 'Standalone Title', line: 1, from: 0 },
@@ -256,7 +256,7 @@ describe('OutlineView — no-main-doc fallback (feature 032)', () => {
         onHeadingClick={jest.fn()}
       />,
     );
-    // No scope props → toggle must not appear (FR-005/FR-006)
+    // No scope props → toggle must not appear
     expect(screen.queryByRole('button', { name: /current file|full document/i })).toBeNull();
   });
 

@@ -4,7 +4,7 @@ import { createTestFile } from './test-project';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /**
- * Shared Playwright helpers for the AsciiDoc editor e2e specs (T005). These
+ * Shared Playwright helpers for the AsciiDoc editor e2e specs. These
  * drive the live CodeMirror surface — opening a project file, reading/typing
  * content, asserting token classes, folding, autocomplete, lint markers, and
  * active-file switches — so each per-story spec stays focused on its behaviour.
@@ -39,7 +39,7 @@ export async function createAdocFile(
   return fileNodeId;
 }
 
-/** Configure (or clear, with null) the project's main file via the REST endpoint (US8/FR-045). */
+/** Configure (or clear, with null) the project's main file via the REST endpoint. */
 export async function setMainFile(
   page: Page,
   projectId: string,

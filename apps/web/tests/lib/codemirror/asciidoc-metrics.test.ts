@@ -1,6 +1,6 @@
 import { computeMetrics, WORDS_PER_MINUTE } from '@/lib/codemirror/asciidoc-metrics';
 
-describe('computeMetrics (FR-044)', () => {
+describe('computeMetrics', () => {
   test('counts word-like tokens, ignoring pure markup', () => {
     expect(computeMetrics('== Hello World').words).toBe(2);
     expect(computeMetrics('one two three four').words).toBe(4);

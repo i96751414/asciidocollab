@@ -230,7 +230,7 @@ describe('asciidoc-render.worker', () => {
   });
 
   // (e1) when files + mainPath are supplied, includes are assembled (sandbox-confined) before render
-  it('assembles in-sandbox includes from the main file before rendering (FR-068)', () => {
+  it('assembles in-sandbox includes from the main file before rendering', () => {
     mockFindBy.mockReturnValueOnce([]);
     require('@/workers/asciidoc-render.worker');
     sendMessage({
@@ -499,7 +499,7 @@ describe('asciidoc-render.worker', () => {
     expect(result.html).toContain('<h1 data-source-line="1">Title</h1>');
   });
 
-  // ── T011 (US1/FR-001/FR-002a) cross-document attribute scope seeding ────────────────
+  // ── cross-document attribute scope seeding ────────────────
   // The worker seeds Asciidoctor `attributes` with the resolved inherited scope for the open
   // file (rooted at the project main file) so a `{name}` reference defined only in a parent
   // resolves to its value at the file's include point. Values are seeded as overridable
@@ -614,7 +614,7 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.showtitle).toBe('');
   });
 
-  // ── T018 (US2/FR-008/FR-010) leveloffset across files in the assembled source ───────────
+  // ── leveloffset across files in the assembled source ───────────
   // The assembler emits `:leveloffset:` lines so Asciidoctor shifts an included file's headings
   // natively. A child included with leveloffset=+1 is wrapped so its level-1 title renders deeper;
   // the parent's own headings are unaffected (the offset is restored when the include ends); and an
@@ -673,7 +673,7 @@ describe('asciidoc-render.worker', () => {
     expect(between).not.toMatch(/:leveloffset: 0/);
   });
 
-  // ── T043 (US11/FR-040/FR-041) inline {set:} & wrapped attribute values in the assembled source ─
+  // ── inline {set:} & wrapped attribute values in the assembled source ─
   // The worker assembles the include tree before handing it to Asciidoctor; an inline {set:} and a
   // `\`-continued (wrapped) attribute value must resolve so a later (incl. cross-include) include
   // target sees them. Asciidoctor is mocked, so assert on the assembled source / resolution, not HTML.
@@ -719,7 +719,7 @@ describe('asciidoc-render.worker', () => {
     expect(rendered).toContain(':basedir: src \\');
   });
 
-  // ── T024 (US3/FR-011/FR-012/FR-013) idprefix/idseparator seeding ────────────────────────
+  // ── idprefix/idseparator seeding ────────────────────────
   // Auto-generated heading IDs use the resolved idprefix/idseparator in effect at each heading.
   // The worker seeds these (inherited from a parent) as overridable soft-defaults so native
   // Asciidoctor ID generation produces e.g. `sect_my-section`; an in-document entry still wins.
@@ -765,7 +765,7 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.idprefix).toBe('local_@');
   });
 
-  // ── T027 (US4/FR-014/FR-015/FR-016) xrefstyle seeding ────────────────────────────────────
+  // ── xrefstyle seeding ────────────────────────────────────
   // <<id>> link text follows the resolved xrefstyle. The worker seeds an inherited xrefstyle so
   // native xref text matches; default (unset) is left to Asciidoctor.
 
@@ -805,7 +805,7 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.xrefstyle).toBeUndefined();
   });
 
-  // ── T030 (US5/FR-017/FR-018/FR-019/FR-019a) caption / label / signifier family ───────────
+  // ── caption / label / signifier family ───────────
   // The full built-in caption/label/signifier family is seeded from the resolved inherited scope
   // (NO allow-list filtering that drops them). An empty value is a real value (blank label, still
   // numbered); an unset attribute is simply absent from the scope.
@@ -847,7 +847,7 @@ describe('asciidoc-render.worker', () => {
   // (x2) an EMPTY caption value is seeded as a real (empty) value, not dropped. With the soft
   // suffix this becomes the literal '@', which Asciidoctor treats as an empty caption prefix
   // (blank label, still auto-numbered) — distinct from unset (which removes the label). This
-  // proves empty values are NOT filtered out of the seeded scope (FR-019a).
+  // proves empty values are NOT filtered out of the seeded scope.
   it('seeds an empty caption value (not dropped) so an empty label is honored', () => {
     mockFindBy.mockReturnValueOnce([]);
     require('@/workers/asciidoc-render.worker');
@@ -885,7 +885,7 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes['table-caption']).toBeUndefined();
   });
 
-  // ── T065 (US10/FR-037/FR-038/FR-039) section numbering & TOC across includes ─────────────
+  // ── section numbering & TOC across includes ─────────────
   // `sectnums`/`sectnumlevels` and `toc`/`toclevels`, inherited from a parent, are seeded as
   // overridable soft-defaults so native Asciidoctor numbers sections and builds the TOC over the
   // ASSEMBLED, offset-adjusted structure. The assembler emits `:leveloffset:` set/restore entries
@@ -989,7 +989,7 @@ describe('asciidoc-render.worker', () => {
     expect(rendered.slice(ch1, ch2)).toMatch(/:leveloffset: 1/);
   });
 
-  // ── T074 (US13/FR-047..FR-050) remaining rendering-completeness constructs ──────────────────
+  // ── remaining rendering-completeness constructs ──────────────────
   // Bibliography/citations, index terms + the index listing, counters, and page breaks are NATIVE
   // Asciidoctor output — no special worker config enables them. The worker must NOT mangle that
   // output in its post-processing passes (highlight/checklist/source-line): in particular the
@@ -1014,18 +1014,18 @@ describe('asciidoc-render.worker', () => {
 
     const result = postMessageMock.mock.calls[0][0];
     expect(result.ok).toBe(true);
-    // Bibliography entry anchor + citation link kept (FR-047).
+    // Bibliography entry anchor + citation link kept.
     expect(result.html).toContain('class="bibliography"');
     expect(result.html).toContain('id="ref"');
     expect(result.html).toContain('<a href="#ref">[ref]</a>');
-    // Index-term anchor + index listing kept (FR-048); the unknown ids are not given a source line.
+    // Index-term anchor + index listing kept; the unknown ids are not given a source line.
     expect(result.html).toContain('class="indexterm"');
     expect(result.html).toContain('id="index"');
     expect(result.html).not.toContain('data-source-line'); // no findBy entries → no injection
-    // Counter value is plain text — no raw `{counter:}` markup (FR-049).
+    // Counter value is plain text — no raw `{counter:}` markup.
     expect(result.html).toContain('Figure 1.');
     expect(result.html).not.toContain('{counter');
-    // Page-break div + its inline style kept verbatim for the scoped visible-boundary CSS (FR-050).
+    // Page-break div + its inline style kept verbatim for the scoped visible-boundary CSS.
     expect(result.html).toContain('<div style="page-break-after: always"></div>');
   });
 
@@ -1049,11 +1049,11 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.missing).toBeUndefined();
   });
 
-  // ── T056 (US15/FR-021d-f) STEM math-present marker ───────────────────────────────────────────
-  // The worker NEVER renders math (client-side per R5). It only flags `mathPresent` so the preview
+  // ── STEM math-present marker ───────────────────────────────────────────
+  // The worker NEVER renders math (client-side). It only flags `mathPresent` so the preview
   // lazy-loads MathJax — gated on the RESOLVED `:stem:` value AND stem delimiters surviving in the
   // converted HTML (which DOMPurify keeps as plain text downstream).
-  describe('STEM math-present marker (FR-021d-f)', () => {
+  describe('STEM math-present marker', () => {
     // The live preview enables STEM BY DEFAULT so an author who writes `stem:[…]`/`[stem]` sees
     // rendered math without remembering the `:stem:` header (the originally-reported bug was the
     // formula showing as literal `\$…\$` text inside the <p>). The default is passed to Asciidoctor
@@ -1151,12 +1151,12 @@ describe('asciidoc-render.worker', () => {
     });
   });
 
-  // ── T083 (Constitution VIII/IX) sanitizer + scroll-sync regression ──────────────────────────────
+  // ── sanitizer + scroll-sync regression (Constitution VIII/IX) ──────────────────────────────
   // Assembled / tag-or-line-filtered / conditional-gated content must keep IDENTICAL DOMPurify-relevant
   // output and preserve `data-source-line` mapping for RETAINED content. Asciidoctor is mocked, so the
   // real include assembler runs (proving filtering/gating drops the right source) and we assert the
   // worker's post-processing keeps a correct, uncorrupted id→line mapping on what Asciidoctor parsed.
-  describe('sanitizer + scroll-sync regression (T083)', () => {
+  describe('sanitizer + scroll-sync regression', () => {
     // The HTML body DOMPurify operates on must be byte-identical save for the injected
     // `data-source-line` attribute — the injection adds a numeric attribute beside `id="..."` and
     // changes nothing else (no tag/attribute the sanitizer would treat differently is touched).
@@ -1185,7 +1185,7 @@ describe('asciidoc-render.worker', () => {
     // Assembled (includes inlined) content: the assembler runs for real; the worker maps each block's
     // findBy source line (into the ASSEMBLED document) to its id. Retained content keeps correct lines.
     it('preserves data-source-line mapping for retained content in an assembled document', () => {
-      // child has a tag region; only the `keep` slice is inlined (markers + outside dropped, FR-033).
+      // child has a tag region; only the `keep` slice is inlined (markers + outside dropped).
       const files = {
         'main.adoc': '= Book\n\ninclude::ch.adoc[tags=keep]\n',
         'ch.adoc': '// tag::keep[]\nKept paragraph.\n// end::keep[]\nDropped paragraph.\n',
@@ -1234,7 +1234,7 @@ describe('asciidoc-render.worker', () => {
       );
     });
 
-    // Conditional-gated include (US8/FR-029..031): an include wrapped by an inactive `ifdef` region is
+    // Conditional-gated include: an include wrapped by an inactive `ifdef` region is
     // NOT inlined, so its content never reaches Asciidoctor and gets no data-source-line — the mapping
     // for the retained (active) content stays correct and uncorrupted.
     it('drops a gated-out include and keeps a correct mapping for the retained content', () => {

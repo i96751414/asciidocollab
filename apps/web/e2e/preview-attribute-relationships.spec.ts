@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// FR-028 (attribute relationships resolve mutually consistently in one render): a single assembled
+// Attribute relationships resolve mutually consistently in one render: a single assembled
 // preview must reconcile SEVERAL interacting cross-document attributes at once —
 //   1. `:idprefix:`/`:idseparator:` (set in the root) generate a heading's auto-ID;
 //   2. an `:xrefstyle:`-styled `<<id>>` (style set in the root) targets THAT generated ID;
@@ -20,7 +20,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('preview attribute relationships resolve mutually consistently (FR-028)', () => {
+test.describe('preview attribute relationships resolve mutually consistently', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

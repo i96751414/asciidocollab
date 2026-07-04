@@ -9,12 +9,12 @@ import {
 import { RangeSetBuilder, StateEffect, type Extension } from '@codemirror/state';
 
 /**
- * `{attr}` collapse-to-value (US4, FR-057). Renders a resolved attribute
+ * `{attr}` collapse-to-value. Renders a resolved attribute
  * reference (`{version}`) as its value via a **replace decoration** — the
- * document text is never changed (Constitution VII; FR-015). References resolve
+ * document text is never changed (Constitution VII). References resolve
  * against attributes defined *earlier* in the document (document-order, like
  * Asciidoctor) seeded with the attributes the open file inherits from the
- * documents that include it (US8/FR-045a); unknown/forward references are left
+ * documents that include it; unknown/forward references are left
  * as-is. Attribute names are matched case-insensitively, as Asciidoctor does.
  */
 
@@ -22,7 +22,7 @@ const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):(?:\s+(.*))?$/;
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
 // Inline attribute assignment in body text: `{set:name:value}` (set) or `{set:name!}` (unset). A set
 // defines/overrides the attribute from this point onward; an unset removes it — exactly like a
-// `:name:` / `:name!:` entry (FR-040), so an own `{set:}`-defined `{name}` later folds to its value.
+// `:name:` / `:name!:` entry, so an own `{set:}`-defined `{name}` later folds to its value.
 const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:([^}]*))\}/g;
 const NO_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 
@@ -82,7 +82,7 @@ export function computeAttributeReplacements(
 
     // Inline `{set:}` assignments and `{ref}` references interleave on the same line, so process them
     // in column order: a `{set:name:value}` to the LEFT of a `{name}` reference defines it in time
-    // for that reference, mirroring Asciidoctor's left-to-right inline substitution (FR-040). The
+    // for that reference, mirroring Asciidoctor's left-to-right inline substitution. The
     // `{set:...}` token itself is never a foldable reference (ATTR_REF_RE cannot match it).
     const sets = [...line.matchAll(INLINE_SET_RE)].map((m) => ({
       index: m.index ?? 0,

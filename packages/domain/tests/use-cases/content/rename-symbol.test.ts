@@ -23,7 +23,7 @@ import type { CollaborativeContentEditor, ContentReplacement } from '../../../sr
 import type { CollaborativeContentReader } from '../../../src/ports/storage/collaborative-content-reader';
 import type { Result } from '../../../src/types/result';
 
-// US12 / FR-064: rename a section id / block anchor / attribute and update every
+// Rename a section id / block anchor / attribute and update every
 // `<<id>>` / `xref:` / `{attr}` reference to it across the project's documents.
 
 const editorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
@@ -147,7 +147,7 @@ describe('RenameSymbolUseCase', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     const book = await read('/book.adoc');
-    expect(book).toContain(':revision: 2'); // definition untouched (FR-021)
+    expect(book).toContain(':revision: 2'); // definition untouched
     expect(book).toContain('{revision} edition'); // reference propagated
     expect(book).not.toContain('{edition}');
   });
@@ -169,7 +169,7 @@ describe('RenameSymbolUseCase', () => {
   });
 });
 
-// US12 / FR-064 collab-safety: a file open for live collaborative editing must be rewritten through
+// Collab-safety: a file open for live collaborative editing must be rewritten through
 // the Yjs source of truth (CollaborativeContentEditor), not the file store — otherwise the rename is
 // invisible to the editor and clobbered by the next writeback. A file that is NOT open keeps the
 // direct file-store write. Mirrors the file-rename rewrite's collab routing.

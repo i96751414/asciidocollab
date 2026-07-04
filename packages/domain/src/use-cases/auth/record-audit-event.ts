@@ -21,7 +21,7 @@ export interface RecordAuditEventInput {
   readonly projectId?: ProjectId | null;
   /** Event-specific metadata (e.g. Before/after values). */
   readonly metadata?: Record<string, unknown>;
-  /** Request origin, folded into `metadata.origin` when present (FR-017). */
+  /** Request origin, folded into `metadata.origin` when present. */
   readonly context?: RequestContext;
   /** Event time; defaults to now. */
   readonly now?: Date;

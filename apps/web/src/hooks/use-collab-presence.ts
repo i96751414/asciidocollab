@@ -18,7 +18,7 @@ export interface ParticipantPresence {
   /** Avatar image URL, if any. */
   avatarUrl?: string;
   /**
-   * 1-based cursor line published by the peer via the project-presence channel (FR-019).
+   * 1-based cursor line published by the peer via the project-presence channel.
    * Absent for older clients that don't publish it; skip those in outline attribution.
    */
   cursorLine?: number;
@@ -57,11 +57,11 @@ function collectParticipants(awareness: AwarenessLike): ParticipantPresence[] {
   const seen = new Set<string>();
   const participants: ParticipantPresence[] = [];
   for (const [clientId, state] of awareness.getStates()) {
-    // A client MUST NOT render its own overlay/entry (FR-008).
+    // A client MUST NOT render its own overlay/entry.
     if (clientId === awareness.clientID) continue;
     const { user } = state;
     if (!user) continue;
-    // Dedupe the same application user across tabs to a single identity (FR-010).
+    // Dedupe the same application user across tabs to a single identity.
     if (seen.has(user.userId)) continue;
     seen.add(user.userId);
     participants.push({

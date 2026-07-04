@@ -34,7 +34,7 @@ export class DeleteFileUseCase {
     private readonly yjsStateStore?: YjsStateStore,
     private readonly logger?: Logger,
     // Optional: when injected, clears the project main-file configuration if the
-    // deleted file (or a file beneath a deleted folder) was the main file (FR-070).
+    // deleted file (or a file beneath a deleted folder) was the main file.
     private readonly projectRepo?: ProjectRepository,
   ) {}
 
@@ -82,7 +82,7 @@ export class DeleteFileUseCase {
       ? await this.documentRepo.findByFileNodeId(fileNodeId)
       : null;
 
-    // FR-070: decide BEFORE deletion whether the configured main file is removed by
+    // decide BEFORE deletion whether the configured main file is removed by
     // this operation (the file itself, or a file beneath a deleted folder), so the
     // configuration can be cleared rather than left dangling.
     const projectForMainFile = this.projectRepo ? await this.projectRepo.findById(projectId) : null;

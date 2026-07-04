@@ -72,7 +72,7 @@ describe('rename suggestion state machine', () => {
     document.body.innerHTML = '';
   });
 
-  test('shows a suggestion 2s after a settled attribute rename (FR-010/FR-012)', async () => {
+  test('shows a suggestion 2s after a settled attribute rename', async () => {
     const { config, findSymbolUsages } = makeConfig();
     const view = mount(':edition:\n', config);
     beginRename(view);
@@ -87,7 +87,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('re-editing the name resets the 2s timer (FR-011)', async () => {
+  test('re-editing the name resets the 2s timer', async () => {
     const { config } = makeConfig();
     const view = mount(':edition:\n', config);
     beginRename(view);
@@ -101,7 +101,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('suppresses when the old name has no other occurrences (FR-003)', async () => {
+  test('suppresses when the old name has no other occurrences', async () => {
     const findSymbolUsages = jest.fn(async () => [u('F', 'definition', 0)]);
     const { config } = makeConfig({ findSymbolUsages });
     const view = mount(':edition:\n', config);
@@ -111,7 +111,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('blocks apply when the new name collides with an existing same-kind symbol (FR-022)', async () => {
+  test('blocks apply when the new name collides with an existing same-kind symbol', async () => {
     const findSymbolUsages = jest.fn(async (_p: string, name: string) =>
       name === 'edition' ? [u('F', 'definition', 0), u('G', 'xref', 5)] : [u('H', 'definition', 0)],
     );
@@ -125,7 +125,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('reverting the name to the original clears the suggestion (FR-015)', async () => {
+  test('reverting the name to the original clears the suggestion', async () => {
     const { config } = makeConfig();
     const view = mount(':edition:\n', config);
     beginRename(view);
@@ -136,7 +136,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('hides 5s after leaving the definition, but a return within the window keeps it (FR-013/FR-014)', async () => {
+  test('hides 5s after leaving the definition, but a return within the window keeps it', async () => {
     const { config } = makeConfig();
     const view = mount(':edition:\n\nbody text here\n', config);
     beginRename(view);
@@ -156,7 +156,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('apply rewrites via the reused endpoint and undo reverses it (FR-018/FR-020)', async () => {
+  test('apply rewrites via the reused endpoint and undo reverses it', async () => {
     const { config, renameSymbol } = makeConfig();
     const view = mount(':edition:\n', config);
     beginRename(view);

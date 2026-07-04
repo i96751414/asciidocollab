@@ -17,13 +17,13 @@ const initialContentState = {
 };
 
 describe('FileContentPanel', () => {
-  // T015 (a): no file selected → placeholder text
+  // No file selected → placeholder text
   it('shows placeholder when selectedFile is null', () => {
     render(<FileContentPanel selectedFile={null} contentState={initialContentState} />);
     expect(screen.getByText(/Select a file from the tree to view its content/i)).toBeInTheDocument();
   });
 
-  // T015 (b): isLoading=true → loading skeleton
+  // isLoading=true → loading skeleton
   it('shows loading state when isLoading=true', () => {
     render(
       <FileContentPanel
@@ -34,7 +34,7 @@ describe('FileContentPanel', () => {
     expect(screen.getByTestId('content-loading')).toBeInTheDocument();
   });
 
-  // T015 (c): content present → rendered in <pre>
+  // Content present → rendered in <pre>
   it('renders file content inside a <pre> element', () => {
     render(
       <FileContentPanel
@@ -47,7 +47,7 @@ describe('FileContentPanel', () => {
     expect(pre).toHaveTextContent('Hello World');
   });
 
-  // T015 (d): isBinary=true → "Preview not available for binary files"
+  // isBinary=true → "Preview not available for binary files"
   it('shows binary placeholder when isBinary=true', () => {
     render(
       <FileContentPanel
@@ -58,7 +58,7 @@ describe('FileContentPanel', () => {
     expect(screen.getByText(/Preview not available for binary files/i)).toBeInTheDocument();
   });
 
-  // T015 (e): error set → renders error message
+  // Error set → renders error message
   it('renders error message when error is set', () => {
     render(
       <FileContentPanel

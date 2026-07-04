@@ -23,7 +23,7 @@ function ParticipantChip({ participant }: { participant: ParticipantPresence }) 
 }
 
 /**
- * Shows the other collaborators currently in the document (FR-010): one chip per
+ * Shows the other collaborators currently in the document: one chip per
  * distinct user with an avatar or coloured initial, plus a count. Renders nothing
  * when alone or off the collab path.
  */

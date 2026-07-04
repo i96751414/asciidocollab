@@ -2,9 +2,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject, createTestFile } from './helpers/test-project';
 
-// T026 / US1 / FR-006, no-data-loss (edit handoff): on the collab path the editor
+// No-data-loss (edit handoff): on the collab path the editor
 // performs NO PUT /content — persistence is the collaboration server's job
-// (write-back + room-teardown flush, 018 FR-009). This test asserts that after a
+// (write-back + room-teardown flush, 018). This test asserts that after a
 // collaborative edit and room teardown, GET /content reflects the edits, AND the
 // editor never issued its own PUT. Requires apps/api AND apps/collab running.
 //
@@ -20,7 +20,7 @@ async function openFileInEditor(page: Page, projectId: string, fileName: string)
   await expect(page.locator('.cm-editor .cm-content')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('No data loss at collab session handoff (US1)', () => {
+test.describe('No data loss at collab session handoff', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

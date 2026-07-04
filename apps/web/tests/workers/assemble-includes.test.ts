@@ -4,7 +4,7 @@ function reader(files: Record<string, string>) {
   return (path: string) => files[path] ?? null;
 }
 
-describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Constitution IX)', () => {
+describe('assembleIncludes — sandbox-gated include assembly (Constitution IX)', () => {
   test('inlines a resolvable sibling include', () => {
     const files = {
       'main.adoc': '= Book\n\ninclude::chapter.adoc[]\n',
@@ -84,7 +84,7 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     };
     const { content } = assembleIncludes('main.adoc', reader(files));
     // The boundary sets the child's absolute offset (1) and restores the parent's absolute offset (0)
-    // after the child, so an unbalanced child cannot corrupt the surrounding offset (FR-010).
+    // after the child, so an unbalanced child cannot corrupt the surrounding offset.
     expect(content).toContain(':leveloffset: 1');
     expect(content).toContain('== Section');
     expect(content).toContain(':leveloffset: 0');
@@ -270,7 +270,7 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(unresolved).toEqual([]);
   });
 
-  // T015 (FR-005): an unset before the include removes the attribute, so a later include target
+  // An unset before the include removes the attribute, so a later include target
   // using it is no longer substituted (and the target is left literal / unresolved).
   test('an unset attribute before an include is not substituted in a later include target', () => {
     const files = {
@@ -282,7 +282,7 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(unresolved.some((u) => u.target === '{partsdir}/x.adoc')).toBe(true);
   });
 
-  // T015 (FR-040): an inline {set:} before an include defines an attribute used by a later target.
+  // An inline {set:} before an include defines an attribute used by a later target.
   test('an inline {set:} before an include is substituted in a later include target', () => {
     const files = {
       'main.adoc': 'Intro {set:partsdir:parts}\n\ninclude::{partsdir}/x.adoc[]\n',
@@ -299,12 +299,12 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     expect(unresolved[0]).toMatchObject({ target: 'nope.adoc', reason: 'not-found' });
   });
 
-  // ── T045 (US11/FR-040..FR-041): inline {set:} and wrapped attribute values in the assembler ──
+  // ── inline {set:} and wrapped attribute values in the assembler ──
   // The assembler tracks attribute state per line via applyLineAttributes; an inline {set:} affects
   // subsequent (incl. cross-include) references, and a trailing-`\` wrapped attribute entry must be
   // JOINED so the full multi-line value is tracked (applyLineAttributes does not join continuation
   // lines, so the assembler joins them before tracking). Source lines stay intact for Asciidoctor.
-  describe('inline {set:} and wrapped attribute values (US11)', () => {
+  describe('inline {set:} and wrapped attribute values', () => {
     test('an inline {set:} value is in scope for a later include target across the tree', () => {
       const files = {
         'main.adoc': 'Intro {set:basedir:src/main/java}\n\ninclude::{basedir}/x.adoc[]\n',
@@ -358,11 +358,11 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     });
   });
 
-  // ── T039 (US8/FR-029..FR-031): conditional include-gating in the assembler ──────────────────
+  // ── conditional include-gating in the assembler ──────────────────
   // The assembler gates ONLY includes against the resolved document-order attribute state. It does
   // not strip content-level conditionals — those (and the directive lines themselves) are left in
   // the assembled source for Asciidoctor to evaluate natively with the seeded attributes.
-  describe('conditional include-gating (US8)', () => {
+  describe('conditional include-gating', () => {
     test('ifdef::flag[] gates a wrapped include — assembled when the flag is set', () => {
       const files = {
         'main.adoc': ':flag:\n\nifdef::flag[]\ninclude::ch.adoc[]\nendif::[]\n',
@@ -531,7 +531,7 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
       // An `ifdef::backend-html5[]include::…]` region is ACTIVE under Asciidoctor's html5 render
       // because `backend-html5` is an intrinsic attribute it always sets. The assembler never sees a
       // `:backend-html5:` line, so without the seed it would wrongly gate the include OFF and drop the
-      // chapter from the preview. The seed makes the assembler agree with Asciidoctor (FR-029/Finding#1).
+      // chapter from the preview. The seed makes the assembler agree with Asciidoctor (Finding#1).
       const files = {
         'main.adoc': 'ifdef::backend-html5[]\ninclude::ch.adoc[]\nendif::[]\n',
         'ch.adoc': '== HTML Only Chapter\n',
@@ -579,12 +579,12 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
     });
   });
 
-  // ── T061 (US9/FR-033..FR-036): partial includes by `tags=` / `lines=` ───────────────────────
+  // ── partial includes by `tags=` / `lines=` ───────────────────────
   // A partial include selects only the matching slice of the child BEFORE it is inlined; the slice
   // then participates in attribute resolution and leveloffset exactly like a whole include. Tag
   // marker lines (`// tag::x[]` / `// end::x[]`) are excluded from output, and a non-matching or
   // out-of-range selection renders gracefully (empty slice) without breaking the surrounding doc.
-  describe('partial includes by tags= / lines= (US9)', () => {
+  describe('partial includes by tags= / lines=', () => {
     describe('tag filtering', () => {
       const tagged = [
         'Before all tags.',
@@ -797,7 +797,7 @@ describe('assembleIncludes — sandbox-gated include assembly (US8/FR-068, Const
   });
 });
 
-// T002: source map tests (feature 032)
+// source map tests (feature 032)
 describe('assembleIncludes — source map (withSourceMap, feature 032)', () => {
   test('regression: without withSourceMap, content and unresolved are byte-for-byte identical to existing behaviour', () => {
     const files = {
@@ -892,7 +892,7 @@ describe('assembleIncludes — source map (withSourceMap, feature 032)', () => {
     expect(placeholderIndex).toBeGreaterThan(-1);
   });
 
-  // T036 — Principle VIII: regression guard proving that the assembled content piped to the preview
+  // Principle VIII: regression guard proving that the assembled content piped to the preview
   // renderer (sanitization + scroll-sync) is byte-for-byte identical whether or not source mapping is
   // requested. Covers leveloffset and tags to exercise the same paths the preview worker uses.
   test('preview-relevant content (leveloffset + tags) is byte-for-byte unchanged with withSourceMap:true', () => {

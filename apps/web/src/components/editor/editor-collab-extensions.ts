@@ -16,9 +16,9 @@ export const COLLAB_YTEXT_KEY = SHARED_COLLAB_YTEXT_KEY;
  * Builds the CodeMirror extension that binds the editor to the collaborative
  * document: `yCollab` reconciles the editor doc to `Y.Text('codemirror')`,
  * renders remote cursors/selections from awareness, and omits the local client's
- * own overlay (FR-008).
+ * own overlay.
  *
- * Per-user undo (US3, FR-011): a `Y.UndoManager` with empty `trackedOrigins` — the
+ * Per-user undo: a `Y.UndoManager` with empty `trackedOrigins` — the
  * y-codemirror undo plugin adds the local sync origin automatically, so undo
  * reverts only this user's edits, never a remote peer's. `yUndoManagerKeymap`
  * binds Mod-z/Mod-y; native CodeMirror history is omitted on the collab path

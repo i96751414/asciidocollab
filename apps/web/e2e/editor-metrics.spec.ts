@@ -3,9 +3,9 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// US11 / FR-044: word count + reading time appear in the status bar and update on edit.
+// Word count + reading time appear in the status bar and update on edit.
 
-test.describe('US11 document metrics', () => {
+test.describe('document metrics', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

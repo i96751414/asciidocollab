@@ -1,4 +1,4 @@
-// T024: Integration tests for PATCH /auth/profile
+// Integration tests for PATCH /auth/profile
 import { buildServer } from '../src/index';
 import { registerRoute } from '../src/routes/auth/register';
 import { loginRoute } from '../src/routes/auth/login';

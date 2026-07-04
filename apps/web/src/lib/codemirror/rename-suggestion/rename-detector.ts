@@ -7,8 +7,8 @@ import type { DocumentRange, SymbolKind } from './types';
  *
  * Unlike `asciidoc-symbol-at-cursor` (which also matches reference sites to seed the refactor
  * dialog), this only recognises DEFINITION tokens — an attribute definition or an explicit anchor —
- * because a rename suggestion is triggered by editing the definition, never a reference (FR-004).
- * Section-heading derived IDs are handled separately (US3) and are not matched here.
+ * because a rename suggestion is triggered by editing the definition, never a reference.
+ * Section-heading derived IDs are handled separately and are not matched here.
  */
 
 /** A definition token recognised under the cursor. */
@@ -23,7 +23,7 @@ export interface DefinitionMatch {
 
 // Attribute definition `:name:` / `:name!:`, anchored to the start of the line.
 const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)!?:/g;
-// Inline attribute assignment `{set:name:value}` / `{set:name!}` (FR-040) — an attribute definition
+// Inline attribute assignment `{set:name:value}` / `{set:name!}` — an attribute definition
 // in body text. Mirrors INLINE_SET_RE in asciidoc-attribute-fold.ts.
 const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:[^}\n]*)\}/g;
 // The `{set:` prefix length, used to locate the name span within an inline-set token.
@@ -55,7 +55,7 @@ function covering(line: string, pos: number, re: RegExp): RegExpMatchArray | nul
  * The symbol definition token under the cursor, or null when the cursor is not on one.
  *
  * Matches only definition sites (attribute `:name:`, anchor `[[id]]`/`[#id]`/`anchor:id[]`), so
- * editing a reference such as `{name}` or `<<id>>` never yields a match (FR-004). Position-aware:
+ * editing a reference such as `{name}` or `<<id>>` never yields a match. Position-aware:
  * it never picks a token elsewhere on the line.
  *
  * @param state - The current editor state (cursor + document).
@@ -106,9 +106,9 @@ export function definitionAtCursor(state: EditorState): DefinitionMatch | null {
     }
   }
 
-  // Section heading: the "symbol" is the heading's AUTO-GENERATED id (US3). Only offered when the
+  // Section heading: the "symbol" is the heading's AUTO-GENERATED id. Only offered when the
   // heading has no explicit id — an explicit `[#id]`/`[[id]]` on the preceding line overrides the
-  // derived id, so editing the text does not change the reference target (FR-005). The cursor may be
+  // derived id, so editing the text does not change the reference target. The cursor may be
   // anywhere on the heading line (the whole line is the definition).
   const heading = SECTION_HEADING_RE.exec(text);
   if (heading) {

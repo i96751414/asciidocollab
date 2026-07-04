@@ -1,5 +1,5 @@
 /**
- * Live document metrics (US11, FR-044): word count and estimated reading time.
+ * Live document metrics: word count and estimated reading time.
  * Pure and CodeMirror-free so it unit-tests directly and can run off the typing
  * path (debounced from the editor's update listener).
  */

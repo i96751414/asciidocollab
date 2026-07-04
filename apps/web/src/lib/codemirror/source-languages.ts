@@ -3,13 +3,13 @@ import { languages } from '@codemirror/language-data';
 
 /**
  * Curated allow-list of source languages we highlight inside `[source,<lang>]`
- * blocks (US5/FR-017). Keys are the lowercased language tokens that may appear
+ * blocks. Keys are the lowercased language tokens that may appear
  * in an AsciiDoc source declaration (including common aliases); values are the
  * canonical `@codemirror/language-data` language names.
  *
  * Scoped deliberately (~20 entries / ~15 distinct languages) rather than
  * exposing every CodeMirror language pack — keeps the lazy-loaded bundle small
- * and the highlighting predictable (research R1).
+ * and the highlighting predictable.
  */
 const ALLOWLIST: Readonly<Record<string, string>> = {
   javascript: 'JavaScript',
@@ -60,7 +60,7 @@ export function canonicalSourceLanguageName(name: string | null | undefined): st
   return ALLOWLIST[name.trim().toLowerCase()] ?? null;
 }
 
-/** Distinct AsciiDoc source-language tokens offered for completion (FR-031), sorted. */
+/** Distinct AsciiDoc source-language tokens offered for completion, sorted. */
 export function listSourceLanguageTokens(): string[] {
   return Object.keys(ALLOWLIST).toSorted();
 }

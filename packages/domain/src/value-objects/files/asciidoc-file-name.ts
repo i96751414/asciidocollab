@@ -2,9 +2,9 @@
  * @file The canonical AsciiDoc file-name rule. A file is an AsciiDoc document
  * when it has a non-empty stem and one of these extensions. This single
  * definition governs every place that asks "is this an AsciiDoc document?" —
- * main-file eligibility (FR-045), main-file consistency on rename (FR-070),
- * cross-file reference rewrite scoping (FR-066), and project-wide find-usages
- * (FR-065) — so the rules can never drift apart. The web mirrors this exact
+ * main-file eligibility, main-file consistency on rename,
+ * cross-file reference rewrite scoping, and project-wide find-usages
+ * — so the rules can never drift apart. The web mirrors this exact
  * predicate in apps/web/src/lib/asciidoc/file-name.ts (web ⊥ domain).
  */
 

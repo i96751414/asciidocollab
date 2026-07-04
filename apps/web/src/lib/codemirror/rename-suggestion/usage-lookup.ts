@@ -2,7 +2,7 @@ import type { SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange } from './types';
 
 /**
- * Whole-project usage lookup + suppression for the rename suggestion (033, FR-003/FR-006).
+ * Whole-project usage lookup + suppression for the rename suggestion.
  *
  * The authoritative, project-wide, live-aware search is the server `symbol-usages` endpoint
  * (reused via `findSymbolUsages`). This module turns its raw result into the impact summary the

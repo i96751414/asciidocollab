@@ -18,15 +18,15 @@ interface EditorRestorationOptions {
 interface EditorRestoration {
   // Selection handler that remembers the file, threads any pending xref line, and selects it.
   handleSelectFile: (nodeId: string, nodeName: string, nodePath: string, nodeType: 'file' | 'folder') => void;
-  // Debounced cursor-line persistence — AsciiDoc files only (FR-006).
+  // Debounced cursor-line persistence — AsciiDoc files only.
   handleCursorLineChange: (line: number) => void;
   /** 1-based line to restore on the restored file's first mount, or undefined otherwise. */
   initialLine: number | undefined;
 }
 
 /**
- * Last-selection restoration (FR-010), cursor-line persistence (FR-006), and the stale-memory
- * cleanup for a missing restored file (FR-009/US3). Owns the restored-line state and the
+ * Last-selection restoration, cursor-line persistence, and the stale-memory
+ * cleanup for a missing restored file. Owns the restored-line state and the
  * persistence debounce; selection/content come from useFileSelection in the parent.
  */
 export function useEditorRestoration({
@@ -75,9 +75,9 @@ export function useEditorRestoration({
   //
   // The line to restore is chosen in priority order:
   //   1. A pending cross-file go-to-definition line (an xref targeting this file), if set.
-  //   2. The file's own per-file remembered cursor line (US7 / FR-023) — so reopening any file,
+  //   2. The file's own per-file remembered cursor line — so reopening any file,
   //      even via an in-tree click mid-session, returns the cursor to where it was last left.
-  //   3. None → open at the top (FR-026).
+  //   3. None → open at the top.
   // Either way the chosen line reaches the editor via the mount-time `initialLine`, which clamps it
   // to the nearest valid line against the live document length (use-editor-mount.ts).
   const handleSelectFile = useCallback(
@@ -92,8 +92,8 @@ export function useEditorRestoration({
     [rememberFile, selectFile, pendingXrefLine, readCursorLine],
   );
 
-  // Debounced cursor-line persistence — AsciiDoc files only (FR-006). Saves into BOTH the single
-  // last-selection entry (last-opened-file restore) and the per-file cursor map (US7), keyed by the
+  // Debounced cursor-line persistence — AsciiDoc files only. Saves into BOTH the single
+  // last-selection entry (last-opened-file restore) and the per-file cursor map, keyed by the
   // file that was open when the debounce was scheduled, so a late timer never lands on the wrong file.
   const handleCursorLineChange = useCallback((line: number) => {
     if (!selectedFile || !isAsciiDocFile(selectedFile.nodeName)) return;
@@ -104,7 +104,7 @@ export function useEditorRestoration({
       lineDebounceReference.current = null;
       pendingLineReference.current = null;
       // The file is still open (a switch would have cleared this timer first): update BOTH the single
-      // last-selection line (last-opened-file restore) and this file's per-file entry (US7).
+      // last-selection line (last-opened-file restore) and this file's per-file entry.
       rememberLine(line);
       rememberCursorLine(nodeId, line);
     }, 500);
@@ -113,11 +113,11 @@ export function useEditorRestoration({
   // FLUSH the pending line save when the open file changes (or on unmount). The save captured the
   // outgoing file's nodeId, so flushing can only write that file's entry — never the newly-selected
   // file's. Flushing (rather than cancelling) means switching files faster than the 500ms debounce
-  // never DROPS the cursor position the user just left (US7/FR-022).
+  // never DROPS the cursor position the user just left.
   useEffect(() => flushPendingLineSave, [selectedFile?.nodeId, flushPendingLineSave]);
 
   // Restore the last opened file (and its cursor line) on mount. Synchronous localStorage read —
-  // never blocks first paint (FR-010); a no-op when nothing is stored.
+  // never blocks first paint; a no-op when nothing is stored.
   //
   // The empty dependency array already runs this once per real mount. We deliberately do NOT gate
   // it behind a persistent ref: under React StrictMode (and any mount→unmount→remount cycle), the
@@ -127,7 +127,7 @@ export function useEditorRestoration({
   useEffect(() => {
     const stored = readLastSelection();
     if (!stored) return;
-    // Prefer the file's own per-file remembered line (US7); fall back to the line stored on the
+    // Prefer the file's own per-file remembered line; fall back to the line stored on the
     // single last-selection entry for projects last visited before the per-file map existed.
     const line = readCursorLine(stored.nodeId) ?? stored.line;
     if (line !== undefined) setRestoredLine({ nodeId: stored.nodeId, line });
@@ -140,8 +140,8 @@ export function useEditorRestoration({
     : undefined;
 
   // The selected file is gone (content fetch 404). Clear the stale memory so it is not retried,
-  // and reset to the no-file state — no error is shown (FR-009 / US3). Prune the deleted file's
-  // per-file cursor entry too, so a recreated node id never resurrects a stale position (US7 edge case).
+  // and reset to the no-file state — no error is shown. Prune the deleted file's
+  // per-file cursor entry too, so a recreated node id never resurrects a stale position.
   useEffect(() => {
     if (!contentState.notFound) return;
     clearLastSelection();

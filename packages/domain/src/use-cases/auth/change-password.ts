@@ -126,7 +126,7 @@ export class ChangePasswordUseCase {
 
     // Best-effort: the password change already committed before the audit write, so an
     // audit-store failure must NOT surface as the result (the failure reason must stay
-    // business-only). Swallowed but kept observable via the logger (FR-021).
+    // business-only). Swallowed but kept observable via the logger.
     await recordAuditSuccess(this.auditLogRepo, {
       actorId: userId,
       projectId: null,

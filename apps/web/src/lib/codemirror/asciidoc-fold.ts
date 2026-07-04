@@ -4,7 +4,7 @@ import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common';
 import { computeHeadingLevels } from './asciidoc-heading-levels';
 
 /**
- * AsciiDoc folding (US4, FR-012–016). Beyond the original delimited-block folds
+ * AsciiDoc folding. Beyond the original delimited-block folds
  * this adds: section folds (heading → next same/higher heading), Literal/
  * Admonition blocks, PSV/CSV/DSV tables, conditional `ifdef…endif` ranges, and
  * runs of consecutive comment / attribute-entry lines.
@@ -12,7 +12,7 @@ import { computeHeadingLevels } from './asciidoc-heading-levels';
  * The range producers are pure (text- or node-based) so they unit-test without a
  * live editor (contracts/editor-extensions.md §1). Folding never edits the
  * document, and a selection spanning a fold includes the hidden text — both are
- * CodeMirror defaults (FR-015/016a).
+ * CodeMirror defaults.
  */
 
 /** A collapsed (folded) text region. */

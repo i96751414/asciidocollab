@@ -1,11 +1,11 @@
 /**
- * Effective AsciiDoc heading-level rule (US3, FR-009/010/071/072).
+ * Effective AsciiDoc heading-level rule.
  *
  * The displayed level of a heading is its raw marker level shifted by the `:leveloffset:` in effect
  * at that point in the document, plus any offset inherited from an ancestor include (see
  * {@link inheritedLevelOffset}). A heading whose effective level exceeds {@link MAX_HEADING_LEVEL}
- * is not a heading (FR-010); a `[discrete]`/`[float]` heading is styled as a heading but excluded
- * from the outline / section folding (FR-072).
+ * is not a heading; a `[discrete]`/`[float]` heading is styled as a heading but excluded
+ * from the outline / section folding.
  *
  * This is editor *presentation* logic (how heading lines are styled): it lives in the web layer
  * alongside the CodeMirror decorations that consume it, and is intentionally NOT in
@@ -31,7 +31,7 @@ export interface HeadingLevelInfo {
   effectiveLevel: number;
   /** `[discrete]`/`[float]` heading — styled but excluded from outline/fold. */
   discrete: boolean;
-  /** Effective level exceeds {@link MAX_HEADING_LEVEL} ⇒ not a heading (FR-010). */
+  /** Effective level exceeds {@link MAX_HEADING_LEVEL} ⇒ not a heading. */
   beyondMax: boolean;
 }
 
@@ -200,7 +200,7 @@ function traceFinalOffset(
 /**
  * Compute effective heading levels for an AsciiDoc document. `inheritedOffset` is the offset
  * accumulated from ancestor files in the include path (0 when the file is the tree root, or when
- * no main file supplies it — FR-071).
+ * no main file supplies it).
  *
  * A `==`-line is only a heading at a block boundary. Plain prose opens a paragraph that absorbs
  * every following non-blank line until a blank line, so `prose\n== Foo` is paragraph text — NOT a

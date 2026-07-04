@@ -15,7 +15,7 @@ function fakeView(): { view: EditorView; dispatch: jest.Mock } {
   return { view: { dispatch } as unknown as EditorView, dispatch };
 }
 
-describe('RenameSuggestionWidget (FR-012/FR-017/FR-022)', () => {
+describe('RenameSuggestionWidget', () => {
   test('renders old→new, kind and impact, and Apply dispatches the apply request', () => {
     const { view, dispatch } = fakeView();
     const widget = new RenameSuggestionWidget({
@@ -30,7 +30,7 @@ describe('RenameSuggestionWidget (FR-012/FR-017/FR-022)', () => {
     expect(dispatch.mock.calls[0][0].effects.is(applyRequestEffect)).toBe(true);
   });
 
-  test('collision state warns and offers no Apply (FR-022)', () => {
+  test('collision state warns and offers no Apply', () => {
     const { view } = fakeView();
     const widget = new RenameSuggestionWidget({
       oldName: 'edition', newName: 'intro', kind: 'anchor', usageCount: 2, fileCount: 1, collision: true, applied: false,
@@ -41,7 +41,7 @@ describe('RenameSuggestionWidget (FR-012/FR-017/FR-022)', () => {
     expect(dom.textContent?.toLowerCase()).toContain('already exists');
   });
 
-  test('applied state Undo dispatches the undo request (FR-020)', () => {
+  test('applied state Undo dispatches the undo request', () => {
     const { view, dispatch } = fakeView();
     const widget = new RenameSuggestionWidget({
       oldName: 'edition', newName: 'release', kind: 'attribute', usageCount: 7, fileCount: 3, collision: false, applied: true,

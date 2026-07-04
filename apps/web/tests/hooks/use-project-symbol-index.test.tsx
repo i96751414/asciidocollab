@@ -79,7 +79,7 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.index!.resolveXref('nope')).toBe('unresolved');
   });
 
-  test('fetches every reachable file exactly once and never the unreachable one (FR-073/SC-025)', async () => {
+  test('fetches every reachable file exactly once and never the unreachable one', async () => {
     const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
     await waitFor(() => expect(result.current.index).not.toBeNull());
     // Give the debounced live-rebuild a chance to (wrongly) refetch.
@@ -260,7 +260,7 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.index).toBe(built); // unchanged by the superseded build
   });
 
-  test('exposes the resolved cross-document attribute scope for the open file (US6/T034)', async () => {
+  test('exposes the resolved cross-document attribute scope for the open file', async () => {
     // main.adoc defines :productName: before including child.adoc, which references {productName}.
     // The open file is the child; its resolved scope must inherit productName from the parent.
     const tree = {
@@ -347,7 +347,7 @@ function makeFakeObserverFactory() {
   return { factory, callbacks, destroyed };
 }
 
-// T015: reachable-doc change observation (feature 032)
+// reachable-doc change observation (feature 032)
 describe('useProjectSymbolIndex — reachable-doc change observation (feature 032)', () => {
 
   test('creates an observer for each reachable non-open file', async () => {

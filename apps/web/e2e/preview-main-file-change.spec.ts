@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// FR-007b / SC-009 (live re-resolution on main-file change): when the project main-file setting
+// Live re-resolution on main-file change: when the project main-file setting
 // changes, every open file re-resolves its inherited cross-document attribute context and refreshes
 // its preview — with no document edit. Two different roots define the same attribute name with
 // different values; the open child's preview must flip from the first root's value to the second's
@@ -18,7 +18,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('preview live re-resolution on main-file change (FR-007b)', () => {
+test.describe('preview live re-resolution on main-file change', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -65,7 +65,7 @@ test.describe('preview live re-resolution on main-file change (FR-007b)', () => 
 
     // Switch the project main file to main-b (the project-settings action) WITHOUT editing the child.
     // When the editor next loads under the new setting it must re-resolve the child's inherited scope
-    // against the new root with no document edit (FR-007b) — the preview flips to the new root's value.
+    // against the new root with no document edit — the preview flips to the new root's value.
     const mainBId = await fileId(page, projectId, 'main-b.adoc');
     await setMainFile(page, projectId, mainBId);
     await page.reload();

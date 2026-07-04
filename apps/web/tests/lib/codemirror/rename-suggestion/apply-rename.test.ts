@@ -7,7 +7,7 @@ const ok = (rewrittenFiles: number, updatedReferences: number, warnings: string[
   warnings,
 });
 
-describe('applyRename (FR-018/FR-019/FR-020)', () => {
+describe('applyRename', () => {
   test('renames old→new and maps the result', async () => {
     const renameSymbol = jest.fn(async () => ok(3, 7, ['x.adoc: skipped']));
     const { result } = await applyRename({

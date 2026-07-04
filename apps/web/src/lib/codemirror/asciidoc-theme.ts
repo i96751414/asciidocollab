@@ -65,15 +65,15 @@ export const asciidocEditorTheme = EditorView.theme({
   ".cm-ad-h5": { fontSize: "1em", fontWeight: "700" },
   // Discrete/float headings
   ".cm-ad-discrete": { fontStyle: "italic", color: c("--syntax-keyword") },
-  // Heading `=` marker run recedes to muted markup color and normal weight (T016/FR-001). The
+  // Heading `=` marker run recedes to muted markup color and normal weight. The
   // grammar wraps the `=` in an INNER highlight span carrying the heading colour, so the rule must
   // target that child span too (`, … span`) with `!important` to win — exactly as the
   // suppressed-heading rule below does. Without the child selector the `=` reads in the heading colour.
   ".cm-ad-heading-marker, .cm-ad-heading-marker span": { color: `${c("--markup")} !important`, fontWeight: "400 !important" },
-  // Leading `.` of a block title recedes to muted markup so the title text leads (FR-031 parity).
+  // Leading `.` of a block title recedes to muted markup so the title text leads (parity).
   // Same inner-span override as the heading marker (the `.` is wrapped in a block-title highlight span).
   ".cm-ad-block-title-marker, .cm-ad-block-title-marker span": { color: `${c("--markup")} !important`, fontWeight: "400 !important" },
-  // Table cell separators (`|`) recede; header-row cells go bold (FR-046 table structure). The sep
+  // Table cell separators (`|`) recede; header-row cells go bold (table structure). The sep
   // colour overrides the table body's content-fill inner span via the child selector + `!important`.
   ".cm-ad-table-sep, .cm-ad-table-sep span": { color: `${c("--markup")} !important` },
   ".cm-ad-table-header-cell": { fontWeight: "700" },
@@ -86,7 +86,7 @@ export const asciidocEditorTheme = EditorView.theme({
     fontWeight: "400 !important",
     fontSize: "1em !important",
   },
-  // Collapsed {attr} reference rendered as its resolved value (FR-057).
+  // Collapsed {attr} reference rendered as its resolved value.
   ".cm-ad-attr-value": {
     color: c("--syntax-attr"),
     borderBottom: `1px dotted ${c("--syntax-attr")}`,

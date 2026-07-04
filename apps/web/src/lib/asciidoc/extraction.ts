@@ -249,7 +249,7 @@ export function extractReferences(fileId: string, content: string): Reference[] 
  * heading (Asciidoctor lets `[#id]`/`[[id]]` override a section's auto-generated
  * id), or null when there is none. The `[[id]]`/`[#id]` line is still also
  * surfaced as an `anchor` symbol by the anchor pass below — both name the same
- * id, and rename/find-references key off the anchor kind (US12).
+ * id, and rename/find-references key off the anchor kind.
  */
 function explicitSectionId(content: string, headingStart: number): string | null {
   if (headingStart === 0 || content[headingStart - 1] !== '\n') return null;
@@ -280,7 +280,7 @@ export function extractSymbols(fileId: string, content: string): ProjectSymbol[]
     if (match[2] !== '!') symbols.push({ kind: 'attribute', name: match[1], fileId, range: rangeOf(match) });
   }
   // Inline `{set:name:value}` assignments define an attribute exactly like a `:name:` entry, so they
-  // surface as `attribute` symbols too (FR-040) — otherwise a `{set:}`-defined name would not be
+  // surface as `attribute` symbols too — otherwise a `{set:}`-defined name would not be
   // recognized as known and `{name}` would resolve as unresolved. An inline unset (`{set:name!}`)
   // defines nothing, so it is skipped (group 2 undefined). A `{set:}` that is itself the VALUE TEXT of
   // a `:name: value` entry is not a real assignment (Asciidoctor only runs it if `{name}` is rendered),
@@ -319,7 +319,7 @@ export function extractAttributeDefinitions(content: string): Array<{ name: stri
  * Unlike {@link extractAttributeDefinitions} (a `:name:`-only ordered list used for raw path
  * substitution), this is the authoritative own-file contribution for the symbol index's project-wide
  * `attributes` view and the own-part of `effectiveAttributes` — so a `{set:}`-defined attribute is
- * recognized in the editor exactly like a `:name:` entry (FR-040). It reuses the SAME document-order
+ * recognized in the editor exactly like a `:name:` entry. It reuses the SAME document-order
  * model as the include-graph inheritance walk, keeping a file's own definitions consistent with what
  * its children inherit. No inherited seed applies here (own scope only).
  *
@@ -374,7 +374,7 @@ type WalkEvent =
 /**
  * Character spans occupied by attribute-entry VALUES (`:name: value`, including any `\`-continuation
  * lines), excluding entries inside verbatim/comment blocks. A `{set:}`/`include::` that falls inside
- * such a span is value TEXT, not a document-order directive, so body scans skip it (#4/FR-041). The
+ * such a span is value TEXT, not a document-order directive, so body scans skip it (#4). The
  * caller passes the already-computed verbatim ranges to avoid re-scanning.
  */
 function attributeEntryValueRanges(
@@ -441,7 +441,7 @@ function documentOrderEvents(content: string): WalkEvent[] {
       events.push({ kind: 'attribute', pos: start, name: unsetName.toLowerCase(), value: null });
       continue;
     }
-    // A set entry: join `\`-continued lines into a single value (FR-041). The ENTIRE entry span —
+    // A set entry: join `\`-continued lines into a single value. The ENTIRE entry span
     // the first line's value AND any continuation lines — is value TEXT, so it is marked `consumed`:
     // a `{set:}`/`include::` appearing inside an attribute value is not a document-order directive and
     // must not be double-counted by the body scans below (#4).
@@ -462,7 +462,7 @@ function documentOrderEvents(content: string): WalkEvent[] {
   const inConsumedValue = (pos: number): boolean => consumed.some((range) => pos >= range.from && pos < range.to);
   const skip = (pos: number): boolean => inConsumedValue(pos) || isInRanges(pos, verbatim);
 
-  // Inline `{set:}` assignments anywhere in the body (FR-040), excluding those inside a wrapped value
+  // Inline `{set:}` assignments anywhere in the body, excluding those inside a wrapped value
   // or a verbatim block.
   for (const match of content.matchAll(INLINE_SET_RE)) {
     if (skip(match.index ?? 0)) continue;
@@ -480,7 +480,7 @@ function documentOrderEvents(content: string): WalkEvent[] {
 /**
  * Apply one attribute event to the running accumulator in document reading order, honoring
  * precedence:
- *  - an unset removes the name (FR-005);
+ * - an unset removes the name;
  *  - a soft-set (value ending in `@`) is an overridable default — it applies only when the name is
  *    not already in scope, so it cannot clobber an existing value (Asciidoctor soft-set precedence);
  *  - a plain entry / inline-set overrides any existing value.
@@ -508,7 +508,7 @@ function applyAttributeEvent(
  * value continued with a trailing `\` is NOT joined here — the caller scanning line-by-line should
  * treat that as the start of a wrapped value; for include-target substitution the first physical
  * line already carries the leading value, which is sufficient. Used by the include assembler so a
- * later include target sees the same attribute state the resolution model computes (FR-005/FR-040).
+ * later include target sees the same attribute state the resolution model computes.
  *
  * @param line - One physical line of content.
  * @param attributes - The accumulator, mutated in place.
@@ -523,7 +523,7 @@ export function applyLineAttributes(line: string, attributes: Map<string, string
       applyAttributeEvent({ kind: 'attribute', pos: 0, name: unsetName.toLowerCase(), value: null }, attributes);
     }
   }
-  // Inline `{set:name:value}` / `{set:name!}` assignments anywhere on the line (FR-040).
+  // Inline `{set:name:value}` / `{set:name!}` assignments anywhere on the line.
   for (const match of line.matchAll(INLINE_SET_RE)) {
     const value = match[2] === undefined ? null : match[2];
     applyAttributeEvent({ kind: 'inline-set', pos: 0, name: match[1].toLowerCase(), value }, attributes);
@@ -682,14 +682,14 @@ function applyOwnAttributes(content: string, seed: ReadonlyMap<string, string>):
  * Resolve the effective attribute scope for a file given the project main file (`rootFileId`).
  *
  * - `rootFileId === null` ⇒ standalone scope (origin `standalone`): only the file's own attributes
- *   resolve, with no inherited context (FR-002b).
+ * resolve, with no inherited context.
  * - `fileId === rootFileId` ⇒ root scope (origin `root`): the main file's own attributes.
  * - otherwise ⇒ inherited scope (origin `inherited`): the attributes the file inherits at its
- *   FIRST include point from the root (FR-002a), with the file's own definitions applied on top.
+ * FIRST include point from the root, with the file's own definitions applied on top.
  *   A file unreachable from the root inherits nothing.
  *
- * Cycle/depth-safe via the existing include-graph guard (FR-007). Unset (`:!name:`), inline
- * `{set:}`, wrapping values, and soft-set precedence are all honored (FR-003/005/040/041).
+ * Cycle/depth-safe via the existing include-graph guard. Unset (`:!name:`), inline
+ * `{set:}`, wrapping values, and soft-set precedence are all honored.
  *
  * @param args.rootFileId - The configured main file, or `null` when none is set (standalone).
  * @param args.fileId - The file whose scope to resolve.
@@ -728,7 +728,7 @@ export function resolveAttributeScope(arguments_: {
 /**
  * Parse the tag filter from an include directive's attribute list (`tags=`/`tag=`). Tokens are
  * separated by `;` or `,`, may be quoted, and support negation (`!tag`) and the `*`/`**` wildcards
- * (FR-033). Returns the ordered token list, or `null` when no tag selector is present (no filter).
+ * Returns the ordered token list, or `null` when no tag selector is present (no filter).
  */
 export function parseIncludeTags(attributes: string): string[] | null {
   const match = INCLUDE_TAGS_RE.exec(attributes);
@@ -743,7 +743,7 @@ export function parseIncludeTags(attributes: string): string[] | null {
 /**
  * Parse the line filter from an include directive's attribute list (`lines=`). Supports a single
  * line (`2` ⇒ `[2, 2]`), a closed range (`2..4` ⇒ `[2, 4]`), multiple ranges (`1;3..4` or `1,3..4`),
- * and an open-ended range (`5..-1` or `5..` ⇒ `[5, null]`) (FR-034). Returns the ordered ranges, or
+ * and an open-ended range (`5..-1` or `5..` ⇒ `[5, null]`). Returns the ordered ranges, or
  * `null` when no line selector is present (no filter).
  */
 export function parseIncludeLines(attributes: string): Array<[number, number | null]> | null {
@@ -773,7 +773,7 @@ export function parseIncludeLines(attributes: string): Array<[number, number | n
 /**
  * The level offset inherited by a file from its ancestors along the first
  * document-order path from the root (sum of edge `leveloffset`s). 0 for the root
- * or an unreachable file (FR-071).
+ * or an unreachable file.
  */
 export function inheritedLevelOffset(tree: DocumentTree, fileId: string): number {
   if (fileId === tree.rootFileId) return 0;
@@ -797,14 +797,14 @@ export function inheritedLevelOffset(tree: DocumentTree, fileId: string): number
 /**
  * The effective level offset in scope for a file at its FIRST include point from the project main
  * file (`rootFileId`) — the value the editor's structural understanding and the assembled preview
- * must apply to that file's raw heading levels (FR-008/FR-009/FR-010).
+ * must apply to that file's raw heading levels.
  *
  * Unlike {@link inheritedLevelOffset} (which sums only the `leveloffset=` include OPTIONS along the
  * path), this also folds in the attribute-form `:leveloffset:` entries a parent declares ABOVE the
  * include, in document order. Each include is INCLUDE-SCOPED: a `:leveloffset:` an ancestor changes
  * inside one include — even unbalanced — is restored to the value in effect before that include when
  * it ends, so the change cannot leak into a sibling include or back into the parent. The walk reuses
- * the include-graph cycle guard and first-visit-wins semantics (FR-007).
+ * the include-graph cycle guard and first-visit-wins semantics.
  *
  * - `rootFileId === null` (standalone) or `fileId === rootFileId` (the root) ⇒ 0 (no inherited offset).
  * - A file unreachable from the root ⇒ 0.
@@ -860,7 +860,7 @@ export function effectiveLevelOffset(arguments_: {
     // only when EVERY enclosing region is active (mirrors the assembler), and an empty/unparseable
     // opener still balances its `endif`. The stack is file-local so an unbalanced `if`/`endif` in one
     // file cannot gate another. The offset walk consumes the SAME `documentOrderEvents` stream as
-    // {@link buildIncludeGraphWithInheritance}, so gating, `\`-continuation joining (FR-041, #3), and
+    // {@link buildIncludeGraphWithInheritance}, so gating, `\`-continuation joining (#3), and
     // verbatim skipping cannot diverge between the two walks.
     const conditionals = new ConditionalRegionStack();
     for (const event of documentOrderEvents(content)) {

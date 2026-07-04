@@ -179,7 +179,7 @@ describe('FileTreeNode', () => {
     expect(screen.getByTestId(`drop-zone-${folderNode.id}`)).toBeInTheDocument();
   });
 
-  // T006 (a): selectedNodeId matches node.id → the active "selected" highlight class is applied
+  // selectedNodeId matches node.id → the active "selected" highlight class is applied
   // (primary tint, unified with the Outline current row + rail active tab).
   it('applies the selected highlight class when selectedNodeId matches node id', () => {
     render(
@@ -197,7 +197,7 @@ describe('FileTreeNode', () => {
     expect(nodeElement).toHaveClass('bg-primary/10', 'text-primary', 'border-primary');
   });
 
-  // T006 (b): canEdit=false → no action button rendered
+  // canEdit=false → no action button rendered
   it('does not render action button when canEdit=false', () => {
     render(
       <FileTreeNode
@@ -213,7 +213,7 @@ describe('FileTreeNode', () => {
     expect(screen.queryByTestId('file-tree-actions')).not.toBeInTheDocument();
   });
 
-  // T006 (b continued): canEdit=true → action button rendered
+  // canEdit=true → action button rendered
   it('renders action button when canEdit=true', () => {
     render(
       <FileTreeNode
@@ -229,8 +229,8 @@ describe('FileTreeNode', () => {
     expect(screen.getByTestId('file-tree-actions')).toBeInTheDocument();
   });
 
-  // T009: onError prop is threaded through FileTreeNode to FileTreeActions
-  it('T009: passes onError prop through to FileTreeActions', () => {
+  // onError prop is threaded through FileTreeNode to FileTreeActions
+  it('passes onError prop through to FileTreeActions', () => {
     const onError = jest.fn();
     render(
       <FileTreeNode
@@ -271,7 +271,7 @@ describe('FileTreeNode', () => {
   });
 });
 
-// ── T056: Download as ZIP ─────────────────────────────────────────────────────
+// ── Download as ZIP ───────────────────────────────────────────────────────────
 
 describe('FileTreeNode — Download as ZIP (root project node)', () => {
   const rootFolderNode = {

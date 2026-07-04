@@ -2,12 +2,12 @@ import type { RenameSymbolKind, RenameSymbolResult } from '@/lib/api/projects';
 import type { AppliedRefactor, RefactorResult } from './types';
 
 /**
- * Apply a rename refactor and expose its single-action undo (033, FR-018/FR-019/FR-020).
+ * Apply a rename refactor and expose its single-action undo.
  *
  * The rewrite reuses the existing project-wide `renameSymbol` endpoint (already Hocuspocus-aware and
- * audited) — no parallel apply path (FR-018a). Only the USAGES are rewritten; the definition already
- * carries the new name because the author typed it (FR-021). Undo re-runs the same reused rename in
- * the opposite direction over the same file set, restoring the prior names in one action (FR-020).
+ * audited) — no parallel apply path. Only the USAGES are rewritten; the definition already
+ * carries the new name because the author typed it. Undo re-runs the same reused rename in
+ * the opposite direction over the same file set, restoring the prior names in one action.
  */
 
 /** Dependencies for {@link applyRename} — the rename call is injected so it is testable. */

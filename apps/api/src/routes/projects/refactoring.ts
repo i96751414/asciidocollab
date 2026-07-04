@@ -12,9 +12,9 @@ import { requestContextFrom } from '../../lib/request-context';
 import { requestLogger } from '../../lib/request-logger';
 
 /**
- * Registers the cross-file refactoring endpoints (US12):
- *   - `GET  /projects/:projectId/symbol-usages?name=…` — find-usages (FR-065).
- *   - `POST /projects/:projectId/symbol-rename` — rename id/anchor/attribute (FR-064).
+ * Registers the cross-file refactoring endpoints:
+ *   - `GET  /projects/:projectId/symbol-usages?name=…` — find-usages.
+ *   - `POST /projects/:projectId/symbol-rename` — rename id/anchor/attribute.
  *
  * Authorization lives entirely in the use cases (security_constitution: no
  * route-level permission check) — find-usages requires project membership,

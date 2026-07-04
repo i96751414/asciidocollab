@@ -3,13 +3,13 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// FR-057: a `{attr}` reference renders as its resolved value via a replace decoration (source
+// A `{attr}` reference renders as its resolved value via a replace decoration (source
 // unchanged). Clicking the rendered value must reveal the raw reference so it can be edited —
 // previously only arrow-key movement revealed it, because the widget ignored mouse events.
 
 const DOC = [':version: 1.2.3', '', 'Release {version} now.', ''].join('\n');
 
-test.describe('US4 {attr} collapse-to-value', () => {
+test.describe('{attr} collapse-to-value', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -25,7 +25,7 @@ test.describe('US4 {attr} collapse-to-value', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('clicking the resolved value reveals the raw reference (FR-057)', async ({ page }) => {
+  test('clicking the resolved value reveals the raw reference', async ({ page }) => {
     await createAdocFile(page, projectId, 'attr.adoc', DOC);
     await openProject(page, projectId);
     await openFile(page, 'attr.adoc');

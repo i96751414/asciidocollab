@@ -4,7 +4,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, getEditorText, editorContent } from './helpers/editor';
 
-// Feature 033 (US3): renaming a section heading whose AUTO-GENERATED id is referenced offers to
+// Feature 033: renaming a section heading whose AUTO-GENERATED id is referenced offers to
 // update the cross-references to the new derived id — but only when the heading has no explicit id.
 
 /** Replace the first word of the heading, changing its derived id. */
@@ -14,7 +14,7 @@ async function renameHeadingWordTo(page: Page, replacement: string): Promise<voi
   await page.keyboard.type(replacement);
 }
 
-test.describe('033 US3 — section-heading auto-id rename suggestion', () => {
+test.describe('033 — section-heading auto-id rename suggestion', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -30,7 +30,7 @@ test.describe('033 US3 — section-heading auto-id rename suggestion', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('suggests updating xrefs to the new derived id (FR-005/FR-008)', async ({ page }) => {
+  test('suggests updating xrefs to the new derived id', async ({ page }) => {
     await createAdocFile(page, projectId, 'main.adoc', '== Install Guide\n\nJump to <<_install_guide>>.\n');
     await openProject(page, projectId);
     await openFile(page, 'main.adoc', 'Install Guide');
@@ -50,7 +50,7 @@ test.describe('033 US3 — section-heading auto-id rename suggestion', () => {
     expect(await getEditorText(page)).toContain('Setup Guide'); // heading text is the author's edit
   });
 
-  test('no suggestion when the heading has an explicit id (FR-005)', async ({ page }) => {
+  test('no suggestion when the heading has an explicit id', async ({ page }) => {
     await createAdocFile(page, projectId, 'main.adoc', '[#guide]\n== Install Guide\n\nJump to <<guide>>.\n');
     await openProject(page, projectId);
     await openFile(page, 'main.adoc', 'Install Guide');

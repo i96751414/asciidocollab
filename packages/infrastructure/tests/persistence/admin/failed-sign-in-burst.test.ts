@@ -7,11 +7,11 @@ const WINDOW = new Date('2026-06-10T12:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * SC-008: under a simulated distributed failed-login burst, stored rows grow
+ * Under a simulated distributed failed-login burst, stored rows grow
  * sub-linearly (coalescing), and records older than the retention window are
  * absent after a purge cycle.
  */
-describe('AuthAttemptTelemetry burst & retention (SC-008)', () => {
+describe('AuthAttemptTelemetry burst & retention', () => {
   let container: TestContainer;
   let client: PrismaClient;
   let repo: AuthAttemptTelemetryRepository;

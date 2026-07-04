@@ -8,9 +8,9 @@ interface EditorBannersProperties {
   onDismissExternalChange: () => void;
   onRestoreDraft: () => void;
   onDiscardDraft: () => void;
-  /** Collaboration connection state, when on the collab path; drives the status banner (FR-014). */
+  /** Collaboration connection state, when on the collab path; drives the status banner. */
   connectionState?: ConnectionState;
-  /** True when the editor is read-only because the user is an observer (FR-012). */
+  /** True when the editor is read-only because the user is an observer. */
   readOnly?: boolean;
   /** True when this text document has no collaborative backing and is therefore read-only. */
   collabUnavailable?: boolean;

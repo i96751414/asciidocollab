@@ -81,7 +81,7 @@ describe('POST /auth/password/reset — audit observability (best-effort)', () =
     expect(response.statusCode).toBe(200);
   });
 
-  it('logs the swallowed audit failure (observable, not silent — FR-021)', async () => {
+  it('logs the swallowed audit failure (observable, not silent)', async () => {
     const { logger, warn } = makeRecordingLogger();
     const app = buildApp(jest.fn().mockRejectedValue(new Error('audit db down')), logger);
 

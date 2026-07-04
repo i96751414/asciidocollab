@@ -4,7 +4,7 @@ import type { Diagnostic } from '@codemirror/lint';
 import { hasDictionary } from './spellcheck-languages';
 
 /**
- * Prose spell-check (US9, FR-063). Tree-aware: verbatim blocks, macros,
+ * Prose spell-check. Tree-aware: verbatim blocks, macros,
  * attribute names, URLs and other non-prose nodes are skipped so only prose is
  * checked. Words on a per-user ignore list are never flagged. The dictionary
  * (`nspell` + `dictionary-en`) loads lazily off the typing path.
@@ -19,7 +19,7 @@ export const SPELLCHECK_SKIP_NODES = new Set([
   'StemBlock', 'Monospace', 'AttributeEntry', 'AttributeReference', 'BlockMacro',
   'InlineMacro', 'CrossReference', 'Footnote', 'Conditional', 'BlockAttributeLine',
   'DocumentTitle',
-  // Inline non-prose constructs (T019): URLs, UI/math macros, inline passthrough,
+  // Inline non-prose constructs: URLs, UI/math macros, inline passthrough,
   // anchors, callouts, and entities are verbatim/identifier content, not prose.
   'Link', 'InlineStem', 'UiMacro', 'Passthrough', 'InlineAnchor', 'BiblioAnchor',
   'Callout', 'Entity',

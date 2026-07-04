@@ -47,7 +47,7 @@ export class RequestPasswordResetUseCase {
    * @param tokenGenerator - Service for token generation.
    * @param notifier - Notifier responsible for sending the reset message.
    * @param telemetry - Reset-request telemetry store + coalescing window (atomic).
-   * @param logger - Observability sink for swallowed telemetry failures (FR-021).
+   * @param logger - Observability sink for swallowed telemetry failures.
    */
   constructor(
     private readonly userRepo: UserRepository,
@@ -102,7 +102,7 @@ export class RequestPasswordResetUseCase {
 
     // Record inside the constant-time window (before the padding below) so the write time is
     // absorbed and the timing is identical whether or not the account exists. Best-effort and
-    // existence-neutral: recorded for every request, keyed by the attempted identifier (FR-028).
+    // existence-neutral: recorded for every request, keyed by the attempted identifier.
     if (this.recordRequest && this.windowSizeMs !== undefined) {
       try {
         await this.recordRequest.execute({

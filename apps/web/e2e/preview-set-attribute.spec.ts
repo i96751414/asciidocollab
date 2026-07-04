@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// FR-040 (inline `{set:}` attributes): an attribute defined inline with `{set:name:value}` must be
+// Inline `{set:}` attributes: an attribute defined inline with `{set:name:value}` must be
 // recognized exactly like a `:name:` entry on BOTH surfaces — the preview renders the value (not the
 // literal `{name}` / `{set:...}` token), and the editor recognizes the reference: it folds `{name}`
 // to a `.cm-ad-attr-value` widget showing the value, and clicking the widget reveals the raw
@@ -12,7 +12,7 @@ import { createAdocFile, setMainFile, openProject, openFile, expandPreview } fro
 
 const KNOWN = '.cm-ad-attr-known';
 
-test.describe('FR-040 inline {set:} attribute recognized in preview + editor', () => {
+test.describe('inline {set:} attribute recognized in preview + editor', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

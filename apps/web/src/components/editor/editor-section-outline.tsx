@@ -6,11 +6,11 @@ import { OpenByOthersMarker } from '@/components/file-tree/open-by-others-marker
 
 interface EditorSectionOutlineProperties {
   entries: SectionOutlineEntry[];
-  // Index of the row containing the cursor (current section); -1 or undefined marks none (028/US2).
+  // Index of the row containing the cursor (current section); -1 or undefined marks none (028).
   currentIndex?: number;
   // Called with the clicked heading entry so the parent can navigate the editor.
   onHeadingClick: (entry: SectionOutlineEntry) => void;
-  // Keyed by `${sourceFileId}:${sourceLine}` — the result of mapOutlinePresence (FR-021).
+  // Keyed by `${sourceFileId}:${sourceLine}` — the result of mapOutlinePresence.
   outlinePresence?: ReadonlyMap<string, ParticipantPresence[]>;
 }
 

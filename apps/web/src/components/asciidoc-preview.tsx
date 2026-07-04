@@ -43,12 +43,12 @@ interface AsciiDocPreviewProperties {
   isEnabled: boolean;
   /** Project id, used to resolve the base path for image macros in the preview. */
   projectId: string;
-  /** When set with {@link getFiles}, render the assembled main document with includes inlined (FR-068). */
+  /** When set with {@link getFiles}, render the assembled main document with includes inlined. */
   mainPath?: string;
   /** Returns the path→content snapshot for include assembly; read lazily at render time. */
   getFiles?: () => Record<string, string>;
   /**
-   * Project main-file path (root) for cross-document attribute resolution (US1/FR-002a). When set
+   * Project main-file path (root) for cross-document attribute resolution. When set
    * with {@link openFilePath} and {@link getFiles}, the open file's `{name}` references resolve to the
    * value in effect at its include-point under this root. Null/unset ⇒ standalone resolution.
    */
@@ -121,7 +121,7 @@ export function AsciiDocPreview({
   });
 
   // Ref to the rendered-output container — the scoped `.asciidoc-preview-content` element whose
-  // sanitized HTML may carry STEM delimiters MathJax typesets in place (US15).
+  // sanitized HTML may carry STEM delimiters MathJax typesets in place.
   const outputReference = useRef<HTMLDivElement | null>(null);
 
   // Keep a stable ref to the latest onOpenInclude callback so the delegated listener closure never
@@ -141,7 +141,7 @@ export function AsciiDocPreview({
 
   // Render math client-side AFTER the sanitized HTML is committed to the DOM, and only when the
   // worker flagged in-effect STEM (resolved `:stem:` + stem markup). MathJax is lazy-imported inside
-  // `renderMath`, so its bundle cost is paid only on a math-bearing preview (FR-021d; R5). Re-runs on
+  // `renderMath`, so its bundle cost is paid only on a math-bearing preview. Re-runs on
   // html/mathPresent change; `renderMath` clears prior typeset state so re-renders don't double-render.
   // Output stays within the scoped container (Constitution VI) — we only ever typeset that node.
   useEffect(() => {

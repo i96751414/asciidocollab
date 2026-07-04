@@ -1,4 +1,4 @@
-// T002: Failing tests for useTouchedFields — touch, touchAll, isTouched behaviour
+// Failing tests for useTouchedFields — touch, touchAll, isTouched behaviour
 import { renderHook, act } from '@testing-library/react';
 import { useTouchedFields } from '@/hooks/use-touched-fields';
 

@@ -2,7 +2,7 @@ import { DomainError } from '../domain-error';
 
 /**
  * Raised when the node designated as a project's main file is not an AsciiDoc
- * file (folder or non-`.adoc` extension) (FR-045). Maps to HTTP 400.
+ * file (folder or non-`.adoc` extension). Maps to HTTP 400.
  */
 export class MainFileNotAsciidocError extends DomainError {
   readonly name = 'MainFileNotAsciidocError';

@@ -31,7 +31,7 @@ function decorationCount(view: EditorView): number {
   return set ? set.size : 0;
 }
 
-describe('computeAttributeReplacements (FR-057)', () => {
+describe('computeAttributeReplacements', () => {
   test('collapses a reference to an attribute defined earlier', () => {
     const source = ':version: 1.2.3\n\nRelease {version} now.\n';
     const [replacement] = computeAttributeReplacements(source);
@@ -120,7 +120,7 @@ describe('computeAttributeReplacements (FR-057)', () => {
     expect(computeAttributeReplacements(':v!:\n{v}\n', inherited)).toHaveLength(0);
   });
 
-  test('collapses a reference to an attribute defined inline with `{set:name:value}` (FR-040)', () => {
+  test('collapses a reference to an attribute defined inline with `{set:name:value}`', () => {
     // The bug: an own-file `{set:basedir:src/main}` definition was not recognized, so `{basedir}`
     // never folded to its value. An inline set must define the attribute exactly like `:name:`.
     const source = '{set:basedir:src/main}\n\nBuilt in {basedir}.\n';
@@ -162,7 +162,7 @@ describe('asciidocAttributeFold ViewPlugin', () => {
     const view = mountView(source);
     const widget = view.dom.querySelector('.cm-ad-attr-value');
     expect(widget?.getAttribute('title')).toBe('Resolved attribute value (source unchanged)');
-    // Constitution VII / FR-015: the document text is never mutated.
+    // Constitution VII / : the document text is never mutated.
     expect(view.state.doc.toString()).toBe(source);
     view.destroy();
   });

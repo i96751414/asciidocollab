@@ -4,7 +4,7 @@ import type { SymbolKind } from './types';
 import { applyRequestEffect, dismissRequestEffect, undoRequestEffect } from './rename-suggestion-effects';
 
 /**
- * The inline rename-suggestion widget (033, FR-009/FR-012/FR-017/FR-020/FR-022).
+ * The inline rename-suggestion widget.
  *
  * A CodeMirror block widget rendered just below the renamed definition. It is plain DOM (not React)
  * so it can live inside the editor's decoration layer, and it is provided from a StateField (block
@@ -25,9 +25,9 @@ export interface RenameSuggestionWidgetData {
   usageCount: number;
   /** Number of files affected. */
   fileCount: number;
-  /** New name collides with an existing same-kind symbol → apply blocked (FR-022). */
+  /** New name collides with an existing same-kind symbol → apply blocked. */
   collision: boolean;
-  /** The rename has been applied → show the undo affordance (FR-020). */
+  /** The rename has been applied → show the undo affordance. */
   applied: boolean;
 }
 

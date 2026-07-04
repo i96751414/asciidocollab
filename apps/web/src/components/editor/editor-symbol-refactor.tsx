@@ -15,9 +15,9 @@ interface EditorSymbolRefactorProperties {
   canEdit: boolean;
   /** Pre-fills the target from the symbol at the cursor; blank when opened cold. */
   initial?: { kind: RenameSymbolKind; name: string } | null;
-  // Lists every cross-file usage of a symbol name, restricted to the kind (FR-065).
+  // Lists every cross-file usage of a symbol name, restricted to the kind.
   findUsages: (projectId: string, name: string, kind: RenameSymbolKind) => Promise<SymbolUsage[]>;
-  // Renames the symbol across the project (FR-064).
+  // Renames the symbol across the project.
   renameSymbol: (
     projectId: string,
     input: { symbolKind: RenameSymbolKind; oldName: string; newName: string },
@@ -31,8 +31,8 @@ interface EditorSymbolRefactorProperties {
 }
 
 /**
- * Cross-file refactoring dialog (US12): find-usages (FR-065) and rename
- * id/anchor/attribute (FR-064) for a project symbol. Find-usages is available to
+ * Cross-file refactoring dialog: find-usages and rename
+ * id/anchor/attribute for a project symbol. Find-usages is available to
  * any member; rename is gated to editors/owners (`canEdit`) and the actual
  * permission is re-checked server-side. Network calls are injected so the dialog
  * is presentational and unit-testable. Token-themed (Constitution V).

@@ -28,23 +28,23 @@ export interface UseSectionOutlineOptions {
   /**
    * Returns the open file's RESOLVED cross-document attribute scope (lowercase name → value). The
    * outline uses it to resolve `{attr}` references in heading titles and to evaluate conditional
-   * (`ifdef`/`ifndef`/`ifeval`) regions so inactive-branch headings are excluded (R11/FR-032).
+   * (`ifdef`/`ifndef`/`ifeval`) regions so inactive-branch headings are excluded.
    */
   getResolvedScope?: () => ReadonlyMap<string, string>;
   /**
-   * Returns the include-path inherited heading-level offset for the open file (US3/FR-071). Supplied
+   * Returns the include-path inherited heading-level offset for the open file. Supplied
    * so the hook can recompute effective levels when it changes (e.g. The project main file changed).
    */
   getInheritedOffset?: () => number;
   /**
    * Identity that changes whenever the resolved scope changes (e.g. An include-structure or main-file
    * change re-resolves the scope). When it changes the hook nudges the outline to recompute resolved
-   * titles + inactive marking (FR-007a/FR-007b). Defaults to the result of {@link getResolvedScope}.
+   * titles + inactive marking. Defaults to the result of {@link getResolvedScope}.
    */
   scopeVersion?: unknown;
   /**
    * Identity that changes whenever the inherited offset changes; when it changes the hook recomputes
-   * effective levels (FR-007a/FR-007b). Defaults to the result of {@link getInheritedOffset}.
+   * effective levels. Defaults to the result of {@link getInheritedOffset}.
    */
   offsetVersion?: unknown;
 
@@ -70,9 +70,9 @@ export interface UseSectionOutlineOptions {
   fileIdForPath?: (path: string) => string;
   /**
    * Counter from {@link useProjectSymbolIndex} that increments whenever a reachable non-open file's
-   * live Yjs content changes (FR-013a). When it changes, the hook schedules a ~400 ms debounced
+   * live Yjs content changes. When it changes, the hook schedules a ~400 ms debounced
    * recompute so the full-document outline reflects collaborators' edits without spamming
-   * `assembleOutline` on every Yjs transaction (FR-013b).
+   * `assembleOutline` on every Yjs transaction.
    */
   reachableDocVersion?: number;
 }
@@ -83,21 +83,21 @@ export interface UseSectionOutlineResult {
   entries: SectionOutlineEntry[];
   /** The effective scope after fallback resolution. */
   effectiveScope: 'full' | 'current';
-  /** Unresolved includes (graceful degradation, FR-014). */
+  /** Unresolved includes (graceful degradation). */
   unresolved: UnresolvedInclude[];
 }
 
 /**
  * Returns the live section outline for a CodeMirror view, kept in sync with the editor's resolved
- * cross-document state (R11). It:
+ * cross-document state. It:
  *
  *  - subscribes to view updates (event-driven, no polling) so the outline tracks doc edits and the
  *    out-of-band {@link refreshHeadingLevelsEffect} that fires when the include structure or project
- *    main-file setting changes (FR-007a/FR-007b);
+ *    main-file setting changes;
  *  - dispatches {@link refreshHeadingLevelsEffect} when the inherited offset or resolved scope
  *    changes, so the single authority `computeHeadingLevels` re-runs without a document edit;
  *  - when `scopePreference='full'` and a valid root path / seam are provided, assembles the full
- *    document outline across include directives with provenance attribution (FR-001/FR-002).
+ *    document outline across include directives with provenance attribution.
  *
  * @param view - The mounted editor view, or null before mount.
  * @param options - Live accessors for the resolved scope, inherited offset, and full-scope inputs.
@@ -175,7 +175,7 @@ export function useSectionOutline(
     return () => clearTimeout(timer);
   }, [reachableDocVersion]);
 
-  // Full-document outline: assembled across include directives with provenance tags (FR-001/FR-002).
+  // Full-document outline: assembled across include directives with provenance tags.
   // Computed synchronously via useMemo so it reacts to any input change (rootFilePath, openFile,
   // readFile content, resolvedScope) without a useEffect round-trip. `recomputeNonce` lets the
   // debounced reachable-doc path also trigger a recompute when `readFile` identity is stable.

@@ -20,7 +20,7 @@ import type { ProjectSymbol, Reference } from '@asciidocollab/shared';
 /** An in-memory `readContent` fake: maps a file id to its content, or null when absent. */
 const read = (files: Record<string, string>) => (id: string) => files[id] ?? null;
 
-describe('extractReferences (FR-046/065)', () => {
+describe('extractReferences', () => {
   test('extracts xref, include, image, and attributeRef', () => {
     const content = 'See <<intro>> and xref:other[].\ninclude::part.adoc[]\nimage::pic.png[]\nVersion {ver}.\n';
     const kinds = extractReferences('f1', content).map((r) => `${r.kind}:${r.target}`);
@@ -72,7 +72,7 @@ describe('extractReferences (FR-046/065)', () => {
   });
 });
 
-describe('extractSymbols (FR-061)', () => {
+describe('extractSymbols', () => {
   test('extracts sections (auto-id), anchors, and attributes', () => {
     const content = '== My Section\n\n[[anchor-one]]\nText.\n\n:author: Jane\n';
     const symbols = extractSymbols('f1', content);
@@ -141,7 +141,7 @@ describe('extractAttributeDefinitions', () => {
   });
 });
 
-describe('extractOwnAttributes (FR-040)', () => {
+describe('extractOwnAttributes', () => {
   test('captures `:name:` entries and inline `{set:}` assignments alike, downcased, document order', () => {
     const own = extractOwnAttributes(':Author: Ada\n{set:basedir:src/main}\n:draft!:\n');
     expect(Object.fromEntries(own)).toEqual({ author: 'Ada', basedir: 'src/main' });
@@ -153,7 +153,7 @@ describe('extractOwnAttributes (FR-040)', () => {
   });
 });
 
-describe('extractSymbols inline `{set:}` (FR-040)', () => {
+describe('extractSymbols inline `{set:}`', () => {
   test('an inline `{set:name:value}` defines an `attribute` symbol; `{set:name!}` does not', () => {
     const named = extractSymbols('f1', '{set:basedir:src}\n{set:gone!}\n')
       .filter((s) => s.kind === 'attribute')
@@ -246,7 +246,7 @@ describe('resolveReference', () => {
   });
 });
 
-describe('buildIncludeGraph (FR-046/050)', () => {
+describe('buildIncludeGraph', () => {
   const files: Record<string, string> = {
     main: 'include::a.adoc[]\ninclude::b.adoc[leveloffset=+1]\n',
     a: 'include::missing.adoc[]\n',
@@ -276,7 +276,7 @@ describe('buildIncludeGraph (FR-046/050)', () => {
   });
 });
 
-describe('inheritedLevelOffset (FR-071)', () => {
+describe('inheritedLevelOffset', () => {
   const files: Record<string, string> = {
     main: 'include::a.adoc[leveloffset=+1]\n',
     a: 'include::b.adoc[leveloffset=+1]\n',
@@ -413,7 +413,7 @@ describe('extractOwnAttributes (set/unset/override/expansion parity)', () => {
     expect(Object.fromEntries(own)).toEqual({ partsdir: 'shared/parts', empty: '' });
   });
 
-  test('includes an inline `{set:name:value}` assignment as a first-class own definition (FR-040)', () => {
+  test('includes an inline `{set:name:value}` assignment as a first-class own definition', () => {
     const own = extractOwnAttributes('{set:basedir:src/main}\nbody\n');
     expect(own.get('basedir')).toBe('src/main');
   });

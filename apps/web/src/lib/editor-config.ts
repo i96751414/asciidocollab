@@ -62,7 +62,7 @@ export function collabRoomName(projectId: string, yjsStateId: string): string {
 
 /**
  * Key of the shared `Y.Text` the editor binds its document to. The collaboration server seeds this
- * same field from stored file content on first load (018 FR-008) and writes it back on persist
+ * same field from stored file content on first load and writes it back on persist
  * (`CODEMIRROR_TEXT` in apps/collab). It lives here — a zero-(browser-)dependency module — so every
  * reader (the editor binding, the outline's live-document observers) shares ONE source of truth
  * instead of re-declaring the literal `'codemirror'`.

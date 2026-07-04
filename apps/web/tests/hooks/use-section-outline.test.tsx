@@ -127,7 +127,7 @@ describe('useSectionOutline — current-file scope (existing behaviour)', () => 
   });
 });
 
-// T007: scope-aware useSectionOutline (feature 032)
+// scope-aware useSectionOutline (feature 032)
 describe('useSectionOutline — scope-aware (feature 032)', () => {
   const mainFiles = {
     'main.adoc': '= Title\n\n== Main Section\n\ninclude::ch.adoc[]\n',
@@ -231,7 +231,7 @@ describe('useSectionOutline — scope-aware (feature 032)', () => {
   });
 });
 
-// T017: debounced recompute when reachableDocVersion increments (feature 032 / FR-013b)
+// debounced recompute when reachableDocVersion increments (feature 032)
 describe('useSectionOutline — reachable-doc debounced recompute (feature 032)', () => {
   test('delays recompute ~400ms when reachableDocVersion increments but readFile is stable', () => {
     jest.useFakeTimers();

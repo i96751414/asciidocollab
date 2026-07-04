@@ -259,7 +259,7 @@ describe('AuthHookExtension', () => {
       );
     });
 
-    // SEC/FR-011: a presence connection must be READ-ONLY at the WS layer so a member cannot write
+    // A presence connection must be READ-ONLY at the WS layer so a member cannot write
     // document updates into the presence room's shared doc (awareness is unaffected by readOnly).
     it('marks the presence connection read-only (cannot write document updates into the presence room)', async () => {
       const mockFetch = jest.fn().mockResolvedValue({ status: 200, json: async () => ({ userId: 'u-1' }) });

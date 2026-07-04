@@ -25,9 +25,9 @@ interface EditorToolbarProperties {
   setFontSize?: (size: number) => void;
   setTheme?: (theme: EditorThemeValue) => void;
   setSoftWrap?: (enabled: boolean) => void;
-  /** Opens the Go to Symbol palette (FR-061); omitted hides the button. */
+  /** Opens the Go to Symbol palette; omitted hides the button. */
   onGoToSymbol?: () => void;
-  // Opens the refactor dialog (US12), seeded with the symbol under the cursor (or null when the
+  // Opens the refactor dialog, seeded with the symbol under the cursor (or null when the
   // cursor is not on one); omitted hides the button.
   onRefactor?: (initial: CursorSymbol | null) => void;
 }
@@ -63,8 +63,8 @@ function insertSnippetAt(view: EditorView, snippet: string, cursorOffset: number
   view.focus();
 }
 
-// Insert a source-code block declaration with the language placeholder selected
-// (US6/FR-020–022): `[source,<lang>]` + listing delimiters, cursor on the language
+// Insert a source-code block declaration with the language placeholder selected:
+// `[source,<lang>]` + listing delimiters, cursor on the language
 // so the author types it immediately; the body sits between the `----` fences.
 function insertSourceBlock(view: EditorView) {
   const { from } = view.state.selection.main;

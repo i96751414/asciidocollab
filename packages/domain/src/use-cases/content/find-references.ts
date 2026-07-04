@@ -26,7 +26,7 @@ export type UsageKind = Reference['kind'] | 'definition';
  */
 export type FindSymbolKind = 'anchor' | 'attribute';
 
-/** A single usage of a symbol within a project file (FR-065 find-usages). */
+/** A single usage of a symbol within a project file (find-usages). */
 export interface ReferenceUsage {
   /** The file containing the usage. */
   fileNodeId: FileNodeId;
@@ -46,7 +46,7 @@ function xrefAnchorId(target: string): string {
 
 /**
  * Project-wide find-usages for a section id, block anchor, or attribute
- * (US12/FR-065): scans every AsciiDoc file in the project and returns each
+ * scans every AsciiDoc file in the project and returns each
  * `<<id>>` / `xref:…#id` / `{attr}` reference to the given name. RBAC is
  * enforced here (Constitution: authorization in use cases): a non-member is
  * denied before any content is read.

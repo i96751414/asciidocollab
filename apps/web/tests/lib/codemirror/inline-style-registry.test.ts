@@ -6,7 +6,7 @@ import {
 } from '@/lib/codemirror/inline-style-registry';
 
 /**
- * Inline-style registry (US14/FR-021c). The registry ships a built-in set of known AsciiDoc roles and
+ * Inline-style registry. The registry ships a built-in set of known AsciiDoc roles and
  * lets callers register custom ones WITHOUT a code change. `isKnownInlineStyle` answers whether a role
  * earns the distinct editor emphasis; an unknown name is still a perfectly valid role span (it is just
  * highlighted generically by the grammar, without the distinct emphasis).

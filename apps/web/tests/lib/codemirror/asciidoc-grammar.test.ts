@@ -134,7 +134,7 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
-  // ── Constrained / unconstrained boundary rules (US12/FR-044) ────────────────────
+  // ── Constrained / unconstrained boundary rules ────────────────────
   describe('Constrained boundary rules', () => {
     test('`a*b*c` does NOT form a Bold node (mark embedded in a word)', () => {
       expect(hasNode(parseDocument('a*b*c\n'), 'Bold')).toBe(false);
@@ -255,7 +255,7 @@ describe('AsciiDoc Lezer Grammar', () => {
       expect(hasNode(tree, 'LiteralBlock')).toBe(true);
     });
 
-    test('a marker-looking line inside the block is enclosed by the LiteralBlock (FR-008)', () => {
+    test('a marker-looking line inside the block is enclosed by the LiteralBlock', () => {
       // '....\n' is offsets 0-4; '* x' starts at offset 5. The bullet line must resolve to an
       // ancestor LiteralBlock and must NOT produce a sibling UnorderedListItem — this is what
       // makes the command's ancestor-walk suppression sound.
@@ -582,7 +582,7 @@ describe('AsciiDoc Lezer Grammar', () => {
       expect(nodeAt(tree, 'CrossReference', 4)).toBe(true);
     });
 
-    test('a labelled xref distinguishes target from label sub-nodes (US12/FR-045)', () => {
+    test('a labelled xref distinguishes target from label sub-nodes', () => {
       const source = 'See <<intro,Introduction>>\n';
       const tree = parseDocument(source);
       // Target sub-node covers the tail of `intro` (offset 8 — the opener consumes `<<` + the first
@@ -598,7 +598,7 @@ describe('AsciiDoc Lezer Grammar', () => {
     });
   });
 
-  // ── Table column specifiers (US12/FR-046) ──────────────────────────────────────
+  // ── Table column specifiers ──────────────────────────────────────
   describe('Table cols specifier', () => {
     test('`[cols="1,>2"]` tokenizes a TableCols sub-node', () => {
       const tree = parseDocument('[cols="1,>2"]\n');
@@ -639,17 +639,17 @@ describe('AsciiDoc Lezer Grammar', () => {
       expect(hasNode(tree, 'OrderedListItem')).toBe(true);
     });
 
-    test('recognises explicit-number `1.` ordered list item (US2)', () => {
+    test('recognises explicit-number `1.` ordered list item', () => {
       const tree = parseDocument('1. Step\n');
       expect(hasNode(tree, 'OrderedListItem')).toBe(true);
     });
 
-    test('recognises multi-digit explicit `12.` ordered list item (US2)', () => {
+    test('recognises multi-digit explicit `12.` ordered list item', () => {
       const tree = parseDocument('12. Step\n');
       expect(hasNode(tree, 'OrderedListItem')).toBe(true);
     });
 
-    test('`....` line-only remains a LiteralBlock, not ordered (US2)', () => {
+    test('`....` line-only remains a LiteralBlock, not ordered', () => {
       const tree = parseDocument('....\nx\n....\n');
       expect(hasNode(tree, 'LiteralBlock')).toBe(true);
     });
@@ -680,11 +680,11 @@ describe('AsciiDoc Lezer Grammar', () => {
       expect(hasNode(parseDocument('* [X] Done task\n'), 'CheckDoneItem')).toBe(true);
     });
 
-    test('recognises dash `- [ ]` unchecked checklist item as CheckTodoItem (US3)', () => {
+    test('recognises dash `- [ ]` unchecked checklist item as CheckTodoItem', () => {
       expect(hasNode(parseDocument('- [ ] task\n'), 'CheckTodoItem')).toBe(true);
     });
 
-    test('recognises dash `- [x]` checked checklist item as CheckDoneItem (US3)', () => {
+    test('recognises dash `- [x]` checked checklist item as CheckDoneItem', () => {
       expect(hasNode(parseDocument('- [x] task\n'), 'CheckDoneItem')).toBe(true);
     });
   });
@@ -700,7 +700,7 @@ describe('AsciiDoc Lezer Grammar', () => {
       expect(hasNode(tree, 'DescriptionList')).toBe(true);
     });
 
-    test('recognises `Term;; Detail` semicolon description list (US4)', () => {
+    test('recognises `Term;; Detail` semicolon description list', () => {
       const tree = parseDocument('Term;; Detail\n');
       expect(hasNode(tree, 'DescriptionList')).toBe(true);
     });

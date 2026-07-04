@@ -5,7 +5,7 @@ import type { Tree } from '@lezer/common';
 import { tableHasExplicitHeader } from './asciidoc-table-context';
 
 /**
- * Block-marker decorations layered on top of the grammar's token colours (feature 030, FR-031/046).
+ * Block-marker decorations layered on top of the grammar's token colours (feature 030).
  *
  * Two structural cues the grammar cannot express by token tag alone, because they recede or emphasise
  * only PART of a node whose body must stay readable:
@@ -209,7 +209,7 @@ function buildDecorations(view: EditorView): DecorationSet {
 
 /**
  * CM6 extension that recedes block-title `.` markers and table `|` separators and bolds table header
- * cells (FR-031/046), layered over the grammar's token highlighting.
+ * cells, layered over the grammar's token highlighting.
  *
  * @returns The block-decorations view plugin.
  */

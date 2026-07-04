@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US5 / FR-017–019: a [source,js] block body shows JavaScript tokens; an unknown
+// A [source,js] block body shows JavaScript tokens; an unknown
 // language stays plain; AsciiDoc highlighting resumes after the block.
 
 const DOC = [
@@ -23,7 +23,7 @@ const DOC = [
   '',
 ].join('\n');
 
-test.describe('US5 in-editor source highlighting', () => {
+test.describe('in-editor source highlighting', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

@@ -96,7 +96,7 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
 
       if (!result.success) {
         if (result.error instanceof PermissionDeniedError) {
-          // Authorization-denial audit (SEC4 / §Audit): actor, resource, reason — never secrets.
+          // Authorization-denial audit (§Audit): actor, resource, reason — never secrets.
           logAuthorizationDenial(request.log, {
             actor: actorId.value,
             resource: `projects/${projectId.value}/files/${fileNodeId.value}`,

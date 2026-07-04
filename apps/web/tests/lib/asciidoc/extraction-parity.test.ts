@@ -2,7 +2,7 @@ import * as web from '@/lib/asciidoc/extraction';
 import * as domain from '@asciidocollab/domain';
 import { resolveSandboxedPath } from '@/lib/asciidoc/sandbox-path';
 
-// FR-006 / R9: the editor-side (presentation) extraction copy and the authoritative
+// the editor-side (presentation) extraction copy and the authoritative
 // domain copy MUST resolve attributes and conditionals identically. This test runs
 // both implementations over a shared fixture corpus and asserts equal results, so a
 // rule change in one copy that is not mirrored in the other fails the gate.
@@ -60,7 +60,7 @@ const fixtures: Fixture[] = [
     fileId: 'child.adoc',
   },
   {
-    name: 'standalone inline {set:} own attribute (FR-040)',
+    name: 'standalone inline {set:} own attribute',
     files: { 'lone.adoc': '{set:basedir:src/main}\nBuilt in {basedir}.\n' },
     rootFileId: null,
     fileId: 'lone.adoc',

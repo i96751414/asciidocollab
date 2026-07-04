@@ -4,7 +4,7 @@ import { ConditionalRegionStack } from '@/lib/asciidoc/conditional-regions';
 import { refreshCrossDocumentAttributesEffect } from '@/lib/codemirror/cross-document-attributes';
 
 /**
- * Conditional-branch dimming (US12, FR-032).
+ * Conditional-branch dimming.
  *
  * The grammar already tags `ifdef`/`ifndef`/`ifeval` directives as keywords. On top of that, the
  * content of any conditional branch that resolves inactive for the current resolved attribute state
@@ -39,7 +39,7 @@ export interface DimmedRange {
  * nesting compounds (an inner region inside an inactive outer region stays inactive regardless of its
  * own test). The directive lines themselves (`ifdef`/`endif`/…) are NOT dimmed — only the guarded
  * body content. Unbalanced `endif::[]` is tolerated (an empty stack pop is a no-op). Empty body lines
- * yield no zero-length range. Mirrors the outline's inactive-region scan so the two agree (FR-032).
+ * yield no zero-length range. Mirrors the outline's inactive-region scan so the two agree.
  *
  * @param documentText - The open file's full text.
  * @param scope - The resolved attribute values (lowercase name → value) for the open file.
@@ -77,10 +77,10 @@ function buildDecorations(view: EditorView, getScope: () => ReadonlyMap<string, 
 }
 
 /**
- * CM6 extension that dims the content of inactive conditional branches in the open file (US12/FR-032).
+ * CM6 extension that dims the content of inactive conditional branches in the open file.
  * `getScope` supplies the file's resolved cross-document attribute scope (lowercase name → value) from
  * the project symbol index; it is read lazily so {@link refreshCrossDocumentAttributesEffect}
- * re-evaluates the dimming once the controlling attributes change, without a document edit (FR-007a).
+ * re-evaluates the dimming once the controlling attributes change, without a document edit.
  *
  * @param getScope - Returns the open file's resolved cross-document attribute scope (default ∅).
  * @returns The conditional-dimming view plugin.
@@ -98,7 +98,7 @@ export function asciidocConditionalDimming(
       update(update: ViewUpdate) {
         // Re-evaluate on the shared cross-document refresh effect — dispatched when the resolved scope
         // changes without a document edit — since the dimming reads that same resolved scope and the
-        // controlling attributes may have changed (FR-007a/FR-032).
+        // controlling attributes may have changed.
         const refreshed = update.transactions.some((tr) =>
           tr.effects.some((effect) => effect.is(refreshCrossDocumentAttributesEffect)),
         );

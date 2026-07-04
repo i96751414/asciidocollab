@@ -3,7 +3,7 @@ import type { RequestContext } from '@asciidocollab/domain';
 
 /**
  * Builds a {@link RequestContext} from a Fastify request, capturing the request
- * origin (source IP and user-agent) for audit metadata (FR-017).
+ * origin (source IP and user-agent) for audit metadata.
  *
  * `request.ip` already reflects the configured proxy / `X-Forwarded-For` trust.
  *

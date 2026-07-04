@@ -30,7 +30,7 @@ function summarize(result: RenameSymbolResult): string {
 }
 
 /**
- * Rename section of the symbol-refactor dialog (FR-064): the new-name input,
+ * Rename section of the symbol-refactor dialog: the new-name input,
  * the Rename button, and the result summary. Purely presentational; gating to
  * editors/owners and the network call live in the container.
  */

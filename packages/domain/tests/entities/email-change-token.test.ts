@@ -1,4 +1,4 @@
-// T029: Failing domain unit tests for EmailChangeToken entity
+// Failing domain unit tests for EmailChangeToken entity
 import { EmailChangeToken } from '../../src/entities/email-change-token';
 import { EmailChangeTokenId } from '../../src/value-objects/ids/email-change-token-id';
 import { UserId } from '../../src/value-objects/ids/user-id';

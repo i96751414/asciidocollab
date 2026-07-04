@@ -8,7 +8,7 @@ const usage = (fileNodeId: string, from: number, kind = 'xref'): SymbolUsage => 
   range: { from, to: from + 5 },
 });
 
-describe('evaluateUsages (FR-003 suppression)', () => {
+describe('evaluateUsages (suppression)', () => {
   test('counts other occurrences across files, excluding the edited definition site', () => {
     const usages = [
       usage('A', 0, 'definition'), // the definition being edited — excluded

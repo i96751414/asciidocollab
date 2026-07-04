@@ -19,7 +19,7 @@ import { MimeType } from '../../../src/value-objects/files/mime-type';
 import type { CollaborativeContentReader } from '../../../src/ports/storage/collaborative-content-reader';
 import type { Result } from '../../../src/types/result';
 
-// US12 / FR-065: project-wide find-usages of a section id / anchor / attribute.
+// Project-wide find-usages of a section id / anchor / attribute.
 
 const actorId = UserId.create('550e8400-e29b-41d4-a716-446655440001');
 const nonMember = UserId.create('660e8400-e29b-41d4-a716-446655440002');

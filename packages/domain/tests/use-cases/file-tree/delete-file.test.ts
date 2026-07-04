@@ -214,7 +214,7 @@ describe('DeleteFileUseCase', () => {
     expect(entries[0].metadata.reason).toBe('not_a_project_member');
   });
 
-  test('file.deleted audit log carries request origin metadata (FR-017)', async () => {
+  test('file.deleted audit log carries request origin metadata', async () => {
     const result = await useCase.execute(actorId, fileNodeId, projectId, {
       ipAddress: '203.0.113.7',
       userAgent: 'jest-agent',
@@ -605,7 +605,7 @@ describe('DeleteFileUseCase — active-session guard', () => {
   });
 });
 
-describe('DeleteFileUseCase — US12 main-file consistency (FR-070)', () => {
+describe('DeleteFileUseCase — main-file consistency', () => {
   const actor = UserId.create('550e8400-e29b-41d4-a716-446655440001');
   const project = ProjectId.create('770e8400-e29b-41d4-a716-446655440003');
   const rootId = FileNodeId.create('880e8400-e29b-41d4-a716-446655440004');

@@ -130,7 +130,7 @@ describe('FileTreeActions', () => {
     expect(screen.getByText(/Delete/i)).toBeInTheDocument();
   });
 
-  // T019: Rename uses Dialog, NOT window.prompt
+  // Rename uses Dialog, NOT window.prompt
   it('clicking Rename opens a Dialog with pre-filled input, and does NOT call window.prompt', () => {
     const promptSpy = jest.spyOn(globalThis, 'prompt').mockReturnValue(null);
 
@@ -210,7 +210,7 @@ describe('FileTreeActions', () => {
     await waitFor(() => expect(renameFileNode).toHaveBeenCalledWith(projectId, fileNodeId, 'renamed.adoc'));
   });
 
-  // T020 (a): Delete file/empty folder — ConfirmationDialog appears; confirming calls deleteFileNode
+  // Delete file/empty folder — ConfirmationDialog appears; confirming calls deleteFileNode
   it('clicking Delete opens ConfirmationDialog for file/empty-folder', async () => {
     const onUpdate = jest.fn();
     const { deleteFileNode } = jest.requireMock('@/lib/api/file-tree');
@@ -238,7 +238,7 @@ describe('FileTreeActions', () => {
     await waitFor(() => expect(screen.queryByTestId('confirmation-dialog')).not.toBeInTheDocument());
   });
 
-  // T020 (b): Delete non-empty folder — ConfirmationDialog with "also delete all files inside" warning
+  // Delete non-empty folder — ConfirmationDialog with "also delete all files inside" warning
   it('Delete non-empty folder shows warning in ConfirmationDialog', () => {
     render(
       <FileTreeActions
@@ -259,7 +259,7 @@ describe('FileTreeActions', () => {
     expect(screen.getByTestId('confirm-description')).toHaveTextContent(/This will also delete all files inside/i);
   });
 
-  // T021: Create file — Dialog with input defaulted to "new-document.adoc"
+  // Create file — Dialog with input defaulted to "new-document.adoc"
   it('clicking New File opens Dialog with default filename input', async () => {
     const { createFileNode } = jest.requireMock('@/lib/api/file-tree');
     render(
@@ -286,8 +286,8 @@ describe('FileTreeActions', () => {
     await waitFor(() => expect(createFileNode).toHaveBeenCalledWith(projectId, fileNodeId, 'new-document.adoc'));
   });
 
-  // T007: invalid-name operation calls onError prop (not renders inline span)
-  it('T007: failed rename calls onError prop with error message and does not render inline error span', async () => {
+  // Invalid-name operation calls onError prop (not renders inline span)
+  it('failed rename calls onError prop with error message and does not render inline error span', async () => {
     const { renameFileNode } = jest.requireMock('@/lib/api/file-tree');
     renameFileNode.mockRejectedValueOnce(new Error('Name is invalid.'));
     const onError = jest.fn();
@@ -467,7 +467,7 @@ describe('FileTreeActions', () => {
   });
 });
 
-// ── T055: Download action ────────────────────────────────────────────────────
+// ── Download action ──────────────────────────────────────────────────────────
 
 describe('FileTreeActions — Download', () => {
   const projectId = 'proj-1';

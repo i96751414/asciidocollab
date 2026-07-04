@@ -48,15 +48,15 @@ interface ContentAreaProperties {
   onLineClick?: (line: number) => void;
   // Ctrl+click on an include/image path — reveals and selects the target file in the tree.
   onNavigateToFile?: (path: string) => void;
-  // Ctrl+click on a cross-reference — reveals its definition (same file or another, FR-049).
+  // Ctrl+click on a cross-reference — reveals its definition (same file or another).
   onNavigateToXref?: (target: XrefTarget) => void;
-  // Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a).
+  // Include-path level offset inherited by the open file from its ancestors.
   inheritedOffset?: number;
-  // Attributes the open file inherits from the documents that include it (US8/FR-045a).
+  // Attributes the open file inherits from the documents that include it.
   inheritedAttributes?: ReadonlyMap<string, string>;
-  // The open file's resolved cross-document scope (inherited + own), for `{name}` known highlighting (US6/FR-020).
+  // The open file's resolved cross-document scope (inherited + own), for `{name}` known highlighting.
   resolvedScope?: ReadonlyMap<string, string>;
-  // Live request to reveal a line in the open editor (same-file go-to-definition, FR-049).
+  // Live request to reveal a line in the open editor (same-file go-to-definition).
   revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
   onOpenUrl?: (url: string) => void;
@@ -85,11 +85,11 @@ interface ContentAreaProperties {
   contentOverride?: string | null;
   /** True when the file is editable text with no collaborative document — read-only, no autosave. */
   collabUnavailable?: boolean;
-  /** Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion. */
+  /** Live accessor for the cross-file symbol index; powers cross-file diagnostics + completion. */
   getProjectIndex?: () => ProjectSymbolIndex | null;
-  /** Opens the Go to Symbol palette from the editor toolbar (FR-061). */
+  /** Opens the Go to Symbol palette from the editor toolbar. */
   onGoToSymbol?: () => void;
-  // Opens the refactor dialog from the editor toolbar, seeded with the cursor symbol (US12).
+  // Opens the refactor dialog from the editor toolbar, seeded with the cursor symbol.
   onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
@@ -187,11 +187,11 @@ interface ProjectEditorLayoutProperties {
   projectDescription: string | null;
   /** Project document language (ISO 639-1) driving the spellchecker, or null when unset. */
   projectLanguage: string | null;
-  /** Configured main-file node id (US8/FR-045), or null when unset. */
+  /** Configured main-file node id, or null when unset. */
   mainFileNodeId: string | null;
   canManage: boolean;
   canEdit: boolean;
-  /** Authenticated user id — scopes the persisted last-selection so accounts stay isolated (FR-011). */
+  /** Authenticated user id — scopes the persisted last-selection so accounts stay isolated. */
   userId: string;
 }
 
@@ -225,9 +225,9 @@ export function ProjectEditorLayout({
   // collaborative observers — see `observeReachableDocs` below).
   const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
 
-  // Cross-file symbol index (US8): rooted at the configured main file, or the open file when
-  // none is set (FR-047). Powers cross-file diagnostics + completion; refreshes when the main
-  // file changes (FR-045a) and overlays the open file's live content (FR-048).
+  // Cross-file symbol index: rooted at the configured main file, or the open file when
+  // none is set. Powers cross-file diagnostics + completion; refreshes when the main
+  // file changes and overlays the open file's live content.
   const { index: projectIndex, getIndex: getProjectIndex, getFiles: getProjectFiles, resolvedScopeOf, refresh: refreshProjectIndex, fileIdForPath, reachableDocVersion } = useProjectSymbolIndex({
     projectId,
     rootFileId: mainFile ?? selectedFile?.nodeId ?? null,
@@ -237,19 +237,19 @@ export function ProjectEditorLayout({
     // (which would drop its headings from the assembled outline and re-add them a frame later).
     liveContent: liveOverlayContent,
     // Hold live observer connections for included files ONLY while the full-document outline is on
-    // screen (FR-013a). Otherwise every open file with includes would keep idle collaborative
+    // screen. Otherwise every open file with includes would keep idle collaborative
     // sessions alive for a panel the user isn't looking at.
     observeReachableDocuments: leftPanelTab === 'outline' && outlineScope === 'full' && mainFile != null,
   });
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
   // used to mark the current section. Held here so the panel is fed without remounting the editor.
-  // Declared before useManagedCollab so cursorLine can be forwarded to presence publishing (T031).
+  // Declared before useManagedCollab so cursorLine can be forwarded to presence publishing.
   const [cmOutlineEntries, setOutlineEntries] = useState<SectionOutlineEntry[]>([]);
   const [currentLine, setCurrentLine] = useState<number | null>(null);
 
-  // Collaboration orchestration for the open file: the Yjs binding, mid-session role enforcement
-  // (FR-012), offline read-only fallback (FR-013), presence (feature 024), and the derived editor
+  // Collaboration orchestration for the open file: the Yjs binding, mid-session role enforcement,
+  // offline read-only fallback, presence (feature 024), and the derived editor
   // props (research D6 / EditorMode).
   const {
     presenceByFile,
@@ -270,8 +270,8 @@ export function ProjectEditorLayout({
     handleNavigateToUsage, handleSymbolRenamed,
   } = useEditorNavigation({ projectIndex, getProjectIndex, refreshProjectIndex });
 
-  // Last-selection restoration (FR-010), cursor-line persistence (FR-006), and the stale-memory
-  // cleanup for a missing restored file (FR-009/US3).
+  // Last-selection restoration, cursor-line persistence, and the stale-memory
+  // cleanup for a missing restored file.
   const { handleSelectFile, handleCursorLineChange, initialLine } = useEditorRestoration({
     userId, projectId, selectedFile, contentState, selectFile, clearSelection, pendingXrefLine,
   });
@@ -290,20 +290,20 @@ export function ProjectEditorLayout({
     setCurrentLine(null);
   }, [selectedFile?.nodeId, resetScroll]);
 
-  // Level offset the open file inherits from its include ancestors (FR-071); 0 until the index
+  // Level offset the open file inherits from its include ancestors; 0 until the index
   // resolves it or when the file is the tree root. Re-evaluates heading levels on main-file change.
   const editorInheritedOffset = projectIndex && selectedFile ? projectIndex.inheritedOffset(selectedFile.nodeId) : 0;
-  // Attributes the open file inherits from the documents that include it (FR-045a); empty until the
+  // Attributes the open file inherits from the documents that include it; empty until the
   // index resolves them or when the file is the tree root. Seeds the `{attr}` collapse-to-value
   // display so cross-document references render their value.
   const editorInheritedAttributes =
     projectIndex && selectedFile ? projectIndex.inheritedAttributes(selectedFile.nodeId) : undefined;
   // The open file's RESOLVED cross-document scope (inherited + own definitions): drives the editor's
   // known-vs-unknown `{name}` highlighting so a reference resolving in a parent/included file marks
-  // as known (US6/FR-020). Recomputed when the index rebuilds (live, FR-007a).
+  // as known. Recomputed when the index rebuilds (live).
   const editorResolvedScope =
     projectIndex && selectedFile ? resolvedScopeOf(selectedFile.nodeId) : undefined;
-  // Render the assembled main document (includes inlined, FR-068) only while the open file IS the
+  // Render the assembled main document (includes inlined) only while the open file IS the
   // configured main file. Editing an included child still previews that child standalone with exact
   // source-line scroll-sync. (When the main file itself has content after an include, scroll-sync to
   // those later lines is approximate — an inherent limit of an assembled multi-file preview; lines
@@ -312,7 +312,7 @@ export function ProjectEditorLayout({
     ? (projectIndex.pathOf(mainFile) ?? undefined)
     : undefined;
 
-  // Cross-document attribute resolution (US1/FR-002a): when a main file is configured and the open
+  // Cross-document attribute resolution: when a main file is configured and the open
   // file is NOT it, the preview resolves the open file's `{name}` references against the scope it
   // inherits under the main-file root. Paths key the worker's resolution model (matching getFiles).
   const previewRootPath = mainFile && projectIndex ? (projectIndex.pathOf(mainFile) ?? undefined) : undefined;
@@ -343,7 +343,7 @@ export function ProjectEditorLayout({
     // `projectIndex` is included so a rebuild that asynchronously fetches a reachable file's content
     // (e.g. The included file's text arrives after a reload, or a collaborator's live edit lands)
     // re-runs this memo against the now-populated `getProjectFiles()` snapshot. Without it the memo
-    // would keep the stale assembly because `getProjectFiles` is referentially stable (FR-013b/SC-007).
+    // would keep the stale assembly because `getProjectFiles` is referentially stable.
   }, [previewRootPath, previewOpenPath, selectedFile, liveOverlayContent, getProjectFiles, fileIdForPath, projectIndex, reachableDocVersion, outlineScope]);
 
   // Resolve outline entries and effective scope: prefer the assembled full outline when available
@@ -363,8 +363,8 @@ export function ProjectEditorLayout({
   }
   const outlineEntries = stableOutlineReference.current;
 
-  // Peer cursor positions mapped to outline headings (feature 032 / US5 / FR-021/FR-022).
-  // Only peers with a numeric cursorLine (published via T031) contribute; others are ignored.
+  // Peer cursor positions mapped to outline headings (feature 032).
+  // Only peers with a numeric cursorLine contribute; others are ignored.
   const outlinePresence = useMemo(() => {
     const peersWithCursor = new Map<string, OutlinePeer[]>();
     for (const [fileId, peers] of presenceByFile) {
@@ -374,7 +374,7 @@ export function ProjectEditorLayout({
     return mapOutlinePresence(outlineEntries, peersWithCursor);
   }, [outlineEntries, presenceByFile]);
 
-  // Outline navigation (feature 032 / FR-007 / FR-008): route by provenance.
+  // Outline navigation (feature 032): route by provenance.
   // - Open-file entries (no provenance OR isOpenFile=true) → reveal in the open editor.
   // - Foreign-file entries (isOpenFile=false with a sourcePath) → switch to that file and reveal
   //   the source line once the new editor mounts (reuses the xref pending-line seam).
@@ -490,7 +490,7 @@ export function ProjectEditorLayout({
         {/* Editor + Preview panels. The editor's ContentArea stays mounted in ONE
             stable Panel regardless of previewOpen — only the preview Panel + resize
             handle mount/unmount — so toggling the preview never remounts CodeMirror
-            and never loses editor content/cursor/scroll (US1, FR-001–005). */}
+            and never loses editor content/cursor/scroll. */}
         <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
           <Panel
             id="editor-content"

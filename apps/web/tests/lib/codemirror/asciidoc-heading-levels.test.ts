@@ -137,7 +137,7 @@ describe('asciidocHeadingLevels — inherited offset', () => {
     expect(lineClasses(view)).toEqual(['cm-line cm-ad-h3']);
   });
 
-  // ── Attribute-form :leveloffset: combined with the inherited include offset (US2/T019) ──
+  // ── Attribute-form :leveloffset: combined with the inherited include offset ──
   test('attribute-form :leveloffset: +1 composes with the inherited offset', () => {
     // The file is included with an inherited offset of +1; a `== After` heading is effective 2,
     // and after an attribute-form `:leveloffset: +1` the next heading is effective 3.
@@ -165,7 +165,7 @@ describe('asciidocHeadingLevels — inherited offset', () => {
   });
 });
 
-describe('asciidocHeadingLevels — max-level cutoff (FR-010)', () => {
+describe('asciidocHeadingLevels — max-level cutoff', () => {
   test('a heading whose effective level exceeds the max is flagged as suppressed, not styled', () => {
     // `======` is raw level 5; +1 inherited offset → effective level 6 (> MAX). The grammar still
     // tokenises it as a heading, so the line is tagged to neutralise that colour (see theme).
@@ -226,8 +226,8 @@ describe('asciidocHeadingLevels — update paths', () => {
   });
 });
 
-// T016 (030 FR-001) — heading `=` marker run decoration.
-describe('030 T016 — heading = marker recedes via cm-ad-heading-marker', () => {
+// 030 — heading `=` marker run decoration.
+describe('030 — heading = marker recedes via cm-ad-heading-marker', () => {
   test('= marker span exists and carries the heading-marker class', () => {
     const view = mount('= Title');
     const markerSpan = view.dom.querySelector('.cm-ad-heading-marker');

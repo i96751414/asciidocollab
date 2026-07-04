@@ -3,7 +3,7 @@ import {
   makeIncludeResolver,
 } from '@/lib/codemirror/asciidoc-symbol-index';
 
-// US8 projection over the shared asciidoc-model (does NOT re-test extraction).
+// projection over the shared asciidoc-model (does NOT re-test extraction).
 
 const FILES: Record<string, { path: string; content: string }> = {
   main: {
@@ -102,7 +102,7 @@ describe('buildProjectSymbolIndex', () => {
     expect(index.effectiveAttributes('c').get('v')).toBe('child');
   });
 
-  test('an inline `{set:}` own definition is recognized in `attributes` and `effectiveAttributes` (FR-040)', () => {
+  test('an inline `{set:}` own definition is recognized in `attributes` and `effectiveAttributes`', () => {
     // Regression: a `{set:basedir:src/main}`-defined attribute was only honored for cross-file
     // INHERITANCE, never for the file's OWN project-wide/effective view, so the editor did not
     // recognize `{basedir}` as known nor fold it to its value. It must be first-class, like `:name:`.
@@ -130,7 +130,7 @@ describe('buildProjectSymbolIndex', () => {
     expect(index.effectiveAttributes('c').get('env')).toBe('prod');
   });
 
-  test('project-wide `attributes` include definitions from INCLUDED files (known anywhere in the tree, FR-021)', () => {
+  test('project-wide `attributes` include definitions from INCLUDED files (known anywhere in the tree)', () => {
     // The root references {edition}, defined only in the file it includes. For known-vs-unknown
     // highlighting an attribute defined ANYWHERE in the include tree counts as known, so the
     // project-wide `attributes` view must surface the included file's definition to the parent.
@@ -160,14 +160,14 @@ describe('buildProjectSymbolIndex', () => {
     expect(index.tree.unresolved.some((u) => u.target === '../escape.adoc')).toBe(true);
   });
 
-  test('falls back to the open file when no main file (current-file scope, FR-047)', () => {
+  test('falls back to the open file when no main file (current-file scope)', () => {
     const index = buildProjectSymbolIndex('chapter1', getContent, resolveInclude);
     expect(index.tree.rootFileId).toBe('chapter1');
     expect(index.symbols.some((s) => s.name === 'intro')).toBe(true);
   });
 });
 
-describe('go-to-definition locators (FR-049)', () => {
+describe('go-to-definition locators', () => {
   test('pathOf maps a file id to its project-relative path; unknown ⇒ null', () => {
     const index = buildProjectSymbolIndex('main', getContent, resolveInclude, 'main', pathOf);
     expect(index.pathOf('chapter1')).toBe('chapter1.adoc');

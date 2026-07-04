@@ -237,7 +237,7 @@ describe('extractOwnAttributes', () => {
     expect(Object.fromEntries(own)).toEqual({ partsdir: 'shared/parts', empty: '' });
   });
 
-  test('includes an inline `{set:name:value}` assignment as a first-class own definition (FR-040)', () => {
+  test('includes an inline `{set:name:value}` assignment as a first-class own definition', () => {
     // The bug: a `{set:}`-defined attribute was not recognized in the editor because only `:name:`
     // entries were extracted. It must now be a first-class own attribute, like a `:name:` entry.
     const own = extractOwnAttributes('{set:basedir:src/main}\nbody\n');
@@ -332,7 +332,7 @@ describe('buildIncludeGraphWithInheritance (parent → child attribute scope)', 
   });
 
   test('a `\\`-continued attribute value containing an include:: line creates NO spurious include edge', () => {
-    // The `include::child.adoc[]` line is the continuation of `:k:`'s wrapped value (FR-041), so it is
+    // The `include::child.adoc[]` line is the continuation of `:k:`'s wrapped value, so it is
     // value TEXT — not a directive. The assembler already treats it that way; the graph must agree and
     // not synthesize an edge to child.adoc from text inside an attribute value.
     const files = {

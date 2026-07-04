@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile } from './helpers/editor';
 
-// US12 (FR-044/045/046/032; SC-016): higher-fidelity editor highlighting.
+// Higher-fidelity editor highlighting.
 //  - constrained/unconstrained boundary rules: `a*b*c` is NOT bolded, genuine `*bold*` is;
 //  - a labelled xref `<<id,label>>` distinguishes target from label;
 //  - a table `[cols="1,>2"]` specifier is tokenized distinctly;
@@ -32,7 +32,7 @@ const SAMPLE = [
   '',
 ].join('\n');
 
-test.describe('US12 highlighting fidelity (live editor)', () => {
+test.describe('highlighting fidelity (live editor)', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

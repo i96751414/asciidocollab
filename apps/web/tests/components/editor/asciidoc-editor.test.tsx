@@ -348,7 +348,7 @@ describe('AsciiDocEditor', () => {
     expect(editor.getAttribute('contenteditable')).toBe('false');
   });
 
-  // FR-006: the REST autosave machinery must stay disabled on the collab path — including the
+  // The REST autosave machinery must stay disabled on the collab path — including the
   // OFFLINE read-only fallback (collab binding absent but a connectionState present). Otherwise
   // ETag polling, beforeunload keepalive, and draft-recovery banners reactivate on a collab file.
   test('disables autosave on the offline collab fallback (connectionState set, no binding)', () => {
@@ -564,7 +564,7 @@ describe('AsciiDocEditor', () => {
     });
   });
 
-  // T011 / US2: cursor-line reporting and initialLine restore threading.
+  // Cursor-line reporting and initialLine restore threading.
   describe('cursor line reporting and initialLine restore', () => {
     test('onCursorLineChange fires with the 1-based line when the cursor moves', () => {
       const onCursorLineChange = jest.fn();

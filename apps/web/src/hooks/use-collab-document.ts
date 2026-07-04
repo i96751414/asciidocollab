@@ -9,7 +9,7 @@ import { buildAwarenessUser, type AwarenessUserIdentity } from '@/lib/collab/awa
 
 /**
  * Connection lifecycle of the collaboration provider, surfaced to the editor to
- * drive banners (FR-014) and read-only gating (FR-013).
+ * drive banners and read-only gating.
  */
 export type ConnectionState = 'connecting' | 'synced' | 'reconnecting' | 'offline';
 
@@ -56,7 +56,7 @@ export interface UseCollabDocumentOptions {
   yjsStateId: string;
   /** Only connect on the collab path; `false` keeps the hook inert (legacy/asset). */
   enabled: boolean;
-  /** Local user identity published over awareness for presence (US2); omitted = no presence. */
+  /** Local user identity published over awareness for presence; omitted = no presence. */
   user?: AwarenessUserIdentity;
   /** Overrides the provider factory in tests. */
   createProvider?: CreateCollabProvider;
@@ -100,7 +100,7 @@ function readSyncedState(payload: unknown): boolean {
  * cookie on the WebSocket handshake, so no token is appended (research D5).
  *
  * Surfaces a {@link ConnectionState} derived from provider events and tears down
- * the provider, Y.Doc, and local awareness on unmount or file switch (FR-015/016).
+ * the provider, Y.Doc, and local awareness on unmount or file switch.
  */
 export function useCollabDocument(options: UseCollabDocumentOptions): UseCollabDocumentResult {
   const { projectId, yjsStateId, enabled, user } = options;
@@ -136,8 +136,8 @@ export function useCollabDocument(options: UseCollabDocumentOptions): UseCollabD
     setAwareness(activeProvider.awareness);
     setConnectionState('connecting');
 
-    // Publish the local user's presence identity (US2). Cursor/selection awareness is
-    // managed by y-codemirror; this is the application-supplied `user` field (FR-007).
+    // Publish the local user's presence identity. Cursor/selection awareness is
+    // managed by y-codemirror; this is the application-supplied `user` field.
     if (user) {
       activeProvider.awareness?.setLocalStateField('user', buildAwarenessUser(user));
     }
@@ -178,7 +178,7 @@ export function useCollabDocument(options: UseCollabDocumentOptions): UseCollabD
   }, [enabled, projectId, yjsStateId]);
 
   // Keep the published presence identity in sync if the user's profile changes
-  // mid-session (FR-007). Idempotent with the on-connect set above.
+  // mid-session. Idempotent with the on-connect set above.
   useEffect(() => {
     if (!user) return;
     awareness?.setLocalStateField('user', buildAwarenessUser(user));

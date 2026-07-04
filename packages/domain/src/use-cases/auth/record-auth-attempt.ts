@@ -25,9 +25,9 @@ export interface AuthAttemptDetails {
  * and the password-reset-request recorder.
  *
  * It performs no user lookup and takes no password — the identical record shape is
- * produced whether or not the account exists (FR-028), and the submitted secret is
- * never an argument (FR-029). The tumbling window collapses repeated attempts for
- * the same (eventType, identifier, origin, window) into one bucket (FR-025).
+ * produced whether or not the account exists, and the submitted secret is
+ * never an argument. The tumbling window collapses repeated attempts for
+ * the same (eventType, identifier, origin, window) into one bucket.
  *
  * @param repo - Account-security telemetry repository.
  * @param eventType - Which kind of attempt is being recorded.

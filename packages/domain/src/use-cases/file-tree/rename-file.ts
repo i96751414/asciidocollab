@@ -41,7 +41,7 @@ export class RenameFileUseCase {
     private readonly auditLogRepo: AuditLogRepository,
     private readonly fileStore?: ProjectFileStore,
     private readonly logger?: Logger,
-    // Optional: maintains the project main-file configuration on rename (FR-070).
+    // Optional: maintains the project main-file configuration on rename.
     private readonly projectRepo?: ProjectRepository,
     // Optional pair: when both are supplied, references in a file that is a collaborative Document
     // are rewritten through the Yjs source of truth instead of the file store (avoids live-clobber).
@@ -96,7 +96,7 @@ export class RenameFileUseCase {
     const newPath = FilePath.create(parentPath + newName);
 
     // Capture the old → new path map BEFORE the cascade rewrites descendant paths
-    // (FR-066). For a file it is a single entry; for a folder, every descendant file.
+    // For a file it is a single entry; for a folder, every descendant file.
     // The rewrite needs the file store to read/write content, so it is skipped when absent.
     const pathChanges = this.fileStore
       ? await capturePathChanges(this.fileNodeRepo, fileNode, newPath)
@@ -138,7 +138,7 @@ export class RenameFileUseCase {
     }
 
     if (this.fileStore) {
-      // Best-effort (FR-066): the rename has already persisted, so a reference-rewrite
+      // Best-effort: the rename has already persisted, so a reference-rewrite
       // I/O failure must not fail the rename — log and continue (as audit writes do).
       try {
         await rewriteReferencesForPathChanges(
@@ -158,7 +158,7 @@ export class RenameFileUseCase {
       }
     }
 
-    // FR-070: if the renamed node is the configured main file and its new name is
+    // If the renamed node is the configured main file and its new name is
     // no longer an AsciiDoc document, the configuration can no longer point at a
     // valid main file — clear it (resolution falls back to current-file-only).
     let mainFileCleared = false;

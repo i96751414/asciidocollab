@@ -16,7 +16,7 @@ export type ListKind = 'unordered' | 'ordered' | 'checklist' | 'description';
 export interface ListMarker {
   /** Which marker family matched. */
   readonly kind: ListKind;
-  /** Leading whitespace before the marker, preserved verbatim on continuation (FR-013). */
+  /** Leading whitespace before the marker, preserved verbatim on continuation. */
   readonly indent: string;
   /** The marker text to reason about (e.g. `**`, `-`, `..`, `1.`, the `*`/`-` of a checklist, `::`, `;;`). */
   readonly marker: string;
@@ -24,9 +24,9 @@ export interface ListMarker {
   readonly depth: number;
   /** Offset within the line where item content begins (after marker + separating space). */
   readonly contentStart: number;
-  /** `true` when nothing but the marker (and empty checkbox / separator) plus whitespace is present (FR-006). */
+  /** `true` when nothing but the marker (and empty checkbox / separator) plus whitespace is present. */
   readonly isEmpty: boolean;
-  /** For explicit ordered items (`1.`) the parsed number; `null` otherwise (drives FR-003). */
+  /** For explicit ordered items (`1.`) the parsed number; `null` otherwise. */
   readonly ordinal: number | null;
 }
 
@@ -56,7 +56,7 @@ const DESCRIPTION_TERM_RE = /^([ \t]*)(\S+?)(:{2,4}|;;)( .*)?$/;
  * The marker families are tried in an order that avoids overlap (checklist before plain
  * unordered/dash, which share the `*`/`-` prefix; the term/separator-only description forms
  * last). A returned marker drives the Enter command's continue / exit decision; `null` lets the
- * command fall through to a plain newline (FR-011).
+ * command fall through to a plain newline.
  *
  * @param lineText - The full text of the current line (no trailing newline).
  * @returns The parsed marker descriptor, or `null` when the line is not a list item.
@@ -78,7 +78,7 @@ function separatorDepth(separator: string): number {
 /**
  * Recognizes description items: the separator-only line (`:: ` — the empty item Enter exits) is
  * tried first so a 4-colon separator isn't mis-split as `term=:` + `:::`; otherwise the term form
- * (`CPU:: …`, bare `CPU::`, `Term;; …`). A bare term is non-empty (it continues, FR-005/D4).
+ * (`CPU:: …`, bare `CPU::`, `Term;; …`). A bare term is non-empty (it continues, D4).
  */
 function parseDescription(lineText: string): ListMarker | null {
   const empty = DESCRIPTION_EMPTY_RE.exec(lineText);

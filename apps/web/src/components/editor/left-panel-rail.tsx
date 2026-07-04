@@ -20,7 +20,7 @@ interface RailView {
   icon: LucideIcon;
 }
 
-// Data-driven view list (FR-015): adding a third view (e.g. search/history) is a one-line append, no
+// Data-driven view list: adding a third view (e.g. search/history) is a one-line append, no
 // redesign — the rail, roving focus, and rendering all derive from this array.
 const VIEWS: readonly RailView[] = [
   { id: 'files', label: 'Files', icon: FolderTree },

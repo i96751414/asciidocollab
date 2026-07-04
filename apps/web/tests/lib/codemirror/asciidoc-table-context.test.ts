@@ -181,7 +181,7 @@ describe('parseTableContext cursor detection', () => {
 });
 
 // ── Explicit header option (`[%header]` / `options="header"`) ────────────────
-// FR-046: the header option marks the first row as a header even without a blank-line separator.
+// the header option marks the first row as a header even without a blank-line separator.
 // The TableBlock node excludes the attribute line, so the field passes the signal as a parameter;
 // `tableHasExplicitHeader` is the single detector shared with the header-cell decoration.
 

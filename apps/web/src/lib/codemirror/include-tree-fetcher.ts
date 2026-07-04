@@ -1,7 +1,7 @@
 import { buildIncludeGraph } from '../asciidoc/extraction';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 
-/** Cap on concurrent content fetches while assembling the include tree (FR-073/SC-025). */
+/** Cap on concurrent content fetches while assembling the include tree. */
 export const MAX_CONCURRENT_FETCHES = 6;
 /** Hard bound on fixpoint passes; each pass fetches ≥1 new file, so this can never be hit in practice. */
 const MAX_PASSES = 1000;
@@ -39,7 +39,7 @@ export interface FetchReachableContentOptions {
 
 /**
  * Fetch into `cache` every file reachable from the root through the cycle-guarded
- * include walk, exactly once and with capped concurrency (FR-073/SC-025).
+ * include walk, exactly once and with capped concurrency.
  *
  * Runs a fixpoint: each pass rebuilds the include graph from currently-known
  * content and fetches any reachable-but-uncached file. The cache stores null for

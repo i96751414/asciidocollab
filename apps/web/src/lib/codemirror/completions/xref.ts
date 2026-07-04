@@ -32,7 +32,7 @@ function extractHeadingIds(state: { doc: { toString: () => string } }): string[]
 /**
  * Cross-reference completion source factory — triggers after "<<". When a symbol
  * index is supplied, section/anchor ids defined across the whole include tree are
- * merged in alongside the current document's (US8/FR-029).
+ * merged in alongside the current document's.
  */
 export function createXrefCompletionSource(getIndex?: ProjectIndexGetter): CompletionSource {
   return (context: CompletionContext): CompletionResult | null => {

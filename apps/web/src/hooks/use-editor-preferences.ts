@@ -36,7 +36,7 @@ function isLeftPanelTab(value: unknown): value is LeftPanelTab {
   return value === 'files' || value === 'outline';
 }
 
-/** Whether the outline shows the full assembled document or only the open file (032/FR-012). */
+/** Whether the outline shows the full assembled document or only the open file (032). */
 export type OutlineScope = 'full' | 'current';
 
 /** Returns true when `value` is a recognised OutlineScope. */
@@ -270,7 +270,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  // Client-only setter (032/FR-012): persists the outline scope (full / current) to localStorage
+  // Client-only setter (032): persists the outline scope (full / current) to localStorage
   // but never schedules a PUT, so the choice stays on this device.
   const setOutlineScope = useCallback((outlineScope: OutlineScope) => {
     setPrefs((previous) => {

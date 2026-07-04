@@ -1,10 +1,10 @@
 /**
- * Markdown-subset → AsciiDoc mapper (FR-062).
+ * Markdown-subset → AsciiDoc mapper.
  *
  * Paste-HTML support converts HTML → Markdown with the reused `turndown`
  * library, then this small first-party mapper converts that Markdown subset to
  * AsciiDoc. No maintained HTML→AsciiDoc asset exists to vendor, so this narrow
- * mapper is permitted under the clarified Constitution IV (research R2).
+ * mapper is permitted under the clarified Constitution IV.
  *
  * Supported subset: ATX headings, ordered/unordered (including nested) lists,
  * bold/italic, inline code, links, fenced code blocks (→ `[source]`), and GFM

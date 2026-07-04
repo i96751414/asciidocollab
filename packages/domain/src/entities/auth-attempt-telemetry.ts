@@ -1,7 +1,7 @@
 import { AuthAttemptTelemetryId } from '../value-objects/ids/auth-attempt-telemetry-id';
 import { ValidationError } from '../errors/common/validation-error';
 
-/** Coalesced failed sign-in attempts (FR-025). */
+/** Coalesced failed sign-in attempts. */
 export const AUTH_ATTEMPT_FAILED_SIGN_IN = 'failed_sign_in';
 /** Coalesced password-reset *requests* — account-existence neutral like failed sign-ins. */
 export const AUTH_ATTEMPT_PASSWORD_RESET_REQUEST = 'password_reset_request';
@@ -17,9 +17,9 @@ export type AuthAttemptEventType =
 
 /**
  * Coalesced, retention-bounded telemetry for account-security attempts that must
- * stay account-existence neutral — failed sign-ins (FR-025) and password-reset
+ * stay account-existence neutral — failed sign-ins and password-reset
  * requests. A single store with an `eventType` discriminator so both share the
- * same coalescing, retention, and purge mechanism (FR-026/FR-030).
+ * same coalescing, retention, and purge mechanism.
  *
  * Kept deliberately distinct from the governance `AuditLog`: it bounds storage
  * volume by aggregating repeated attempts into a single bucket keyed by

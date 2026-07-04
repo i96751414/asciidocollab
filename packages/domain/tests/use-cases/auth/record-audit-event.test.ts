@@ -28,7 +28,7 @@ describe('RecordAuditEventUseCase', () => {
     expect(all[0].projectId).toBeNull();
   });
 
-  test('folds request context into metadata.origin (FR-017)', async () => {
+  test('folds request context into metadata.origin', async () => {
     await useCase.execute({
       action: AUDIT_AUTH_SIGNED_IN,
       actorId,

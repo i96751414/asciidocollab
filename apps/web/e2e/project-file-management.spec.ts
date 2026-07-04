@@ -58,7 +58,7 @@ async function confirmNameDialog(page: Page, value: string) {
 // Suite
 // ---------------------------------------------------------------------------
 
-test.describe('File management — US4/US6', () => {
+test.describe('File management', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -80,7 +80,7 @@ test.describe('File management — US4/US6', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Comprehensive workflow (US4-full)
+  // Comprehensive workflow
   // ---------------------------------------------------------------------------
 
   test('full file tree workflow: empty → create → rename → delete via UI', async ({ page }) => {
@@ -135,10 +135,10 @@ test.describe('File management — US4/US6', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Individual operations (T032–T038) — kept for regression coverage
+  // Individual operations — kept for regression coverage
   // ---------------------------------------------------------------------------
 
-  // T032: owner can create a new file via dialog
+  // Owner can create a new file via dialog
   test('owner can create a new file', async ({ page }) => {
     await gotoProject(page, projectId);
     await openRootActions(page);
@@ -147,7 +147,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-my-document.adoc')).toBeVisible({ timeout: 5000 });
   });
 
-  // T033: owner can create a new folder via dialog
+  // Owner can create a new folder via dialog
   test('owner can create a new folder', async ({ page }) => {
     await gotoProject(page, projectId);
     await openRootActions(page);
@@ -156,7 +156,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-my-folder')).toBeVisible({ timeout: 5000 });
   });
 
-  // T034: owner can rename a file via dialog
+  // Owner can rename a file via dialog
   test('owner can rename a file', async ({ page }) => {
     await createTestFile(page, projectId, null, 'original.adoc');
     await gotoProject(page, projectId);
@@ -174,7 +174,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-original.adoc')).not.toBeVisible();
   });
 
-  // T035: owner can rename a folder
+  // Owner can rename a folder
   test('owner can rename a folder', async ({ page }) => {
     await createTestFolder(page, projectId, null, 'original-folder');
     await gotoProject(page, projectId);
@@ -186,7 +186,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-renamed-folder')).toBeVisible({ timeout: 5000 });
   });
 
-  // T036: owner can delete a file
+  // Owner can delete a file
   test('owner can delete a file', async ({ page }) => {
     await createTestFile(page, projectId, null, 'to-delete.adoc');
     await gotoProject(page, projectId);
@@ -201,7 +201,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-to-delete.adoc')).not.toBeVisible({ timeout: 10_000 });
   });
 
-  // T037: owner can delete a non-empty folder with warning
+  // Owner can delete a non-empty folder with warning
   test('owner can delete a non-empty folder with warning', async ({ page }) => {
     const folderId = await createTestFolder(page, projectId, null, 'folder-with-files');
     await createTestFile(page, projectId, folderId, 'child.adoc');
@@ -218,7 +218,7 @@ test.describe('File management — US4/US6', () => {
     await expect(page.getByTestId('tree-node-folder-with-files')).not.toBeVisible({ timeout: 10_000 });
   });
 
-  // T038: viewer cannot see file management controls
+  // Viewer cannot see file management controls
   test('viewer cannot see file management controls', async ({ page, browser }) => {
     const viewerCredentials = await createViewerInProject(page, projectId);
     viewerEmail = viewerCredentials.email;

@@ -38,14 +38,14 @@ export interface LinkHandlerCallbacks {
   onUnresolvedPath?: (rawPath: string) => void;
   /**
    * Called when a cross-reference (`<<id>>` / `xref:id[…]`) resolves to a definition via the
-   * project symbol index (FR-034/049).
+   * project symbol index.
    *
    * @param target - The resolved definition location.
    */
   onNavigateToXref?: (target: XrefTarget) => void;
 }
 
-/** A resolved cross-reference definition location (FR-049). */
+/** A resolved cross-reference definition location. */
 export interface XrefTarget {
   /** The file id where the definition lives. */
   fileId: string;
@@ -101,7 +101,7 @@ function attributeReferenceAt(lineText: string, posInLine: number): { name: stri
 
 /**
  * Resolve an attribute reference `{name}` to where it is DEFINED via the index — a `:name:` entry or
- * an inline `{set:name:…}`, in the current file OR any file in the include tree (FR-020/021).
+ * an inline `{set:name:…}`, in the current file OR any file in the include tree.
  * Reuses {@link XrefTarget} because go-to-definition navigation is identical (open the defining file
  * if different, reveal the line). Returns null when the attribute is not defined anywhere reachable.
  */
@@ -127,8 +127,8 @@ export interface XrefHoverPreview {
 }
 
 /**
- * Build a hover preview for the cross-reference at `posInLine`, or null when none is there
- * (FR-034). Resolved targets describe the definition's location; unresolved ones say so.
+ * Build a hover preview for the cross-reference at `posInLine`, or null when none is there.
+ * Resolved targets describe the definition's location; unresolved ones say so.
  *
  * @param lineText - The hovered line's text.
  * @param posInLine - The hover offset within the line.
@@ -260,7 +260,7 @@ export function createLinkHandler(
     }
 
     // Attribute go-to-definition: Ctrl+click `{name}` jumps to its `:name:` / `{set:name:…}` definition,
-    // in this file or another file in the include tree (FR-020/021). Checked LAST — after the macros —
+    // in this file or another file in the include tree. Checked LAST — after the macros —
     // so a `{attr}` INSIDE an `include::{attr}/x.adoc[]` target still navigates the include (which
     // substitutes the attribute in its path), not the attribute definition. Position-aware, reusing the
     // same definition-navigation callback as xrefs.

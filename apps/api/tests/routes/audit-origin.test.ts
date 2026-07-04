@@ -32,7 +32,7 @@ function buildTestServer() {
   return { app, auditLog };
 }
 
-describe('audit origin (FR-017) — PATCH /api/projects/:id/members/:userId', () => {
+describe('audit origin — PATCH /api/projects/:id/members/:userId', () => {
   it('records the request origin and before/after roles in the saved audit log', async () => {
     const { app, auditLog } = buildTestServer();
 

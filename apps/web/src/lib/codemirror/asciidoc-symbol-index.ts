@@ -11,11 +11,11 @@ import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 import type { DocumentTree, ProjectSymbol, Reference } from '@asciidocollab/shared';
 
 /**
- * Client projection over the shared `asciidoc-model` (US8/US12). This is a
+ * Client projection over the shared `asciidoc-model`. This is a
  * read-only cache derived from the shared extraction + include-graph rules — NOT
  * a second parser (architecture-migration-plan). It aggregates symbols/references
  * across the include tree rooted at the configured main file (or the open file
- * when none — FR-047) and resolves cross-file references. Include/image path
+ * when none) and resolves cross-file references. Include/image path
  * resolution goes through the shared `resolveSandboxedPath` (Constitution IX).
  */
 
@@ -25,8 +25,8 @@ export interface ProjectSymbolIndex {
   tree: DocumentTree;
   /**
    * The file currently open in the editor (whose live content is overlaid). Diagnostics scope to
-   * this file, which may differ from the include-graph root when a separate main file is configured
-   * (FR-045/047). Defaults to the root when not supplied.
+   * this file, which may differ from the include-graph root when a separate main file is configured.
+   * Defaults to the root when not supplied.
    */
   activeFileId: string;
   /** All symbols defined across the tree. */
@@ -72,21 +72,21 @@ export interface ProjectSymbolIndex {
    */
   resolveAttribute(name: string): ProjectSymbol | 'unresolved';
   /**
-   * The level offset a file inherits along the include path (FR-071).
+   * The level offset a file inherits along the include path.
    *
    * @param fileId - Identifier of the file whose inherited offset is wanted.
    * @returns The accumulated inherited offset.
    */
   inheritedOffset(fileId: string): number;
   /**
-   * The project-relative path of a file in the tree (for cross-file go-to-definition, FR-049).
+   * The project-relative path of a file in the tree (for cross-file go-to-definition).
    *
    * @param fileId - The file id to resolve.
    * @returns The project-relative path, or null when unknown.
    */
   pathOf(fileId: string): string | null;
   /**
-   * The 1-based line number for a character offset within a file (reveal location, FR-049).
+   * The 1-based line number for a character offset within a file (reveal location).
    *
    * @param fileId - The file the offset belongs to.
    * @param offset - The character offset into that file's content.
@@ -164,7 +164,7 @@ export function buildProjectSymbolIndex(
     symbols.push(...extractSymbols(fileId, content));
     references.push(...extractReferences(fileId, content));
     // A file's OWN net attributes (in document order): `:name:` entries AND inline `{set:}`
-    // assignments alike (FR-040), so a `{set:}`-defined name is project-wide known. Later files in
+    // assignments alike, so a `{set:}`-defined name is project-wide known. Later files in
     // tree-node order win for the project-wide view (a coarse last-wins, as before).
     for (const [name, value] of extractOwnAttributes(content)) attributes.set(name, value);
   }
@@ -190,7 +190,7 @@ export function buildProjectSymbolIndex(
       const effective = new Map(inheritedAttributesOf(fileId));
       const content = getContent(fileId);
       // Apply the file's OWN definitions on top of what it inherits (own wins): `:name:` entries AND
-      // inline `{set:}` assignments (FR-040), via the same document-order model the inheritance walk
+      // inline `{set:}` assignments, via the same document-order model the inheritance walk
       // uses — so an own `{set:basedir:...}` folds to its value just like a `:name:` entry.
       if (content !== null) {
         for (const [name, value] of extractOwnAttributes(content)) effective.set(name, value);
@@ -203,13 +203,13 @@ export function buildProjectSymbolIndex(
       resolveReference({ kind: 'attributeRef', target: name, fileId: rootFileId, range: { from: 0, to: 0 } }, symbols),
     // The offset the editor applies to a non-root file's headings is the EFFECTIVE offset at its
     // first include point: the include `leveloffset=` options AND the attribute-form `:leveloffset:`
-    // a parent declares above the include, include-scoped (FR-008/FR-009). `computeHeadingLevels`
+    // a parent declares above the include, include-scoped. `computeHeadingLevels`
     // (the single authority) then composes this base with the file's own attribute-form entries.
     inheritedOffset: (fileId) => {
       const cached = offsetCache.get(fileId);
       if (cached !== undefined) return cached;
       // Seed the render intrinsics so an include guarded by an Asciidoctor-injected attribute (e.g.
-      // `ifdef::backend-html5[]`) is gated consistently with the preview assembler (FR-029/#3).
+      // `ifdef::backend-html5[]`) is gated consistently with the preview assembler (#3).
       const offset = effectiveLevelOffset({ rootFileId, fileId, readContent: getContent, resolveInclude, seedAttributes: RENDER_INTRINSIC_ATTRIBUTES });
       offsetCache.set(fileId, offset);
       return offset;

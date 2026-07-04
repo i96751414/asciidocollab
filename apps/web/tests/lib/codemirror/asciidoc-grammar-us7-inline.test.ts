@@ -1,11 +1,11 @@
 import { hasToken, tokenAt, tokensOfType } from './helpers/tokenize';
 
-// US7 / T019 — deferred inline-construct rework (grammar-tokens.md):
+// Deferred inline-construct rework (grammar-tokens.md):
 // narrow `inlineWord` and add dedicated tokens for inline passthrough, inline/biblio
 // anchors, replacements, entities, code callouts, and the block-level thematic/page
 // breaks — WITHOUT regressing existing emphasis / xref / attr-ref / prose tokenization.
 
-describe('US7 inline — passthrough (+x+) (FR-027)', () => {
+describe('inline — passthrough (+x+)', () => {
   test('recognises +x+ as a Passthrough', () => {
     expect(hasToken('a +literal+ b\n', 'Passthrough')).toBe(true);
   });
@@ -20,7 +20,7 @@ describe('US7 inline — passthrough (+x+) (FR-027)', () => {
   });
 });
 
-describe('US7 inline — inline & bibliography anchors (FR-027)', () => {
+describe('inline — inline & bibliography anchors', () => {
   test('recognises [[id]] as an InlineAnchor', () => {
     expect(hasToken('text [[anchor-id]] more\n', 'InlineAnchor')).toBe(true);
   });
@@ -35,7 +35,7 @@ describe('US7 inline — inline & bibliography anchors (FR-027)', () => {
   });
 });
 
-describe('US7 inline — replacements & entities (FR-054)', () => {
+describe('inline — replacements & entities', () => {
   test.each(['(C)', '(R)', '(TM)'])('recognises %s as a Replacement', (mark) => {
     expect(hasToken(`Acme ${mark} brand\n`, 'Replacement')).toBe(true);
   });
@@ -53,7 +53,7 @@ describe('US7 inline — replacements & entities (FR-054)', () => {
   });
 });
 
-describe('US7 inline — code callouts (FR-027)', () => {
+describe('inline — code callouts', () => {
   test('recognises <1> as a Callout', () => {
     expect(hasToken('puts x <1>\n', 'Callout')).toBe(true);
   });
@@ -68,7 +68,7 @@ describe('US7 inline — code callouts (FR-027)', () => {
   });
 });
 
-describe('US7 inline — bare URLs (FR-026)', () => {
+describe('inline — bare URLs', () => {
   test.each([
     'https://example.com',
     'http://example.com/path',
@@ -90,7 +90,7 @@ describe('US7 inline — bare URLs (FR-026)', () => {
   });
 });
 
-describe('US7 inline — link/mailto/menu macros & mid-line macros (FR-026/052)', () => {
+describe('inline — link/mailto/menu macros & mid-line macros', () => {
   test.each([
     'link:http://example.com[Site]',
     'mailto:a@b.com[Mail me]',
@@ -119,7 +119,7 @@ describe('US7 inline — link/mailto/menu macros & mid-line macros (FR-026/052)'
   });
 });
 
-describe('US7 inline — UI & math macros (FR-052)', () => {
+describe('inline — UI & math macros', () => {
   test.each(['kbd:[Ctrl+S]', 'btn:[OK]'])('recognises %s as a UiMacro', (macro) => {
     expect(hasToken(`press ${macro} now\n`, 'UiMacro')).toBe(true);
   });
@@ -141,7 +141,7 @@ describe('US7 inline — UI & math macros (FR-052)', () => {
   });
 });
 
-describe('US7 inline — smart typographic quotes (FR-054)', () => {
+describe('inline — smart typographic quotes', () => {
   test('recognises a double curly quote "`x`" as a SmartQuote', () => {
     expect(hasToken('a "`quoted`" b\n', 'SmartQuote')).toBe(true);
   });
@@ -162,7 +162,7 @@ describe('US7 inline — smart typographic quotes (FR-054)', () => {
   });
 });
 
-describe('US7 inline — hard line break (FR-054)', () => {
+describe('inline — hard line break', () => {
   test('a trailing " +" at end of a line is a HardBreak', () => {
     expect(hasToken('first line +\nsecond line\n', 'HardBreak')).toBe(true);
   });
@@ -177,7 +177,7 @@ describe('US7 inline — hard line break (FR-054)', () => {
   });
 });
 
-describe('US7 block — thematic & page breaks (FR-028)', () => {
+describe('block — thematic & page breaks', () => {
   test("recognises ''' as a ThematicBreak", () => {
     expect(hasToken("'''\n", 'ThematicBreak')).toBe(true);
   });
@@ -191,7 +191,7 @@ describe('US7 block — thematic & page breaks (FR-028)', () => {
   });
 });
 
-describe('US7 inline rework — existing tokenization not regressed', () => {
+describe('inline rework — existing tokenization not regressed', () => {
   test('emphasis containing a narrowed char still spans the whole run', () => {
     // `*a+b*` — the `+` inside bold must not split the Bold node.
     expect(hasToken('*a+b*\n', 'Bold')).toBe(true);

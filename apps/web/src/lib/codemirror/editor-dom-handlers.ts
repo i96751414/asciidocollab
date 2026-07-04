@@ -82,7 +82,7 @@ function tooltipView(text: string): { dom: HTMLElement } {
 
 /**
  * Hover tooltip over include::/image:: paths advertising the Ctrl+click affordance, plus an
- * index-backed cross-reference preview (FR-034) when an xref sits under the cursor.
+ * index-backed cross-reference preview when an xref sits under the cursor.
  *
  * @param projectIndexAccessor - Returns the latest project symbol index (or null for current-file scope).
  * @returns A CodeMirror hover-tooltip extension.
@@ -92,7 +92,7 @@ export function createCtrlClickTooltip(
 ): ReturnType<typeof hoverTooltip> {
   return hoverTooltip((view, pos): Tooltip | null => {
     const line = view.state.doc.lineAt(pos);
-    // Cross-reference preview (FR-034): resolve the xref under the cursor against the project
+    // Cross-reference preview: resolve the xref under the cursor against the project
     // index and show its definition location (or an "unknown reference" notice).
     const index = projectIndexAccessor();
     if (index) {

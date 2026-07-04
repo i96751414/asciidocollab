@@ -253,7 +253,7 @@ describe('useEditorMount document + cursor listeners', () => {
   });
 });
 
-describe('useEditorMount initialLine restore (REST path, FR-005)', () => {
+describe('useEditorMount initialLine restore (REST path)', () => {
   test('clamps an out-of-range initialLine to the last line and scrolls it into view', () => {
     const rendered = mount(baseOptions({ content: 'a\nb\nc\n', initialLine: 999 }));
     const view = rendered.getView();
@@ -308,7 +308,7 @@ function isWrapping(view: EditorView): boolean {
   return view.contentDOM.classList.contains('cm-lineWrapping');
 }
 
-describe('useEditorMount soft-wrap compartment (US2/FR-007)', () => {
+describe('useEditorMount soft-wrap compartment', () => {
   test('mounts with line wrapping enabled by default', () => {
     const rendered = mount(baseOptions());
     expect(isWrapping(rendered.getView())).toBe(true);
@@ -361,7 +361,7 @@ describe('useEditorMount content sync (REST path)', () => {
   });
 });
 
-describe('useEditorMount inherited heading offset (US3/FR-071)', () => {
+describe('useEditorMount inherited heading offset', () => {
   test('dispatches a heading-levels refresh effect when inheritedOffset changes', () => {
     const rendered = mount(baseOptions({ inheritedOffset: 0 }));
     const view = rendered.getView();
@@ -376,7 +376,7 @@ describe('useEditorMount inherited heading offset (US3/FR-071)', () => {
   });
 });
 
-describe('useEditorMount inline-style emphasis (US14/FR-021c)', () => {
+describe('useEditorMount inline-style emphasis', () => {
   test('marks a known-role span [.role]#…# with the distinct-emphasis class in the live editor', () => {
     const rendered = mount(baseOptions({ content: 'a [.underline]#styled# b\n' }));
     // The emphasis decoration is a mark whose class flags known roles; it must reach the DOM so the
@@ -392,7 +392,7 @@ describe('useEditorMount inline-style emphasis (US14/FR-021c)', () => {
   });
 });
 
-describe('useEditorMount outline resolved scope (R11/FR-007b)', () => {
+describe('useEditorMount outline resolved scope', () => {
   test('resolves {attr} heading titles against the installed resolved-scope facet', () => {
     const onOutlineChange = jest.fn();
     const rendered = mount(baseOptions({
@@ -430,7 +430,7 @@ describe('useEditorMount outline resolved scope (R11/FR-007b)', () => {
     rendered.unmount();
   });
 
-  test('excludes headings inside an inactive conditional branch resolved against the scope (FR-032)', () => {
+  test('excludes headings inside an inactive conditional branch resolved against the scope', () => {
     const onOutlineChange = jest.fn();
     const rendered = mount(baseOptions({
       content: '== Visible\n\nifdef::flag[]\n== Hidden\nendif::[]\n',
@@ -445,7 +445,7 @@ describe('useEditorMount outline resolved scope (R11/FR-007b)', () => {
   });
 });
 
-describe('useEditorMount revealRequest (FR-049)', () => {
+describe('useEditorMount revealRequest', () => {
   test('moves the caret to the requested line and dedupes by nonce', () => {
     const rendered = mount(baseOptions({ content: 'a\nb\nc\nd\n', revealRequest: null }));
 
@@ -987,13 +987,13 @@ describe('useEditorMount wired lint sources', () => {
       forceLinting(view);
       await Promise.resolve();
     });
-    // The accessor resolves to null (no getter) without throwing — current-file scope (FR-047).
+    // The accessor resolves to null (no getter) without throwing — current-file scope.
     expect(view).toBeInstanceOf(EditorView);
     rendered.unmount();
   });
 });
 
-describe('useEditorMount fold persistence wiring (US10)', () => {
+describe('useEditorMount fold persistence wiring', () => {
   test('mounts with a fold storage key supplied (truthy branch)', () => {
     const rendered = mount(baseOptions({ foldStorageKey: 'file-123' }));
     expect(rendered.getView()).toBeInstanceOf(EditorView);
@@ -1102,7 +1102,7 @@ function fakeProjectIndex(resolves: boolean): import('@/lib/codemirror/asciidoc-
 }
 
 describe('useEditorMount Ctrl+click hover tooltip source', () => {
-  test('returns an index-backed xref preview when an xref sits under the cursor (FR-034)', () => {
+  test('returns an index-backed xref preview when an xref sits under the cursor', () => {
     const rendered = mount(baseOptions({
       content: `${HOVER_PROBE_LINE}see <<sec>> now\n`,
       getProjectIndex: () => fakeProjectIndex(true),
@@ -1174,7 +1174,7 @@ describe('useEditorMount Ctrl+click hover tooltip source', () => {
   });
 });
 
-describe('useEditorMount source-highlight reparse callback (US5)', () => {
+describe('useEditorMount source-highlight reparse callback', () => {
   test('reconfigures the language compartment when an embedded language loads', async () => {
     const rendered = mount(baseOptions({ content: '[source,json]\n----\n{}\n----\n' }));
     const view = rendered.getView();

@@ -11,8 +11,8 @@ import { PrismaUserRepository } from '../../../src/persistence/user/prisma-user.
 import { startTestContainer, stopTestContainer, TestContainer } from '../../helpers/prisma-test-container';
 import { createTestUser, createTestProject, createTestFileNode } from '../../helpers/test-data';
 
-// T053a — real Prisma: persist + read Project.mainFileNodeId, and onDelete:SetNull
-// clears it when the referenced node is deleted (FR-045/070).
+// Real Prisma: persist + read Project.mainFileNodeId, and onDelete:SetNull
+// clears it when the referenced node is deleted.
 describe('PrismaProjectRepository — main file', () => {
   let container: TestContainer;
   let client: PrismaClient;

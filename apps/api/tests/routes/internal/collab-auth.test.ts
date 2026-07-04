@@ -89,7 +89,7 @@ describe('GET /internal/collab/auth/document', () => {
     expect(response.statusCode).toBe(403);
   });
 
-  // SEC4 / §Audit: authorization denials are logged with actor, resource, reason (never the cookie).
+  // §Audit: authorization denials are logged with actor, resource, reason (never the cookie).
   test('a 403 denial is logged with actor, resource, and reason', async () => {
     const warn = jest.fn();
     const recordingLogger = {
@@ -191,7 +191,7 @@ describe('GET /internal/collab/auth/presence', () => {
     expect(response.statusCode).toBe(400);
   });
 
-  // SEC4 / §Audit: presence denials are logged with actor, resource (presence:<projectId>), reason.
+  // §Audit: presence denials are logged with actor, resource (presence:<projectId>), reason.
   test('a 403 denial is logged with actor, resource, and reason', async () => {
     const warn = jest.fn();
     const recordingLogger = {

@@ -236,7 +236,7 @@ describe('PersistenceExtension', () => {
     });
   });
 
-  // Feature 024: a presence room (`presence/<projectId>`) carries no document — persistence is a no-op (FR-011).
+  // Feature 024: a presence room (`presence/<projectId>`) carries no document — persistence is a no-op.
   describe('presence rooms', () => {
     const presenceName = `presence/${projectId.value}`;
 

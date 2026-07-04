@@ -17,7 +17,7 @@ import {
 import { buildIncludePlaceholderBlock } from '../lib/asciidoc/include-placeholder';
 
 /**
- * Sandbox-confined AsciiDoc include assembler (US8/FR-068, Constitution IX).
+ * Sandbox-confined AsciiDoc include assembler (Constitution IX).
  *
  * Pre-expands `include::target[]` directives into a single document before it reaches Asciidoctor,
  * so the preview can render the configured main document with its includes inlined. EVERY target is
@@ -28,7 +28,7 @@ import { buildIncludePlaceholderBlock } from '../lib/asciidoc/include-placeholde
  * never read a path the boundary did not bless.
  *
  * Conditional preprocessor directives (`ifdef`/`ifndef`/`ifeval`) are evaluated here ONLY to GATE
- * INCLUDES (US8/FR-029..FR-031, research R3): an `include::` wrapped by a conditional region that is
+ * INCLUDES (research): an `include::` wrapped by a conditional region that is
  * inactive for the current document-order attribute state is NOT expanded (its target is never read).
  * The directive lines themselves — and any content-level (non-include) conditional content — are left
  * verbatim in the assembled source so Asciidoctor evaluates content-level conditionals natively with
@@ -75,7 +75,7 @@ export interface AssembleResult {
 
 // An attribute SET entry whose value may wrap: `:name: value` (a prefix/suffix unset has no value to
 // continue). Group 1 = name, group 2 = the (raw) value. Used by the assembler to detect a wrapped
-// value so its continuation lines can be joined for attribute tracking (FR-041).
+// value so its continuation lines can be joined for attribute tracking.
 const ATTR_SET_LINE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*)$/;
 // A trailing `\` (after optional whitespace) continues an attribute value onto the next line.
 const VALUE_CONTINUATION_RE = /\\[ \t]*$/;
@@ -88,7 +88,7 @@ const DEFAULT_MAX_DEPTH = 64;
 // cycle guard only stops a file from including itself transitively; it does NOT stop the same file
 // being re-included along many distinct paths (a diamond / doubling fan-out), which is exponential in
 // depth and can OOM/pin the worker on attacker-authored content. This budget bounds total work — and
-// therefore total assembled output — regardless of include-graph shape (client-DoS guard, R3). It is
+// therefore total assembled output — regardless of include-graph shape (client-DoS guard). It is
 // generous enough for legitimate multi-file books (thousands of includes) while capping pathological
 // fan-out; once spent, every further include is gated off with the `limit` reason.
 const DEFAULT_MAX_EXPANSIONS = 10_000;
@@ -102,7 +102,7 @@ const ATTR_ENTRY_RE =
 /**
  * Format an ABSOLUTE `:leveloffset:` value entry body. The assembler emits absolute offsets (a bare
  * number, e.g. `2` or `0`) — never a relative `+N`/`-N` — so re-emitting one deterministically sets
- * the offset and an unbalanced child cannot corrupt the surrounding value (FR-010).
+ * the offset and an unbalanced child cannot corrupt the surrounding value.
  */
 function absolute(value: number): string {
   return `${value}`;
@@ -110,19 +110,19 @@ function absolute(value: number): string {
 
 // A tag marker comment line: `// tag::NAME[]` / `// end::NAME[]` (the AsciiDoc default `//` style,
 // plus the `#` and `;;` comment styles), capturing the kind (`tag`/`end`) and the region NAME. The
-// marker lines themselves are EXCLUDED from a tag-filtered slice (FR-033).
+// marker lines themselves are EXCLUDED from a tag-filtered slice.
 const TAG_MARKER_RE = /^[ \t]*(?:\/\/|#|;;)[ \t]*(tag|end)::([^[\]]*)\[\][ \t]*$/;
 
 /**
  * Select the lines of `source` chosen by `selectors`, excluding the `// tag::`/`// end::` marker lines
- * themselves (FR-033). This reproduces Asciidoctor's tag-filtering algorithm, including the wildcard
+ * themselves. This reproduces Asciidoctor's tag-filtering algorithm, including the wildcard
  * semantics that distinguish `*` from `**` (#5):
  *  - a bare `name` selects that region; `!name` deselects it.
  *  - `*` selects any TAGGED region but NOT lines outside a region; `**` selects ALL lines (tagged AND
  *    untagged). `**` is applied first regardless of where it appears, then `*` refines tagged lines.
  *  - `!*` selects only untagged content (it implies `**;!*`); `!**` deselects everything.
  *  - when only exclusions are given, every other line is selected by default.
- * A non-matching selector simply yields no lines (graceful empty slice — FR-036).
+ * A non-matching selector simply yields no lines (graceful empty slice).
  */
 function selectTaggedLines(source: string, selectors: readonly string[]): string {
   // Parse selectors into name→include directives (last write wins); `!name` ⇒ false.
@@ -189,7 +189,7 @@ function selectTaggedLines(source: string, selectors: readonly string[]): string
 /**
  * Select the 1-based line ranges of `source` chosen by `ranges`, preserving original line order. A
  * `[start, null]` range is open-ended (to EOF). Out-of-range bounds simply contribute nothing, so an
- * entirely out-of-range selection yields an empty slice (graceful — FR-034/FR-036).
+ * entirely out-of-range selection yields an empty slice (graceful).
  */
 function selectLineRanges(source: string, ranges: ReadonlyArray<readonly [number, number | null]>): string {
   const lines = source.split('\n');
@@ -214,7 +214,7 @@ function selectLineRanges(source: string, ranges: ReadonlyArray<readonly [number
  *   (document order wins). Defaults to ∅. `showIncludes` (default `undefined`, treated as `true`)
  *   controls hide mode: when `false`, included file bodies are suppressed and replaced with a
  *   passthrough placeholder block, while attribute-entry lines are still emitted so Asciidoctor
- *   resolves attribute state correctly (029/FR-003/FR-005).
+ * resolves attribute state correctly (029).
  * @returns The assembled content and the list of unresolved/rejected directives.
  */
 export function assembleIncludes(
@@ -243,14 +243,14 @@ export function assembleIncludes(
   // own include applied). Attribute-form `:leveloffset:` entries inside the file shift a running
   // `offset` relative to that base; an unset returns to it. When an include ends, the assembler
   // re-emits the enclosing file's `offset` so a child's offset change cannot leak past its include
-  // (Asciidoctor scopes attribute changes to the include; the inlined assembly must match — FR-010).
+  // (Asciidoctor scopes attribute changes to the include; the inlined assembly must match).
   // `overrideContent`, when provided, is the already-sliced (tag-/line-filtered) source to expand in
   // place of the file's raw content — slicing happens on the RAW child source BEFORE expansion, so
   // nested includes inside a kept region still expand, and attribute/leveloffset resolution applies
-  // to the slice exactly as it would to a whole include (FR-033/FR-034/FR-035).
+  // to the slice exactly as it would to a whole include.
   // `emit` controls whether non-attribute lines are included in the output. When `false` (used for
   // hidden subtrees in hide mode), only attribute-entry lines are emitted so the attribute state
-  // is preserved for downstream content while the body is suppressed (029/FR-005).
+  // is preserved for downstream content while the body is suppressed (029).
   const expand = (
     path: string,
     stack: readonly string[],
@@ -347,7 +347,7 @@ export function assembleIncludes(
       // single filter per directive, but applying both deterministically (lines then tags) keeps the
       // common single-selector case exact and never throws. A non-matching/out-of-range selection
       // yields an empty slice, which inlines as no content without breaking the surrounding doc
-      // (FR-033/FR-034/FR-036). `null` from either parser means "no filter" (whole content).
+      // `null` from either parser means "no filter" (whole content).
       let childSource = rawContent;
       const lineRanges = parseIncludeLines(attributeList);
       if (lineRanges !== null) childSource = selectLineRanges(childSource, lineRanges);
@@ -452,7 +452,7 @@ export function assembleIncludes(
         // before tracking, because applyLineAttributes works on a single physical line and would
         // otherwise track only the first fragment (with the trailing `\`). Each physical line is still
         // emitted verbatim so Asciidoctor performs its own native join and `data-source-line` mapping
-        // is preserved — only the value the assembler TRACKS is joined (FR-041).
+        // is preserved — only the value the assembler TRACKS is joined.
         // Attribute-set continuation lines are always emitted (even in emit:false mode) because they
         // constitute attribute-entry lines that must survive into the assembled output.
         const setEntry = ATTR_SET_LINE_RE.exec(line);
@@ -482,7 +482,7 @@ export function assembleIncludes(
           offset = applyLevelOffsetEntry(line, offset, baseOffset);
           // In hide mode, substitute known attribute references in prose lines so the assembled
           // content already reflects the values defined by hidden includes — the writer sees resolved
-          // values in the preview rather than raw `{attr}` placeholders (029/SC-001).
+          // values in the preview rather than raw `{attr}` placeholders (029).
           // Attribute-entry lines are emitted verbatim (they define attributes, not reference them);
           // non-entry prose lines have their `{name}` refs expanded against the current attribute map.
           const emittedLine =

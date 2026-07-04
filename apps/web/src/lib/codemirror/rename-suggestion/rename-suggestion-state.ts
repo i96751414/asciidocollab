@@ -15,14 +15,14 @@ import {
 
 /**
  * The rename-suggestion state machine (033): detection → 2s settle → project-wide usage lookup →
- * inline suggestion → one-click apply/undo, with the leave/return timing (FR-010–FR-022).
+ * inline suggestion → one-click apply/undo, with the leave/return timing.
  *
  * A `StateField` holds the shown suggestion and provides the block widget below the definition; its
  * pure `update` also handles the synchronous clears (revert to the original, or moving to a
  * different definition). The `ViewPlugin` owns the mutable orchestration — baseline capture, the 2s
  * settle and 5s leave timers, the async project-wide lookup, and apply/undo — and only ever
  * dispatches from timer/microtask callbacks (never during an editor update). The apply reuses the
- * existing project-wide `renameSymbol` (no parallel path, FR-018a).
+ * existing project-wide `renameSymbol` (no parallel path).
  */
 
 /** Injected configuration — API access + editing context. Timers are overridable for tests. */
@@ -57,9 +57,9 @@ export interface RenameSuggestionConfig {
     projectId: string,
     input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
   ) => Promise<RenameSymbolResult>;
-  /** Delay before a settled rename shows its suggestion (FR-010). Default 2000ms. */
+  /** Delay before a settled rename shows its suggestion. Default 2000ms. */
   settleMs?: number;
-  /** Delay before a suggestion hides after the cursor leaves the definition (FR-013). Default 5000ms. */
+  /** Delay before a suggestion hides after the cursor leaves the definition. Default 5000ms. */
   leaveMs?: number;
 }
 
@@ -112,7 +112,7 @@ export const suggestionField = StateField.define<RenameSuggestion | null>({
     if (tr.docChanged || tr.selection) {
       // Synchronous auto-clear: reverting the name, or moving to a different definition, drops the
       // suggestion at once. Merely leaving (cursor off any definition) keeps it — the plugin's 5s
-      // timer clears that case via an effect (FR-013/FR-015).
+      // timer clears that case via an effect.
       const definition = definitionAtCursor(tr.state);
       if (definition) {
         const shownLine = tr.state.doc.lineAt(next.candidate.definitionRange.from).number;
@@ -126,7 +126,7 @@ export const suggestionField = StateField.define<RenameSuggestion | null>({
   provide: (field) => EditorView.decorations.compute([field], (state) => buildDecoration(state.field(field), state)),
 });
 
-/** The baseline captured when the author begins editing a definition (FR-002). */
+/** The baseline captured when the author begins editing a definition. */
 interface Session {
   kind: SymbolKind;
   oldName: string;
@@ -188,7 +188,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (!definition) {
           this.clearSettle();
           // An applied suggestion keeps its Undo affordance until dismissed — it must not be hidden
-          // by the leave timer (FR-020). Only a live offer disappears after leaving (FR-013).
+          // by the leave timer. Only a live offer disappears after leaving.
           const shown = this.view.state.field(suggestionField);
           if (shown && shown.status !== 'applied' && !this.leaveTimer) {
             this.leaveTimer = setTimeout(() => {
@@ -199,7 +199,7 @@ function makePlugin(config: RenameSuggestionConfig) {
           return;
         }
 
-        this.clearLeave(); // back on a definition → cancel any pending disappearance (FR-014)
+        this.clearLeave(); // back on a definition → cancel any pending disappearance
 
         const line = state.doc.lineAt(definition.range.from).number;
         if (!this.session || this.session.line !== line) {
@@ -210,14 +210,14 @@ function makePlugin(config: RenameSuggestionConfig) {
         }
 
         const newName = definition.name;
-        if (newName === this.session.lastName) return; // cursor moved, name unchanged → keep (FR-014)
+        if (newName === this.session.lastName) return; // cursor moved, name unchanged → keep
         this.session.lastName = newName;
 
         if (newName === this.session.oldName) {
-          this.clearSettle(); // reverted → the field clears the suggestion synchronously (FR-015)
+          this.clearSettle(); // reverted → the field clears the suggestion synchronously
           return;
         }
-        if (newName === this.dismissedName) return; // dismissed this settled name (FR-016)
+        if (newName === this.dismissedName) return; // dismissed this settled name
 
         this.clearSettle();
         const session = this.session;
@@ -260,7 +260,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         );
 
         if (impact.suppressed && !collision) {
-          this.setSuggestion(null); // nothing to refactor (FR-003)
+          this.setSuggestion(null); // nothing to refactor
           return;
         }
         this.setSuggestion({

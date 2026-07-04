@@ -3,10 +3,10 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile } from './helpers/editor';
 
-// Phase 18 / R11 (editor outline consistency, FR-007a/FR-007b): the editor's SECTION OUTLINE panel
+// Phase 18 (editor outline consistency): the editor's SECTION OUTLINE panel
 // must reflect the same cross-document resolution the rendered preview does — effective
 // (offset-adjusted) heading levels and `{attr}`-resolved titles — and refresh live when the include
-// structure or the project main-file setting changes. This is cross-file behaviour, so per R10 it is
+// structure or the project main-file setting changes. This is cross-file behaviour, so it is
 // covered by an e2e in addition to the unit tests for `computeHeadingLevels`/outline extraction.
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -98,7 +98,7 @@ test.describe('editor outline cross-document consistency', () => {
 
     // Configure main.adoc as the main file (the project-settings action): the chapter is now included
     // with leveloffset=+1 and inherits `productName`. When the editor loads under the new setting the
-    // outline re-resolves WITHOUT a document edit (FR-007b): the title resolves and the level shifts.
+    // outline re-resolves WITHOUT a document edit: the title resolves and the level shifts.
     const mainId = await fileId(page, projectId, 'main.adoc');
     await setMainFile(page, projectId, mainId);
     await page.reload();

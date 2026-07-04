@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US15 / FR-021d-f (client-side STEM rendering). A `:stem:` file's math must be typeset by
+// Client-side STEM rendering. A `:stem:` file's math must be typeset by
 // self-hosted MathJax in the live preview — and WITHOUT the stray `$` artifact the old auto
 // delimiter-scan produced for Asciidoctor's `\$…\$` asciimath delimiters. This is the end-to-end
 // guard that:
@@ -21,7 +21,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US15 preview STEM (MathJax) rendering', () => {
+test.describe('preview STEM (MathJax) rendering', () => {
   // The preview renders the collaboratively-synced Yjs document and MathJax is a large self-hosted
   // bundle that loads + typesets lazily — give generous headroom under parallel CI load.
   test.describe.configure({ timeout: 90_000 });

@@ -47,21 +47,21 @@ describe('AsciiDoc highlight consistency', () => {
     expect(literalClass).toBe(listingClass);
   });
 
-  test('explicit `1. x` gets the same class as implicit `. x` (US2)', () => {
+  test('explicit `1. x` gets the same class as implicit `. x`', () => {
     const explicitClass = classAt('1. x\n', 0);
     const implicitClass = classAt('. x\n', 0);
     expect(explicitClass).not.toBe('');
     expect(explicitClass).toBe(implicitClass);
   });
 
-  test('dash checklist `- [ ] x` gets the same class as `* [ ] x` (US3)', () => {
+  test('dash checklist `- [ ] x` gets the same class as `* [ ] x`', () => {
     const dashClass = classAt('- [ ] x\n', 0);
     const starClass = classAt('* [ ] x\n', 0);
     expect(dashClass).not.toBe('');
     expect(dashClass).toBe(starClass);
   });
 
-  test('`Term;; x` gets the same class as `Term:: x` (US4)', () => {
+  test('`Term;; x` gets the same class as `Term:: x`', () => {
     // Both separators sit at offset 4 (after the 4-char term `Term`).
     const semicolonClass = classAt('Term;; x\n', 4);
     const colonClass = classAt('Term:: x\n', 4);
@@ -69,7 +69,7 @@ describe('AsciiDoc highlight consistency', () => {
     expect(semicolonClass).toBe(colonClass);
   });
 
-  // T020 — every new US7 inline/break construct must resolve to a non-empty highlight class
+  // Every new inline/break construct must resolve to a non-empty highlight class
   // through the production highlight style (so all five themes colour it). The offset points
   // inside the construct on each sample line.
   test.each([
@@ -90,7 +90,7 @@ describe('AsciiDoc highlight consistency', () => {
     expect(classAt(source, offset)).not.toBe('');
   });
 
-  // T044 (US11/FR-042) — inline `{set:name:value}` / `{set:name!}` assignments are highlighted as
+  // Inline `{set:name:value}` / `{set:name!}` assignments are highlighted as
   // attribute definitions (the same `t.meta` class as an `:name:` entry), so an inline assignment
   // reads as an attribute construct in the editor.
   test('an inline `{set:name:value}` assignment gets the AttributeEntry class', () => {
@@ -105,7 +105,7 @@ describe('AsciiDoc highlight consistency', () => {
     expect(classAt('Reset {set:basedir!} now\n', 6 + 4)).not.toBe('');
   });
 
-  // T044 (US11/FR-042) — a multi-line wrapped attribute entry (a value continued with a trailing
+  // A multi-line wrapped attribute entry (a value continued with a trailing
   // `\`) highlights EVERY continued line as part of the same AttributeEntry, so the whole entry
   // reads as one attribute definition rather than the continuation falling back to plain prose.
   test('all lines of a `\\`-continued attribute entry get the AttributeEntry class', () => {
@@ -122,10 +122,10 @@ describe('AsciiDoc highlight consistency', () => {
     expect(classAt(source, source.indexOf('body'))).not.toBe(entryClass);
   });
 
-  // T048 (US14/FR-021b) — a role span `[.role]#text#` (and its unconstrained `##text##` form) is
+  // A role span `[.role]#text#` (and its unconstrained `##text##` form) is
   // tokenised as a RoleSpan and highlighted generically. EVERY role span — known or unknown — gets a
   // non-empty highlight class; the known-vs-unknown distinction is layered on by a decoration (below).
-  describe('role spans highlight generically (US14)', () => {
+  describe('role spans highlight generically', () => {
     test('a `[.lead]#text#` role span is highlighted', () => {
       // `[.lead]#` is 8 chars; offset 9 sits inside the body.
       expect(classAt('A [.lead]#intro# end\n', 9 + 2)).not.toBe('');
@@ -149,11 +149,11 @@ describe('AsciiDoc highlight consistency', () => {
   });
 });
 
-// T068 (US12/FR-044; SC-016) — AsciiDoc constrained/unconstrained boundary rules. A constrained mark
+// AsciiDoc constrained/unconstrained boundary rules. A constrained mark
 // (single `*`/`_`/backtick) only forms emphasis when it abuts a word boundary; a mark embedded inside a
 // word (`a*b*c`, `2*3*4`) is plain text. Unconstrained marks (`**`/`__`/double-backtick) form anywhere,
 // including mid-word. The rule errs toward NO false highlights on ambiguity.
-describe('constrained / unconstrained inline boundary rules (US12)', () => {
+describe('constrained / unconstrained inline boundary rules', () => {
   test('genuine constrained `*bold*` is highlighted as strong', () => {
     // The `*` opens at offset 5 in `Some *bold* text`.
     expect(classAt('Some *bold* text\n', 6)).not.toBe('');
@@ -200,9 +200,9 @@ describe('constrained / unconstrained inline boundary rules (US12)', () => {
   });
 });
 
-// T069 (US12/FR-045/046) — a cross-reference `<<id,label>>` distinguishes its target ID from its
+// A cross-reference `<<id,label>>` distinguishes its target ID from its
 // display label, and a table block-attribute line's `cols="…"` specifier is tokenized distinctly.
-describe('xref target/label and table cols highlighting (US12)', () => {
+describe('xref target/label and table cols highlighting', () => {
   test('an xref target id `<<id,label>>` is highlighted', () => {
     // `See <<intro,Introduction>>` — `intro` begins at offset 6.
     expect(classAt('See <<intro,Introduction>> end\n', 6)).not.toBe('');
@@ -232,10 +232,10 @@ describe('xref target/label and table cols highlighting (US12)', () => {
   });
 });
 
-// T048 (US14/FR-021c) — the registry-driven decoration gives KNOWN roles a distinct emphasis on top of
+// The registry-driven decoration gives KNOWN roles a distinct emphasis on top of
 // the generic grammar highlight, while leaving unknown roles with only the generic class. This is the
 // known-vs-unknown layer; registering a custom role flips it on with no logic change.
-describe('known role-span emphasis (US14)', () => {
+describe('known role-span emphasis', () => {
   afterEach(() => resetCustomInlineStyles());
 
   test('a built-in role span is marked as known', () => {
@@ -261,9 +261,7 @@ describe('known role-span emphasis (US14)', () => {
 });
 
 // ── Feature 030 — Syntax Highlighting Rework ─────────────────────────────────
-// T007/T008 (US1), T014 (US2), T019 (US3), T025/T026 (US4), T032 (US5), T039 (US6)
-
-describe('030 US1 — structural markup recedes, block bodies not flooded', () => {
+describe('030 — structural markup recedes, block bodies not flooded', () => {
   test('example block fence class differs from body class', () => {
     const source = '====\nbody\n====\n';
     expect(classAt(source, 0)).not.toBe(classAt(source, 5));
@@ -297,7 +295,7 @@ describe('030 US1 — structural markup recedes, block bodies not flooded', () =
   });
 });
 
-describe('030 US2 — heading level ramp (T014)', () => {
+describe('030 — heading level ramp', () => {
   test('DocumentTitle, Heading1, Heading2, Heading3 each get distinct classes', () => {
     const h0 = classAt('= Title\n', 2);
     const h1 = classAt('== Section\n', 3);
@@ -350,7 +348,7 @@ describe('030 US2 — heading level ramp (T014)', () => {
   });
 });
 
-describe('030 US3 — admonition severity labels (chip only, body clean)', () => {
+describe('030 — admonition severity labels (chip only, body clean)', () => {
   test('inline NOTE: prefix is highlighted', () => {
     expect(classAt('NOTE: body\n', 0)).not.toBe('');
   });
@@ -402,7 +400,7 @@ describe('030 US3 — admonition severity labels (chip only, body clean)', () =>
   });
 });
 
-describe('030 US4 — block interiors readable', () => {
+describe('030 — block interiors readable', () => {
   test('block title is highlighted as a non-empty class', () => {
     expect(classAt('.Block Title\nbody\n', 1)).not.toBe('');
   });
@@ -420,7 +418,7 @@ describe('030 US4 — block interiors readable', () => {
   });
 });
 
-describe('030 US5 — list types, inline code, links distinct', () => {
+describe('030 — list types, inline code, links distinct', () => {
   test('checklist done [x] marker class differs from todo [ ] marker class', () => {
     const doneCls = classAt('* [x] done\n', 3);
     const todoCls = classAt('* [ ] todo\n', 3);
@@ -485,7 +483,7 @@ describe('030 — block-attribute lines read consistently (amber)', () => {
   });
 });
 
-describe('030 US6 — attribute refs, callouts', () => {
+describe('030 — attribute refs, callouts', () => {
   test('{name} attribute reference is highlighted', () => {
     expect(classAt('{version}\n', 0)).not.toBe('');
   });

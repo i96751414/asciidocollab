@@ -20,7 +20,7 @@ export interface SectionOutlineEntry {
   from: number;
   /**
    * True when the heading sits inside a conditional region (`ifdef`/`ifndef`/`ifeval`) that resolves
-   * inactive for the current attribute state (FR-032). Inactive headings are excluded from the
+   * inactive for the current attribute state. Inactive headings are excluded from the
    * outline below — the flag is retained on the entry type for callers that prefer to mark them.
    */
   inactive?: boolean;
@@ -39,7 +39,7 @@ export interface SectionOutlineEntry {
    */
   sourceLine?: number;
   /**
-   * True when `sourceFileId` equals the currently-open file — drives the open-file mark (FR-018).
+   * True when `sourceFileId` equals the currently-open file — drives the open-file mark.
    */
   isOpenFile?: boolean;
 }
@@ -53,7 +53,7 @@ const EMPTY_SCOPE: ReadonlyMap<string, string> = new Map();
  * Facet carrying an accessor for the open file's RESOLVED cross-document attribute scope (lowercase
  * name → value). The outline reads it to (a) resolve `{attr}` references in heading titles and (b)
  * evaluate conditional (`ifdef`/`ifndef`/`ifeval`) regions so a heading inside an inactive branch is
- * excluded — keeping the outline consistent with the rendered preview (R11/FR-032). It is supplied
+ * excluded — keeping the outline consistent with the rendered preview. It is supplied
  * lazily so a refresh effect re-evaluates the outline once the symbol index resolves new values,
  * without a document edit. Defaults to `() => ∅` (no cross-document scope known).
  */
@@ -79,7 +79,7 @@ function resolvedScope(state: EditorState): ReadonlyMap<string, string> {
  * it sits inside a branch that resolves INACTIVE for `scope`. A region is active only when every
  * enclosing conditional evaluates true; nested conditionals compound (an inner region inside an
  * inactive outer region stays inactive regardless of its own test). Mirrors the inline dimming so the
- * outline agrees with what the preview renders (FR-032). Uses {@link parseConditional}/
+ * outline agrees with what the preview renders. Uses {@link parseConditional}/
  * {@link evaluateConditional} (no `eval`) — the single conditional authority.
  */
 function computeInactiveLines(documentText: string, scope: ReadonlyMap<string, string>): boolean[] {
@@ -101,11 +101,11 @@ function computeInactiveLines(documentText: string, scope: ReadonlyMap<string, s
  * Derives the section outline from {@link computeHeadingLevels} — the single editor authority for
  * effective heading levels — so it stays consistent with the heading highlight and section folding.
  * Headings whose effective level (raw + `:leveloffset:` + inherited offset) exceeds the max are not
- * headings (FR-010) and are excluded, as are `[discrete]`/`[float]` headings (FR-072). The
- * document title (effective level 0) IS included (FR-028) so it anchors the outline tree. Titles
+ * headings and are excluded, as are `[discrete]`/`[float]` headings. The
+ * document title (effective level 0) IS included so it anchors the outline tree. Titles
  * have their `{attr}` references resolved against the
  * file's cross-document scope, and headings inside an inactive conditional branch are excluded so
- * the outline matches the rendered preview (R11/FR-032).
+ * the outline matches the rendered preview.
  */
 function extractHeadings(state: EditorState): SectionOutlineEntry[] {
   const entries: SectionOutlineEntry[] = [];
@@ -115,17 +115,17 @@ function extractHeadings(state: EditorState): SectionOutlineEntry[] {
 
   for (const info of computeHeadingLevels(documentText, inheritedOffset(state))) {
     // beyondMax ⇒ not a heading; discrete ⇒ styled but excluded. Level 0 (the document title) IS
-    // kept (FR-028) so it anchors the outline tree; only a negative effective level is skipped.
+    // kept so it anchors the outline tree; only a negative effective level is skipped.
     if (info.beyondMax || info.discrete || info.effectiveLevel < 0) continue;
     // A heading inside a conditional branch that resolves inactive is excluded — it would not render
-    // in the preview, so showing it in the outline would mislead navigation (R11/FR-032).
+    // in the preview, so showing it in the outline would mislead navigation.
     if (inactiveLines[info.line]) continue;
 
     const rawLine = state.doc.line(info.line).text;
     const prefixMatch = rawLine.match(HEADING_PREFIX_RE);
     const rawTitle = prefixMatch ? rawLine.slice(prefixMatch[0].length) : rawLine;
     // Resolve `{attr}` references against the resolved scope (unknown refs are left verbatim) so the
-    // outline shows the same title the preview renders (R11). Case-insensitive, Asciidoctor semantics.
+    // outline shows the same title the preview renders. Case-insensitive, Asciidoctor semantics.
     const title = substitutePathAttributes(rawTitle, scope).trim();
 
     entries.push({
@@ -146,7 +146,7 @@ export const outlineField = StateField.define<SectionOutlineEntry[]>({
   },
   update(entries: SectionOutlineEntry[], tr: Transaction) {
     // Recompute on a doc edit, or when out-of-band state changed and the heading-levels refresh
-    // effect is dispatched (FR-007a/FR-007b/071): the inherited offset OR the resolved cross-document
+    // effect is dispatched: the inherited offset OR the resolved cross-document
     // scope changed (the outline hook routes both through refreshHeadingLevelsEffect, keeping
     // computeHeadingLevels the single recompute trigger). Either can change effective levels,
     // resolved titles, or inactive-branch marking without a document edit.

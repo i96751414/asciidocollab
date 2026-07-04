@@ -10,7 +10,7 @@ import {
   editorContent,
 } from './helpers/editor';
 
-// US1 / FR-001 / FR-002a (cross-document attributes): a `{name}` reference in the previewed open
+// Cross-document attributes: a `{name}` reference in the previewed open
 // file resolves to the value in effect at the file's first include-point in the assembled tree,
 // anchored to the project main file (root). Editing the parent's value updates the preview live.
 
@@ -23,7 +23,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US1 preview cross-document attributes', () => {
+test.describe('preview cross-document attributes', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

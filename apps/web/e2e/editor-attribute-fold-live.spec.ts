@@ -4,7 +4,7 @@ import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createTestFile } from './helpers/test-project';
 import { openProject, openFile, editorContent } from './helpers/editor';
 
-// FR-057 / FR-040 — LIVE attribute collapse-to-value, reproducing the user's exact manual flow:
+// LIVE attribute collapse-to-value, reproducing the user's exact manual flow:
 // an EMPTY file, NO main file configured, with the document TYPED live (not seeded via the REST
 // content API). Both definition forms must fold the later `{name}` reference to a `.cm-ad-attr-value`
 // widget showing the resolved value:

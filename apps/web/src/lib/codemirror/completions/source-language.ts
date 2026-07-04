@@ -1,7 +1,7 @@
 import type { CompletionSource, CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
 import { listSourceLanguageTokens } from '@/lib/codemirror/source-languages';
 
-/** Source-language completion (US8/FR-031) — triggers inside `[source,<here>]`. */
+/** Source-language completion — triggers inside `[source,<here>]`. */
 export const sourceLanguageCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
   const match = context.matchBefore(/\[source,\s*[\w+#.-]*/);
   if (!match) return null;

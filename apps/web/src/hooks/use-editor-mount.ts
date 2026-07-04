@@ -19,7 +19,7 @@ import {
 } from '@/lib/codemirror/editor-dom-handlers';
 
 /**
- * Clamps a remembered 1-based line number to the document's valid range — the FR-005 "closest
+ * Clamps a remembered 1-based line number to the document's valid range — the "closest
  * valid line" rule, applied when restoring a cursor that may exceed the current document length.
  *
  * @param line - The remembered 1-based line number.
@@ -44,16 +44,16 @@ interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
   softWrap?: boolean;
-  /** Persistence key for per-file fold state (US10); omitted ⇒ folds not persisted. */
+  /** Persistence key for per-file fold state; omitted ⇒ folds not persisted. */
   foldStorageKey?: string;
-  /** Per-user spell-check ignore list (US9/FR-063). */
+  /** Per-user spell-check ignore list. */
   spellIgnore?: string[];
   /** Document language for spell-check (ISO 639-1); defaults to 'en'. */
   spellcheckLanguage?: string;
   /** When false, spell-check produces no diagnostics regardless of language. Defaults to true. */
   spellcheckEnabled?: boolean;
   /**
-   * Uploads a pasted/dropped image (US9/FR-040).
+   * Uploads a pasted/dropped image.
    *
    * @param file - The image file to upload.
    * @returns The inserted project-relative path, or null on failure.
@@ -62,9 +62,9 @@ interface UseEditorMountOptions {
   includePaths: string[];
   imagePaths?: string[];
   /**
-   * Live accessor for the cross-file project symbol index (US8). Diagnostics and
+   * Live accessor for the cross-file project symbol index. Diagnostics and
    * xref/attribute completion consult it for cross-file targets; null ⇒ current-file
-   * scope (FR-047). The getter is captured once at mount and always returns the latest index.
+   * scope. The getter is captured once at mount and always returns the latest index.
    */
   getProjectIndex?: () => ProjectSymbolIndex | null;
   onDocChange: (content: string) => void;
@@ -72,16 +72,15 @@ interface UseEditorMountOptions {
   onOutlineChange: (entries: SectionOutlineEntry[]) => void;
   onNavigateToFile?: (path: string) => void;
   onOpenUrl?: (url: string) => void;
-  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  // Navigate to a cross-reference definition resolved via the project symbol index.
   onNavigateToXref?: (target: XrefTarget) => void;
   /**
-   * Include-path level offset inherited by the open file from its ancestors (US3/FR-071). A change
-   * to it after a main-file reconfiguration re-evaluates heading levels without a document edit
-   * (FR-045a).
+   * Include-path level offset inherited by the open file from its ancestors. A change
+   * to it after a main-file reconfiguration re-evaluates heading levels without a document edit.
    */
   inheritedOffset?: number;
   /**
-   * Attributes the open file inherits from the documents that include it (US8/FR-045a). They seed
+   * Attributes the open file inherits from the documents that include it. They seed
    * the `{attr}` collapse-to-value display so cross-document references resolve; a change after the
    * symbol index rebuilds re-evaluates the display without a document edit.
    */
@@ -89,8 +88,8 @@ interface UseEditorMountOptions {
   /**
    * The open file's RESOLVED cross-document attribute scope (its inherited attributes merged with
    * its own definitions) — used to highlight `{name}` references that resolve anywhere in the
-   * include tree as known (US6/FR-020). A change after the symbol index rebuilds re-evaluates the
-   * highlighting without a document edit (FR-007a).
+   * include tree as known. A change after the symbol index rebuilds re-evaluates the
+   * highlighting without a document edit.
    */
   resolvedScope?: ReadonlyMap<string, string>;
   onLineClick?: (line: number) => void;
@@ -106,13 +105,13 @@ interface UseEditorMountOptions {
    */
   initialLine?: number;
   /**
-   * Live request to reveal a 1-based line in the already-mounted editor (same-file go-to-definition,
-   * FR-049). Each distinct `nonce` triggers one cursor move + scroll-into-view; clamped to the doc.
+   * Live request to reveal a 1-based line in the already-mounted editor (same-file go-to-definition).
+   * Each distinct `nonce` triggers one cursor move + scroll-into-view; clamped to the doc.
    */
   revealRequest?: { line: number; nonce: number } | null;
   /**
    * Collaboration binding extension (yCollab) for the collab path. When provided the editor
-   * mounts with an EMPTY document and is populated from Yjs sync (FR-004); native CodeMirror
+   * mounts with an EMPTY document and is populated from Yjs sync; native CodeMirror
    * history is omitted to avoid double-undo (per-user undo is handled by the Yjs UndoManager).
    */
   collabExtension?: Extension;
@@ -194,8 +193,8 @@ export function useEditorMount({
   const inheritedAttributesReference = useRef(inheritedAttributes);
   useEffect(() => { inheritedAttributesReference.current = inheritedAttributes; }, [inheritedAttributes]);
   // Lowercase names known anywhere in the include tree, for known-vs-unknown `{name}` highlighting.
-  // Per FR-020/021 a reference is "known" when the attribute is defined ANYWHERE in the tree — in a
-  // parent/including file (FR-020) OR in an included file (FR-021) — so this uses the index's
+  // A reference is "known" when the attribute is defined ANYWHERE in the tree — in a
+  // parent/including file OR in an included file — so this uses the index's
   // project-wide `attributes` view, not the position-aware resolved scope (which omits a descendant's
   // definitions). Recomputed when the index rebuilds (the resolvedScope prop changes identity then).
   const knownAttributeNames = (): ReadonlySet<string> => {
@@ -205,7 +204,7 @@ export function useEditorMount({
   const crossDocumentNamesReference = useRef<ReadonlySet<string>>(knownAttributeNames());
   useEffect(() => { crossDocumentNamesReference.current = knownAttributeNames(); }, [resolvedScope]);
   // The full resolved cross-document scope (name → value), read by the section outline to resolve
-  // `{attr}` titles and exclude inactive conditional-branch headings (R11/FR-032).
+  // `{attr}` titles and exclude inactive conditional-branch headings.
   const resolvedScopeReference = useRef<ReadonlyMap<string, string>>(resolvedScope);
   useEffect(() => { resolvedScopeReference.current = resolvedScope; }, [resolvedScope]);
   // Keep onOutlineChange in a ref so the refresh effects below can re-publish the outline without
@@ -236,7 +235,7 @@ export function useEditorMount({
         onDocChange(update.state.doc.toString());
         try { onOutlineChange(update.state.field(outlineField)); } catch { /* field not installed */ }
         // Collab path: the editor mounts empty and is populated by Yjs sync, so the remembered
-        // cursor line (FR-005) is restored when content FIRST arrives (not merely on `synced`,
+        // cursor line is restored when content FIRST arrives (not merely on `synced`,
         // which can precede the populating transaction), clamped to the populated document.
         // Scheduled to a microtask to avoid dispatching while an update is in progress.
         if (
@@ -266,7 +265,7 @@ export function useEditorMount({
     const ctrlClickTooltip = createCtrlClickTooltip(projectIndexAccessor);
 
     const state = EditorState.create({
-      // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (FR-004/B3).
+      // Collab path mounts EMPTY; yCollab populates from the synced Y.Text (B3).
       doc: collabActive ? '' : content,
       extensions: buildEditorExtensions({
         compartments: {
@@ -317,7 +316,7 @@ export function useEditorMount({
     try { onOutlineChange(view.state.field(outlineField)); } catch { /* field not installed */ }
 
     // Restore the cursor to a remembered line on mount, clamped to the current document
-    // ("closest valid line", FR-005), and scroll it into view. Only runs when initialLine is
+    // ("closest valid line"), and scroll it into view. Only runs when initialLine is
     // provided — ordinary in-session mounts are unaffected. Skipped on the collab path: the
     // doc mounts empty and is populated by Yjs sync, so the restore is deferred until after
     // sync (handled by the editor component once `connectionState` reaches `synced`).
@@ -357,7 +356,7 @@ export function useEditorMount({
   }, [remountKey]);
 
   // Live reveal: move the cursor to a requested line and scroll it into view (same-file
-  // go-to-definition, FR-049). Runs on the already-mounted view; each new nonce reveals once.
+  // go-to-definition). Runs on the already-mounted view; each new nonce reveals once.
   const revealedNonceReference = useRef<number | null>(null);
   useEffect(() => {
     const view = viewReference.current;
@@ -386,10 +385,10 @@ export function useEditorMount({
 
   // Re-evaluate the cross-document `{name}` known-vs-unknown highlighting when the resolved scope
   // changes (e.g. a parent/included file's content loaded into the index, or the main file was
-  // reconfigured) — no document edit occurs, so nudge the plugin explicitly (US6/FR-007a). The
+  // reconfigured) — no document edit occurs, so nudge the plugin explicitly. The
   // section outline also derives from the resolved scope (it resolves `{attr}` titles and excludes
   // inactive conditional-branch headings), so route the shared refreshHeadingLevelsEffect through it
-  // and re-publish the recomputed outline (R11/FR-007b) — keeping computeHeadingLevels the single
+  // and re-publish the recomputed outline — keeping computeHeadingLevels the single
   // recompute trigger for the outline field.
   useEffect(() => {
     const view = viewReference.current;
@@ -422,7 +421,7 @@ export function useEditorMount({
     });
   }, [canEdit]);
 
-  // Sync the soft-wrap preference live via its Compartment (US2/FR-007).
+  // Sync the soft-wrap preference live via its Compartment.
   useEffect(() => {
     if (!viewReference.current) return;
     viewReference.current.dispatch({
@@ -430,7 +429,7 @@ export function useEditorMount({
     });
   }, [softWrap]);
 
-  // Sync the spell-check language / enabled preference live via its Compartment (US9/FR-063) —
+  // Sync the spell-check language / enabled preference live via its Compartment —
   // a fresh lint source bound to the new language+enabled, so changes apply without a remount.
   useEffect(() => {
     if (!viewReference.current) return;

@@ -87,7 +87,7 @@ export class LoginUseCase {
     // Record inside the constant-time window (before the padding below). Best-effort:
     // never fail authentication on a telemetry error, and the failure branch runs the
     // same work regardless of account existence, so it carries no enumeration signal.
-    // Swallowed but kept observable via the logger (FR-021).
+    // Swallowed but kept observable via the logger.
     try {
       await (success && user ? this.recordAuditEvent.execute({
           action: AUDIT_AUTH_SIGNED_IN,

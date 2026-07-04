@@ -44,19 +44,19 @@ interface AsciiDocEditorProperties {
    * project-level setting; whether spellcheck runs at all stays a per-user preference.
    */
   spellcheckLanguage?: string | null;
-  // Live accessor for the cross-file symbol index (US8); powers cross-file diagnostics + completion.
+  // Live accessor for the cross-file symbol index; powers cross-file diagnostics + completion.
   getProjectIndex?: () => ProjectSymbolIndex | null;
   onChange?: (value: string) => void;
   onNavigateToFile?: (path: string) => void;
-  // Navigate to a cross-reference definition resolved via the project symbol index (FR-034/049).
+  // Navigate to a cross-reference definition resolved via the project symbol index.
   onNavigateToXref?: (target: XrefTarget) => void;
-  /** Include-path level offset inherited by the open file from its ancestors (US3/FR-071/045a). */
+  /** Include-path level offset inherited by the open file from its ancestors. */
   inheritedOffset?: number;
-  /** Attributes the open file inherits from the documents that include it (US8/FR-045a). */
+  /** Attributes the open file inherits from the documents that include it. */
   inheritedAttributes?: ReadonlyMap<string, string>;
-  /** The open file's resolved cross-document attribute scope (inherited + own), for `{name}` known highlighting (US6/FR-020). */
+  /** The open file's resolved cross-document attribute scope (inherited + own), for `{name}` known highlighting. */
   resolvedScope?: ReadonlyMap<string, string>;
-  /** Live request to reveal a line in the open editor (same-file go-to-definition, FR-049). */
+  /** Live request to reveal a line in the open editor (same-file go-to-definition). */
   revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
   onLineClick?: (line: number) => void;
@@ -71,12 +71,12 @@ interface AsciiDocEditorProperties {
   /**
    * Collaboration binding. When present the editor enters collab mode: it binds to the shared
    * Y.Doc (empty initial doc, populated by sync), and the REST autosave/poll/draft/keepalive
-   * machinery is disabled — the collaboration server owns persistence (FR-006). Absent for the
+   * machinery is disabled — the collaboration server owns persistence. Absent for the
    * legacy REST path (binary assets, non-collaborative files, offline fallback).
    */
   collab?: CollabBinding | null;
   /**
-   * Collaboration connection state for the status banner (FR-014). Passed independently of
+   * Collaboration connection state for the status banner. Passed independently of
    * `collab` so the offline read-only fallback (no binding) can still show the offline banner.
    */
   connectionState?: ConnectionState;
@@ -100,9 +100,9 @@ interface AsciiDocEditorProperties {
    * the legacy path would let two clients overwrite each other (no Yjs merge, no session lock).
    */
   collabUnavailable?: boolean;
-  /** Opens the Go to Symbol palette (FR-061) from the toolbar. */
+  /** Opens the Go to Symbol palette from the toolbar. */
   onGoToSymbol?: () => void;
-  // Opens the refactor dialog (US12) from the toolbar, seeded with the symbol under the cursor.
+  // Opens the refactor dialog from the toolbar, seeded with the symbol under the cursor.
   onRefactor?: (initial: CursorSymbol | null) => void;
 }
 
@@ -158,12 +158,12 @@ export function AsciiDocEditor({
 }: AsciiDocEditorProperties) {
   // The file is on the collab path whenever a binding is present OR a connection state is set —
   // the latter covers the offline read-only fallback, where the binding is dropped but the file
-  // is still collaborative and must NOT re-enable the REST autosave machinery (FR-006).
+  // is still collaborative and must NOT re-enable the REST autosave machinery.
   // `collabUnavailable` (text doc with no collab document) also disables autosave: that file is
   // opened read-only, and the legacy clobbering PUT path must never run for it.
   const onCollabPath = collab != null || connectionState != null || collabUnavailable;
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, totalLines: 1 });
-  // Live word count / reading time for the status bar (US11). Seeded from the
+  // Live word count / reading time for the status bar. Seeded from the
   // initial content and refreshed from each editor change.
   const [docText, setDocText] = useState(content);
   const metrics = useMemo(() => computeMetrics(docText), [docText]);
@@ -184,7 +184,7 @@ export function AsciiDocEditor({
     projectId: projectId ?? '',
     fileNodeId: fileNodeId ?? '',
     initialEtag: initialEtag ?? undefined,
-    // Collab path: the collaboration server owns persistence — disable autosave/poll/draft (FR-006).
+    // Collab path: the collaboration server owns persistence — disable autosave/poll/draft.
     enabled: !onCollabPath,
     onExternalChange: handleExternalChange,
     onDraftRecovered: handleDraftRecovered,
@@ -197,7 +197,7 @@ export function AsciiDocEditor({
     [collab?.doc, collab?.awareness],
   );
 
-  // Observers get a read-only editor that still renders live remote edits (FR-012). A text doc with
+  // Observers get a read-only editor that still renders live remote edits. A text doc with
   // no collaborative backing is also forced read-only so it can never be edited via legacy autosave.
   const effectiveCanEdit = collab?.role === 'observer' || collabUnavailable ? false : canEdit;
 

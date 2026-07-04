@@ -9,7 +9,7 @@ function stateWithCaret(document: string): EditorState {
   return EditorState.create({ doc: text, selection: { anchor: at } });
 }
 
-describe('definitionAtCursor (FR-001, FR-004)', () => {
+describe('definitionAtCursor', () => {
   test('detects an attribute definition with the cursor inside the name', () => {
     const result = definitionAtCursor(stateWithCaret(':product-|name: Acme\n'));
     expect(result).toEqual({ kind: 'attribute', name: 'product-name', range: { from: 0, to: 14 } });
@@ -35,11 +35,11 @@ describe('definitionAtCursor (FR-001, FR-004)', () => {
     expect(result).toMatchObject({ kind: 'anchor', name: 'install-guide' });
   });
 
-  test('returns null on an attribute REFERENCE (not a definition site) — FR-004', () => {
+  test('returns null on an attribute REFERENCE (not a definition site)', () => {
     expect(definitionAtCursor(stateWithCaret('See {product-|name} for details.\n'))).toBeNull();
   });
 
-  test('detects an inline {set:name:value} attribute definition (FR-040)', () => {
+  test('detects an inline {set:name:value} attribute definition', () => {
     const result = definitionAtCursor(stateWithCaret('{set:my|var:value}\n'));
     expect(result).toMatchObject({ kind: 'attribute', name: 'myvar' });
   });
@@ -52,7 +52,7 @@ describe('definitionAtCursor (FR-001, FR-004)', () => {
     expect(definitionAtCursor(stateWithCaret('{set:myvar:va|lue}\n'))).toBeNull();
   });
 
-  test('returns null on an xref reference — FR-004', () => {
+  test('returns null on an xref reference', () => {
     expect(definitionAtCursor(stateWithCaret('See <<install-|guide>>.\n'))).toBeNull();
   });
 
@@ -64,12 +64,12 @@ describe('definitionAtCursor (FR-001, FR-004)', () => {
     expect(definitionAtCursor(stateWithCaret(':name: value here |end\n'))).toBeNull();
   });
 
-  test('detects a section heading via its auto-generated id (US3/FR-005)', () => {
+  test('detects a section heading via its auto-generated id', () => {
     const result = definitionAtCursor(stateWithCaret('== Install |Guide\n\nbody\n'));
     expect(result).toMatchObject({ kind: 'heading', name: '_install_guide' });
   });
 
-  test('ignores a heading that has an explicit id (its derived id is not the target, FR-005)', () => {
+  test('ignores a heading that has an explicit id (its derived id is not the target)', () => {
     expect(definitionAtCursor(stateWithCaret('[#custom]\n== Install |Guide\n'))).toBeNull();
   });
 

@@ -96,7 +96,7 @@ describe('LoginForm', () => {
   });
 });
 
-describe('LoginForm rate limiting (US4)', () => {
+describe('LoginForm rate limiting', () => {
   const { authApi, ApiError } = require('@/lib/api');
 
   test('shows human-readable lockout message on 429 with retryAfter', async () => {

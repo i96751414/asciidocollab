@@ -11,7 +11,7 @@ function indexFor(files: Record<string, { path: string; content: string }>, root
   );
 }
 
-describe('computeDiagnostics (FR-032/033/050/060)', () => {
+describe('computeDiagnostics', () => {
   test('flags an unknown xref', () => {
     const content = 'See <<missing>>.\n';
     const index = indexFor({ a: { path: 'a.adoc', content } }, 'a');
@@ -136,7 +136,7 @@ function fakeView(content: string): EditorView {
   return { state: { doc: { toString: () => content } } } as unknown as EditorView;
 }
 
-describe('asciidocDiagnosticsSource (open-file scope, FR-047)', () => {
+describe('asciidocDiagnosticsSource (open-file scope)', () => {
   test('lints the open file, not the configured main-file root', () => {
     // main.adoc (root) is valid; the open chapter.adoc has an unknown xref.
     const files = {
@@ -159,7 +159,7 @@ describe('asciidocDiagnosticsSource (open-file scope, FR-047)', () => {
   });
 });
 
-describe('asciidocDiagnosticsSource current-file fallback (FR-047)', () => {
+describe('asciidocDiagnosticsSource current-file fallback', () => {
   test('with no cross-file index getter, lints the open document alone', () => {
     // The default getIndex returns null, so the source builds a current-file-only
     // index from the open buffer and still flags same-file issues.

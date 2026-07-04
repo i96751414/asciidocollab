@@ -1,4 +1,4 @@
-// T008: GET /auth/me returns displayName and email; 401 without session
+// GET /auth/me returns displayName and email; 401 without session
 import { buildServer } from '../src/index';
 import { meRoute } from '../src/routes/auth/me';
 import { registerRoute } from '../src/routes/auth/register';

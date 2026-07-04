@@ -5,10 +5,8 @@ import { createAdocFile, setMainFile, openProject, openFile, expandPreview, edit
 
 // Consistency across the THREE attribute sources (current / parent-including / included child),
 // proving an attribute's value is REPLACED (recognized AND shown) on both surfaces:
-//  - a PARENT-defined attribute's value renders in a CHILD's preview AND folds in the child editor
-//    (FR-001/FR-002a/FR-020/FR-057);
-//  - a CHILD-included attribute is KNOWN in the PARENT editor and rendered in the parent's preview
-//    (FR-021).
+//  - a PARENT-defined attribute's value renders in a CHILD's preview AND folds in the child editor;
+//  - a CHILD-included attribute is KNOWN in the PARENT editor and rendered in the parent's preview.
 // Editor recognition is asserted via the collapse-to-value `.cm-ad-attr-value` widget and the
 // known-cross-document `.cm-ad-attr-known` mark; preview replacement via the rendered output text.
 
@@ -67,7 +65,7 @@ test.describe('attribute value replacement across current/parent/included docume
 
   test('a child-included attribute is known in the parent editor and rendered in the parent preview', async ({ page }) => {
     // child.adoc defines :edition:; main.adoc includes it then references {edition}. The definition
-    // lives in a DESCENDANT, so for the root the reference is known-anywhere (FR-021) but its
+    // lives in a DESCENDANT, so for the root the reference is known-anywhere but its
     // position-aware fold does NOT collapse it — the raw `{edition}` stays and carries the known mark.
     await createAdocFile(page, projectId, 'child.adoc', ':edition: Pro\n');
     await createAdocFile(

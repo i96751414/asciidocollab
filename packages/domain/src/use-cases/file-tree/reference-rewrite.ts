@@ -26,7 +26,7 @@ export function stripLeadingSlash(path: string): string {
  * Build the old → new project-relative path map for a node that moved/renamed
  * from `fileNode.path` to `newPath` — a single entry for a file, or every
  * descendant file for a folder. Must be called BEFORE the path cascade so the
- * descendants still carry their old paths (FR-066). Shared by move and rename.
+ * descendants still carry their old paths. Shared by move and rename.
  *
  * @param fileNodeRepo - Repository used to enumerate folder descendants.
  * @param fileNode - The node being moved/renamed (with its current path).
@@ -99,11 +99,11 @@ function splitTarget(reference: Reference): { pathPart: string; fragment?: strin
 
 /**
  * Rewrite `include::`/`image::`/`xref:` targets across the project after one or
- * more files change path (US12/FR-066), so the references keep resolving. Only
+ * more files change path, so the references keep resolving. Only
  * targets that resolve (sandbox-confined) to a changed path are touched; each
  * is replaced by the relative path from the referencing file to the new
  * location. A reference that cannot be safely rewritten is reported as a
- * warning rather than silently broken (FR-067).
+ * warning rather than silently broken.
  *
  * @param deps - Injected repositories and file store.
  * @param projectId - The project whose files are scanned.
@@ -154,7 +154,7 @@ export async function rewriteReferencesForPathChanges(
       if (newRelative === undefined) continue; // does not point at a changed file
 
       const newTarget = relativeProjectPath(fromPath, newRelative);
-      // FR-067: refuse to write a target that would not resolve back to the new location.
+      // Refuse to write a target that would not resolve back to the new location.
       const verification = resolveSandboxedPath(fromPath, newTarget);
       if (!verification.ok || verification.path !== newRelative) {
         warnings.push(`Could not rewrite reference to "${pathPart}" in ${fromPath}`);
@@ -247,8 +247,8 @@ export async function collectFolderFilePathChanges(
 
 /**
  * Clear the project's configured main file when `predicate` matches the current
- * main file (FR-070: a deleted / renamed-to-non-adoc main file must not be left
- * dangling). Resolution then falls back to current-file-only (FR-047).
+ * main file (a deleted / renamed-to-non-adoc main file must not be left
+ * dangling). Resolution then falls back to current-file-only.
  *
  * @param projectRepo - Repository to load/persist the project.
  * @param projectId - The project to inspect.

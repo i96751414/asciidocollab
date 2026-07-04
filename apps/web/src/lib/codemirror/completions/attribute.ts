@@ -24,7 +24,7 @@ function extractDocumentAttributes(state: { doc: { toString: () => string } }): 
 /**
  * Attribute completion source factory — triggers after "{". When a symbol index is
  * supplied, cross-file attribute definitions are merged in alongside the current
- * document's and the built-ins (US8/FR-030).
+ * document's and the built-ins.
  */
 export function createAttributeCompletionSource(getIndex?: ProjectIndexGetter): CompletionSource {
   return (context: CompletionContext): CompletionResult | null => {

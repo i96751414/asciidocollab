@@ -5,7 +5,7 @@ import { createAdocFile, setMainFile, openProject, openFile, expandPreview, getE
 
 // Phase 16 / Constitution IX (security boundary): the editor + preview must never read outside the
 // project sandbox and must never render untrusted markup as live HTML. The 429 rate-limit on the
-// main-file / refactoring endpoints and the bounded symbol-index fan-out (FR-073/SC-025) are proven
+// main-file / refactoring endpoints and the bounded symbol-index fan-out are proven
 // at the route + hook unit layers; this spec covers the browser-observable boundaries.
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';

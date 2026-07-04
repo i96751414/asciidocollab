@@ -8,7 +8,7 @@ function mountCollabEditor(doc: Y.Doc, awareness: Awareness) {
   const parent = document.createElement('div');
   document.body.append(parent);
   const view = new EditorView({
-    // FR-004/B3: collab editor mounts with an EMPTY doc; content arrives via Yjs.
+    // B3: collab editor mounts with an EMPTY doc; content arrives via Yjs.
     state: EditorState.create({ doc: '', extensions: [collabExtensions(doc, awareness)] }),
     parent,
   });

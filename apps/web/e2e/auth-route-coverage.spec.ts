@@ -6,7 +6,7 @@ const protectedRoutes = [
   '/dashboard/projects',
 ];
 
-test.describe('Protected route coverage — SC-004', () => {
+test.describe('Protected route coverage', () => {
   for (const route of protectedRoutes) {
     test(`${route} without session redirects to /login`, async ({ page, context }) => {
       await context.clearCookies();

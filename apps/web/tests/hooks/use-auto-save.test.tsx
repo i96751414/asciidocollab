@@ -56,7 +56,7 @@ const defaultOptions = {
   fileNodeId: 'file-1',
 };
 
-// ── T019 / US1: collab path disables autosave/poll/draft/keepalive (B2/H1/H2) ──
+// ── collab path disables autosave/poll/draft/keepalive (B2/H1/H2) ──
 
 describe('useAutoSave enabled:false (collab path) — fully inert', () => {
   test('save() issues no PUT after the debounce window', async () => {

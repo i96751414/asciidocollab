@@ -208,7 +208,7 @@ export class RegisterUseCase {
 
   /**
    * Records the account-creation audit event. Only called when a user is actually
-   * persisted, so the write is best-effort (FR-021): the account already exists and
+   * persisted, so the write is best-effort: the account already exists and
    * cannot be un-created, so an audit-store failure must never turn a successful
    * registration into an error the caller cannot retry.
    */

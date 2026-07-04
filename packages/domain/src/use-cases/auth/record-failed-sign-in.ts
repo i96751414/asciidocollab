@@ -9,7 +9,7 @@ export type RecordFailedSignInInputDto = AuthAttemptDetails;
 
 /**
  * Records a failed sign-in as account-existence-neutral, coalesced telemetry
- * (FR-025/FR-028/FR-029). A thin specialization of {@link recordAuthAttempt} that
+ * A thin specialization of {@link recordAuthAttempt} that
  * pins the `failed_sign_in` event type.
  */
 export class RecordFailedSignInUseCase {

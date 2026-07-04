@@ -47,7 +47,7 @@ export class ResendVerificationEmailUseCase {
     try {
       await this.notifier.sendResendVerificationEmail(user.email, tokenData.token);
     } catch {
-      // SMTP failure is non-fatal per FR-010 — old tokens remain valid, user can retry
+      // SMTP failure is non-fatal — old tokens remain valid, user can retry
       return { success: true, value: undefined };
     }
 

@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ShowIncludesControl } from '@/components/show-includes-control';
 
-// T018 [US2] — ShowIncludesControl toggle
-// These tests FAIL until T020 implements the component at
+// [] — ShowIncludesControl toggle
+// These tests FAIL until implements the component at
 // apps/web/src/components/show-includes-control.tsx.
 
 describe('ShowIncludesControl', () => {

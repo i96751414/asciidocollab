@@ -169,7 +169,7 @@ describe('createCollabServer', () => {
     expect(typeof server.destroy).toBe('function');
   });
 
-  it('onConnect REJECTS when the document is not found (no untracked live room; preserves FR-011)', async () => {
+  it('onConnect REJECTS when the document is not found (no untracked live room; preserves the edit lock)', async () => {
     // onConnect rejects on ANY failure rather than letting a live room exist without its session
     // row. A document-not-found here is a sub-millisecond delete race (auth already confirmed the
     // document existed); rejecting is consistent with the onRoomOpen-failure path and avoids an
@@ -209,10 +209,10 @@ describe('createCollabServer', () => {
     expect(context.documentId).toBeUndefined();
   });
 
-  it('onConnect REJECTS when onRoomOpen fails for an existing document (preserves the FR-011 edit lock)', async () => {
+  it('onConnect REJECTS when onRoomOpen fails for an existing document (preserves the edit lock)', async () => {
     // The document EXISTS but the active-session row could not be created. The connection must be
     // rejected, NOT failed open: a live room without a session row would let a concurrent REST
-    // PUT /content bypass spec-018's active-session edit lock (FR-011). (Trade-off: a rejection
+    // PUT /content bypass spec-018's active-session edit lock. (Trade-off: a rejection
     // here fires no onDisconnect, so a repeated failure during a DB outage can inflate the user's
     // ConnectionLimit count until restart — an accepted availability cost to protect data.)
     const settingRepo = {

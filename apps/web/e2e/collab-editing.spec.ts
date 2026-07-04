@@ -2,10 +2,10 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser, createInvitedUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject, createTestFile } from './helpers/test-project';
 
-// US1 / FR-003, SC-001, SC-003: two editors on the same file see each other's
+// Two editors on the same file see each other's
 // edits in real time and converge to identical text. Requires apps/api AND
 // apps/collab running (the collaboration WebSocket); both are started via pnpm
-// in the CI e2e job (T068).
+// in the CI e2e job.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -30,7 +30,7 @@ async function openFileInEditor(page: Page, projectId: string, fileName: string)
   await expect(page.locator('.cm-editor .cm-content')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('Real-time co-editing (US1)', () => {
+test.describe('Real-time co-editing', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });
@@ -62,7 +62,7 @@ test.describe('Real-time co-editing (US1)', () => {
       await signIn(pageB, editorCredentials.email, editorCredentials.password);
       await openFileInEditor(pageB, projectId, fileName);
 
-      // A types — B must see it within ~1s (SC-001).
+      // A types — B must see it within ~1s.
       const contentA = page.locator('.cm-editor .cm-content');
       await contentA.click();
       await page.keyboard.type('Hello from A');
@@ -72,7 +72,7 @@ test.describe('Real-time co-editing (US1)', () => {
         'B must see A’s edit within ~1s',
       ).toContainText('Hello from A', { timeout: 2000 });
 
-      // Concurrent edits from both converge (SC-003): each types on its own line.
+      // Concurrent edits from both converge: each types on its own line.
       await contentA.click();
       await page.keyboard.press('Control+End');
       await page.keyboard.type('\nline from A');

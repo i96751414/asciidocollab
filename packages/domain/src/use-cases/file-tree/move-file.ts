@@ -95,7 +95,7 @@ export class MoveFileUseCase {
     );
     // Capture the old → new path map BEFORE the cascade rewrites descendant paths,
     // so references to the moved node (and, for a folder, all its descendants) can
-    // be rewritten below (FR-066).
+    // be rewritten below.
     const pathChanges = await capturePathChanges(this.fileNodeRepo, fileNode, newPath);
 
     await this.fileNodeRepo.save(updated);
@@ -104,7 +104,7 @@ export class MoveFileUseCase {
       await cascadePathUpdate(this.fileNodeRepo, fileNodeId, fileNode.path.value + '/', newPath.value + '/');
     }
 
-    // Best-effort (FR-066): the move has already persisted to disk + DB, so a
+    // Best-effort: the move has already persisted to disk + DB, so a
     // reference-rewrite I/O failure must not fail the move — log and continue,
     // mirroring how audit-write failures are handled.
     try {
@@ -135,7 +135,7 @@ export class MoveFileUseCase {
     }, this.logger);
 
     // A move never changes the file's identity, so a configured main file keeps
-    // pointing at it (FR-070) — nothing to clear.
+    // pointing at it — nothing to clear.
     return { success: true, value: { fileNodeId, newPath, mainFileCleared: false } };
   }
 }

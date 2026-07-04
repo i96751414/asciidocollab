@@ -32,7 +32,7 @@ export type CreateDocumentObserver = (options: {
   /**
    * Fires on every change to the observed document, refreshing the caller's cache from the Yjs
    * replica's live text so a collaborator's UNSAVED edits are reflected — the persisted content
-   * endpoint only reflects the last save, which would lag a live edit (FR-013a/SC-007).
+   * endpoint only reflects the last save, which would lag a live edit.
    *
    * @param content - The file's current live text read from the synced Y.Doc, or undefined when none.
    */
@@ -65,19 +65,19 @@ const defaultCreateDocumentObserver: CreateDocumentObserver = async ({ url, name
 interface UseProjectSymbolIndexOptions {
   /** The project whose files form the include tree. */
   projectId: string;
-  /** Root of the include tree: the configured main file, or the open file when none (FR-045/047). Null ⇒ no index. */
+  /** Root of the include tree: the configured main file, or the open file when none. Null ⇒ no index. */
   rootFileId: string | null;
-  /** The currently-open file id, whose live (unsaved) content overlays the persisted copy (FR-048). */
+  /** The currently-open file id, whose live (unsaved) content overlays the persisted copy. */
   openFileId?: string | null;
   /** Live content of the open file; used instead of a fetch so in-progress edits are reflected. */
   liveContent?: string | null;
   /**
    * Overrides the document observer factory in tests. When provided, observers are created for each
-   * reachable non-open file to detect live collaborative changes (feature 032 / FR-013a).
+   * reachable non-open file to detect live collaborative changes (feature 032).
    */
   createDocumentObserver?: CreateDocumentObserver;
   /**
-   * Whether to hold live collaborative observer connections for reachable non-open files (FR-013a).
+   * Whether to hold live collaborative observer connections for reachable non-open files.
    * Each observer is a real Hocuspocus connection to that file's room, so this should be enabled ONLY
    * while the full-document outline is actually being viewed — otherwise every open file with includes
    * would keep N idle collaborative sessions alive (extra load + teardown races). Defaults to true to
@@ -87,7 +87,7 @@ interface UseProjectSymbolIndexOptions {
   /**
    * Resolves a file node id to the id of its collaborative room (the document's `yjsStateId`, which
    * is distinct from the file node id). The observer must join the room keyed by `yjsStateId` — the
-   * same room the editor binds — to receive a collaborator's live edits (FR-013a/SC-007). Defaults
+   * same room the editor binds — to receive a collaborator's live edits. Defaults
    * to a lookup via the collab-info endpoint; injected in tests to stay hermetic.
    *
    * @param fileId - The file node id whose collaborative room id is wanted.
@@ -104,7 +104,7 @@ interface UseProjectSymbolIndexResult {
   getIndex: () => ProjectSymbolIndex | null;
   /**
    * Snapshot of cached file contents keyed by project-relative path, with the open file's live
-   * (unsaved) content overlaid — the input the preview's include assembler needs (FR-068).
+   * (unsaved) content overlaid — the input the preview's include assembler needs.
    *
    * @returns A path→content map covering the files fetched so far.
    */
@@ -113,7 +113,7 @@ interface UseProjectSymbolIndexResult {
    * The resolved cross-document attribute scope for a file: the attributes it inherits from the
    * documents that include it (its ancestors along the include path from the root) merged with its
    * own definitions, with the file's own winning. This is the scope the editor uses to decide which
-   * `{name}` references resolve cross-document and should highlight as known (US6/FR-020). Empty
+   * `{name}` references resolve cross-document and should highlight as known. Empty
    * before the index has built or when the file is unreachable from the root.
    *
    * @param fileId - Identifier of the file whose resolved scope is wanted.
@@ -123,7 +123,7 @@ interface UseProjectSymbolIndexResult {
   /**
    * Force a full rebuild from the server, discarding the cached file contents and
    * tree. This is needed after an operation that rewrites persisted content
-   * without a file-tree event, such as a project-wide symbol rename (FR-064).
+   * without a file-tree event, such as a project-wide symbol rename.
    */
   refresh: () => void;
   /**
@@ -134,25 +134,25 @@ interface UseProjectSymbolIndexResult {
    */
   fileIdForPath: (path: string) => string | null;
   /**
-   * Counter that increments whenever a reachable non-open file's live content changes (feature 032
-   * / FR-013a). Consumers can include this in useMemo/useEffect dependency arrays to recompute the
+   * Counter that increments whenever a reachable non-open file's live content changes (feature 032).
+   * Consumers can include this in useMemo/useEffect dependency arrays to recompute the
    * assembled full-document outline when a collaborator edits an included file.
    */
   reachableDocVersion: number;
 }
 
 /**
- * Build and maintain the cross-file AsciiDoc symbol index for the editor (US8, FR-045a).
+ * Build and maintain the cross-file AsciiDoc symbol index for the editor.
  *
  * Fetches each file reachable from the root through the cycle-guarded include walk
  * exactly once (deduped against a per-file cache, capped concurrency) so a single
- * open/refresh of an N-file tree issues at most N content reads (FR-073/SC-025).
+ * open/refresh of an N-file tree issues at most N content reads.
  * Invalidates on file-tree SSE events and whenever the root (main-file) changes, and
  * overlays the open file's live content so the index reflects in-progress edits.
  *
  * When `createDocumentObserver` is provided (or at runtime), also observes live Yjs
  * changes for each reachable non-open included file and exposes `reachableDocVersion`
- * so downstream outline assembly can recompute on collaborator edits (FR-013a).
+ * so downstream outline assembly can recompute on collaborator edits.
  *
  * @param options - {@link UseProjectSymbolIndexOptions}.
  * @returns The {@link UseProjectSymbolIndexResult}.
@@ -206,7 +206,7 @@ export function useProjectSymbolIndex({
     liveOverlay.current = next;
   }
 
-  // Live observers for reachable non-open files (feature 032 / FR-013a).
+  // Live observers for reachable non-open files (feature 032).
   const documentObservers = useRef<Map<string, { destroy(): void }>>(new Map());
   const createDocumentObserverReference = useRef(createDocumentObserver);
   createDocumentObserverReference.current = createDocumentObserver;
@@ -280,7 +280,7 @@ export function useProjectSymbolIndex({
     indexReference.current = built;
     setIndex(built);
 
-    // RECONCILE the live document observers for reachable non-open files (feature 032 / FR-013a).
+    // RECONCILE the live document observers for reachable non-open files (feature 032).
     //
     // We create/destroy only the DELTA and never recreate an existing observer. A fresh observer's
     // initial Yjs sync fires an `update`, so a destroy-and-recreate-all approach would re-enter the
@@ -324,7 +324,7 @@ export function useProjectSymbolIndex({
             // unsaved edit); when no live text is available, drop the cache so the rebuild re-fetches
             // the persisted copy. Then rebuild — observer reconciliation makes this re-entrant-safe
             // (existing observers are left untouched) — and bump the version after it settles so the
-            // assembled outline recomputes (SC-007).
+            // assembled outline recomputes.
             if (typeof liveText === 'string') contentCache.current.set(fileId, liveText);
             else contentCache.current.delete(fileId);
             void build().then(() => {
@@ -363,7 +363,7 @@ export function useProjectSymbolIndex({
   // (The file we switch away from is preserved in the cache from its last overlay text during render —
   // see the `liveOverlay` commit above — so the assembled outline never momentarily loses it. Its live
   // edits keep flowing in afterwards: once it is a reachable non-open file its observer refreshes the
-  // cache, exactly like any other included file, FR-013a/FR-007a.)
+  // cache, exactly like any other included file.)
 
   // Invalidate on file-tree SSE: structural change ⇒ path maps + the affected file's cache are stale.
   const handleEvent = useCallback(
@@ -399,7 +399,7 @@ export function useProjectSymbolIndex({
 
   const getIndex = useCallback(() => indexReference.current, []);
   // The resolved cross-document scope (inherited from ancestors + the file's own definitions, the
-  // file's own winning) drives the editor's known-vs-unknown `{name}` highlighting (US6/FR-020).
+  // file's own winning) drives the editor's known-vs-unknown `{name}` highlighting.
   // `effectiveAttributes` already composes inheritance with the file's own entries — the same
   // result `resolveAttributeScope` produces against the project main file as root. The result is
   // cached per (index, fileId) so the returned Map keeps a STABLE identity across renders until the

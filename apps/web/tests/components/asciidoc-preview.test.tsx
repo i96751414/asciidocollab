@@ -9,7 +9,7 @@ jest.mock('@/hooks/use-asciidoc-preview', () => ({
   useAsciidocPreview: jest.fn(),
 }));
 
-// ── Mock the lazy-loaded client math renderer (US15) ─────────────────────────
+// ── Mock the lazy-loaded client math renderer ─────────────────────────
 // The preview dynamic-imports this module only when the worker flags in-effect STEM. Mocking it
 // lets us assert MathJax is loaded (via renderMath) exactly when math is present, post-sanitize,
 // scoped to the output container — without running MathJax (which cannot execute in jsdom).
@@ -27,7 +27,7 @@ const flushAsync = () => act(async () => { await Promise.resolve(); await Promis
 const fakeReference: React.RefObject<HTMLDivElement> = { current: null };
 
 // The exact DOMPurify config used by the preview boundary in `useAsciidocPreview.ts`. Replicated here
-// so the T074 tests below guard the real sanitization the rendered HTML undergoes before display.
+// so the tests below guard the real sanitization the rendered HTML undergoes before display.
 const sanitizePreviewHtml = (html: string) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 
 const withHtml = () =>
@@ -101,7 +101,7 @@ describe('AsciiDocPreview', () => {
     expect(screen.getByTestId('asciidoc-output')).toBeInTheDocument();
   });
 
-  // Phase 5 (US3): full sync indicator — error, idle file-type, recovery
+  // Phase 5: full sync indicator — error, idle file-type, recovery
 
   // (a) error state: shows "⚠ Preview error" and error message; previous html still visible
   it('shows error indicator and message when state is error', () => {
@@ -198,7 +198,7 @@ describe('AsciiDocPreview', () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  // Preview style control (US1) + style application (US3)
+  // Preview style control + style application
   describe('preview style', () => {
     it('renders the style control when onPreviewStyleChange is provided', () => {
       withHtml();
@@ -254,19 +254,19 @@ describe('AsciiDocPreview', () => {
     });
   });
 
-  // ── T074 (US13/FR-047..FR-050) sanitizer keeps remaining-completeness constructs ──────────
+  // ── sanitizer keeps remaining-completeness constructs ──────────
   // Bibliography/citations, index terms + the index listing, counters, and page breaks are NATIVE
   // Asciidoctor output (no special worker config). The single risk is the DOMPurify boundary in
   // `useAsciidocPreview` stripping a needed element/attribute (the page-break `<div>`'s inline
   // `page-break-after` style, anchor `id`s, etc.). These tests feed representative Asciidoctor HTML
   // for each construct through the SAME DOMPurify config the preview uses and assert it survives with
-  // no raw markup left — proving FR-047..FR-050 pass through the sanitizer unchanged (Constitution IX).
-  describe('sanitizer preserves rendering-completeness constructs (FR-047..FR-050)', () => {
+  // no raw markup left — proving they pass through the sanitizer unchanged (Constitution IX).
+  describe('sanitizer preserves rendering-completeness constructs', () => {
     const sanitize = sanitizePreviewHtml;
 
-    // FR-047: a [bibliography] list with a `[[[ref]]]` entry anchor and an in-text `<<ref>>` citation
+    // A [bibliography] list with a `[[[ref]]]` entry anchor and an in-text `<<ref>>` citation
     // link survive — the entry's anchor `id` (the citation's link target) is preserved.
-    it('keeps the bibliography list, entry anchor id, and citation link (FR-047)', () => {
+    it('keeps the bibliography list, entry anchor id, and citation link', () => {
       const biblio =
         '<div class="ulist bibliography"><ul class="bibliography">' +
         '<li><p><a id="ref"></a>[ref] Author. <em>Title</em>.</p></li></ul></div>';
@@ -279,9 +279,9 @@ describe('AsciiDocPreview', () => {
       expect(cleanCitation).toContain('<a href="#ref">'); // citation links to the entry
     });
 
-    // FR-048: index-term anchors (from `indexterm:[]`/`((…))`) and the generated index listing
+    // Index-term anchors (from `indexterm:[]`/`((…))`) and the generated index listing
     // survive — the listing `<div id="index">` and the indexed-term headings are preserved.
-    it('keeps index-term anchors and the generated index listing (FR-048)', () => {
+    it('keeps index-term anchors and the generated index listing', () => {
       const term = '<div class="paragraph"><p><a id="_indexterm_1" class="indexterm"></a>Body.</p></div>';
       const listing = '<div id="index"><div class="paragraph"><p>T</p></div><h3 id="_t">T</h3></div>';
       const cleanTerm = sanitize(term);
@@ -292,18 +292,18 @@ describe('AsciiDocPreview', () => {
       expect(cleanListing).toContain('id="_t"');
     });
 
-    // FR-049: counter substitution (`{counter:name}`) is plain text in the native output, so the
+    // Counter substitution (`{counter:name}`) is plain text in the native output, so the
     // incremented value passes through untouched (no raw `{counter:...}` markup remains).
-    it('keeps substituted counter values as plain text (FR-049)', () => {
+    it('keeps substituted counter values as plain text', () => {
       const counter = '<div class="paragraph"><p>Figure 1 then 2.</p></div>';
       const clean = sanitize(counter);
       expect(clean).toContain('Figure 1 then 2.');
       expect(clean).not.toContain('{counter');
     });
 
-    // FR-050: the page-break `<div style="page-break-after: always">` (`<<<`) survives — crucially its
+    // The page-break `<div style="page-break-after: always">` (`<<<`) survives — crucially its
     // inline style is NOT stripped, so the scoped preview CSS can render a visible boundary from it.
-    it('keeps the page-break div and its inline page-break style (FR-050)', () => {
+    it('keeps the page-break div and its inline page-break style', () => {
       const pageBreak = '<div style="page-break-after: always"></div>';
       const clean = sanitize(pageBreak);
       expect(clean).toContain('page-break-after'); // inline style preserved → visible boundary CSS
@@ -311,8 +311,8 @@ describe('AsciiDocPreview', () => {
     });
   });
 
-  // ── T053 (US15/FR-021d-f) lazy MathJax load gated on mathPresent, post-sanitize, scoped ──────────
-  describe('STEM math rendering (FR-021d-f)', () => {
+  // ── lazy MathJax load gated on mathPresent, post-sanitize, scoped ──────────
+  describe('STEM math rendering', () => {
     it('lazy-loads MathJax (renderMath) only when mathPresent and renders post-sanitize, scoped', async () => {
       mockUsePreview.mockReturnValue({
         html: String.raw`<div class="stemblock"><div class="content">\$x^2\$</div></div>`,

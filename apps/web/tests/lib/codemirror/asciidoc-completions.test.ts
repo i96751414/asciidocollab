@@ -180,7 +180,7 @@ describe('AsciiDoc Completion Sources', () => {
       expect(after?.options.some((o) => o.label.includes('intro'))).toBe(true);
     });
 
-    // T030: mid-path narrowing tests
+    // mid-path narrowing tests
     describe('mid-path narrowing', () => {
       test('narrows to files under typed prefix after /', async () => {
         const paths = ['docs/intro.adoc', 'docs/setup.adoc', 'chapters/ch1.adoc'];
@@ -219,7 +219,7 @@ describe('AsciiDoc Completion Sources', () => {
     });
   });
 
-  // T002: table skeleton and cell completion tests
+  // table skeleton and cell completion tests
   describe('tableSnippetCompletionSource', () => {
     test('triggers after |=== at column 0', async () => {
       const document = '|===';
@@ -277,7 +277,7 @@ describe('AsciiDoc Completion Sources', () => {
     });
   });
 
-  // T019: caption completion tests
+  // caption completion tests
   describe('captionCompletionSource', () => {
     test('triggers when . is at column 0 on a blank line', async () => {
       const document = '.';
@@ -316,7 +316,7 @@ describe('AsciiDoc Completion Sources', () => {
     });
   });
 
-  // T026: image path completion tests
+  // image path completion tests
   describe('createImageCompletionSource', () => {
     test('triggers after image:: and returns image files', async () => {
       const paths = ['images/logo.png', 'docs/intro.adoc', 'assets/banner.svg'];
@@ -521,7 +521,7 @@ describe('AsciiDoc Completion Sources', () => {
   });
 });
 
-  describe('sourceLanguageCompletionSource (US8/FR-031)', () => {
+  describe('sourceLanguageCompletionSource', () => {
     test('triggers inside [source, and returns matching language tokens', async () => {
       const document = '[source,ja';
       const result = await getCompletions(sourceLanguageCompletionSource, document, document.length);
@@ -671,7 +671,7 @@ describe('completion apply callbacks dispatch editor changes', () => {
     expect(applyFirstFunction(result?.options).changes.insert.length).toBeGreaterThan(0);
   });
 
-  describe('cross-file completion via the symbol index (US8/FR-029/030)', () => {
+  describe('cross-file completion via the symbol index', () => {
     const fakeIndex = {
       symbols: [
         { kind: 'anchor', name: 'shared-anchor', fileId: 'other', range: { from: 0, to: 0 } },

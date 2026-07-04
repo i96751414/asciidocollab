@@ -87,7 +87,7 @@ describe('RegisterUserUseCase', () => {
     );
   });
 
-  describe('registration closed (FR-008)', () => {
+  describe('registration closed', () => {
     test('returns RegistrationClosedError when open registration is disabled and users exist', async () => {
       const existingUser = new User(
         UserId.create(randomUUID()),
@@ -178,7 +178,7 @@ describe('RegisterUserUseCase', () => {
     });
   });
 
-  describe('breach blocking (FR-008)', () => {
+  describe('breach blocking', () => {
     test('rejects registration when password is breached', async () => {
       (breachChecker.isBreached as jest.Mock).mockResolvedValue(true);
 

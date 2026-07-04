@@ -11,7 +11,7 @@ import { parseRoomName } from '../server.js';
 import { isPresenceRoom } from '@asciidocollab/shared';
 
 // Hocuspocus delivers a `Y.Doc` (its `Document` extends `Y.Doc`) to the load/store hooks. A single
-// resolved yjs version (SC-004) guarantees this is the same Y instance, so a normal ESM import
+// resolved yjs version guarantees this is the same Y instance, so a normal ESM import
 // replaces the prior `createRequire('yjs')` CJS workaround.
 interface LoadPayload {
   documentName: string;
@@ -71,7 +71,7 @@ export class PersistenceExtension {
    * (editor + observer) room.
    */
   async onStoreDocument({ documentName, document }: StorePayload): Promise<void> {
-    // Feature 024: a presence room has no backing document — never persist anything for it (FR-011).
+    // Feature 024: a presence room has no backing document — never persist anything for it.
     if (isPresenceRoom(documentName)) return;
     const { projectId, yjsStateId } = parseRoomName(documentName);
 

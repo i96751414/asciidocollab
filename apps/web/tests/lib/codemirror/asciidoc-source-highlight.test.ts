@@ -1,7 +1,7 @@
 /* @jest-environment jsdom */
 
 /**
- * Unit tests for in-editor source-language highlighting (US5, FR-017–019).
+ * Unit tests for in-editor source-language highlighting.
  *
  * The jsdom environment (set by the single-star pragma above — `/** *\/` would
  * trip the jsdoc/check-tag-names lint rule, the pattern used by
@@ -173,7 +173,7 @@ afterEach(() => {
   for (const view of liveViews.splice(0)) view.destroy();
 });
 
-describe('extractSourceLanguage (FR-017/018)', () => {
+describe('extractSourceLanguage', () => {
   test('resolves a known language from a [source,lang] declaration', () => {
     expect(extractSourceLanguage('[source,ruby]')).toBe('Ruby');
     expect(extractSourceLanguage('[source, js]')).toBe('JavaScript');

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US10 / FR-037/FR-038/FR-039 (section numbering & TOC across includes): the main file enables
+// Section numbering & TOC across includes: the main file enables
 // `:sectnums:` and `:toc:` and includes two chapters with `leveloffset=+1`. Once assembled, native
 // Asciidoctor numbers the sections and builds the TOC over the offset-adjusted structure: the two
 // `= Chapter` titles (raw level 0) are shifted to level 1 and number continuously (1, 2), and the
@@ -18,7 +18,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US10 section numbering & TOC across includes', () => {
+test.describe('section numbering & TOC across includes', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

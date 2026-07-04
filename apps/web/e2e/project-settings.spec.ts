@@ -7,7 +7,7 @@ import {
   archiveProject,
 } from './helpers/test-project';
 
-test.describe('Project settings page — T067', () => {
+test.describe('Project settings page', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

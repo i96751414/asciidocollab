@@ -23,7 +23,7 @@ async function resetOpenRegistration(): Promise<void> {
   }
 }
 
-test.describe('Open registration toggle (US4)', () => {
+test.describe('Open registration toggle', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

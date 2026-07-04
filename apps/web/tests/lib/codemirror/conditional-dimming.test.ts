@@ -1,7 +1,7 @@
 import { computeDimmedRanges } from '@/lib/codemirror/conditional-dimming';
 
 /**
- * T070 (US12/FR-032) — the conditional-dimming DECISION. Given a document containing
+ * the conditional-dimming DECISION. Given a document containing
  * `ifdef`/`ifndef`/`ifeval` regions and a resolved attribute scope, `computeDimmedRanges`
  * returns the half-open character ranges of the lines that sit inside a branch which resolves
  * INACTIVE for that scope. The ranges are recomputed whenever the scope changes, and nesting /
@@ -17,7 +17,7 @@ function lineStart(text: string, line0: number): number {
   return offset;
 }
 
-describe('computeDimmedRanges (US12/FR-032)', () => {
+describe('computeDimmedRanges', () => {
   test('dims the body of an inactive ifdef branch', () => {
     const text = 'before\nifdef::draft[]\nhidden line\nendif::[]\nafter\n';
     const ranges = computeDimmedRanges(text, new Map());

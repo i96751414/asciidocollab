@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// US2 / FR-008/FR-009/FR-010 (leveloffset across files): a child included with `leveloffset=+1`
+// Leveloffset across files: a child included with `leveloffset=+1`
 // has its headings shifted both in the assembled PREVIEW (an effective level deeper) and in the
 // EDITOR's structural understanding (the heading-level decoration class) when the child is opened
 // as a non-root file. The parent's own headings are unaffected (the offset is include-scoped).
@@ -17,7 +17,7 @@ async function fileId(page: import('@playwright/test').Page, projectId: string, 
   return node.id;
 }
 
-test.describe('US2 leveloffset across files', () => {
+test.describe('leveloffset across files', () => {
   test.beforeAll(async () => {
     await ensureTestUser();
   });

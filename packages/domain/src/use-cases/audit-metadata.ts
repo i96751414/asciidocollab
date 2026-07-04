@@ -2,7 +2,7 @@ import { RequestContext } from '../types/request-context';
 
 /**
  * Folds request origin (IP / user-agent) into audit metadata under a stable
- * `origin` key (FR-017), without mutating the input. Omits `origin` entirely
+ * `origin` key, without mutating the input. Omits `origin` entirely
  * when no context (or an empty context) is provided — e.g. Background/system
  * actions. Centralized so every audit write produces the same origin shape.
  *

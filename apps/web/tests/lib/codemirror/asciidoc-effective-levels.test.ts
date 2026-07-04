@@ -58,7 +58,7 @@ describe('computeHeadingLevels', () => {
     expect(infos[0].effectiveLevel).toBe(3);
   });
 
-  // ── Attribute-form :leveloffset: combined with the inherited include offset (US2/T019) ──
+  // ── Attribute-form :leveloffset: combined with the inherited include offset ──
   // The file's structural understanding must reflect BOTH the offset inherited from ancestor
   // includes (leveloffset= option / parent attribute form) AND an attribute-form `:leveloffset:`
   // applied in document order within the file, exactly as the assembled preview renders it.
@@ -89,14 +89,14 @@ describe('computeHeadingLevels', () => {
     expect(infos[1].effectiveLevel).toBe(2); // 1 (raw) + 1 (inherited base)
   });
 
-  test('effective level beyond MAX is flagged (FR-010)', () => {
+  test('effective level beyond MAX is flagged', () => {
     const source = ':leveloffset: +5\n\n====== Deep\n';
     const infos = computeHeadingLevels(source);
     expect(infos[0].effectiveLevel).toBeGreaterThan(MAX_HEADING_LEVEL);
     expect(infos[0].beyondMax).toBe(true);
   });
 
-  test('[discrete] / [float] headings are recognised (FR-072)', () => {
+  test('[discrete] / [float] headings are recognised', () => {
     const source = '[discrete]\n== Discrete One\n\n[float]\n=== Float Two\n\n== Normal\n';
     const infos = computeHeadingLevels(source);
     expect(infos[0].discrete).toBe(true);

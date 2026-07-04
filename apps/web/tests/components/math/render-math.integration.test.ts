@@ -1,6 +1,6 @@
 /* @jest-environment jsdom */
 
-// REAL MathJax integration tests for the STEM renderer (US15 / FR-021d-f).
+// REAL MathJax integration tests for the STEM renderer.
 //
 // The sibling `render-math.test.ts` mocks the MathJax script injection to assert render-math's
 // contract (lazy single load, per-expression convert calls, graceful failure). That mocking cannot

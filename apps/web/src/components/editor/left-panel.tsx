@@ -20,7 +20,7 @@ interface LeftPanelProperties {
  *
  * Each view owns its OWN header (the file tree's "Files" header with its create/options actions, the
  * Outline view's "Outline" header), so the panel adds no title row of its own — that avoids showing
- * the active title twice. File actions therefore appear only while Files is active (FR-011).
+ * the active title twice. File actions therefore appear only while Files is active.
  */
 export function LeftPanel({ activeTab, onTabChange, onCollapse, filesSlot, outlineSlot }: LeftPanelProperties) {
   return (

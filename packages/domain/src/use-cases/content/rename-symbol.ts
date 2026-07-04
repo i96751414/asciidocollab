@@ -67,20 +67,20 @@ export interface RenameSymbolOutcome {
   rewrittenFiles: number;
   /** How many individual occurrences (definitions + references) were rewritten. */
   updatedReferences: number;
-  /** Any occurrences that could not be safely rewritten (best-effort, FR-067). */
+  /** Any occurrences that could not be safely rewritten (best-effort). */
   warnings: string[];
 }
 
 /**
  * Renames a section id / block anchor or a document attribute and rewrites every
  * `<<id>>` / `xref:` / `{attr}` reference to it across the project's documents
- * (US12/FR-064). The match is by name across the project's document tree — the
- * same project-wide resolution scope as `FindReferencesUseCase` (FR-065).
+ * The match is by name across the project's document tree — the
+ * same project-wide resolution scope as `FindReferencesUseCase`.
  *
  * Authorization is enforced here (Constitution: permission checks in use cases):
  * because the rename WRITES content in (possibly unopened) files, the caller must
  * be a project editor or owner. To avoid silently merging two distinct symbols,
- * the rename is refused when `newName` is already defined elsewhere (SC-020:
+ * the rename is refused when `newName` is already defined elsewhere (
  * warn before breaking). Each file's edits are computed first and only applied
  * once the whole project has been scanned and found conflict-free.
  *
@@ -203,7 +203,7 @@ export class RenameSymbolUseCase {
         );
         if (!applied.success) {
           // Do NOT fall back to a file-store write: if the room is live, the stale Y.Text would
-          // overwrite it on the next writeback. Leave this file untouched and warn instead (FR-067).
+          // overwrite it on the next writeback. Leave this file untouched and warn instead.
           warnings.push(`Could not apply collaborative rename in ${node.path.value}: ${applied.error.message}`);
           continue;
         }

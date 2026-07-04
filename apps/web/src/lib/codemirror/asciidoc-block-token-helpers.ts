@@ -211,7 +211,7 @@ export function consumeDescTerm(input: ConsumingInput, termLength: number, separ
  * Advances the cursor over a complete attribute entry, following `\`-continued value lines. A
  * trailing `\` (after optional whitespace) at the end of a physical line continues the value onto
  * the next line, so every continued line is consumed into the same attribute-entry token — the whole
- * wrapped entry highlights as one definition (FR-041/FR-042). Stops at the first line that does not
+ * wrapped entry highlights as one definition. Stops at the first line that does not
  * end with a continuation marker (consuming its trailing newline, like {@link consumeToEOL}).
  *
  * @param input - The consuming view over the input.

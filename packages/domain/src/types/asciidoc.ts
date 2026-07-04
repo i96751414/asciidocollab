@@ -89,8 +89,8 @@ export interface ResolvedAttributeScope {
   values: ReadonlyMap<string, string>;
   /**
    * How the scope was derived: `root` = the main file itself; `inherited` = from the
-   * main file at this file's first-include point (FR-002a); `standalone` = no main file
-   * configured, so only the file's own attributes resolve (FR-002b).
+   * main file at this file's first-include point; `standalone` = no main file
+   * configured, so only the file's own attributes resolve.
    */
   origin: 'root' | 'inherited' | 'standalone';
 }
@@ -131,7 +131,7 @@ export interface DocumentTree {
 /**
  * Typed outcome returned by move/rename when the project's configured main file
  * is cleared (rename-to-non-adoc / delete) — a shared DTO, not an ad-hoc signal
- * (FR-070). The client uses it to inform the user.
+ * The client uses it to inform the user.
  */
 export interface MainFileClearedOutcome {
   /** True when `Project.mainFileNodeId` was cleared by the operation. */

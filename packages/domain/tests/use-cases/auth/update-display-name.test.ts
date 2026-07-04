@@ -1,4 +1,4 @@
-// T022: Failing domain unit tests for UpdateDisplayNameUseCase
+// Failing domain unit tests for UpdateDisplayNameUseCase
 import { UpdateDisplayNameUseCase } from '../../../src/use-cases/auth/update-display-name';
 import { User } from '../../../src/entities/user';
 import { UserId } from '../../../src/value-objects/ids/user-id';

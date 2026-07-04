@@ -1,6 +1,6 @@
 /**
  * The origin of an authenticated request, threaded from the delivery layer into
- * audit metadata (FR-017). Both fields are optional — background or
+ * audit metadata. Both fields are optional — background or
  * system-initiated actions legitimately lack a request origin.
  *
  * Defined in the domain (rather than `shared`) because domain use cases consume
