@@ -30,18 +30,10 @@ export interface RenameCandidate {
   newName: string;
   /** Location of the definition token in the current document. */
   definitionRange: DocumentRange;
-  /** File node containing the definition. */
-  fileNodeId: string;
 }
 
 /** Lifecycle of a suggestion, driven by the timing/location state machine (FR-010–FR-016). */
-export type RenameSuggestionStatus =
-  | 'pending'
-  | 'visible'
-  | 'leaving'
-  | 'blocked-collision'
-  | 'applied'
-  | 'dismissed';
+export type RenameSuggestionStatus = 'visible' | 'blocked-collision' | 'applied' | 'dismissed';
 
 /** The inline offer presented to the author, derived from an actionable candidate + usage lookup. */
 export interface RenameSuggestion {

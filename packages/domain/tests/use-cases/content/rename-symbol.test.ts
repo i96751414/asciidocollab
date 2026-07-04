@@ -151,6 +151,22 @@ describe('RenameSymbolUseCase', () => {
     expect(book).toContain('{revision} edition'); // reference propagated
     expect(book).not.toContain('{edition}');
   });
+
+  it('with definitionAlreadyRenamed, STILL blocks a genuine merge when the old name is also still defined', async () => {
+    // Both `:edition:` and `:revision:` exist as distinct attributes: the flag must not be able to
+    // merge them (guards against a caller misusing the flag to bypass the server conflict check).
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':edition: 1\n:revision: 2\n\n{edition}\n'));
+    const before = await read('/book.adoc');
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'attribute',
+      oldName: 'edition',
+      newName: 'revision',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+    expect(await read('/book.adoc')).toBe(before); // nothing rewritten
+  });
 });
 
 // US12 / FR-064 collab-safety: a file open for live collaborative editing must be rewritten through

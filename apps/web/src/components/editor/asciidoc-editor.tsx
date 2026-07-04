@@ -208,11 +208,14 @@ export function AsciiDocEditor({
   projectIdReference.current = projectId;
   const fileNodeIdReference = useRef(fileNodeId);
   fileNodeIdReference.current = fileNodeId;
+  const canEditReference = useRef(effectiveCanEdit);
+  canEditReference.current = effectiveCanEdit;
   const renameSuggestionExtension = useMemo(
     () =>
       renameSuggestion({
         getProjectId: () => projectIdReference.current,
         getFileNodeId: () => fileNodeIdReference.current,
+        getCanEdit: () => canEditReference.current,
         findSymbolUsages,
         renameSymbol,
       }),

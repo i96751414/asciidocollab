@@ -1,4 +1,4 @@
-import type { RenameSymbolKind, SymbolUsage } from '@/lib/api/projects';
+import type { SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange } from './types';
 
 /**
@@ -23,13 +23,14 @@ export interface UsageImpact {
 
 /**
  * True when a usage is the very definition token the author is editing (same file + overlapping range).
+ * Shared by the suppression count here and the collision check in the state machine.
  *
  * @param usage - A usage returned by the project-wide search.
  * @param definitionFileNodeId - The file that holds the definition being edited.
  * @param definitionRange - The definition token's range.
  * @returns Whether the usage is the edited definition itself.
  */
-function isEditedDefinition(usage: SymbolUsage, definitionFileNodeId: string, definitionRange: DocumentRange): boolean {
+export function isEditedDefinition(usage: SymbolUsage, definitionFileNodeId: string, definitionRange: DocumentRange): boolean {
   return (
     usage.fileNodeId === definitionFileNodeId &&
     usage.range.from < definitionRange.to &&
@@ -51,42 +52,4 @@ export function evaluateUsages(
   const others = usages.filter((u) => !isEditedDefinition(u, edited.definitionFileNodeId, edited.definitionRange));
   const fileCount = new Set(others.map((u) => u.fileNodeId)).size;
   return { usageCount: others.length, fileCount, suppressed: others.length === 0 };
-}
-
-/** Dependencies for {@link lookupUsages} — the search function is injected so it is testable. */
-export interface LookupUsagesDeps {
-  /** The project to search. */
-  projectId: string;
-  /** The old (edit-start) name to look up. */
-  oldName: string;
-  /** The reused endpoint's symbol kind (anchor or attribute). */
-  apiKind: RenameSymbolKind;
-  /** The file that holds the definition being edited. */
-  definitionFileNodeId: string;
-  /** The definition token's range, used to exclude the edited definition from the impact. */
-  definitionRange: DocumentRange;
-  /**
-   * Injected project-wide usage search (the reused `findSymbolUsages`).
-   *
-   * @param projectId - The project to search.
-   * @param name - The symbol name to find.
-   * @param kind - Optional kind filter (anchor or attribute).
-   * @returns The matching usages across the project.
-   */
-  findSymbolUsages: (projectId: string, name: string, kind?: RenameSymbolKind) => Promise<SymbolUsage[]>;
-}
-
-/**
- * Fetch project-wide usages of `oldName` and evaluate their impact (with suppression).
- * Debouncing is the caller's concern (the editor state machine); this stays a pure data fetch.
- *
- * @param deps - The project/name/kind to search plus the injected search function.
- * @returns The evaluated impact of the candidate rename.
- */
-export async function lookupUsages(deps: LookupUsagesDeps): Promise<UsageImpact> {
-  const usages = await deps.findSymbolUsages(deps.projectId, deps.oldName, deps.apiKind);
-  return evaluateUsages(usages, {
-    definitionFileNodeId: deps.definitionFileNodeId,
-    definitionRange: deps.definitionRange,
-  });
 }

@@ -135,3 +135,17 @@ description: "Task list for In-Editor Symbol Rename Refactor Suggestion"
 - **MVP**: Setup → Foundational → US1 (attribute rename). Stop and validate independently, then demo.
 - **Incremental**: add US2 (anchors) → US4 (full timing) → US3 (headings, needs the server extension), testing each independently.
 - **Notes**: each task = one `/tdd` invocation (no test/impl split); commit only after green; keep new code covered (web/api/domain branch-coverage margins are thin per project quality-gate notes).
+
+## Code Review (T026 loop)
+
+`/code-review` (high effort, 8 angles) run on the branch diff. Fixed:
+- Async apply/evaluate/undo now have error handling + a destroyed-view guard; `runUndo` keeps the undo closure on failure (retryable); apply has an in-flight lock against double-clicks.
+- The applied "Undo" affordance is no longer hidden by the 5s leave timer.
+- Server: `definitionAlreadyRenamed` still blocks a **genuine** merge (when the old name is also still defined), so the flag can't be misused to bypass the conflict check.
+- Detection is gated on `getCanEdit` so read-only/observer editors never see an offer.
+- Settle re-reads the definition range from current state (robust to concurrent inserts above).
+- Cleanup: removed dead `lookupUsages`/`LookupUsagesDeps`, deduped `isEditedDefinition`, trimmed unused status values + `RenameCandidate.fileNodeId`.
+
+Documented residual limitations (accepted, low/medium severity):
+- **Heading→heading id collision** is not flagged: auto-generated section ids are `kind:'section'`, but the collision check queries `kind:'anchor'`, so renaming a heading to a text whose derived id matches another heading's derived id is not caught (Asciidoctor itself warns on duplicate ids at render). A full fix needs section-id-aware collision detection.
+- **Heading rename undo** reverts the references to the old derived id but cannot restore the heading *text*, so it faithfully returns to the (author-created) pre-apply state rather than a fully-consistent one — unlike attribute/anchor undo which also reverts the definition.

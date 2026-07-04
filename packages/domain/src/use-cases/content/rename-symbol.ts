@@ -158,7 +158,8 @@ export class RenameSymbolUseCase {
     // Content is read LIVE for files open in a collab room (see resolveFileContent),
     // so a symbol typed in the editor but not yet saved is still found.
     const staged: Array<{ node: FileNode; content: string; edits: Edit[]; document: Document | null }> = [];
-    let conflict = false;
+    let conflictingNewDefinition = false;
+    let oldStillDefined = false;
 
     const contentDeps = this.contentDeps(); // build once; reused for every file in the scan
     for (const node of documents) {
@@ -167,17 +168,18 @@ export class RenameSymbolUseCase {
       const { content, document } = resolved;
 
       const symbols = extractSymbols(node.id.value, content);
-      // In definition-already-renamed mode the new-name definition is expected (the author just
-      // typed it), so it is not a conflict; only the lingering old-name references are rewritten.
-      if (!definitionAlreadyRenamed && hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) {
-        conflict = true;
-      }
+      if (hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) conflictingNewDefinition = true;
+      if (symbols.some((symbol) => symbol.kind === symbolKind && matchesOld(symbol.name))) oldStillDefined = true;
 
       const edits = computeEdits(symbolKind, oldName, newName, content, symbols, matchesOld);
       if (edits.length > 0) staged.push({ node, content, edits, document });
     }
 
-    if (conflict) {
+    // A distinct new-name definition is a merge conflict for a normal rename. In
+    // definition-already-renamed mode (feature 033) the author has already retyped the definition,
+    // so the new-name definition is EXPECTED and only a conflict if the old name is somehow still
+    // defined too — a genuine two-symbol merge (and a guard against a caller misusing the flag).
+    if (conflictingNewDefinition && (!definitionAlreadyRenamed || oldStillDefined)) {
       return {
         success: false,
         error: new ValidationError(`Cannot rename to "${newName}": a ${symbolKind} with that name already exists`),

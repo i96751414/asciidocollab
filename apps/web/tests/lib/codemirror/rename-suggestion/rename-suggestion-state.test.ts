@@ -179,4 +179,29 @@ describe('rename suggestion state machine', () => {
     expect(shown(view)).toBeNull();
     view.destroy();
   });
+
+  test('no suggestion for a read-only / observer editor (getCanEdit false)', async () => {
+    const { config } = makeConfig({ getCanEdit: () => false });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('a failed apply leaves the offer visible (not stranded) and never rejects', async () => {
+    const renameSymbol = jest.fn(async () => {
+      throw new Error('rate limited');
+    });
+    const { config } = makeConfig({ renameSymbol });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(renameSymbol).toHaveBeenCalled();
+    expect(shown(view)?.status).toBe('visible'); // still offered for retry, not stuck in 'applied'
+    view.destroy();
+  });
 });

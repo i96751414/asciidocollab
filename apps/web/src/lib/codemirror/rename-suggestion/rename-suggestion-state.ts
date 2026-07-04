@@ -3,7 +3,7 @@ import { StateField, type EditorState, type Extension } from '@codemirror/state'
 import type { RenameSymbolKind, RenameSymbolResult, SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange, RefactorResult, RenameSuggestion, SymbolKind } from './types';
 import { definitionAtCursor } from './rename-detector';
-import { evaluateUsages } from './usage-lookup';
+import { evaluateUsages, isEditedDefinition } from './usage-lookup';
 import { applyRename } from './apply-rename';
 import { RenameSuggestionWidget } from './rename-suggestion-widget';
 import {
@@ -31,6 +31,8 @@ export interface RenameSuggestionConfig {
   getProjectId: () => string | undefined;
   /** Returns the current open file's node id. */
   getFileNodeId: () => string | undefined;
+  /** Returns whether the author may edit — detection is skipped for read-only/observer editors. Defaults to editable. */
+  getCanEdit?: () => boolean;
   /**
    * Injected project-wide usage search (the reused `findSymbolUsages`).
    *
@@ -73,11 +75,6 @@ function isValidName(kind: SymbolKind, name: string): boolean {
 /** The reused endpoints only distinguish anchor vs attribute; a heading rewrites its derived id. */
 function toApiKind(kind: SymbolKind): RenameSymbolKind {
   return kind === 'attribute' ? 'attribute' : 'anchor';
-}
-
-/** True when a usage is the very definition token the author is editing (same file + overlapping range). */
-function isEditedDefinition(usage: SymbolUsage, fileNodeId: string, range: DocumentRange): boolean {
-  return usage.fileNodeId === fileNodeId && usage.range.from < range.to && usage.range.to > range.from;
 }
 
 /** Build the block-widget decoration for the shown suggestion (below its definition line). */
@@ -153,6 +150,10 @@ function makePlugin(config: RenameSuggestionConfig) {
       private seq = 0;
       private dismissedName: string | null = null;
       private undo: (() => Promise<RefactorResult>) | null = null;
+      /** Set on destroy so a late async callback never dispatches on a torn-down view. */
+      private destroyed = false;
+      /** In-flight apply guard so a double-click cannot fire two renames. */
+      private applying = false;
 
       constructor(private readonly view: EditorView) {}
 
@@ -170,20 +171,29 @@ function makePlugin(config: RenameSuggestionConfig) {
       }
 
       destroy() {
+        this.destroyed = true;
         this.clearSettle();
         this.clearLeave();
       }
 
       /** Manage the baseline session, the 2s settle timer, and the 5s leave timer. No dispatch here. */
       private track(state: EditorState) {
+        // Read-only / observer editors never rename; a remote edit must not surface an offer to them.
+        if (config.getCanEdit && !config.getCanEdit()) {
+          this.clearSettle();
+          return;
+        }
         const definition = definitionAtCursor(state);
 
         if (!definition) {
           this.clearSettle();
-          if (this.view.state.field(suggestionField) && !this.leaveTimer) {
+          // An applied suggestion keeps its Undo affordance until dismissed — it must not be hidden
+          // by the leave timer (FR-020). Only a live offer disappears after leaving (FR-013).
+          const shown = this.view.state.field(suggestionField);
+          if (shown && shown.status !== 'applied' && !this.leaveTimer) {
             this.leaveTimer = setTimeout(() => {
               this.leaveTimer = null;
-              this.setSuggestion(null); // hidden after leaving (FR-013)
+              this.setSuggestion(null);
             }, leaveMs);
           }
           return;
@@ -211,9 +221,12 @@ function makePlugin(config: RenameSuggestionConfig) {
 
         this.clearSettle();
         const session = this.session;
-        const range = definition.range;
         this.settleTimer = setTimeout(() => {
           this.settleTimer = null;
+          // Re-read the definition from the CURRENT state so its range reflects any edits (e.g. a
+          // collaborator inserting lines above) that happened while the settle was pending.
+          const current = definitionAtCursor(this.view.state);
+          const range = current && current.name === newName ? current.range : definition.range;
           void this.evaluate(session, newName, range);
         }, settleMs);
       }
@@ -227,11 +240,19 @@ function makePlugin(config: RenameSuggestionConfig) {
 
         const apiKind = toApiKind(session.kind);
         const seq = ++this.seq;
-        const [usages, collisionUsages] = await Promise.all([
-          config.findSymbolUsages(projectId, session.oldName, apiKind),
-          config.findSymbolUsages(projectId, newName, apiKind),
-        ]);
-        if (seq !== this.seq) return; // a newer settle superseded this one
+        let usages: SymbolUsage[];
+        let collisionUsages: SymbolUsage[];
+        try {
+          [usages, collisionUsages] = await Promise.all([
+            config.findSymbolUsages(projectId, session.oldName, apiKind),
+            config.findSymbolUsages(projectId, newName, apiKind),
+          ]);
+        } catch {
+          // A failed lookup (e.g. rate limit / network) simply produces no suggestion this settle;
+          // the next edit re-arms detection. Never leave the promise rejection unhandled.
+          return;
+        }
+        if (this.destroyed || seq !== this.seq) return; // torn down, or a newer settle superseded this one
 
         const impact = evaluateUsages(usages, { definitionFileNodeId: fileNodeId, definitionRange });
         const collision = collisionUsages.some(
@@ -243,7 +264,7 @@ function makePlugin(config: RenameSuggestionConfig) {
           return;
         }
         this.setSuggestion({
-          candidate: { kind: session.kind, oldName: session.oldName, newName, definitionRange, fileNodeId },
+          candidate: { kind: session.kind, oldName: session.oldName, newName, definitionRange },
           usageCount: impact.usageCount,
           fileCount: impact.fileCount,
           status: collision ? 'blocked-collision' : 'visible',
@@ -254,30 +275,43 @@ function makePlugin(config: RenameSuggestionConfig) {
       /** Apply via the reused endpoint, then switch the widget to its undo affordance. */
       private async apply() {
         const suggestion = this.view.state.field(suggestionField);
-        if (!suggestion || suggestion.collision || suggestion.status === 'applied') return;
+        if (this.applying || !suggestion || suggestion.collision || suggestion.status === 'applied') return;
         const projectId = config.getProjectId();
         if (!projectId) return;
         const { kind, oldName, newName } = suggestion.candidate;
-        const { undo } = await applyRename({
-          projectId,
-          symbolKind: toApiKind(kind),
-          oldName,
-          newName,
-          renameSymbol: config.renameSymbol,
-        });
-        this.undo = undo;
-        this.dismissedName = newName; // a re-detected mismatch must not re-suggest this settled rename
-        this.session = null;
-        this.clearSettle();
-        this.setSuggestion({ ...suggestion, status: 'applied' });
+        this.applying = true; // in-flight lock: a second click must not fire a duplicate rename
+        try {
+          const { undo } = await applyRename({
+            projectId,
+            symbolKind: toApiKind(kind),
+            oldName,
+            newName,
+            renameSymbol: config.renameSymbol,
+          });
+          if (this.destroyed) return;
+          this.undo = undo;
+          this.dismissedName = newName; // a re-detected mismatch must not re-suggest this settled rename
+          this.session = null;
+          this.clearSettle();
+          this.setSuggestion({ ...suggestion, status: 'applied' });
+        } catch {
+          // The rewrite failed (e.g. rate limit / network / conflict): leave the offer visible so the
+          // author can retry, rather than stranding the widget in a half-applied state.
+        } finally {
+          this.applying = false;
+        }
       }
 
       private async runUndo() {
         const undo = this.undo;
         if (!undo) return;
+        try {
+          await undo();
+        } catch {
+          return; // keep this.undo so the author can retry the undo
+        }
         this.undo = null;
-        await undo();
-        this.setSuggestion(null);
+        if (!this.destroyed) this.setSuggestion(null);
       }
 
       private dismiss() {
@@ -288,7 +322,7 @@ function makePlugin(config: RenameSuggestionConfig) {
       }
 
       private setSuggestion(value: RenameSuggestion | null) {
-        if (this.view.state.field(suggestionField) === value) return;
+        if (this.destroyed || this.view.state.field(suggestionField) === value) return;
         this.view.dispatch({ effects: setSuggestionEffect.of(value) });
       }
 
