@@ -26,11 +26,17 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
     max: app.config.project.refactoring.rateLimitMax,
     timeWindow: app.config.project.refactoring.rateLimitWindow,
   };
+  // Detection (read-only symbol-usages) auto-fires as the author edits, so it gets its
+  // own, higher budget — decoupled from the conservative apply (rename) budget above.
+  const suggestionRateLimit = {
+    max: app.config.project.refactoring.suggestionRateLimitMax,
+    timeWindow: app.config.project.refactoring.suggestionRateLimitWindow,
+  };
 
   app.get<{ Params: { projectId: string }; Querystring: { name: string; kind?: 'anchor' | 'attribute' } }>(
     '/projects/:projectId/symbol-usages',
     {
-      config: { rateLimit },
+      config: { rateLimit: suggestionRateLimit },
       schema: {
         params: { type: 'object', required: ['projectId'], properties: { projectId: { type: 'string' } } },
         querystring: {
@@ -81,7 +87,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
 
   app.post<{
     Params: { projectId: string };
-    Body: { symbolKind: 'anchor' | 'attribute'; oldName: string; newName: string };
+    Body: { symbolKind: 'anchor' | 'attribute'; oldName: string; newName: string; definitionAlreadyRenamed?: boolean };
   }>(
     '/projects/:projectId/symbol-rename',
     {
@@ -95,6 +101,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
             symbolKind: { type: 'string', enum: ['anchor', 'attribute'] },
             oldName: { type: 'string', minLength: 1, maxLength: 200 },
             newName: { type: 'string', minLength: 1, maxLength: 200 },
+            definitionAlreadyRenamed: { type: 'boolean' },
           },
         },
       },
@@ -124,6 +131,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
           symbolKind: request.body.symbolKind,
           oldName: request.body.oldName,
           newName: request.body.newName,
+          definitionAlreadyRenamed: request.body.definitionAlreadyRenamed ?? false,
         },
         requestContextFrom(request),
       );

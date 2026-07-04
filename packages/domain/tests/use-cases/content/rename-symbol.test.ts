@@ -130,6 +130,27 @@ describe('RenameSymbolUseCase', () => {
     const logs = await auditRepo.findByProjectId(projectId);
     expect(logs.some((log) => log.action === 'symbol.renamed')).toBe(true);
   });
+
+  // Feature 033: the in-editor rename suggestion fires AFTER the author has already retyped the
+  // definition, so the document already carries the new name. `definitionAlreadyRenamed` tells the
+  // use case to propagate the rename to the remaining old-name references without treating the
+  // (expected) new-name definition as a merge conflict.
+  it('with definitionAlreadyRenamed, rewrites lingering old-name references and does not flag the new definition as a conflict', async () => {
+    // The definition is already `:revision:`; a stale `{edition}` reference remains.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':revision: 2\n\nThis is the {edition} edition.\n'));
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'attribute',
+      oldName: 'edition',
+      newName: 'revision',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const book = await read('/book.adoc');
+    expect(book).toContain(':revision: 2'); // definition untouched (FR-021)
+    expect(book).toContain('{revision} edition'); // reference propagated
+    expect(book).not.toContain('{edition}');
+  });
 });
 
 // US12 / FR-064 collab-safety: a file open for live collaborative editing must be rewritten through

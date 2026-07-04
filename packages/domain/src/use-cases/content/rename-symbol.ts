@@ -51,6 +51,14 @@ export interface RenameSymbolInput {
   oldName: string;
   /** The replacement name. */
   newName: string;
+  /**
+   * When true, the document already carries the new-name DEFINITION (the author renamed it in the
+   * editor, feature 033) and only the lingering old-name references need rewriting. The scan must
+   * therefore NOT treat the expected new-name definition as a merge conflict. Collision safety for
+   * this mode is enforced by the caller (the in-editor suggestion blocks a genuine collision).
+   * Defaults to false — the normal rename renames the definition too and guards against merges.
+   */
+  definitionAlreadyRenamed?: boolean;
 }
 
 /** Outcome of a successful rename. */
@@ -128,7 +136,7 @@ export class RenameSymbolUseCase {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    const { symbolKind, oldName, newName } = input;
+    const { symbolKind, oldName, newName, definitionAlreadyRenamed = false } = input;
     if (!isValidNewName(symbolKind, newName)) {
       return { success: false, error: new ValidationError(`Invalid ${symbolKind} name: "${newName}"`) };
     }
@@ -159,7 +167,9 @@ export class RenameSymbolUseCase {
       const { content, document } = resolved;
 
       const symbols = extractSymbols(node.id.value, content);
-      if (hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) {
+      // In definition-already-renamed mode the new-name definition is expected (the author just
+      // typed it), so it is not a conflict; only the lingering old-name references are rewritten.
+      if (!definitionAlreadyRenamed && hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) {
         conflict = true;
       }
 
