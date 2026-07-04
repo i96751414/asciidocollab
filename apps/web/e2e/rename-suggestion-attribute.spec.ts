@@ -42,7 +42,7 @@ test.describe('033 — attribute rename suggestion', () => {
 
     // The suggestion appears once the 2s settle elapses and the project-wide lookup returns.
     const suggestion = page.getByTestId('rename-suggestion');
-    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toBeVisible({ timeout: 20_000 }); // API headroom under parallel gate load
     await expect(suggestion).toContainText('edition');
     await expect(suggestion).toContainText('release');
 
@@ -81,7 +81,7 @@ test.describe('033 — attribute rename suggestion', () => {
     await page.keyboard.type('release');
 
     const suggestion = page.getByTestId('rename-suggestion');
-    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toBeVisible({ timeout: 20_000 }); // API headroom under parallel gate load
     await expect(suggestion).toContainText('edition');
     await expect(suggestion).toContainText('release');
 
@@ -99,7 +99,7 @@ test.describe('033 — attribute rename suggestion', () => {
     await renameDefinitionTo(page, 'release');
 
     const suggestion = page.getByTestId('rename-suggestion');
-    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toBeVisible({ timeout: 20_000 }); // API headroom under parallel gate load
     await expect(suggestion).toHaveAttribute('data-collision', 'true');
     await expect(suggestion).toContainText('already exists');
     await expect(page.getByTestId('rename-suggestion-apply')).toHaveCount(0);

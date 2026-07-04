@@ -38,7 +38,9 @@ test.describe('033 — anchor rename suggestion', () => {
     await renameAnchorTo(page, 'setup');
 
     const suggestion = page.getByTestId('rename-suggestion');
-    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    // The offer appears after the 1s settle plus two project-wide usage lookups; give those API calls
+    // headroom under parallel gate load (they occasionally run several seconds slower than steady state).
+    await expect(suggestion).toBeVisible({ timeout: 20_000 });
     await expect(suggestion).toContainText('install');
     await expect(suggestion).toContainText('setup');
 

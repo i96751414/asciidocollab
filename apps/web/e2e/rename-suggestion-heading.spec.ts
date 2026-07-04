@@ -38,7 +38,7 @@ test.describe('033 — section-heading auto-id rename suggestion', () => {
     await renameHeadingWordTo(page, 'Setup'); // "Install Guide" → "Setup Guide" ⇒ _setup_guide
 
     const suggestion = page.getByTestId('rename-suggestion');
-    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toBeVisible({ timeout: 20_000 }); // API headroom under parallel gate load
     await expect(suggestion).toContainText('_install_guide');
     await expect(suggestion).toContainText('_setup_guide');
 

@@ -15,10 +15,12 @@ export default defineConfig({
   // Playwright default (one worker per CPU core) over-subscribes that server on a many-core machine, so
   // its Yjs sync lags and content-dependent assertions race an empty pre-sync document — surfacing as
   // intermittent failures in the heavy collab+preview specs (preview render, file-restore, outline).
-  // 4 keeps the server comfortably within sync budget while staying reasonably fast. The cap is applied
-  // UNCONDITIONALLY (not only under CI): a bare local `npx playwright test` must not oversubscribe
-  // either. Override with PLAYWRIGHT_WORKERS when you know the run won't contend (e.g. a single spec).
-  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 4,
+  // 3 keeps the collab server within sync budget under gate load — 4 still let the post-navigation
+  // re-sync lag past even the generous per-spec waits (observed as retried "preview render" / restore
+  // flakes) — while staying reasonably fast. The cap is applied UNCONDITIONALLY (not only under CI): a
+  // bare local `npx playwright test` must not oversubscribe either. Override with PLAYWRIGHT_WORKERS
+  // when you know the run won't contend (e.g. a single spec).
+  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 3,
   reporter: [['line']],
   use: {
     baseURL: WEB_URL,
