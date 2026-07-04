@@ -220,7 +220,7 @@ function selectLineRanges(source: string, ranges: ReadonlyArray<readonly [number
 export function assembleIncludes(
   rootPath: string,
   readFile: (path: string) => string | null,
-  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string>; showIncludes?: boolean; withSourceMap?: boolean } = {},
+  options: { maxDepth?: number; maxExpansions?: number; seedAttributes?: ReadonlyMap<string, string>; showIncludes?: boolean; withSourceMap?: boolean; baseOffset?: number } = {},
 ): AssembleResult {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const maxExpansions = options.maxExpansions ?? DEFAULT_MAX_EXPANSIONS;
@@ -539,7 +539,12 @@ export function assembleIncludes(
     return { content: '', unresolved: [{ from: '', target: rootPath, reason: 'not-found' }] };
   }
   const sources = withSM ? sourceMapAccumulator : null;
-  const content = expand(rootPath, [rootPath], 0, 0, undefined, true, sources);
+  // `baseOffset` is the `:leveloffset:` already in effect where the ROOT of this assembly is included in
+  // the wider document — non-zero only when a NON-ROOT file is assembled/previewed on its own (its
+  // include-point offset). Every absolute `:leveloffset:` set/restore the assembler emits around an
+  // include is then computed relative to this base, so it composes with (rather than clobbers) the
+  // inherited offset the caller separately seeds as a document attribute. 0 for a true root document.
+  const content = expand(rootPath, [rootPath], 0, options.baseOffset ?? 0, undefined, true, sources);
   if (!withSM) return { content, unresolved };
   return { content, unresolved, sourceMap: { lineToSource: sourceMapAccumulator } };
 }

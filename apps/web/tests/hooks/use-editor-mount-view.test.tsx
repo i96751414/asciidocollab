@@ -1096,6 +1096,10 @@ function fakeProjectIndex(resolves: boolean): import('@/lib/codemirror/asciidoc-
     inheritedAttributes: () => new Map(),
     effectiveAttributes: () => new Map(),
     inheritedOffset: () => 0,
+    // The heading-level walk (decorations + outline) resolves/reads include targets through the index;
+    // this fake resolves none, so no include is traced (irrelevant to the xref/affordance assertions).
+    resolveInclude: () => null,
+    getContent: () => null,
     pathOf: () => 'chapters/intro.adoc',
     lineOf: () => 7,
   } as unknown as import('@/lib/codemirror/asciidoc-symbol-index').ProjectSymbolIndex;

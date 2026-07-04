@@ -5,6 +5,8 @@ import { EditorState } from '@codemirror/state';
 import { LRLanguage, LanguageSupport } from '@codemirror/language';
 import { outlineField, outlineResolvedScopeFacet } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
+import { outlineIncludeContextFacet } from '@/lib/codemirror/asciidoc-heading-levels';
+import type { IncludeResolutionContext } from '@/lib/codemirror/asciidoc-effective-levels';
 import {
   inheritedHeadingOffsetFacet,
   refreshHeadingLevelsEffect,
@@ -184,6 +186,57 @@ describe('asciidoc-outline StateField', () => {
       expect.objectContaining({ title: 'Section Foo', level: 1 }),
       expect.objectContaining({ title: 'Section 2', level: 3 }),
     ]);
+  });
+
+  test('traces an include:: — an included file\'s persisting :leveloffset: shifts later outline levels', () => {
+    // Regression: previously the outline called computeHeadingLevels WITHOUT an include context, so an
+    // offset introduced by an included file was invisible in the outline while the styled headings
+    // (which DO trace includes) shifted — the two disagreed. With the include-context facet wired, the
+    // outline matches: main includes shifter (which sets :leveloffset: +2, persisting), so `== After`
+    // renders at effective level 3 (<h4>) — exactly what the heading decorations and the preview show.
+    const files: Record<string, string> = {
+      'main.adoc': 'include::shifter.adoc[]\n\n== After\n',
+      'shifter.adoc': ':leveloffset: +2\n',
+    };
+    const context: IncludeResolutionContext = {
+      fileId: 'main.adoc',
+      getContent: (id) => files[id] ?? null,
+      resolveInclude: (_from, target) => (files[target] === undefined ? null : target),
+      seedAttributes: new Map(),
+    };
+    const state = EditorState.create({
+      doc: files['main.adoc'],
+      extensions: [outlineField, outlineIncludeContextFacet.of(() => context)],
+    });
+    expect(state.field(outlineField)).toEqual([expect.objectContaining({ title: 'After', level: 3 })]);
+  });
+
+  test('a throwing include accessor degrades gracefully instead of crashing the editor mount', () => {
+    // extractHeadings runs in a StateField whose throw is FATAL (breaks EditorState.create / the mount),
+    // unlike the fault-isolated decoration ViewPlugin. A misbehaving index accessor must therefore not
+    // propagate: the outline falls back to offset-only levels (no include tracing) and still renders.
+    const throwing: IncludeResolutionContext = {
+      fileId: 'main.adoc',
+      getContent: () => { throw new Error('boom'); },
+      resolveInclude: () => { throw new Error('boom'); },
+      seedAttributes: new Map(),
+    };
+    let state: EditorState | undefined;
+    expect(() => {
+      state = EditorState.create({
+        doc: 'include::child.adoc[]\n\n== After\n',
+        extensions: [outlineField, outlineIncludeContextFacet.of(() => throwing)],
+      });
+    }).not.toThrow();
+    // Offset-only fallback: the include is not traced, so == After stays at level 1, outline still built.
+    expect(state!.field(outlineField)).toEqual([expect.objectContaining({ title: 'After', level: 1 })]);
+  });
+
+  test('without an include context the outline does not trace includes (single-file default unchanged)', () => {
+    // The facet defaults to `() => null`, so a standalone install ignores include:: directives entirely
+    // — `== After` stays at level 1. This pins the backward-compatible default.
+    const outline = getOutline('include::shifter.adoc[]\n\n== After\n');
+    expect(outline).toEqual([expect.objectContaining({ title: 'After', level: 1 })]);
   });
 
   test('excludes a heading pushed beyond the max level by :leveloffset:', () => {

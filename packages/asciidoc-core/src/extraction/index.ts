@@ -14,12 +14,14 @@
  */
 
 export { realHeadingOffsets, headingToId } from './headings';
+export { LEVELOFFSET_ENTRY_RE, VERBATIM_FENCE_RE } from './grammar';
 export {
   parseIncludeLevelOffset,
   hasIncludeLevelOffsetOption,
   applyLevelOffsetEntry,
   inheritedLevelOffset,
   effectiveLevelOffset,
+  tracePersistedLevelOffset,
 } from './level-offset';
 export { applyLineAttributes } from './document-order';
 export { extractReferences, extractSymbols, resolveReference, definitionSymbols } from './references';

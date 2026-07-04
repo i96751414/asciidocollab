@@ -10,7 +10,7 @@ import type { DocumentTree, IncludeEdge, UnresolvedInclude } from '../types';
 import { substitutePathAttributes } from '../attribute-substitution';
 import { ConditionalRegionStack } from '../conditional-regions';
 import { rangeOf } from './text-ranges';
-import { documentOrderEvents, applyAttributeEvent } from './document-order';
+import { documentOrderEvents, applyAttributeEvent, stripReservedAttributes } from './document-order';
 import { parseIncludeLevelOffset } from './level-offset';
 
 /** The include graph plus, per file, the attributes it inherits from its ancestors. */
@@ -75,8 +75,10 @@ export function buildIncludeGraphWithInheritance(
     if (visited.has(fileId)) return;
     visited.add(fileId);
     nodes.push(fileId);
-    // Snapshot what this file inherits from its ancestors, before its own definitions apply.
-    inheritedAttributes.set(fileId, new Map(attributes));
+    // Snapshot what this file inherits from its ancestors, before its own definitions apply. The
+    // running `attributes` map keeps `leveloffset` for conditional gating, but the RETURNED snapshot is
+    // a value map for consumers, so the reserved offset is stripped from it.
+    inheritedAttributes.set(fileId, stripReservedAttributes(new Map(attributes)));
 
     const content = readContent(fileId);
     if (content === null) return;

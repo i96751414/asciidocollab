@@ -95,6 +95,30 @@ describe('assembleIncludes — sandbox-gated include assembly (Constitution IX)'
     expect(restoreIndex).toBeGreaterThan(sectionIndex);
   });
 
+  test('a non-zero baseOffset composes with an option include (absolute set/restore include the base)', () => {
+    // When the assembled document is a NON-ROOT file previewed on its own, its content is already in
+    // scope at an inherited include-point offset (baseOffset). The absolute `:leveloffset:` set/restore
+    // lines the assembler emits around an option include must be computed relative to that base — so a
+    // `leveloffset=+1` include inside a file at base 1 sets `:leveloffset: 2` and restores `:leveloffset:
+    // 1`, NOT 1 and 0. Otherwise the restore/set clobbers the inherited base for content after the
+    // include (ground truth S2: Top=h3, G=h4, Bottom=h3).
+    const files = {
+      'child.adoc': '== Top\n\ninclude::grand.adoc[leveloffset=+1]\n\n== Bottom\n',
+      'grand.adoc': '== G\n',
+    };
+    const { content } = assembleIncludes('child.adoc', reader(files), { baseOffset: 1 });
+    expect(content).toContain(':leveloffset: 2'); // base 1 + option 1
+    expect(content).toContain(':leveloffset: 1'); // restore to base 1 (not 0)
+    expect(content).not.toContain(':leveloffset: 0'); // must NOT reset below the inherited base
+    const setIndex = content.indexOf(':leveloffset: 2');
+    const gIndex = content.indexOf('== G');
+    const restoreIndex = content.indexOf(':leveloffset: 1');
+    const bottomIndex = content.indexOf('== Bottom');
+    expect(gIndex).toBeGreaterThan(setIndex);
+    expect(restoreIndex).toBeGreaterThan(gIndex);
+    expect(bottomIndex).toBeGreaterThan(restoreIndex);
+  });
+
   test('attribute-form :leveloffset: in a child persists into the parent and sibling includes', () => {
     // Asciidoctor semantics: `:leveloffset: +2` SET INSIDE an included file (attribute form) persists
     // after the include ends — it is NOT scoped to the include. Only the `leveloffset=` OPTION on the
