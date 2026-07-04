@@ -3,7 +3,10 @@ import type { EditorState, Transaction } from '@codemirror/state';
 import {
   computeHeadingLevels,
   inheritedHeadingOffsetFacet,
+  outlineIncludeContextFacet,
   refreshHeadingLevelsEffect,
+  type IncludeResolutionContext,
+  type HeadingLevelInfo,
 } from './asciidoc-heading-levels';
 import { ConditionalRegionStack } from '@/lib/asciidoc/conditional-regions';
 import { substitutePathAttributes } from '@/lib/asciidoc/include-path';
@@ -69,6 +72,11 @@ function inheritedOffset(state: EditorState): number {
   return state.facet(inheritedHeadingOffsetFacet)();
 }
 
+/** Reads the open file's include-resolution context from the facet (undefined when none is provided). */
+function includeContext(state: EditorState): IncludeResolutionContext | undefined {
+  return state.facet(outlineIncludeContextFacet)() ?? undefined;
+}
+
 /** Reads the open file's resolved cross-document attribute scope from the facet (empty if unset). */
 function resolvedScope(state: EditorState): ReadonlyMap<string, string> {
   return state.facet(outlineResolvedScopeFacet)();
@@ -113,7 +121,19 @@ function extractHeadings(state: EditorState): SectionOutlineEntry[] {
   const scope = resolvedScope(state);
   const inactiveLines = computeInactiveLines(documentText, scope);
 
-  for (const info of computeHeadingLevels(documentText, inheritedOffset(state))) {
+  // This runs inside a StateField, whose `create`/`update` throwing is FATAL — it would break the whole
+  // editor mount (unlike the sibling heading-decoration ViewPlugin, which CM6 fault-isolates). Tracing
+  // includes here does cross-file I/O through the project index, so if any index accessor throws, degrade
+  // to offset-only levels (no include tracing) rather than take the editor down. `computeHeadingLevels`
+  // without a context does no I/O and cannot fail this way, so the fallback is safe.
+  let headingLevels: readonly HeadingLevelInfo[];
+  try {
+    headingLevels = computeHeadingLevels(documentText, inheritedOffset(state), includeContext(state));
+  } catch {
+    headingLevels = computeHeadingLevels(documentText, inheritedOffset(state));
+  }
+
+  for (const info of headingLevels) {
     // beyondMax ⇒ not a heading; discrete ⇒ styled but excluded. Level 0 (the document title) IS
     // kept so it anchors the outline tree; only a negative effective level is skipped.
     if (info.beyondMax || info.discrete || info.effectiveLevel < 0) continue;

@@ -7,6 +7,7 @@ import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-
 import { setInheritedAttributesEffect } from '@/lib/codemirror/inherited-attributes-field';
 import { refreshCrossDocumentAttributesEffect } from '@/lib/codemirror/cross-document-attributes';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
+import { RENDER_INTRINSIC_ATTRIBUTES } from '@/lib/asciidoc/render-intrinsics';
 import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
@@ -298,6 +299,14 @@ export function useEditorMount({
             fileId: index.activeFileId,
             getContent: (id) => index.getContent(id),
             resolveInclude: (fromId, target) => index.resolveInclude(fromId, target),
+            // Gating seed for conditional includes: the render intrinsics (e.g. `backend-html5`) plus
+            // the open file's inherited attributes, so an `ifdef`/`ifeval`-guarded include is gated in
+            // the editor exactly as the preview renders it — keeping their effective heading levels in
+            // lockstep (R2). Matches the seed the preview worker/assembler and effectiveLevelOffset use.
+            seedAttributes: new Map<string, string>([
+              ...RENDER_INTRINSIC_ATTRIBUTES,
+              ...inheritedAttributesReference.current,
+            ]),
           };
         },
         collabActive,

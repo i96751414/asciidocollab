@@ -9,7 +9,7 @@
 import type { DocumentOrderEvent, ResolvedAttributeScope } from '../types';
 import { ATTR_REF_RE, ATTR_DEF_VALUE_RE } from './grammar';
 import { verbatimRanges, isInRanges } from './text-ranges';
-import { documentOrderEvents, applyAttributeEvent, applyOwnAttributes, attributeEntryValueRanges } from './document-order';
+import { documentOrderEvents, applyAttributeEvent, applyOwnAttributes, attributeEntryValueRanges, stripReservedAttributes, RESERVED_LEVELOFFSET } from './document-order';
 import { buildIncludeGraphWithInheritance } from './include-graph';
 
 /** Options shared by the project-aware resolvers that walk the include graph from a root file. */
@@ -72,7 +72,7 @@ export function extractAttributeDefinitions(content: string): Array<{ name: stri
  * @returns The file's own attribute map (lowercase name → value); empty when none.
  */
 export function extractOwnAttributes(content: string): ReadonlyMap<string, string> {
-  return applyOwnAttributes(content, new Map());
+  return stripReservedAttributes(applyOwnAttributes(content, new Map()));
 }
 
 /** A `{name}` attribute reference resolved to its value, with the reference's character range. */
@@ -132,6 +132,9 @@ export function resolveAttributeReferences(
       applyAttributeEvent(attributeEvents[nextEvent], attributes);
       nextEvent += 1;
     }
+    // `leveloffset` is retained in the map for gating but its raw string is not a resolvable value —
+    // do not resolve `{leveloffset}` to it (the real offset is owned by level-offset.ts).
+    if (reference.name === RESERVED_LEVELOFFSET) continue;
     const value = attributes.get(reference.name);
     if (value === undefined) continue;
     resolved.push({ from: reference.pos, to: reference.pos + reference.length, value });
@@ -167,6 +170,6 @@ export function resolveAttributeScope(arguments_: ProjectScopeArguments): Resolv
   const content = readContent(fileId);
   const origin = rootFileId === null ? 'standalone' : (fileId === rootFileId ? 'root' : 'inherited');
   const seed = inheritedAttributeSeed(arguments_);
-  const values = content === null ? new Map(seed) : applyOwnAttributes(content, seed);
+  const values = stripReservedAttributes(content === null ? new Map(seed) : applyOwnAttributes(content, seed));
   return { fileId, values, origin };
 }

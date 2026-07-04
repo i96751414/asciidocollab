@@ -9,7 +9,7 @@ import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
-import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
+import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, outlineIncludeContextFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { inheritedAttributesField } from '@/lib/codemirror/inherited-attributes-field';
 import { asciidocCrossDocumentAttributes } from '@/lib/codemirror/cross-document-attributes';
@@ -238,6 +238,11 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // and excludes inactive conditional-branch headings; read lazily so the shared
     // refreshHeadingLevelsEffect re-evaluates it when the scope changes without a document edit.
     outlineResolvedScopeFacet.of(getOutlineResolvedScope),
+    // Give the outline the SAME include-resolution context the heading decorations use, so it traces
+    // `include::` directives and folds an included file's persisting `:leveloffset:` into the levels of
+    // the headings below the include — keeping the outline and the styled headings in lockstep on an
+    // include-induced offset. Falls back to no include tracing when the project index is unavailable.
+    outlineIncludeContextFacet.of(getIncludeContext ?? (() => null)),
     outlineField,
     tableContextField,
     showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),

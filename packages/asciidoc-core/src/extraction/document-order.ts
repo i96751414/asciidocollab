@@ -14,6 +14,27 @@ import { ATTR_ENTRY_LINE_RE, INLINE_SET_RE, INCLUDE_RE, VALUE_CONTINUATION_RE, S
 import { verbatimRanges, isInRanges, type TextSpan } from './text-ranges';
 
 /**
+ * The one attribute whose resolved VALUE is owned exclusively by `level-offset.ts` (it is
+ * position-dependent and cumulative, so the raw last-written string an attribute map holds is
+ * meaningless as an offset). It is kept in the running/gating maps — so `ifdef::leveloffset[]` gates
+ * exactly as real Asciidoctor, where `leveloffset` is an ordinary settable document attribute — but
+ * {@link stripReservedAttributes} removes it at every boundary that hands a map to a VALUE consumer
+ * (attribute scope, inherited attributes, `{ref}` resolution), so nothing can mistake the raw string
+ * for the resolved offset. Lowercase, matching the downcased names {@link documentOrderEvents} emits.
+ */
+export const RESERVED_LEVELOFFSET = 'leveloffset';
+
+/**
+ * Return a copy of `attributes` with the engine-reserved {@link RESERVED_LEVELOFFSET} removed — used
+ * at every boundary that exposes an attribute map as resolved VALUES to a consumer. The offset itself
+ * is resolved through `effectiveLevelOffset`, never read from a map.
+ */
+export function stripReservedAttributes(attributes: Map<string, string>): Map<string, string> {
+  attributes.delete(RESERVED_LEVELOFFSET);
+  return attributes;
+}
+
+/**
  * A {@link DocumentOrderEvent} extended with the conditional REGION boundaries (`region-open` /
  * `region-close`) the include-graph and level-offset walks need to gate includes the same way the
  * assembler does. These are internal to the walk — attribute folding ignores them.
@@ -152,6 +173,11 @@ export function applyAttributeEvent(
   event: Extract<DocumentOrderEvent, { kind: 'attribute' | 'inline-set' }>,
   attributes: Map<string, string>,
 ): void {
+  // `leveloffset` IS retained here (unlike other reserved-value handling): the running map doubles as
+  // the conditional-gating scope, and real Asciidoctor treats `leveloffset` as an ordinary settable
+  // attribute — so `ifdef::leveloffset[]` must see it. Its meaningless raw string is instead removed by
+  // {@link stripReservedAttributes} at every boundary that returns VALUES to a consumer; the offset is
+  // resolved through `effectiveLevelOffset` (reading the event value directly), never from this map.
   if (event.value === null) {
     attributes.delete(event.name);
     return;

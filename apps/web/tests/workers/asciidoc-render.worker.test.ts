@@ -597,6 +597,28 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.leveloffset).toBe('1@');
   });
 
+  // (t5b) REGRESSION: a non-root file that defines its OWN attribute-form `:leveloffset:` must be
+  // seeded with the offset in effect at its INCLUDE POINT (effectiveLevelOffset), NOT its
+  // end-of-document scope value. Here the parent has `:leveloffset: +1` above the include and the
+  // child ends with `:leveloffset: +10`; seeding the end-state +10 as a GLOBAL attribute pushes every
+  // `==` section past h6 and erases all headings (the reported bug). The correct seed is `1@`.
+  it('seeds the include-point leveloffset, not the file end-state, for a child with its own :leveloffset:', () => {
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({
+      requestId: 76,
+      content: '== A\n\n== B\n\n:leveloffset: +10\n',
+      rootFileId: 'main.adoc',
+      openFileId: 'child.adoc',
+      files: {
+        'main.adoc': ':leveloffset: +1\n\ninclude::child.adoc[]\n',
+        'child.adoc': '== A\n\n== B\n\n:leveloffset: +10\n',
+      },
+    });
+    const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
+    expect(options.attributes.leveloffset).toBe('1@');
+  });
+
   // (t6) standalone (rootFileId null) seeds nothing — current behavior preserved
   it('seeds no cross-document scope when rootFileId is null (standalone)', () => {
     mockFindBy.mockReturnValueOnce([]);
@@ -671,6 +693,40 @@ describe('asciidoc-render.worker', () => {
     expect(secondHeading).toBeGreaterThan(firstHeading);
     const between = rendered.slice(firstHeading, secondHeading);
     expect(between).not.toMatch(/:leveloffset: 0/);
+  });
+
+  // (u3) previewing a NON-ROOT child that itself contains an option include: the assembled source's
+  // absolute set/restore lines must compose with the child's include-point offset (seeded globally),
+  // not clobber it. Ground truth (real Asciidoctor S2): Top=h3, G=h4, Bottom=h3 — so the assembler must
+  // emit `:leveloffset: 2` (base 1 + option 1) around G and restore to `:leveloffset: 1` (the base),
+  // never `:leveloffset: 0`, while the global seed remains `1@`.
+  it('composes the assembler offset with the seeded include-point base for a non-root open file', () => {
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({
+      requestId: 82,
+      content: '== Top\n\ninclude::grand.adoc[leveloffset=+1]\n\n== Bottom\n',
+      rootFileId: 'main.adoc',
+      openFileId: 'child.adoc',
+      files: {
+        'main.adoc': '= Main\n\n:leveloffset: +1\n\ninclude::child.adoc[]\n',
+        'child.adoc': '== Top\n\ninclude::grand.adoc[leveloffset=+1]\n\n== Bottom\n',
+        'grand.adoc': '== G\n',
+      },
+    });
+    const rendered = mockLoad.mock.calls[0][0] as string;
+    const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
+    expect(options.attributes.leveloffset).toBe('1@'); // child's include-point offset seeded globally
+    expect(rendered).toContain(':leveloffset: 2'); // base 1 + option 1 around G
+    expect(rendered).toContain(':leveloffset: 1'); // restore to the base, not 0
+    expect(rendered).not.toContain(':leveloffset: 0'); // must not reset below the inherited base
+    const setIndex = rendered.indexOf(':leveloffset: 2');
+    const gIndex = rendered.indexOf('== G');
+    const restoreIndex = rendered.lastIndexOf(':leveloffset: 1');
+    const bottomIndex = rendered.indexOf('== Bottom');
+    expect(gIndex).toBeGreaterThan(setIndex);
+    expect(restoreIndex).toBeGreaterThan(gIndex);
+    expect(bottomIndex).toBeGreaterThan(restoreIndex);
   });
 
   // ── inline {set:} & wrapped attribute values in the assembled source ─

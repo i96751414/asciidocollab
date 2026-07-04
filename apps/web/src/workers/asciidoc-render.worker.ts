@@ -1,7 +1,7 @@
 import Asciidoctor from 'asciidoctor';
 import hljs from 'highlight.js/lib/common';
 import { assembleIncludes } from './assemble-includes';
-import { resolveAttributeScope } from '@asciidocollab/asciidoc-core';
+import { resolveAttributeScope, effectiveLevelOffset } from '@asciidocollab/asciidoc-core';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../lib/asciidoc/render-intrinsics';
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 
@@ -69,9 +69,9 @@ function seedAttributesFromScope(
   rootFileId: string | null | undefined,
   openFileId: string | undefined,
   files: Record<string, string> | undefined,
-): Record<string, string> {
+): { attributes: Record<string, string>; baseOffset: number } {
   if (rootFileId === undefined || rootFileId === null || openFileId === undefined || files === undefined) {
-    return {};
+    return { attributes: {}, baseOffset: 0 };
   }
   const readContent = (path: string): string | null => files[path] ?? null;
   const resolveInclude = (from: string, target: string): string | null => {
@@ -84,14 +84,36 @@ function seedAttributesFromScope(
   const scope = resolveAttributeScope({ rootFileId, fileId: openFileId, readContent, resolveInclude, seedAttributes: RENDER_INTRINSIC_ATTRIBUTES });
   // The root file's own header attributes are parsed by Asciidoctor from the rendered source, so only
   // a genuinely inherited scope needs seeding. Seed nothing for the root (origin 'root') / standalone.
-  if (scope.origin !== 'inherited') return {};
+  if (scope.origin !== 'inherited') return { attributes: {}, baseOffset: 0 };
   const seeded: Record<string, string> = {};
+  // `leveloffset` is NOT part of `scope.values` (it is engine-reserved — stripped at the value
+  // boundary): the resolved scope holds a file's END-of-document attribute state, but `:leveloffset:`
+  // is position-dependent and cumulative, so its end value (e.g. a trailing `:leveloffset: +10`) is
+  // meaningless — and disastrous — as a GLOBAL document attribute (it would shift every section from
+  // the start of the render, pushing them past h6 so no headings render). Seed instead the offset in
+  // effect at the file's INCLUDE POINT, resolved by the single offset authority `effectiveLevelOffset`
+  // — combining include-EDGE `leveloffset=` options AND the attribute-form `:leveloffset:` (relative
+  // `+N`/`-N` OR absolute `N`) an ancestor declares above the include, with the same conditional
+  // gating the assembler uses. The result is an ABSOLUTE integer: the total offset already in effect at
+  // the include point. It is returned as `baseOffset` so the include assembler emits its absolute
+  // `:leveloffset:` set/restore lines RELATIVE to it (composing with — not clobbering — this seed), and
+  // seeded as a global attribute so the open file's OWN top-level sections (which the assembler passes
+  // through unwrapped) render at that inherited depth. The file's own in-document `:leveloffset:`
+  // entries then shift further, relative to this base, in document order. Marked overridable (`@`).
+  const baseOffset = effectiveLevelOffset({
+    rootFileId,
+    fileId: openFileId,
+    readContent,
+    resolveInclude,
+    seedAttributes: RENDER_INTRINSIC_ATTRIBUTES,
+  });
+  if (baseOffset !== 0) seeded.leveloffset = `${baseOffset}${SOFT_DEFAULT_SUFFIX}`;
   // Seed the WHOLE resolved scope with no allow-list filtering, so the full inherited family flows
   // through as native document attributes: `idprefix`/`idseparator` (auto-ID generation),
   // `xrefstyle` (cross-reference text), and the caption/label/signifier family — `table-caption`,
   // `figure-caption`, `example-caption`, admonition `*-caption`, `appendix-caption`, `toc-title`,
   // `chapter-signifier`, `part-signifier`, `section-refsig`, `version-label`, `last-update-label`
-  // — plus `sectnums`/`toc`/`leveloffset` etc. The resolution model already enforces AsciiDoc
+  // — plus `sectnums`/`toc` etc. The resolution model already enforces AsciiDoc
   // unset/empty semantics: an unset attribute (`:name!:`) is deleted from `scope.values` and so is
   // simply never seeded (label removed), while an EMPTY value (`:name:`) is a real entry kept as ''.
   // The `@` soft-default suffix on an empty value yields the literal '@', which Asciidoctor treats
@@ -100,7 +122,7 @@ function seedAttributesFromScope(
   for (const [name, value] of scope.values) {
     seeded[name] = value + SOFT_DEFAULT_SUFFIX;
   }
-  return seeded;
+  return { attributes: seeded, baseOffset };
 }
 
 /** Reverses the minimal HTML escaping Asciidoctor applies inside code blocks. */
@@ -231,6 +253,11 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // output, and `imagesdir` is the asset base the preview host already resolved for the open file (an
     // ancestor's `:imagesdir:` in the inherited scope must not clobber it). Empty seed ⇒ current
     // standalone/root behavior preserved.
+    // The open file's inherited scope, plus the include-point offset (`baseOffset`) that its content is
+    // rendered at when previewed on its own — seeded globally as `:leveloffset:` for the file's own
+    // sections AND passed to the assembler so its absolute `:leveloffset:` set/restore lines compose
+    // with it. 0 / empty for a root or standalone document (current behavior preserved).
+    const { attributes: scopeSeed, baseOffset } = seedAttributesFromScope(rootFileId, openFileId, files);
     const attributes: Record<string, string> = {
       // Enable STEM by default so an author who writes `stem:[…]`/`[stem]` sees rendered math in the
       // preview WITHOUT having to remember the `:stem:` header. The value `'@'` is an empty
@@ -240,7 +267,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
       // → resolved value undefined → `detectMathPresent` stays false). Seeded FIRST so the inherited
       // scope and the in-document header both win over it.
       stem: SOFT_DEFAULT_SUFFIX,
-      ...seedAttributesFromScope(rootFileId, openFileId, files),
+      ...scopeSeed,
       showtitle: '',
       ...(imagesDir ? { imagesdir: imagesDir } : {}),
     };
@@ -266,6 +293,7 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
         ? assembleIncludes(openFilePath, readFile, {
             showIncludes,
             seedAttributes: buildAssemblerSeed(attributes),
+            baseOffset,
           }).content
         : content;
     const asciidocDocument = proc.load(source, {

@@ -13,7 +13,15 @@
  * The domain owns the separate, server-side structural rules it needs for refactoring.
  */
 
-import { hasIncludeLevelOffsetOption } from '@asciidocollab/asciidoc-core';
+import {
+  hasIncludeLevelOffsetOption,
+  parseIncludeLevelOffset,
+  applyLevelOffsetEntry,
+  applyLineAttributes,
+  tracePersistedLevelOffset,
+  LEVELOFFSET_ENTRY_RE,
+  VERBATIM_FENCE_RE,
+} from '@asciidocollab/asciidoc-core';
 import { INCLUDE_LINE_RE, ConditionalRegionStack } from '../asciidoc/conditional-regions';
 
 /** AsciiDoc section levels run 0 (`=`, doc title) … 5 (`======`). */
@@ -55,9 +63,6 @@ export type LevelOffsetOp =
     };
 
 const HEADING_RE = /^(={1,6})\s+\S/;
-// Asciidoctor unsets an attribute with either the prefix form (`:!leveloffset:`) or the suffix form
-// (`:leveloffset!:`); group 1 = prefix `!`, group 2 = suffix `!`, group 3 = the value.
-const LEVELOFFSET_RE = /^:(!?)leveloffset(!?):\s*(.*?)\s*$/;
 // A delimiter line opens/closes a delimited block whose body is not scanned for headings
 // (mirrors the grammar — Heading nodes never appear inside block bodies).
 const DELIMITER_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,}|={4,}|\*{4,}|_{4,}|--|\|===|,===|:===)$/;
@@ -90,9 +95,14 @@ export function isBoundaryBlockConstruct(trimmedLine: string): boolean {
   );
 }
 
-/** Parse a `:leveloffset:` attribute value into an operation, or `null` if not a leveloffset entry. */
+/**
+ * Parse a `:leveloffset:` attribute value into an operation, or `null` if not a leveloffset entry.
+ * Detection uses the SHARED grammar regex ({@link LEVELOFFSET_ENTRY_RE}) — the same one
+ * `applyLevelOffsetEntry` applies with — so the editor's "is this a leveloffset line" decision can
+ * never drift from the shared offset authority. Group 1 = prefix `!`, 2 = suffix `!`, 3 = the value.
+ */
 export function parseLevelOffset(line: string): LevelOffsetOp | null {
-  const match = LEVELOFFSET_RE.exec(line);
+  const match = LEVELOFFSET_ENTRY_RE.exec(line);
   if (!match) return null;
   const bang = match[1] === '!' || match[2] === '!';
   const raw = match[3];
@@ -103,20 +113,6 @@ export function parseLevelOffset(line: string): LevelOffsetOp | null {
   }
   const value = Number.parseInt(raw, 10);
   return Number.isNaN(value) ? { kind: 'unset' } : { kind: 'set', value };
-}
-
-function applyOffset(current: number, op: LevelOffsetOp, base: number): number {
-  switch (op.kind) {
-    case 'set': {
-      return op.value;
-    }
-    case 'relative': {
-      return current + op.delta;
-    }
-    case 'unset': {
-      return base;
-    }
-  }
 }
 
 /**
@@ -142,59 +138,14 @@ export interface IncludeResolutionContext {
    * @returns The resolved file ID, or null when the target cannot be resolved.
    */
   resolveInclude: (fromFileId: string, target: string) => string | null;
-}
-
-/**
- * Walk `fileText` (the content of file `fileId`) and return the final `:leveloffset:` value
- * after all content has been processed, starting from `baseOffset`. Recursively processes
- * nested includes (up to depth 64), respects the cycle guard (`visited`), and applies the
- * same two-form scoping rule as the include assembler:
- * - `leveloffset=` OPTION: scoped, does not affect the returned offset.
- * - attribute-form `:leveloffset:` inside the file: persists, returned in the final offset.
- *
- * @param fileText - The raw text content of the file to walk.
- * @param fileId - The file ID of the file being walked (for include resolution).
- * @param baseOffset - The offset inherited at the point this file is included.
- * @param context - The include resolution context for following include chains.
- * @param visited - Set of file IDs already visited in this walk (cycle guard).
- * @param depth - Current recursion depth (capped at 64).
- */
-const EMPTY_ATTRS = new Map<string, string>();
-
-function traceFinalOffset(
-  fileText: string,
-  fileId: string,
-  baseOffset: number,
-  context: IncludeResolutionContext,
-  visited: Set<string>,
-  depth: number,
-): number {
-  if (depth > 64 || visited.has(fileId)) return baseOffset;
-  visited.add(fileId);
-  let offset = baseOffset;
-  const conditionals = new ConditionalRegionStack();
-  for (const line of fileText.split('\n')) {
-    if (conditionals.applyLine(line, EMPTY_ATTRS) !== null) continue;
-    if (!conditionals.isActive()) continue;
-    const op = parseLevelOffset(line);
-    if (op) {
-      offset = applyOffset(offset, op, baseOffset);
-      continue;
-    }
-    const includeMatch = INCLUDE_LINE_RE.exec(line);
-    if (includeMatch) {
-      const attributeList = includeMatch[2] ?? '';
-      if (hasIncludeLevelOffsetOption(attributeList)) continue; // option form is scoped
-      const childId = context.resolveInclude(fileId, includeMatch[1].trim());
-      if (childId) {
-        const childContent = context.getContent(childId);
-        if (childContent) {
-          offset = traceFinalOffset(childContent, childId, offset, context, visited, depth + 1);
-        }
-      }
-    }
-  }
-  return offset;
+  /**
+   * Attribute state for conditional GATING of includes: the render intrinsics plus the open file's
+   * inherited attributes (what is in scope but not written in the open file's own source). Seeding it
+   * makes the editor gate an `ifdef`/`ifeval`-wrapped include exactly as the preview does, so their
+   * effective heading levels never diverge (R2). The walk overlays the open file's own document-order
+   * attribute entries on top. `leveloffset` is engine-reserved and never read from here. Default ∅.
+   */
+  seedAttributes?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -223,74 +174,156 @@ export function computeHeadingLevels(
   const lines = documentText.split('\n');
   let offset = inheritedOffset;
   let cursor = 0; // document offset of the current line start
-  let openDelimiter: string | null = null;
+  // Two independent block states mirror the shared engine's `verbatimRanges` model. A VERBATIM fence
+  // (listing/literal/passthrough/comment — {@link VERBATIM_FENCE_RE}) makes its body literal text and is
+  // recognised ANYWHERE, even nested inside a structural block, so a code sample inside an example block
+  // is not mistaken for real directives. A STRUCTURAL block (example/open/sidebar/quote/table) suppresses
+  // only HEADING recognition — the preprocessor still folds attribute entries, evaluates conditionals,
+  // and expands includes inside it (a `:leveloffset:` set inside persists after the block), matching the
+  // preview render. `openVerbatim`/`openStructural` hold the open delimiter line (closed by an identical
+  // line); a verbatim fence takes precedence, and the structural state is remembered across a nested
+  // verbatim region.
+  let openVerbatim: string | null = null;
+  let openStructural: string | null = null;
   let pendingDiscrete = false;
   let inParagraph = false; // inside an open paragraph that absorbs following lines until a blank
-  // Shared across all top-level traceFinalOffset calls so a file reachable via multiple sibling
-  // includes (diamond graph) is only traced once (cycle guard shared, not copied per call).
-  const includeVisited = includeContext ? new Set([includeContext.fileId]) : new Set<string>();
-  // Gates traceFinalOffset calls: conditionals are preprocessor-level so we track them globally
-  // (even inside delimited blocks). An empty attribute map makes ifdef::flag[] → inactive, which is
-  // conservative: we may miss leveloffset from genuinely-active ifdef blocks, but we never apply
-  // offset from inactive ones. Only used when includeContext is provided.
-  const tracingConditionals = includeContext ? new ConditionalRegionStack() : null;
+  // The include PATH cycle guard (seeded with the open file) and the global fan-out budget are SHARED
+  // across every top-level tracePersistedLevelOffset call so an attribute an earlier include set gates a
+  // later sibling, a transitive self-include is blocked, and total work stays bounded — while a file
+  // re-reached along a different sibling/diamond path is still expanded AGAIN (per occurrence, as the
+  // preview assembler does), so a persisting `:leveloffset:` accumulates once per include (matching
+  // Asciidoctor) instead of being deduped to a single contribution.
+  const includeStack = includeContext ? new Set([includeContext.fileId]) : new Set<string>();
+  const includeBudget = { expansions: 0 };
+  // Attribute/conditional gating state is only needed to resolve include-induced offset changes, so it
+  // is maintained ONLY when the file actually contains an `include::` directive — a file with none has
+  // no consumer for it, and skipping the per-line work keeps the common (include-free) case cheap on
+  // the decoration hot path. Live document-order attribute state for conditional gating — seeded with
+  // the render intrinsics + the open file's inherited attributes (so an intrinsic-/inherited-guarded
+  // include gates exactly as the preview renders it, R2) and updated with the open file's own entries
+  // as the walk descends. The SAME map is threaded into tracePersistedLevelOffset so an attribute an
+  // included file sets gates a later sibling include. `leveloffset` is retained here for gating (as in
+  // the shared engine) but the offset is resolved separately, never read from this map.
+  const trackGating = includeContext !== undefined && documentText.includes('include::');
+  const attributes: Map<string, string> | null = trackGating ? new Map(includeContext!.seedAttributes) : null;
+  // Gates include expansion, evaluated against the real `attributes` so gating matches the preview.
+  const tracingConditionals = trackGating ? new ConditionalRegionStack() : null;
 
   for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
 
-    // Preprocessor: always track conditional regions so the include gate below is accurate.
-    tracingConditionals?.applyLine(line, EMPTY_ATTRS);
-
-    if (openDelimiter !== null) {
-      if (trimmed === openDelimiter) openDelimiter = null;
+    // Verbatim block takes precedence: while a verbatim fence is open, EVERY line is literal text (no
+    // heading, attribute, conditional, or include processing) until the matching close fence — even
+    // `--`/`====` structural delimiters inside it are just sample text. Mirrors the shared engine, whose
+    // `verbatimRanges` excludes these ranges wholesale.
+    if (openVerbatim !== null) {
+      if (trimmed === openVerbatim) openVerbatim = null;
       cursor += line.length + 1;
       continue;
     }
 
+    // Close the enclosing structural block on its matching delimiter.
+    if (openStructural !== null && trimmed === openStructural) {
+      openStructural = null;
+      cursor += line.length + 1;
+      continue;
+    }
+    const inStructuralBody = openStructural !== null;
+
+    // Preprocessor: track conditional regions against the real attribute state, then fold this line's
+    // own attribute effects in document order so a later include/conditional sees them. Placed AFTER
+    // the verbatim guard and skipping `//` comment lines so directives inside a verbatim block
+    // (listing/literal/comment) are treated as literal text — matching the preview's `documentOrderEvents`
+    // walk, which excludes verbatim ranges. It DOES run inside a structural block (example/open/sidebar/
+    // quote/table), which the preview also processes. Order matters: an `ifdef::x[]` opener is evaluated
+    // against attributes established ABOVE it, before this line's own definition (a line is never both).
+    if (attributes && !trimmed.startsWith('//')) {
+      tracingConditionals?.applyLine(line, attributes);
+      applyLineAttributes(line, attributes);
+    }
+
     if (trimmed === '') {
-      inParagraph = false;
+      // A blank line ends a top-level paragraph; inside a structural block it only separates block
+      // content and must not touch the document-level paragraph state.
+      if (!inStructuralBody) inParagraph = false;
       cursor += line.length + 1;
       continue;
     }
 
     // Inside a paragraph every non-blank line is absorbed (even one shaped like a heading or a
     // delimiter), so it can start no block construct — exactly as the grammar / Asciidoctor parse it.
-    if (inParagraph) {
+    // Paragraph absorption is a top-level flow rule; it does not apply inside a structural block body.
+    if (!inStructuralBody && inParagraph) {
       cursor += line.length + 1;
       continue;
     }
 
+    // Open a delimited block. A VERBATIM fence opens a literal region even nested inside a structural
+    // block (its body is skipped by the guard above). A STRUCTURAL delimiter opens a heading-suppressing
+    // block, tracked one level deep (the walk does not model structural nesting); a structural delimiter
+    // already inside a structural body falls through as block content.
     if (DELIMITER_RE.test(trimmed)) {
-      openDelimiter = trimmed;
-      pendingDiscrete = false;
+      if (VERBATIM_FENCE_RE.test(trimmed)) {
+        openVerbatim = trimmed;
+        pendingDiscrete = false;
+        cursor += line.length + 1;
+        continue;
+      }
+      if (!inStructuralBody) {
+        openStructural = trimmed;
+        pendingDiscrete = false;
+        cursor += line.length + 1;
+        continue;
+      }
+    }
+
+    // Within-file attribute-form `:leveloffset:` shifts the running offset via the shared primitive
+    // (relative `+N`/`-N` cumulative, absolute `N`, unset back to the inherited base) — the single
+    // offset authority, so the editor and the preview resolve it identically. `parseLevelOffset` only
+    // detects a `:leveloffset:` line here; the value application flows through `applyLevelOffsetEntry`.
+    // Runs inside a structural block too (a `:leveloffset:` set there persists after the block).
+    if (parseLevelOffset(line) !== null) {
+      offset = applyLevelOffsetEntry(line, offset, inheritedOffset);
       cursor += line.length + 1;
       continue;
     }
 
-    const offsetOp = parseLevelOffset(line);
-    if (offsetOp) {
-      offset = applyOffset(offset, offsetOp, inheritedOffset);
-      cursor += line.length + 1;
-      continue;
-    }
-
-    if (includeContext) {
+    if (includeContext && attributes) {
       const includeMatch = INCLUDE_LINE_RE.exec(line);
       if (includeMatch) {
         const attributeList = includeMatch[2] ?? '';
-        if (!hasIncludeLevelOffsetOption(attributeList) && tracingConditionals?.isActive() !== false) {
+        if (tracingConditionals?.isActive() !== false) {
           const childId = includeContext.resolveInclude(includeContext.fileId, includeMatch[1].trim());
           if (childId) {
-            const childContent = includeContext.getContent(childId);
-            if (childContent) {
-              offset = traceFinalOffset(childContent, childId, offset, includeContext, includeVisited, 1);
-            }
+            // Walk the child subtree exactly as the shared engine does: fold its attribute definitions
+            // into the gating map (so a later conditional include gates identically to the preview) and
+            // trace its final offset from the include point (this include's `leveloffset=` OPTION plus
+            // the current offset). The OPTION form scopes only the OFFSET (restored after the include),
+            // so its returned offset is discarded; the attribute form persists, so it is adopted. Either
+            // way the child's attributes persist (the option scopes the offset, not other attributes).
+            const childFinalOffset = tracePersistedLevelOffset({
+              fileId: childId,
+              baseOffset: offset + parseIncludeLevelOffset(attributeList),
+              readContent: includeContext.getContent,
+              resolveInclude: includeContext.resolveInclude,
+              attributes,
+              stack: includeStack,
+              budget: includeBudget,
+            });
+            if (!hasIncludeLevelOffsetOption(attributeList)) offset = childFinalOffset;
           }
         }
         pendingDiscrete = false;
         cursor += line.length + 1;
         continue;
       }
+    }
+
+    // Heading, discrete markers, and paragraph opening are top-level section structure — a structural
+    // block body contains block content, never a document section, so none of it is recognised there.
+    if (inStructuralBody) {
+      cursor += line.length + 1;
+      continue;
     }
 
     if (trimmed === '[discrete]' || trimmed === '[float]') {

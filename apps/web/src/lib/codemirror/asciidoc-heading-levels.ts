@@ -40,6 +40,22 @@ export const inheritedHeadingOffsetFacet = Facet.define<() => number, () => numb
   combine: (values) => (values.length > 0 ? values[0] : () => 0),
 });
 
+/**
+ * Facet carrying an accessor for the open file's include-resolution context (or null when the project
+ * index is unavailable). The outline StateField reads it to trace `include::` directives — folding an
+ * included file's persisting `:leveloffset:` into the effective levels of the headings BELOW the include
+ * — exactly as this module's decoration ViewPlugin does (it receives the same context directly). Defined
+ * here, alongside {@link inheritedHeadingOffsetFacet} and next to `IncludeResolutionContext`, so both the
+ * outline and `editor-extensions` import it from this lower-level module (avoiding the module-init cycle
+ * that a higher-level definition site hits). Defaults to `() => null` (no include tracing).
+ */
+export const outlineIncludeContextFacet = Facet.define<
+  () => IncludeResolutionContext | null,
+  () => IncludeResolutionContext | null
+>({
+  combine: (values) => (values.length > 0 ? values[0] : () => null),
+});
+
 /** Line-decoration class flagging a section marker whose effective level exceeds the max. */
 const SUPPRESSED_HEADING_CLASS = 'cm-ad-suppressed-heading';
 

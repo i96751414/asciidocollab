@@ -20,6 +20,8 @@ import path from 'node:path';
 
 /** An in-memory `readContent` fake: maps a file id to its content, or null when absent. */
 const read = (files: Record<string, string>) => (id: string) => files[id] ?? null;
+/** Resolves every include target to its own id (content availability is decided separately by the reader). */
+const resolveToSelfId = (_from: string, target: string): string | null => target;
 
 describe('extractReferences', () => {
   test('extracts xref, include, image, and attributeRef', () => {
@@ -982,5 +984,183 @@ describe('effectiveLevelOffset (attribute-form :leveloffset: + include offsets, 
     expect(
       effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'child.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
     ).toBe(0);
+  });
+
+  test('a persisting :leveloffset: from a file included via TWO sibling paths accumulates per occurrence', () => {
+    // Ground truth (real Asciidoctor): main→a→shared AND main→b→shared, where shared sets a persisting
+    // attribute-form `:leveloffset: +1`. Asciidoctor EXPANDS each include occurrence, so the shift is
+    // applied twice (once per path) — it does NOT dedup a diamond. A later sibling therefore inherits
+    // +2, not +1. The offset walk mirrors the assembler's per-occurrence expansion (path-stack guard,
+    // not a permanent visited set), so it agrees with the render.
+    const files = {
+      'main.adoc': 'include::a.adoc[]\ninclude::b.adoc[]\ninclude::tail.adoc[]\n',
+      'a.adoc': 'include::shared.adoc[]\n',
+      'b.adoc': 'include::shared.adoc[]\n',
+      'shared.adoc': ':leveloffset: +1\n',
+      'tail.adoc': '== Tail\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'tail.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(2);
+  });
+
+  test('a long run of NOT-FOUND includes does not deplete the budget and gate off a later valid include', () => {
+    // Parity with the assembler, which charges its expansion budget only for a resolved+found include
+    // (cycle/depth/not-found rejections precede `expansions += 1`). Here MANY includes RESOLVE to an id
+    // but have no content (not-found); they must NOT consume the budget, or the trailing valid chapter
+    // would be gated off (offset 0) while the preview still expands it — an R2 break. `ghostN` resolve
+    // but read null; `chapter.adoc` is the real target at `leveloffset=+2`.
+    const ghosts = Array.from({ length: 10_001 }, (_unused, index) => `include::ghost${index}.adoc[]`).join('\n');
+    const files: Record<string, string> = {
+      'main.adoc': `${ghosts}\ninclude::chapter.adoc[leveloffset=+2]\n`,
+      'chapter.adoc': '== Chapter\n',
+    };
+    // Every target resolves to its own id; only chapter.adoc has content (ghosts are not-found).
+    const readNullable = (id: string): string | null => files[id] ?? null;
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'chapter.adoc', readContent: readNullable, resolveInclude: resolveToSelfId }),
+    ).toBe(2);
+  });
+
+  test('a doubling include fan-out terminates within the expansion budget (no hang)', () => {
+    // Each level includes the next level TWICE, so without a global budget the walk is 2^depth — an
+    // attacker-authored graph that would pin the worker. The expansion budget (mirroring the assembler's
+    // `maxExpansions`) bounds total work, so the walk returns a finite value promptly instead of hanging.
+    const files: Record<string, string> = { 'leaf.adoc': '== Leaf\n' };
+    for (let level = 0; level < 40; level += 1) {
+      const next = level === 39 ? 'leaf.adoc' : `l${level + 1}.adoc`;
+      files[`l${level}.adoc`] = `include::${next}[]\ninclude::${next}[]\n`;
+    }
+    const result = effectiveLevelOffset({ rootFileId: 'l0.adoc', fileId: 'leaf.adoc', readContent: read(files), resolveInclude: resolveInclude(files) });
+    expect(Number.isFinite(result)).toBe(true);
+  });
+});
+
+describe('leveloffset is engine-reserved (never leaks into an attribute map)', () => {
+  // `:leveloffset:` is position-dependent and cumulative — the raw last-written string held in an
+  // attribute map is meaningless as a resolved offset. It must be resolved ONLY through
+  // `effectiveLevelOffset`, so the shared engine strips it from every accumulated attribute map.
+  test("resolveAttributeScope().values omits a file's own :leveloffset:", () => {
+    const files = { 'main.adoc': ':leveloffset: +1\n\ninclude::child.adoc[]\n', 'child.adoc': '== A\n:leveloffset: +10\n' };
+    const scope = resolveAttributeScope({
+      rootFileId: 'main.adoc',
+      fileId: 'child.adoc',
+      readContent: read(files),
+      resolveInclude: resolveInclude(files),
+    });
+    expect(scope.values.has('leveloffset')).toBe(false);
+  });
+
+  test('buildIncludeGraphWithInheritance().inheritedAttributes omits leveloffset', () => {
+    const files = { 'main.adoc': ':leveloffset: +1\n\ninclude::child.adoc[]\n', 'child.adoc': '== A\n' };
+    const { inheritedAttributes } = buildIncludeGraphWithInheritance('main.adoc', read(files), resolveInclude(files));
+    expect(inheritedAttributes.get('child.adoc')?.has('leveloffset')).toBe(false);
+  });
+
+  test('extractOwnAttributes omits leveloffset', () => {
+    expect(extractOwnAttributes(':leveloffset: +3\n:author: X\n').has('leveloffset')).toBe(false);
+    expect(extractOwnAttributes(':leveloffset: +3\n:author: X\n').get('author')).toBe('X');
+  });
+
+  // leveloffset is stripped from the VALUE maps consumers read, but it is still a real Asciidoctor
+  // document attribute for CONDITIONAL gating: `ifdef::leveloffset[]` is active when it is set. Ground
+  // truth (real Asciidoctor S4): with `:leveloffset: +1` set, an `ifdef::leveloffset[]`-guarded
+  // `include::child[leveloffset=+2]` IS expanded, so the child inherits 1 + 2 = 3.
+  test('ifdef::leveloffset[] gating sees leveloffset when it is set (matches Asciidoctor)', () => {
+    const files = {
+      'main.adoc': ':leveloffset: +1\n\nifdef::leveloffset[]\ninclude::child.adoc[leveloffset=+2]\nendif::[]\n',
+      'child.adoc': '== H\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'child.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(3);
+  });
+
+  test('ifndef::leveloffset[] gates an include OFF when leveloffset is set', () => {
+    const files = {
+      'main.adoc': ':leveloffset: +1\n\nifndef::leveloffset[]\ninclude::child.adoc[leveloffset=+2]\nendif::[]\n',
+      'child.adoc': '== H\n',
+    };
+    // leveloffset IS set, so ifndef is inactive → the include is gated off → child unreachable → 0.
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'child.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(0);
+  });
+
+  // The core invariant: the offset AUTHORITY (effectiveLevelOffset) is the include-point value, even
+  // when the child's own trailing entry would poison a naive attribute-map read. This is the exact
+  // repro (parent :leveloffset: +1 above the include; child ends with :leveloffset: +10).
+  test('effectiveLevelOffset is the include-point offset, not the file end-state', () => {
+    const files = {
+      'main.adoc': ':leveloffset: +1\n\ninclude::child.adoc[]\n',
+      'child.adoc': '== A\n\n== B\n\n:leveloffset: +10\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'child.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(1);
+  });
+
+  // R1: relatives accumulate (would be `+1` last-wins if routed through an attribute map).
+  test('R1 — two successive :leveloffset: +1 entries accumulate to +2 (persisted into a sibling)', () => {
+    const files = {
+      'main.adoc': 'include::a.adoc[]\n\ninclude::b.adoc[]\n',
+      'a.adoc': ':leveloffset: +1\n:leveloffset: +1\n',
+      'b.adoc': '== B\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'b.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(2);
+  });
+
+  test('a pathologically deep include chain terminates (depth-capped, no stack overflow)', () => {
+    // A long linear chain of DISTINCT files (the cycle guard does not bound recursion depth). The walk
+    // must stop at the same nesting the include assembler caps at (64), so a file deeper than the cap is
+    // treated as not expanded (offset 0) and the recursion cannot overflow the stack.
+    const files: Record<string, string> = { 'c0.adoc': 'include::c1.adoc[leveloffset=+1]\n' };
+    for (let index = 1; index < 200; index += 1) {
+      files[`c${index}.adoc`] = `include::c${index + 1}.adoc[leveloffset=+1]\n`;
+    }
+    files['c200.adoc'] = '== Deep\n';
+    // Reachable within the cap: c40 is at depth 40 → offset 40.
+    expect(
+      effectiveLevelOffset({ rootFileId: 'c0.adoc', fileId: 'c40.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(40);
+    // Beyond the cap: c200 is never expanded → offset 0, and the call returns without throwing.
+    expect(() =>
+      effectiveLevelOffset({ rootFileId: 'c0.adoc', fileId: 'c200.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).not.toThrow();
+    expect(
+      effectiveLevelOffset({ rootFileId: 'c0.adoc', fileId: 'c200.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(0);
+  });
+
+  test('R1 — :leveloffset: +1 then -1 nets to 0', () => {
+    const files = {
+      'main.adoc': 'include::a.adoc[]\n\ninclude::b.adoc[]\n',
+      'a.adoc': ':leveloffset: +1\n:leveloffset: -1\n',
+      'b.adoc': '== B\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'b.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(0);
+  });
+
+  // `:leveloffset:` may also be an EXACT (absolute) value, not just a relative `+N`/`-N`.
+  test('an absolute :leveloffset: N above the include is inherited as N (not added to the base)', () => {
+    const files = { 'main.adoc': ':leveloffset: +1\n\n:leveloffset: 3\n\ninclude::child.adoc[]\n', 'child.adoc': '== A\n' };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'child.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(3);
+  });
+
+  test('an absolute :leveloffset: overrides a preceding relative inside the same file (persisted)', () => {
+    const files = {
+      'main.adoc': 'include::a.adoc[]\n\ninclude::b.adoc[]\n',
+      'a.adoc': ':leveloffset: +2\n:leveloffset: 1\n',
+      'b.adoc': '== B\n',
+    };
+    expect(
+      effectiveLevelOffset({ rootFileId: 'main.adoc', fileId: 'b.adoc', readContent: read(files), resolveInclude: resolveInclude(files) }),
+    ).toBe(1);
   });
 });
