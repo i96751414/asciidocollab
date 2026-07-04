@@ -60,10 +60,26 @@ export async function openProject(page: Page, projectId: string): Promise<void> 
   await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 }
 
-/** Open a file from the project tree and wait for the editor to mount. */
-export async function openFile(page: Page, fileName: string): Promise<void> {
+/**
+ * Open a file from the project tree and wait for the editor to mount.
+ *
+ * Pass `expectText` to ALSO wait for the collaborative document to sync its
+ * content in. The editor mounts (`.cm-content` becomes visible) before its Yjs
+ * document has synced, so under load a content-dependent assertion — or an
+ * `expandPreview()` call, which silently schedules no render while `content` is
+ * empty — can race the empty pre-sync document. Waiting for known text here
+ * collapses that race and keeps the sync lag out of later timeout budgets.
+ */
+export async function openFile(
+  page: Page,
+  fileName: string,
+  expectText?: string | RegExp,
+): Promise<void> {
   await page.getByTestId(`tree-node-${fileName}`).click();
   await expect(editorContent(page)).toBeVisible({ timeout: 10_000 });
+  if (expectText !== undefined) {
+    await expect(editorContent(page)).toContainText(expectText, { timeout: 15_000 });
+  }
 }
 
 /** Locator for the CodeMirror editable content. */

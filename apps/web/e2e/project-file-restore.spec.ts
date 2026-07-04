@@ -96,7 +96,7 @@ test.describe('Persist & restore file selection', () => {
   // "stuck on Loading… forever" regression (the restored content must actually appear).
   test('restores a typed nested file: reveal, content, cursor line, and preview on return', async ({ page }) => {
     // Headroom for the collaborative Yjs re-sync after navigating back under heavy parallel load.
-    test.setTimeout(75_000);
+    test.setTimeout(90_000);
     const guide = await createTestFolder(page, projectId, null, 'guide');
     const chapters = await createTestFolder(page, projectId, guide, 'chapters');
     await createTestFile(page, projectId, chapters, 'intro.adoc');
@@ -135,8 +135,10 @@ test.describe('Persist & restore file selection', () => {
     // Wait for the collaboration sync to finish before asserting the synced content — under heavy
     // parallel load the post-navigation Yjs sync can lag many seconds.
     await waitCollabSynced(page);
-    // The content is shown — must NOT stay stuck loading.
-    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 20_000 });
+    // The content is shown — must NOT stay stuck loading. The editor stays read-only and empty until
+    // the post-navigation Yjs re-sync lands the document, which under heavy parallel load can lag past
+    // 20s (observed: 44× empty over 20s, editor still contenteditable="false"), so allow real headroom.
+    await expect(editorContent(page)).toContainText('Third line is where the cursor lands.', { timeout: 30_000 });
     // The cursor is back on line 3.
     await expect(page.locator('.asciidoc-editor').getByText(/^Ln 3, /)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.cm-editor .cm-activeLine')).toContainText('Third line is where the cursor lands.');

@@ -89,7 +89,10 @@ test.describe('preview attribute relationships resolve mutually consistently (FR
 
     await openProject(page, projectId);
     // Open the MAIN file so the whole include tree is assembled and resolved together.
-    await openFile(page, 'main.adoc');
+    // Wait for its content to sync before expanding: an empty pre-sync document
+    // schedules no render, so `asciidoc-output` would never mount within
+    // expandPreview's budget under load.
+    await openFile(page, 'main.adoc', 'Manual');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

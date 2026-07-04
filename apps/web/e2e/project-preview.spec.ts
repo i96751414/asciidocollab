@@ -58,9 +58,12 @@ test.describe('AsciiDoc live preview', () => {
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 10_000 });
 
     await page.getByTestId('tree-node-hello.adoc').click();
-    // The preview renders the collaboratively-synced editor document. Wait for the sync to finish (the
-    // "connecting" banner clears) before expanding, so it never renders an empty pre-sync document.
-    await expect(page.getByTestId('collab-banner-connecting')).toHaveCount(0, { timeout: 30_000 });
+    // The preview renders the collaboratively-synced editor document, so wait for that document to
+    // actually sync IN — the known title appearing in the editor — before expanding. Asserting on the
+    // editor content is a stronger signal than the "connecting" banner clearing, whose absence is racy
+    // right after mount (it can read 0 before the provider has even begun connecting), letting the
+    // preview expand against an empty pre-sync document that schedules no render.
+    await expect(page.locator('.cm-editor .cm-content')).toContainText('Hello World', { timeout: 30_000 });
     await page.getByRole('button', { name: /expand preview/i }).click();
 
     // The rendered output container must appear — this test failed before the worker was

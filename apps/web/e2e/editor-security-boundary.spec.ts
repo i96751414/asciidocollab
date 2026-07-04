@@ -46,7 +46,10 @@ test.describe('editor security boundary (Constitution IX)', () => {
     });
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty
+    // pre-sync document schedules no render, so `asciidoc-output` would never
+    // mount within expandPreview's budget under load.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 
@@ -140,7 +143,10 @@ test.describe('editor security boundary (Constitution IX)', () => {
     await setMainFile(page, projectId, await mainFileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty
+    // pre-sync document schedules no render, so `asciidoc-output` would never
+    // mount within expandPreview's budget under load.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 

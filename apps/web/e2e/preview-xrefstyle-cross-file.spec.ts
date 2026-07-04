@@ -48,7 +48,9 @@ test.describe('US4 cross-references honor xrefstyle across files', () => {
     await setMainFile(page, projectId, await fileId(page, projectId, 'main.adoc'));
 
     await openProject(page, projectId);
-    await openFile(page, 'main.adoc');
+    // Wait for the main file to sync before expanding the preview: an empty pre-sync document
+    // schedules no render, so `asciidoc-output` would never mount within expandPreview's budget.
+    await openFile(page, 'main.adoc', 'Book');
     await expandPreview(page);
     await page.getByTestId('show-includes-toggle').click();
 
