@@ -117,6 +117,11 @@ interface UseEditorMountOptions {
    */
   collabExtension?: Extension;
   /**
+   * The in-editor symbol rename-suggestion extension (feature 033). Built once by the editor with
+   * stable getters, so it never forces a remount; omitted ⇒ no rename suggestions.
+   */
+  renameSuggestionExtension?: Extension;
+  /**
    * Forces the editor to recreate when it changes, such as the Yjs room id on a file switch, so
    * the collab binding rebinds to the new document. Stays undefined on the legacy path.
    */
@@ -150,6 +155,7 @@ export function useEditorMount({
   initialLine,
   revealRequest,
   collabExtension,
+  renameSuggestionExtension,
   remountKey,
 }: UseEditorMountOptions) {
   const collabActive = collabExtension !== undefined;
@@ -296,7 +302,13 @@ export function useEditorMount({
         },
         collabActive,
         collabExtension,
-        hookExtensions: [updateListener, lineClickHandler, fileDropHandler, ctrlClickTooltip],
+        hookExtensions: [
+          updateListener,
+          lineClickHandler,
+          fileDropHandler,
+          ctrlClickTooltip,
+          ...(renameSuggestionExtension ? [renameSuggestionExtension] : []),
+        ],
       }),
     });
 

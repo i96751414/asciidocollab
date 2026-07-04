@@ -1,12 +1,14 @@
 'use client';
 import './editor-themes.css';
 import React from 'react';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import type { CollabAuthRole } from '@asciidocollab/shared';
 import type { ConnectionState } from '@/hooks/use-collab-document';
 import { collabExtensions } from './editor-collab-extensions';
+import { renameSuggestion } from '@/lib/codemirror/rename-suggestion/rename-suggestion-state';
+import { findSymbolUsages, renameSymbol } from '@/lib/api/projects';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { useEditorPreferences } from '@/hooks/use-editor-preferences';
 import { useIncludeCompletions, useImagePaths } from '@/hooks/use-include-completions';
@@ -199,6 +201,24 @@ export function AsciiDocEditor({
   // no collaborative backing is also forced read-only so it can never be edited via legacy autosave.
   const effectiveCanEdit = collab?.role === 'observer' || collabUnavailable ? false : canEdit;
 
+  // In-editor symbol rename-suggestion (feature 033). Built once with ref-based getters so it never
+  // forces a remount; the getters always read the current project/file. Detection only fires while
+  // editing a definition, so read-only viewers never see it.
+  const projectIdReference = useRef(projectId);
+  projectIdReference.current = projectId;
+  const fileNodeIdReference = useRef(fileNodeId);
+  fileNodeIdReference.current = fileNodeId;
+  const renameSuggestionExtension = useMemo(
+    () =>
+      renameSuggestion({
+        getProjectId: () => projectIdReference.current,
+        getFileNodeId: () => fileNodeIdReference.current,
+        findSymbolUsages,
+        renameSymbol,
+      }),
+    [],
+  );
+
   const handleChange = useCallback((value: string) => {
     setDocText(value);
     if (projectId && fileNodeId) save(value);
@@ -241,6 +261,7 @@ export function AsciiDocEditor({
     initialLine,
     getProjectIndex,
     collabExtension,
+    renameSuggestionExtension,
     remountKey: collab?.yjsStateId,
   });
 

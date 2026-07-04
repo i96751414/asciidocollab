@@ -23,3 +23,48 @@
   font-size: var(--editor-font-size, 14px);
   height: 100%;
 }
+
+/* ─── Rename refactor suggestion (feature 033) ───────────────────────────────
+ * All colours come from the shared design tokens (hsl(var(--…))), so the widget
+ * is correct in both light and dark mode without theme-specific overrides. */
+.asciidoc-editor .cm-ad-rename-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.25rem 0;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.06);
+}
+.asciidoc-editor .cm-ad-rename-suggestion[data-collision='true'] {
+  border-color: hsl(var(--destructive));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-msg {
+  flex: 1 1 auto;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn {
+  cursor: pointer;
+  padding: 0.15rem 0.6rem;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.75rem;
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn-ghost {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+}
+.asciidoc-editor .cm-ad-rename-suggestion-btn:hover {
+  filter: brightness(1.05);
+}

@@ -1,0 +1,85 @@
+import { test, expect } from '@playwright/test';
+import { ensureTestUser } from './helpers/test-user';
+import { signIn, createProject, cleanupProject } from './helpers/test-project';
+import type { Page } from '@playwright/test';
+import { createAdocFile, openProject, openFile, getEditorText, editorContent, expandPreview } from './helpers/editor';
+
+/** Select the attribute name in the definition line and replace it, leaving the cursor in it. */
+async function renameDefinitionTo(page: Page, newName: string): Promise<void> {
+  // Double-click selects the whole word `edition`; the first match in DOM order is the definition
+  // on line 1 (the `{edition}` reference is later in the document).
+  await editorContent(page).getByText('edition', { exact: false }).first().dblclick();
+  await page.keyboard.type(newName);
+}
+
+// Feature 033 (US1): renaming an attribute DEFINITION offers a project-wide refactor of every
+// `{name}` reference. The suggestion appears ~2s after the edit settles, applies in one click via
+// the reused rename endpoint, and is undoable in one action. A new name that collides with an
+// existing attribute blocks the apply (FR-022).
+
+test.describe('033 US1 — attribute rename suggestion', () => {
+  test.beforeAll(async () => {
+    await ensureTestUser();
+  });
+
+  let projectId: string;
+
+  test.beforeEach(async ({ page }) => {
+    await signIn(page);
+    projectId = await createProject(page, `Rename Suggestion ${Date.now()}`);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (projectId) await cleanupProject(page, projectId);
+  });
+
+  test('suggests, applies across the file, and undo restores (FR-010/FR-017/FR-020)', async ({ page }) => {
+    await createAdocFile(page, projectId, 'main.adoc', ':edition: 1\n\nSee {edition} for details.\n');
+    await openProject(page, projectId);
+    await openFile(page, 'main.adoc', 'edition');
+
+    await renameDefinitionTo(page, 'release');
+
+    // The suggestion appears once the 2s settle elapses and the project-wide lookup returns.
+    const suggestion = page.getByTestId('rename-suggestion');
+    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toContainText('edition');
+    await expect(suggestion).toContainText('release');
+
+    await page.getByTestId('rename-suggestion-apply').click();
+
+    // The stale `{edition}` reference (unresolved against the renamed `:release:` definition, so it
+    // renders literally) is rewritten to `{release}`, which now resolves to the value `1` — the
+    // editor folds a resolved reference to its value. Its disappearance proves the reference rewrite
+    // (FR-018); the definition keeps the new name (FR-021).
+    await expect.poll(() => getEditorText(page)).not.toContain('{edition}');
+    expect(await getEditorText(page)).toContain(':release: 1');
+    expect(await getEditorText(page)).toContain('See 1 for details.');
+
+    // The preview resolves the renamed reference to the attribute value — zero unresolved refs (SC-006).
+    await expandPreview(page);
+    const output = page.getByTestId('asciidoc-output');
+    await expect(output).toContainText('See 1 for details.', { timeout: 15_000 });
+    await expect(output).not.toContainText('{');
+
+    // Undo reverses the whole rename in one action (FR-020): the definition and reference return to
+    // the original name (the reference again resolves and folds to its value).
+    await page.getByTestId('rename-suggestion-undo').click();
+    await expect.poll(() => getEditorText(page)).toContain(':edition: 1');
+    expect(await getEditorText(page)).not.toContain('{release}');
+  });
+
+  test('blocks apply when the new name collides with an existing attribute (FR-022)', async ({ page }) => {
+    await createAdocFile(page, projectId, 'main.adoc', ':edition: 1\n:release: 2\n\nSee {edition}.\n');
+    await openProject(page, projectId);
+    await openFile(page, 'main.adoc', 'edition');
+
+    await renameDefinitionTo(page, 'release');
+
+    const suggestion = page.getByTestId('rename-suggestion');
+    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toHaveAttribute('data-collision', 'true');
+    await expect(suggestion).toContainText('already exists');
+    await expect(page.getByTestId('rename-suggestion-apply')).toHaveCount(0);
+  });
+});

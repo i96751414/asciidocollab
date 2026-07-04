@@ -214,7 +214,7 @@ export async function findSymbolUsages(
  */
 export async function renameSymbol(
   projectId: string,
-  input: { symbolKind: RenameSymbolKind; oldName: string; newName: string },
+  input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
 ): Promise<RenameSymbolResult> {
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}/symbol-rename`, {
     method: 'POST',

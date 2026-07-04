@@ -1,0 +1,58 @@
+import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { ensureTestUser } from './helpers/test-user';
+import { signIn, createProject, cleanupProject } from './helpers/test-project';
+import { createAdocFile, openProject, openFile, getEditorText, editorContent } from './helpers/editor';
+
+// Feature 033 (US2): renaming an explicit anchor DEFINITION (`[[id]]`) offers a project-wide refactor
+// of every cross-reference (`<<id>>` / `xref:id[]`) to the new id, applied in one click and undoable.
+
+/** Select the anchor id in the definition and replace it, leaving the cursor in it. */
+async function renameAnchorTo(page: Page, newId: string): Promise<void> {
+  // The first `install` in DOM order is the `[[install]]` definition on line 1.
+  await editorContent(page).getByText('install', { exact: false }).first().dblclick();
+  await page.keyboard.type(newId);
+}
+
+test.describe('033 US2 — anchor rename suggestion', () => {
+  test.beforeAll(async () => {
+    await ensureTestUser();
+  });
+
+  let projectId: string;
+
+  test.beforeEach(async ({ page }) => {
+    await signIn(page);
+    projectId = await createProject(page, `Rename Anchor ${Date.now()}`);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (projectId) await cleanupProject(page, projectId);
+  });
+
+  test('suggests, rewrites the xref, and undo restores (FR-008/FR-017/FR-020)', async ({ page }) => {
+    await createAdocFile(page, projectId, 'main.adoc', '[[install]]\n== Install\n\nJump to <<install>> now.\n');
+    await openProject(page, projectId);
+    await openFile(page, 'main.adoc', 'install');
+
+    await renameAnchorTo(page, 'setup');
+
+    const suggestion = page.getByTestId('rename-suggestion');
+    await expect(suggestion).toBeVisible({ timeout: 10_000 });
+    await expect(suggestion).toContainText('install');
+    await expect(suggestion).toContainText('setup');
+
+    await page.getByTestId('rename-suggestion-apply').click();
+
+    // The cross-reference is rewritten to the new id; the definition already carried it (FR-021).
+    await expect.poll(() => getEditorText(page)).toContain('<<setup>>');
+    expect(await getEditorText(page)).toContain('[[setup]]');
+    expect(await getEditorText(page)).not.toContain('<<install>>');
+
+    // Undo reverses definition + reference in one action (FR-020).
+    await page.getByTestId('rename-suggestion-undo').click();
+    await expect.poll(() => getEditorText(page)).toContain('<<install>>');
+    expect(await getEditorText(page)).toContain('[[install]]');
+    expect(await getEditorText(page)).not.toContain('<<setup>>');
+  });
+});

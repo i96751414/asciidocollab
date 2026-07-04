@@ -1,0 +1,182 @@
+/*
+ * @jest-environment jsdom
+ */
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import type { RenameSymbolResult, SymbolUsage } from '@/lib/api/projects';
+import {
+  renameSuggestion,
+  suggestionField,
+  type RenameSuggestionConfig,
+} from '@/lib/codemirror/rename-suggestion/rename-suggestion-state';
+import {
+  applyRequestEffect,
+  undoRequestEffect,
+} from '@/lib/codemirror/rename-suggestion/rename-suggestion-effects';
+
+const u = (fileNodeId: string, kind: string, from: number): SymbolUsage => ({
+  fileNodeId,
+  path: `${fileNodeId}.adoc`,
+  kind,
+  range: { from, to: from + 5 },
+});
+
+/** find-usages: `edition` has a def in F + two xrefs in G; a name given via `collideFor` collides. */
+function makeConfig(overrides: Partial<RenameSuggestionConfig> = {}): {
+  config: RenameSuggestionConfig;
+  findSymbolUsages: jest.Mock;
+  renameSymbol: jest.Mock;
+} {
+  const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> => {
+    if (name === 'edition') return [u('F', 'definition', 0), u('G', 'xref', 5), u('G', 'xref', 20)];
+    return [];
+  });
+  const renameSymbol = jest.fn(
+    async (): Promise<RenameSymbolResult> => ({ rewrittenFiles: 1, updatedReferences: 2, warnings: [] }),
+  );
+  const config: RenameSuggestionConfig = {
+    getProjectId: () => 'p1',
+    getFileNodeId: () => 'F',
+    findSymbolUsages,
+    renameSymbol,
+    settleMs: 2000,
+    leaveMs: 5000,
+    ...overrides,
+  };
+  return { config, findSymbolUsages, renameSymbol };
+}
+
+function mount(document_: string, config: RenameSuggestionConfig): EditorView {
+  return new EditorView({
+    state: EditorState.create({ doc: document_, extensions: [renameSuggestion(config)] }),
+    parent: document.body,
+  });
+}
+
+const shown = (view: EditorView) => view.state.field(suggestionField);
+const flush = async () => {
+  for (let index = 0; index < 10; index++) await Promise.resolve();
+};
+
+/** Establish the baseline (cursor on `:edition:`), then rename it to `release`. */
+function beginRename(view: EditorView, to = 'release'): void {
+  view.dispatch({ selection: { anchor: 4 } }); // baseline captured: oldName = 'edition'
+  view.dispatch({ changes: { from: 1, to: 8, insert: to }, selection: { anchor: 4 } });
+}
+
+describe('rename suggestion state machine', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  test('shows a suggestion 2s after a settled attribute rename (FR-010/FR-012)', async () => {
+    const { config, findSymbolUsages } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    expect(shown(view)).toBeNull(); // nothing yet — still within the settle window
+    await jest.advanceTimersByTimeAsync(2000);
+    const s = shown(view);
+    expect(s?.status).toBe('visible');
+    expect(s?.usageCount).toBe(2);
+    expect(s?.fileCount).toBe(1);
+    expect(findSymbolUsages).toHaveBeenCalledWith('p1', 'edition', 'attribute');
+    expect(findSymbolUsages).toHaveBeenCalledWith('p1', 'release', 'attribute');
+    view.destroy();
+  });
+
+  test('re-editing the name resets the 2s timer (FR-011)', async () => {
+    const { config } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(shown(view)).toBeNull();
+    view.dispatch({ changes: { from: 8, to: 8, insert: 'x' }, selection: { anchor: 9 } }); // keep typing
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(shown(view)).toBeNull(); // only 1s since the last change
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(shown(view)?.status).toBe('visible');
+    view.destroy();
+  });
+
+  test('suppresses when the old name has no other occurrences (FR-003)', async () => {
+    const findSymbolUsages = jest.fn(async () => [u('F', 'definition', 0)]);
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('blocks apply when the new name collides with an existing same-kind symbol (FR-022)', async () => {
+    const findSymbolUsages = jest.fn(async (_p: string, name: string) =>
+      name === 'edition' ? [u('F', 'definition', 0), u('G', 'xref', 5)] : [u('H', 'definition', 0)],
+    );
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    const s = shown(view);
+    expect(s?.status).toBe('blocked-collision');
+    expect(s?.collision).toBe(true);
+    view.destroy();
+  });
+
+  test('reverting the name to the original clears the suggestion (FR-015)', async () => {
+    const { config } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+    view.dispatch({ changes: { from: 1, to: 8, insert: 'edition' }, selection: { anchor: 4 } });
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('hides 5s after leaving the definition, but a return within the window keeps it (FR-013/FR-014)', async () => {
+    const { config } = makeConfig();
+    const view = mount(':edition:\n\nbody text here\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+
+    view.dispatch({ selection: { anchor: 15 } }); // cursor onto the body line (off the definition)
+    await jest.advanceTimersByTimeAsync(4000);
+    expect(shown(view)?.status).toBe('visible'); // still within the 5s window
+    view.dispatch({ selection: { anchor: 4 } }); // return to the definition → cancels disappearance
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(shown(view)?.status).toBe('visible');
+
+    view.dispatch({ selection: { anchor: 15 } }); // leave again
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('apply rewrites via the reused endpoint and undo reverses it (FR-018/FR-020)', async () => {
+    const { config, renameSymbol } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(renameSymbol).toHaveBeenCalledWith('p1', {
+      symbolKind: 'attribute',
+      oldName: 'edition',
+      newName: 'release',
+      definitionAlreadyRenamed: true,
+    });
+    expect(shown(view)?.status).toBe('applied');
+
+    view.dispatch({ effects: undoRequestEffect.of(null) });
+    await flush();
+    expect(renameSymbol).toHaveBeenLastCalledWith('p1', { symbolKind: 'attribute', oldName: 'release', newName: 'edition' });
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+});
