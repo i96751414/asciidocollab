@@ -1,5 +1,7 @@
-import type { EditorState } from '@codemirror/state';
-import { headingToId } from '@/lib/asciidoc/extraction';
+import { StateEffect, StateField, type EditorState, type Text } from '@codemirror/state';
+import { extractSymbols, type ProjectSymbol } from '@asciidocollab/asciidoc-core';
+import { ATTR_DEF_RE, ANCHOR_RE, covering } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
+import { INLINE_SET_RE } from '@/lib/codemirror/asciidoc-attribute-fold';
 import type { DocumentRange, SymbolKind } from './types';
 
 /**
@@ -21,34 +23,48 @@ export interface DefinitionMatch {
   range: DocumentRange;
 }
 
-// Attribute definition `:name:` / `:name!:`, anchored to the start of the line.
-const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)!?:/g;
-// Inline attribute assignment `{set:name:value}` / `{set:name!}` — an attribute definition
-// in body text. Mirrors INLINE_SET_RE in asciidoc-attribute-fold.ts.
-const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:[^}\n]*)\}/g;
+// `ATTR_DEF_RE`, `ANCHOR_RE`, and `covering` are the shared cursor-token primitives from
+// `asciidoc-symbol-at-cursor` (the refactor dialog's detector); `INLINE_SET_RE` is the single
+// `{set:}` grammar from `asciidoc-attribute-fold`. Reused here so the token boundaries stay in lock
+// step across every symbol detector.
 // The `{set:` prefix length, used to locate the name span within an inline-set token.
 const SET_PREFIX_LENGTH = 5;
-// Explicit anchors: `[[id]]`, `[#id]`, and the `anchor:id[` macro opener.
-const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
-// A section heading (levels 1–6; the level-0 document title is excluded) and its title text.
-const SECTION_HEADING_RE = /^(={2,6})\s+(\S.*?)\s*$/;
+// A cheap gate: a section-heading line (levels 1–6; the level-0 document title is excluded). The
+// authoritative detection + id derivation is delegated to extractSymbols; this only decides whether
+// the cursor line is worth the full scan.
+const SECTION_HEADING_LINE_RE = /^={2,6}\s+\S/;
 // An explicit id set on the line before a heading (`[#id]` / `[[id]]`) overrides the derived id.
 const EXPLICIT_ID_LINE_RE = /^\[(?:#|\[)[A-Za-z][\w:.-]*/;
 
 /**
- * The match of `re` whose token covers `pos` within `line` (end-inclusive), or null.
- *
- * @param line - The line text to scan.
- * @param pos - The cursor offset within the line.
- * @param re - The (global) pattern to match against.
- * @returns The covering match, or null when the cursor is not on a match.
+ * The open file's attributes inherited from the documents that include it (its ancestors along the
+ * include path from the project main file). A heading's auto-generated id reflects an
+ * `idprefix`/`idseparator`/`sectids` set by a PARENT above the include, so seeding the symbol scan
+ * with these keeps the editor's derived id in step with the server (which seeds the same way via
+ * `projectInheritedAttributes`) and the preview. Empty when the file inherits nothing or the seed has
+ * not been supplied. The editor keeps this in sync via {@link setRenameSeedEffect}.
  */
-function covering(line: string, pos: number, re: RegExp): RegExpMatchArray | null {
-  for (const match of line.matchAll(re)) {
-    const start = match.index ?? 0;
-    if (pos >= start && pos <= start + match[0].length) return match;
-  }
-  return null;
+export const setRenameSeedEffect = StateEffect.define<ReadonlyMap<string, string>>();
+export const renameSeedField = StateField.define<ReadonlyMap<string, string> | undefined>({
+  create: () => undefined,
+  update(value, tr) {
+    for (const effect of tr.effects) if (effect.is(setRenameSeedEffect)) return effect.value;
+    return value;
+  },
+});
+
+// Recognising a heading definition needs the WHOLE document's symbols (the block-boundary rule plus
+// the `idprefix`/`idseparator`/`sectids` in scope), but `definitionAtCursor` is called repeatedly on
+// the SAME immutable document — the state machine re-validates on settle, after the usage lookup, and
+// again before Apply. Memoise per (`Text`, seed) so those repeated calls collapse to a single scan; a
+// keystroke produces a new `Text` (and a seed change a new map identity), so either re-extracts once.
+const symbolCache = new WeakMap<Text, { seed: ReadonlyMap<string, string> | undefined; symbols: ProjectSymbol[] }>();
+function documentSymbols(text: Text, seed?: ReadonlyMap<string, string>): ProjectSymbol[] {
+  const cached = symbolCache.get(text);
+  if (cached && cached.seed === seed) return cached.symbols;
+  const symbols = extractSymbols('', text.toString(), seed);
+  symbolCache.set(text, { seed, symbols });
+  return symbols;
 }
 
 /**
@@ -106,16 +122,21 @@ export function definitionAtCursor(state: EditorState): DefinitionMatch | null {
     }
   }
 
-  // Section heading: the "symbol" is the heading's AUTO-GENERATED id. Only offered when the
-  // heading has no explicit id — an explicit `[#id]`/`[[id]]` on the preceding line overrides the
-  // derived id, so editing the text does not change the reference target. The cursor may be
-  // anywhere on the heading line (the whole line is the definition).
-  const heading = SECTION_HEADING_RE.exec(text);
-  if (heading) {
+  // Section heading: the "symbol" is the heading's AUTO-GENERATED id. Delegate detection and id
+  // derivation to extractSymbols — the single authority for the block-boundary rule (prose like
+  // `text\n== Foo` absorbs the line and defines no id), the `idprefix`/`idseparator`/`sectids`
+  // attributes, and the explicit-id override. Only an AUTO id is offered: an explicit `[#id]`/`[[id]]`
+  // on the preceding line means editing the title does not change the reference target, and
+  // `:sectids!:` means there is no id at all (extractSymbols then emits no section here). The cursor
+  // may be anywhere on the heading line (the whole line is the definition).
+  if (SECTION_HEADING_LINE_RE.test(text)) {
     const previous = line.number > 1 ? state.doc.line(line.number - 1).text : '';
-    if (!EXPLICIT_ID_LINE_RE.test(previous)) {
-      return { kind: 'heading', name: headingToId(heading[2]), range: { from: line.from, to: line.to } };
-    }
+    if (EXPLICIT_ID_LINE_RE.test(previous)) return null;
+    const seed = state.field(renameSeedField, false);
+    const section = documentSymbols(state.doc, seed).find(
+      (symbol) => symbol.kind === 'section' && symbol.range.from >= line.from && symbol.range.from <= line.to,
+    );
+    if (section) return { kind: 'heading', name: section.name, range: { from: line.from, to: line.to } };
   }
 
   return null;

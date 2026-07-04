@@ -1,4 +1,4 @@
-import { buildIncludeGraph } from '../asciidoc/extraction';
+import { buildIncludeGraph } from '@asciidocollab/asciidoc-core';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 
 /** Cap on concurrent content fetches while assembling the include tree. */

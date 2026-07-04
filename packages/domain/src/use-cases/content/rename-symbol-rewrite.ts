@@ -1,4 +1,4 @@
-import { extractReferences } from '../../services/asciidoc-extraction';
+import { extractReferences, definitionSymbols } from '@asciidocollab/asciidoc-core';
 import { ProjectSymbol } from '../../types/asciidoc';
 import { RenamableSymbolKind } from './rename-symbol-validation';
 
@@ -67,8 +67,11 @@ export function hasConflictingDefinition(
   matchesNew: NameMatcher,
   matchesOld: NameMatcher,
 ): boolean {
-  return symbols.some(
-    (symbol) => symbol.kind === symbolKind && matchesNew(symbol.name) && !matchesOld(symbol.name),
+  // An anchor rename also collides with a heading's auto-generated section id (it shares the xref
+  // namespace), so consider the whole definition set for the family — not just same-kind symbols —
+  // via the single `definitionSymbols` authority (which drops a section an explicit anchor declares).
+  return definitionSymbols(symbols, symbolKind).some(
+    (symbol) => matchesNew(symbol.name) && !matchesOld(symbol.name),
   );
 }
 
@@ -139,4 +142,4 @@ export function applyEdits(content: string, edits: Edit[]): string {
 }
 
 // Re-export so the use case's first-pass scan reads naturally alongside the rewrite helpers.
-export { extractSymbols } from '../../services/asciidoc-extraction';
+export { extractSymbols } from '@asciidocollab/asciidoc-core';

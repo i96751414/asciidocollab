@@ -48,6 +48,19 @@ describe('computeAttributeReplacements', () => {
     expect(computeAttributeReplacements('Use {missing} here.\n')).toHaveLength(0);
   });
 
+  test('a `:name:` line inside a verbatim block is not a real definition (no false resolution)', () => {
+    // The listing block delimits literal sample text, so `:secret: shhh` there does not define an
+    // attribute — `{secret}` below it must stay unresolved. Regression guard for centralizing
+    // resolution on the document-order authority (which skips verbatim blocks).
+    const source = '----\n:secret: shhh\n----\n\nSee {secret}.\n';
+    expect(computeAttributeReplacements(source)).toHaveLength(0);
+  });
+
+  test('a reference inside a verbatim block is not collapsed', () => {
+    const source = ':version: 1\n\n----\nrelease {version}\n----\n';
+    expect(computeAttributeReplacements(source)).toHaveLength(0);
+  });
+
   test(':name!: unsets the attribute', () => {
     const source = ':x: 1\n:x!:\nValue {x}.\n';
     expect(computeAttributeReplacements(source)).toHaveLength(0);

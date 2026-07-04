@@ -4,6 +4,7 @@ import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
 import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-fold';
+import { setRenameSeedEffect } from '@/lib/codemirror/rename-suggestion/rename-detector';
 import { refreshCrossDocumentAttributesEffect } from '@/lib/codemirror/cross-document-attributes';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
@@ -314,6 +315,10 @@ export function useEditorMount({
     const view = new EditorView({ state, parent: containerReference.current });
     viewReference.current = view;
     try { onOutlineChange(view.state.field(outlineField)); } catch { /* field not installed */ }
+    // Seed the rename detector with the open file's inherited attributes so a heading's derived id
+    // reflects a parent-set idprefix/idseparator/sectids (matching the server + preview). A no-op when
+    // the rename-suggestion extension is not installed. Kept fresh by the [inheritedAttributes] effect.
+    view.dispatch({ effects: setRenameSeedEffect.of(inheritedAttributesReference.current) });
 
     // Restore the cursor to a remembered line on mount, clamped to the current document
     // ("closest valid line"), and scroll it into view. Only runs when initialLine is
@@ -380,7 +385,9 @@ export function useEditorMount({
   // Re-evaluate the `{attr}` collapse-to-value display when the inherited attributes change (e.g. a
   // parent file's content loaded into the index) — no document edit occurs, so nudge the plugin.
   useEffect(() => {
-    viewReference.current?.dispatch({ effects: refreshAttributeFoldEffect.of() });
+    viewReference.current?.dispatch({
+      effects: [refreshAttributeFoldEffect.of(), setRenameSeedEffect.of(inheritedAttributes)],
+    });
   }, [inheritedAttributes]);
 
   // Re-evaluate the cross-document `{name}` known-vs-unknown highlighting when the resolved scope

@@ -13,7 +13,7 @@
  * The domain owns the separate, server-side structural rules it needs for refactoring.
  */
 
-import { hasIncludeLevelOffsetOption } from '../asciidoc/extraction';
+import { hasIncludeLevelOffsetOption } from '@asciidocollab/asciidoc-core';
 import { INCLUDE_LINE_RE, ConditionalRegionStack } from '../asciidoc/conditional-regions';
 
 /** AsciiDoc section levels run 0 (`=`, doc title) … 5 (`======`). */

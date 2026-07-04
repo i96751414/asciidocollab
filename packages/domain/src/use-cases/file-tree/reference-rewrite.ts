@@ -10,7 +10,7 @@ import { CollaborativeContentEditor, ContentReplacement } from '../../ports/stor
 import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
 import { Logger } from '../../ports/observability/logger';
 import { Reference } from '../../types/asciidoc';
-import { extractReferences } from '../../services/asciidoc-extraction';
+import { extractReferences } from '@asciidocollab/asciidoc-core';
 import { resolveFileContent, liveContentDeps } from '../content/live-content';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 import { resolveSandboxedPath } from '../../value-objects/files/sandboxed-path';

@@ -1,5 +1,9 @@
 import { EditorState } from '@codemirror/state';
-import { definitionAtCursor } from '@/lib/codemirror/rename-suggestion/rename-detector';
+import {
+  definitionAtCursor,
+  renameSeedField,
+  setRenameSeedEffect,
+} from '@/lib/codemirror/rename-suggestion/rename-detector';
 
 /** Build a state whose cursor sits at the first occurrence of `caret` inside `doc` (caret stripped). */
 function stateWithCaret(document: string): EditorState {
@@ -7,6 +11,15 @@ function stateWithCaret(document: string): EditorState {
   if (at === -1) throw new Error('test doc must contain a | caret marker');
   const text = document.slice(0, at) + document.slice(at + 1);
   return EditorState.create({ doc: text, selection: { anchor: at } });
+}
+
+/** Like {@link stateWithCaret} but with the rename seed field installed and populated (inherited attrs). */
+function stateWithSeed(document: string, seed: Map<string, string>): EditorState {
+  const at = document.indexOf('|');
+  if (at === -1) throw new Error('test doc must contain a | caret marker');
+  const text = document.slice(0, at) + document.slice(at + 1);
+  const base = EditorState.create({ doc: text, selection: { anchor: at }, extensions: [renameSeedField] });
+  return base.update({ effects: setRenameSeedEffect.of(seed) }).state;
 }
 
 describe('definitionAtCursor', () => {
@@ -75,5 +88,29 @@ describe('definitionAtCursor', () => {
 
   test('ignores the level-0 document title', () => {
     expect(definitionAtCursor(stateWithCaret('= Document |Title\n'))).toBeNull();
+  });
+
+  test('ignores a "== Foo" line absorbed into a preceding paragraph (defines no section id)', () => {
+    // Prose with no blank line before `== Setup` opens a paragraph that absorbs it, so Asciidoctor
+    // renders it as body text, not a section — it must not be offered as a renameable heading.
+    expect(definitionAtCursor(stateWithCaret('Some prose here.\n== Se|tup\n'))).toBeNull();
+  });
+
+  test("derives the heading id with the file's own idprefix/idseparator", () => {
+    const result = definitionAtCursor(stateWithCaret(':idprefix: sect_\n:idseparator: -\n\n== Install |Guide\n'));
+    expect(result).toMatchObject({ kind: 'heading', name: 'sect_install-guide' });
+  });
+
+  test('offers no heading rename when sectids is off (the heading has no auto id)', () => {
+    expect(definitionAtCursor(stateWithCaret(':sectids!:\n\n== Install |Guide\n'))).toBeNull();
+  });
+
+  test('derives the heading id with an idprefix/idseparator INHERITED from the seed (parent-set)', () => {
+    // The open buffer sets neither attribute; they come from an including parent via the seed. The
+    // derived id must match what the server (seeded the same way) and preview produce — not the
+    // default `_install_guide` — so the rename targets the correct cross-document id.
+    const seed = new Map([['idprefix', 'sect_'], ['idseparator', '-']]);
+    const result = definitionAtCursor(stateWithSeed('== Install |Guide\n', seed));
+    expect(result).toMatchObject({ kind: 'heading', name: 'sect_install-guide' });
   });
 });

@@ -1,8 +1,11 @@
 import { RenameSymbolUseCase } from '../../../src/use-cases/content/rename-symbol';
 import { InMemoryProjectMemberRepository } from '../../ports/project/in-memory-project-member.repository';
+import { InMemoryProjectRepository } from '../../ports/project/in-memory-project.repository';
 import { InMemoryFileNodeRepository } from '../../ports/file-tree/in-memory-file-node.repository';
 import { InMemoryProjectFileStore } from '../../ports/storage/in-memory-project-file-store';
 import { InMemoryAuditLogRepository } from '../../ports/admin/in-memory-audit-log.repository';
+import { Project } from '../../../src/entities/project';
+import { ProjectName } from '../../../src/value-objects/project/project-name';
 import { ProjectMember } from '../../../src/entities/project-member';
 import { FileNode } from '../../../src/entities/file-node';
 import { UserId } from '../../../src/value-objects/ids/user-id';
@@ -81,6 +84,41 @@ describe('RenameSymbolUseCase', () => {
     expect(chapter).toContain('<<other>>'); // unrelated anchor untouched
   });
 
+  it('blocks a merge when the new name collides with a section id inherited from the main file', async () => {
+    // book.adoc (the main file) sets `:idprefix: sec_` / `:idseparator: -` then includes chapter.adoc,
+    // so the chapter's `== My Section` renders as id `sec_my-section`. Renaming the `[[foo]]` anchor to
+    // `sec_my-section` would merge two distinct ids — the guard must see the INHERITED chapter id to
+    // catch it, which it can only do once the main file is known.
+    await fileStore.write(
+      projectId,
+      FilePath.create('/book.adoc'),
+      Buffer.from('= Book\n:idprefix: sec_\n:idseparator: -\n\n[[foo]]\n== Foo\n\ninclude::chapter.adoc[]\n'),
+    );
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('== My Section\n\nBody.\n'));
+
+    // Without the main file, the chapter id derives as the default `_my_section` → no collision seen →
+    // the rename is (wrongly, in a real project) allowed. This is the gap the fix closes.
+    const blind = await useCase.execute(editorId, projectId, { symbolKind: 'anchor', oldName: 'foo', newName: 'sec_my-section' });
+    expect(blind.success).toBe(true);
+
+    // With the main file configured, the inherited id collides and the merge is refused.
+    await fileStore.write(
+      projectId,
+      FilePath.create('/book.adoc'),
+      Buffer.from('= Book\n:idprefix: sec_\n:idseparator: -\n\n[[foo]]\n== Foo\n\ninclude::chapter.adoc[]\n'),
+    );
+    const projectRepo = new InMemoryProjectRepository();
+    await projectRepo.save(new Project(projectId, ProjectName.create('Book'), null, [], rootId, undefined, null, bookId));
+    const inheritanceAware = new RenameSymbolUseCase(
+      memberRepo, fileNodeRepo, fileStore, auditRepo, undefined, undefined, undefined, undefined, projectRepo,
+    );
+
+    const result = await inheritanceAware.execute(editorId, projectId, { symbolKind: 'anchor', oldName: 'foo', newName: 'sec_my-section' });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toBeInstanceOf(ValidationError);
+  });
+
   it('renames an attribute definition and references case-insensitively', async () => {
     await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':edition: 2\n\nThis is the {edition} edition; also {Edition}.\n'));
     const result = await useCase.execute(editorId, projectId, { symbolKind: 'attribute', oldName: 'edition', newName: 'revision' });
@@ -156,6 +194,43 @@ describe('RenameSymbolUseCase', () => {
     // Both `:edition:` and `:revision:` exist as distinct attributes: the flag must not be able to
     // merge them (guards against a caller misusing the flag to bypass the server conflict check).
     await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':edition: 1\n:revision: 2\n\n{edition}\n'));
+    const before = await read('/book.adoc');
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'attribute',
+      oldName: 'edition',
+      newName: 'revision',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+    expect(await read('/book.adoc')).toBe(before); // nothing rewritten
+  });
+
+  it('with definitionAlreadyRenamed, renames an explicit-anchored heading without a false merge-block', async () => {
+    // The author retyped `[[intro]]` → `[[overview]]` above `== Intro`, which emits BOTH a section
+    // and an anchor named `overview` (the section inherits the explicit id). That single logical id
+    // must not be double-counted as a two-symbol merge; the lingering `<<intro>>` must still rewrite.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('[[overview]]\n== Intro\n\nSee <<intro>>.\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('No references.\n'));
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: 'intro',
+      newName: 'overview',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const book = await read('/book.adoc');
+    expect(book).toContain('See <<overview>>');
+    expect(book).not.toContain('<<intro>>');
+  });
+
+  it('with definitionAlreadyRenamed, blocks when a SECOND new-name definition exists even though the old name is gone', async () => {
+    // The old name is defined nowhere (the author already retyped it), but two `:revision:`
+    // definitions now exist across the project — a genuine collision (e.g. one raced in after the
+    // client's check). The server must reject it independently rather than trusting the flag.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':revision: 1\n\n{edition}\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from(':revision: 2\n'));
     const before = await read('/book.adoc');
     const result = await useCase.execute(editorId, projectId, {
       symbolKind: 'attribute',

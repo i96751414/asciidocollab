@@ -62,6 +62,9 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         request.server.repos.document,
         request.server.stores.collaborativeContentEditor,
         requestLogger(request),
+        // Read only for the configured main file id, so inherited id-generation attributes
+        // (`idprefix`/`idseparator`) resolve section ids the same way the preview/editor do.
+        request.server.repos.project,
       );
 
       const result = await useCase.execute(actorId, projectId, request.query.name, request.query.kind);
@@ -122,6 +125,9 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
         request.server.repos.document,
         request.server.stores.collaborativeContentEditor,
         request.server.stores.collaborativeContentEditor,
+        // Read only for the configured main file id, so inherited id-generation attributes
+        // (`idprefix`/`idseparator`) resolve section ids the same way the preview/editor do.
+        request.server.repos.project,
       );
 
       const result = await useCase.execute(

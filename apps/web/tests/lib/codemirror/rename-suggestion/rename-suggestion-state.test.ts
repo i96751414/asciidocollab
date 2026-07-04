@@ -87,6 +87,17 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
+  test('the default settle shows the suggestion after 1s', async () => {
+    const { config } = makeConfig({ settleMs: undefined }); // fall back to the built-in default
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(999);
+    expect(shown(view)).toBeNull(); // still within the 1s settle window
+    await jest.advanceTimersByTimeAsync(1);
+    expect(shown(view)?.status).toBe('visible');
+    view.destroy();
+  });
+
   test('re-editing the name resets the 2s timer', async () => {
     const { config } = makeConfig();
     const view = mount(':edition:\n', config);
@@ -120,7 +131,7 @@ describe('rename suggestion state machine', () => {
     beginRename(view);
     await jest.advanceTimersByTimeAsync(2000);
     const s = shown(view);
-    expect(s?.status).toBe('blocked-collision');
+    expect(s?.status).toBe('visible');
     expect(s?.collision).toBe(true);
     view.destroy();
   });
@@ -133,6 +144,78 @@ describe('rename suggestion state machine', () => {
     expect(shown(view)?.status).toBe('visible');
     view.dispatch({ changes: { from: 1, to: 8, insert: 'edition' }, selection: { anchor: 4 } });
     expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('keeps the open offer and updates it in place when the author types on to a different name', async () => {
+    // The offer reads `edition → release`; the author then types on to `releases`. Instead of
+    // flashing the dialog closed, it stays open and its new name updates at once — so Apply can never
+    // rewrite references to a name the definition no longer carries — and the project-wide lookup
+    // re-runs to refresh the counts when the settle fires (feature 033).
+    const { config } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view); // doc is now `:release:` with the offer pending
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.candidate.newName).toBe('release');
+    expect(shown(view)?.revalidating).toBe(false);
+    view.dispatch({ changes: { from: 8, to: 8, insert: 's' }, selection: { anchor: 9 } }); // `:releases:`
+    expect(shown(view)?.candidate.newName).toBe('releases'); // dialog stays open, name updated in place
+    expect(shown(view)?.revalidating).toBe(true); // collision not yet re-confirmed for the new name
+    await jest.advanceTimersByTimeAsync(2000); // the re-run settle refreshes it
+    expect(shown(view)?.status).toBe('visible');
+    expect(shown(view)?.candidate.newName).toBe('releases');
+    expect(shown(view)?.revalidating).toBe(false); // re-confirmed → Apply re-enabled
+    view.destroy();
+  });
+
+  test('Apply is blocked while the offer is revalidating a freshly-typed name', async () => {
+    const { config, renameSymbol } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    view.dispatch({ changes: { from: 8, to: 8, insert: 's' }, selection: { anchor: 9 } }); // `:releases:`
+    expect(shown(view)?.revalidating).toBe(true);
+    view.dispatch({ effects: applyRequestEffect.of(null) }); // click Apply mid-revalidation
+    await flush();
+    expect(renameSymbol).not.toHaveBeenCalled(); // the stale-collision window cannot fire a rename
+    view.destroy();
+  });
+
+  test('losing edit rights hides an already-open offer', async () => {
+    let canEdit = true;
+    const { config } = makeConfig({ getCanEdit: () => canEdit });
+    const view = mount(':edition:\n\nbody text here\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+    canEdit = false; // role downgraded while the offer is open
+    view.dispatch({ selection: { anchor: 15 } }); // any change re-runs tracking
+    await flush(); // the clear is dispatched from a microtask (never during the update)
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('editing on after Apply does not overwrite the Undo affordance with a fresh offer', async () => {
+    // find-usages returns hits for both the old and the applied new name, so the post-apply session's
+    // lookup is NOT suppressed and would otherwise emit a fresh 'visible' offer over the applied one.
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === 'edition' || name === 'release'
+        ? [u('F', 'definition', 0), u('G', 'xref', 5)]
+        : [],
+    );
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(shown(view)?.status).toBe('applied');
+
+    // Keep editing the just-renamed definition (`:release:` → `:release2:`).
+    view.dispatch({ changes: { from: 8, to: 8, insert: '2' }, selection: { anchor: 9 } }); // new session
+    view.dispatch({ changes: { from: 9, to: 9, insert: '2' }, selection: { anchor: 10 } }); // arms settle
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('applied'); // Undo affordance preserved, not clobbered
     view.destroy();
   });
 

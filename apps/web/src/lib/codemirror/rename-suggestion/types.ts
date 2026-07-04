@@ -32,8 +32,11 @@ export interface RenameCandidate {
   definitionRange: DocumentRange;
 }
 
-/** Lifecycle of a suggestion, driven by the timing/location state machine. */
-export type RenameSuggestionStatus = 'visible' | 'blocked-collision' | 'applied' | 'dismissed';
+/**
+ * Lifecycle of a suggestion: a live offer, or one already applied (showing its Undo affordance).
+ * Whether the offer is blocked is carried by the sibling `collision` flag, not encoded here.
+ */
+export type RenameSuggestionStatus = 'visible' | 'applied';
 
 /** The inline offer presented to the author, derived from an actionable candidate + usage lookup. */
 export interface RenameSuggestion {
@@ -47,6 +50,12 @@ export interface RenameSuggestion {
   status: RenameSuggestionStatus;
   /** True when the new name collides with an existing same-kind symbol → apply blocked. */
   collision: boolean;
+  /**
+   * True while the offer is showing a name the author just typed on to, before the project-wide
+   * lookup has re-confirmed its usage/collision status. `collision` is not yet authoritative for the
+   * current `newName` in this window, so Apply is blocked until the next settle clears the flag.
+   */
+  revalidating: boolean;
 }
 
 /** Outcome of applying a refactor, surfaced back to the editor. */

@@ -1,7 +1,7 @@
 import Asciidoctor from 'asciidoctor';
 import hljs from 'highlight.js/lib/common';
 import { assembleIncludes } from './assemble-includes';
-import { resolveAttributeScope } from '../lib/asciidoc/extraction';
+import { resolveAttributeScope } from '@asciidocollab/asciidoc-core';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../lib/asciidoc/render-intrinsics';
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 

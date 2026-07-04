@@ -189,7 +189,13 @@ On opening a file the editor calls `GET /projects/:projectId/files/:fileNodeId/c
 ## Code Quality Rules
 
 1. **No `eslint-disable`** — never add inline `eslint-disable` comments; fix the root cause.
-2. **Test names describe behavior** — never include task IDs (`[T042]`, `T-042`) in test names.
+2. **No spec-local identifiers in code, test names, or comments** — spec-local IDs are not unique across specs (the same number recurs in different feature specs), so they carry no reliable meaning outside their own `specs/<feature>/` artifacts. Never write them into source code, test names (`describe`/`it`/`test` strings), or comments — including combos and ranges like `(US8/FR-020)`, `(SEC2/FR-011)`, `FR-064-065`. Describe the behavior or the reason instead; reword the sentence if an ID was integral. The families to avoid:
+   - `FR-###` (functional requirement), `NFR-###` (non-functional requirement)
+   - `US#` (user story), `SC-###` (success criterion / scenario)
+   - `T###` (task, e.g. `[T042]`, `T-042`), `R##` (risk), `INV-#` (invariant)
+   - `SEC#` (security requirement), `CFG#` (config item)
+
+   Non-spec tokens that look similar are fine and must be preserved: `SHA-256`, `UTF-8`, `AES-256`, `CM6`, `Constitution VIII` and other constitution/feature references, Markdown/AsciiDoc markup (`- [ ]`, `Term;;`), and table cells.
 3. **`API_BASE_URL` source** — never define `const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '...'` locally; import `API_BASE_URL` from `@/lib/api/file-content` in client-side hooks/components; use the local `API_BASE_URL` in server-side lib files.
 4. **Jest environments in `apps/web`** — `.test.ts` files run in Node environment; `.test.tsx` files run in jsdom environment. No `@jest-environment` docblock pragma needed in `.tsx` files.
 5. **No duplicate test files** — before creating a test file, verify no file already exists at an adjacent path.

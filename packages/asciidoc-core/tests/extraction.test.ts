@@ -13,9 +13,10 @@ import {
   parseIncludeLines,
   headingToId,
   parseIncludeLevelOffset,
-} from '../../src/services/asciidoc-extraction';
-import { resolveSandboxedPath } from '../../src/value-objects/files/sandboxed-path';
-import type { ProjectSymbol, Reference } from '@asciidocollab/shared';
+  type ProjectSymbol,
+  type Reference,
+} from '../src/index';
+import path from 'node:path';
 
 /** An in-memory `readContent` fake: maps a file id to its content, or null when absent. */
 const read = (files: Record<string, string>) => (id: string) => files[id] ?? null;
@@ -168,9 +169,12 @@ describe('extractSymbols inline `{set:}`', () => {
   });
 });
 
+// A simple relative-path include resolver for the fixtures. The extraction engine takes
+// `resolveInclude` as an injected callback (path sandboxing is the CALLER's responsibility, exercised
+// in the domain/web layers), so the pure engine's tests only need target → fileId resolution.
 const resolveInclude = (files: Record<string, string>) => (from: string, target: string) => {
-  const resolved = resolveSandboxedPath(from, target);
-  return resolved.ok && files[resolved.path] !== undefined ? resolved.path : null;
+  const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(from), target));
+  return files[resolved] === undefined ? null : resolved;
 };
 
 describe('buildIncludeGraph attribute substitution', () => {
@@ -217,6 +221,33 @@ describe('headingToId / parseIncludeLevelOffset', () => {
   test('auto-id mirrors Asciidoctor', () => {
     expect(headingToId('Getting Started!')).toBe('_getting_started');
   });
+
+  test('honours a custom idprefix/idseparator', () => {
+    expect(headingToId('Getting Started!', { idprefix: 'id_', idseparator: '-' })).toBe('id_getting-started');
+    expect(headingToId('Getting Started!', { idprefix: '', idseparator: '' })).toBe('gettingstarted');
+  });
+
+  test('extractSymbols honours idprefix/idseparator, sectids, an inherited seed, and line order', () => {
+    const withCustom = extractSymbols('f', ':idprefix: sect_\n:idseparator: -\n\n== My Section\n')
+      .filter((s) => s.kind === 'section')
+      .map((s) => s.name);
+    expect(withCustom).toEqual(['sect_my-section']);
+    const sectidsOff = extractSymbols('f', ':sectids!:\n\n== No Id\n\n[[keep]]\n== Explicit\n')
+      .filter((s) => s.kind === 'section')
+      .map((s) => s.name);
+    expect(sectidsOff).toEqual(['keep']);
+    // An inherited seed (from an including document) applies; the file's own entry wins over it.
+    const inherited = extractSymbols('f', '== My Section\n', new Map([['idprefix', 'inh_'], ['idseparator', '-']]))
+      .filter((s) => s.kind === 'section')
+      .map((s) => s.name);
+    expect(inherited).toEqual(['inh_my-section']);
+    // Line-aware: a mid-file `:idprefix:` only affects headings BELOW it, not the ones above.
+    const lineAware = extractSymbols('f', '== Before\n\n:idprefix: late_\n\n== After\n')
+      .filter((s) => s.kind === 'section')
+      .map((s) => s.name);
+    expect(lineAware).toEqual(['_before', 'late_after']);
+  });
+
   test('parses include leveloffset', () => {
     expect(parseIncludeLevelOffset('leveloffset=+2')).toBe(2);
     expect(parseIncludeLevelOffset('leveloffset=-1')).toBe(-1);

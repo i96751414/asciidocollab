@@ -7,7 +7,7 @@ import {
   parseIncludeLines,
   applyLineAttributes,
   applyLevelOffsetEntry,
-} from '../lib/asciidoc/extraction';
+} from '@asciidocollab/asciidoc-core';
 import {
   ConditionalRegionStack,
   parseConditional,

@@ -2,7 +2,7 @@ import { ViewPlugin, Decoration, EditorView, type DecorationSet, type ViewUpdate
 import { StateField, type EditorState, type Extension } from '@codemirror/state';
 import type { RenameSymbolKind, RenameSymbolResult, SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange, RefactorResult, RenameSuggestion, SymbolKind } from './types';
-import { definitionAtCursor } from './rename-detector';
+import { definitionAtCursor, renameSeedField } from './rename-detector';
 import { evaluateUsages, isEditedDefinition } from './usage-lookup';
 import { applyRename } from './apply-rename';
 import { RenameSuggestionWidget } from './rename-suggestion-widget';
@@ -14,15 +14,17 @@ import {
 } from './rename-suggestion-effects';
 
 /**
- * The rename-suggestion state machine (033): detection → 2s settle → project-wide usage lookup →
+ * The rename-suggestion state machine (033): detection → 1s settle → project-wide usage lookup →
  * inline suggestion → one-click apply/undo, with the leave/return timing.
  *
  * A `StateField` holds the shown suggestion and provides the block widget below the definition; its
- * pure `update` also handles the synchronous clears (revert to the original, or moving to a
- * different definition). The `ViewPlugin` owns the mutable orchestration — baseline capture, the 2s
- * settle and 5s leave timers, the async project-wide lookup, and apply/undo — and only ever
- * dispatches from timer/microtask callbacks (never during an editor update). The apply reuses the
- * existing project-wide `renameSymbol` (no parallel path).
+ * pure `update` also handles the synchronous transitions: it clears on a revert to the original or a
+ * move to a different definition, and — once an offer is open — updates it in place as the author
+ * keeps typing (rather than flashing it closed and re-opening after the next settle). The
+ * `ViewPlugin` owns the mutable orchestration — baseline capture, the 1s settle and 5s leave timers,
+ * the async project-wide lookup, and apply/undo — and only ever dispatches from timer/microtask
+ * callbacks (never during an editor update). The apply reuses the existing project-wide
+ * `renameSymbol` (no parallel path).
  */
 
 /** Injected configuration — API access + editing context. Timers are overridable for tests. */
@@ -57,19 +59,23 @@ export interface RenameSuggestionConfig {
     projectId: string,
     input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
   ) => Promise<RenameSymbolResult>;
-  /** Delay before a settled rename shows its suggestion. Default 2000ms. */
+  /** Delay before a settled rename shows its suggestion. Default 1000ms. */
   settleMs?: number;
   /** Delay before a suggestion hides after the cursor leaves the definition. Default 5000ms. */
   leaveMs?: number;
 }
 
-/** Name validity per kind (Principle IX): attribute name, explicit anchor id, or heading-derived id. */
+/**
+ * Name validity per kind (Principle IX). These MUST stay in lock step with the server's authoritative
+ * `NEW_NAME_PATTERN` (packages/domain rename-symbol-validation.ts) so the widget never offers or
+ * blocks a rename the backend would decide oppositely: attribute names are word-only, and anchor ids
+ * (like the domain's) allow a leading `_` and `:.-` — auto-generated section ids begin with the `_`
+ * idprefix. A heading's derived id maps to the anchor kind server-side, so it shares that rule.
+ */
 function isValidName(kind: SymbolKind, name: string): boolean {
   if (name.length === 0) return false;
   if (kind === 'attribute') return /^[A-Za-z0-9][\w-]*$/.test(name);
-  // Heading-derived ids (Asciidoctor slugs) begin with the `_` idprefix, unlike explicit anchors.
-  if (kind === 'heading') return /^[A-Za-z0-9_][\w:.-]*$/.test(name);
-  return /^[A-Za-z][\w:.-]*$/.test(name);
+  return /^[A-Za-z_][\w:.-]*$/.test(name);
 }
 
 /** The reused endpoints only distinguish anchor vs attribute; a heading rewrites its derived id. */
@@ -79,7 +85,7 @@ function toApiKind(kind: SymbolKind): RenameSymbolKind {
 
 /** Build the block-widget decoration for the shown suggestion (below its definition line). */
 function buildDecoration(value: RenameSuggestion | null, state: EditorState): DecorationSet {
-  if (!value || value.status === 'dismissed') return Decoration.none;
+  if (!value) return Decoration.none;
   const line = state.doc.lineAt(value.candidate.definitionRange.from);
   const widget = new RenameSuggestionWidget({
     oldName: value.candidate.oldName,
@@ -88,6 +94,7 @@ function buildDecoration(value: RenameSuggestion | null, state: EditorState): De
     usageCount: value.usageCount,
     fileCount: value.fileCount,
     collision: value.collision,
+    revalidating: value.revalidating,
     applied: value.status === 'applied',
   });
   return Decoration.set([Decoration.widget({ widget, block: true, side: 1 }).range(line.to)]);
@@ -110,15 +117,34 @@ export const suggestionField = StateField.define<RenameSuggestion | null>({
     }
 
     if (tr.docChanged || tr.selection) {
-      // Synchronous auto-clear: reverting the name, or moving to a different definition, drops the
-      // suggestion at once. Merely leaving (cursor off any definition) keeps it — the plugin's 5s
-      // timer clears that case via an effect.
+      // Synchronous transitions for a LIVE offer as the author keeps editing the definition. Merely
+      // leaving (cursor off any definition) keeps it — the plugin's 5s leave timer clears that case
+      // via an effect. An applied suggestion keeps its Undo affordance and is exempt from these
+      // checks.
       const definition = definitionAtCursor(tr.state);
       if (definition) {
         const shownLine = tr.state.doc.lineAt(next.candidate.definitionRange.from).number;
         const line = tr.state.doc.lineAt(definition.range.from).number;
+        // Moving to a different definition drops the current offer (live or applied) at once.
         if (line !== shownLine) return null;
-        if (definition.name === next.candidate.oldName) return null;
+        if (next.status !== 'applied') {
+          // Reverting to the original name leaves nothing to rename → drop the offer.
+          if (definition.name === next.candidate.oldName) return null;
+          // The author typed on to a *different* new name. Keep the dialog open and update it in
+          // place — showing the current name and its range immediately, so Apply can never rewrite
+          // references to a name the definition no longer carries — rather than flashing it closed
+          // and re-opening after the next settle. Mark it `revalidating`: the carried-over
+          // `collision` flag was computed for the PREVIOUS name and is not authoritative for the new
+          // one, so Apply is blocked until the plugin's re-run (armed by this same keystroke)
+          // refreshes it. `usageCount`/`fileCount` track the invariant old name, so they stay valid.
+          if (definition.name !== next.candidate.newName) {
+            next = {
+              ...next,
+              candidate: { ...next.candidate, newName: definition.name, definitionRange: definition.range },
+              revalidating: true,
+            };
+          }
+        }
       }
     }
     return next;
@@ -135,7 +161,7 @@ interface Session {
   line: number;
 }
 
-const DEFAULT_SETTLE_MS = 2000;
+const DEFAULT_SETTLE_MS = 1000;
 const DEFAULT_LEAVE_MS = 5000;
 
 function makePlugin(config: RenameSuggestionConfig) {
@@ -149,6 +175,13 @@ function makePlugin(config: RenameSuggestionConfig) {
       private leaveTimer: ReturnType<typeof setTimeout> | null = null;
       private seq = 0;
       private dismissedName: string | null = null;
+      /**
+       * Cache of the project-wide usages of the session's OLD name. The old name is the invariant
+       * session baseline (it does not change as the author refines the new name), so this is fetched
+       * at most once per session instead of on every settle. Invalidated when a new session starts or
+       * a rename/undo rewrites references.
+       */
+      private oldNameUsages: { key: string; usages: SymbolUsage[] } | null = null;
       private undo: (() => Promise<RefactorResult>) | null = null;
       /** Set on destroy so a late async callback never dispatches on a torn-down view. */
       private destroyed = false;
@@ -176,11 +209,16 @@ function makePlugin(config: RenameSuggestionConfig) {
         this.clearLeave();
       }
 
-      /** Manage the baseline session, the 2s settle timer, and the 5s leave timer. No dispatch here. */
+      /** Manage the baseline session, the 1s settle timer, and the 5s leave timer. No dispatch here. */
       private track(state: EditorState) {
         // Read-only / observer editors never rename; a remote edit must not surface an offer to them.
+        // If edit rights were lost while an offer was already open, hide it too — not just cancel a
+        // pending one — so a downgraded author cannot click Apply on a stale widget. The clear is
+        // deferred to a microtask because `track` runs inside the editor update, which may not dispatch.
         if (config.getCanEdit && !config.getCanEdit()) {
           this.clearSettle();
+          this.clearLeave();
+          if (this.view.state.field(suggestionField)) void Promise.resolve().then(() => this.setSuggestion(null));
           return;
         }
         const definition = definitionAtCursor(state);
@@ -205,6 +243,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (!this.session || this.session.line !== line) {
           this.session = { kind: definition.kind, oldName: definition.name, lastName: definition.name, line };
           this.dismissedName = null;
+          this.oldNameUsages = null; // new baseline → the cached old-name usage set no longer applies
           this.clearSettle();
           return;
         }
@@ -240,45 +279,83 @@ function makePlugin(config: RenameSuggestionConfig) {
 
         const apiKind = toApiKind(session.kind);
         const seq = ++this.seq;
+        // The old-name usage set is invariant for the session; fetch it once and reuse across settles.
+        const oldNameKey = `${apiKind}:${session.oldName}`;
         let usages: SymbolUsage[];
-        let collisionUsages: SymbolUsage[];
-        try {
-          [usages, collisionUsages] = await Promise.all([
-            config.findSymbolUsages(projectId, session.oldName, apiKind),
-            config.findSymbolUsages(projectId, newName, apiKind),
-          ]);
-        } catch {
-          // A failed lookup (e.g. rate limit / network) simply produces no suggestion this settle;
-          // the next edit re-arms detection. Never leave the promise rejection unhandled.
-          return;
+        if (this.oldNameUsages && this.oldNameUsages.key === oldNameKey) {
+          usages = this.oldNameUsages.usages;
+        } else {
+          try {
+            usages = await config.findSymbolUsages(projectId, session.oldName, apiKind);
+          } catch {
+            // A failed lookup (e.g. rate limit / network) simply produces no suggestion this settle;
+            // the next edit re-arms detection. Never leave the promise rejection unhandled.
+            return;
+          }
+          this.oldNameUsages = { key: oldNameKey, usages };
         }
         if (this.destroyed || seq !== this.seq) return; // torn down, or a newer settle superseded this one
 
         const impact = evaluateUsages(usages, { definitionFileNodeId: fileNodeId, definitionRange });
+        if (impact.suppressed) {
+          // Nothing references the old name → nothing to refactor. Skip the collision lookup: it only
+          // gates a suggestion that will not be shown, so firing it every settle just burns the
+          // detection rate-limit budget. Never clear an applied offer's Undo affordance here.
+          if (this.view.state.field(suggestionField)?.status !== 'applied') this.setSuggestion(null);
+          return;
+        }
+
+        let collisionUsages: SymbolUsage[];
+        try {
+          collisionUsages = await config.findSymbolUsages(projectId, newName, apiKind);
+        } catch {
+          return;
+        }
+        if (this.destroyed || seq !== this.seq) return;
+
+        // Re-validate: the definition must STILL read newName — the author may have reverted or kept
+        // editing it during the async lookups. If it changed, the field has already updated the open
+        // offer in place to the current name (and armed a fresh settle), so just bail WITHOUT clearing
+        // it — clearing here would flash-close the very offer the field is keeping alive.
+        const current = definitionAtCursor(this.view.state);
+        if (current && current.name !== newName) return;
+
+        // Never overwrite an applied offer's Undo affordance with a fresh 'visible' offer (the author
+        // may have kept editing the just-renamed definition, starting a new session mid-flight).
+        if (this.view.state.field(suggestionField)?.status === 'applied') return;
+
         const collision = collisionUsages.some(
           (u) => u.kind === 'definition' && !isEditedDefinition(u, fileNodeId, definitionRange),
         );
-
-        if (impact.suppressed && !collision) {
-          this.setSuggestion(null); // nothing to refactor
-          return;
-        }
         this.setSuggestion({
           candidate: { kind: session.kind, oldName: session.oldName, newName, definitionRange },
           usageCount: impact.usageCount,
           fileCount: impact.fileCount,
-          status: collision ? 'blocked-collision' : 'visible',
+          status: 'visible',
           collision,
+          revalidating: false, // this lookup confirms usage + collision for the current name
         });
       }
 
       /** Apply via the reused endpoint, then switch the widget to its undo affordance. */
       private async apply() {
         const suggestion = this.view.state.field(suggestionField);
-        if (this.applying || !suggestion || suggestion.collision || suggestion.status === 'applied') return;
+        // Block while revalidating: the author typed on to a new name whose usage/collision the
+        // pending lookup has not yet re-confirmed, so `collision` is not authoritative for it yet.
+        if (this.applying || !suggestion || suggestion.collision || suggestion.revalidating || suggestion.status === 'applied') return;
+        // Edit rights may have been lost after the offer appeared — never write on the author's behalf.
+        if (config.getCanEdit && !config.getCanEdit()) return;
         const projectId = config.getProjectId();
         if (!projectId) return;
         const { kind, oldName, newName } = suggestion.candidate;
+        // Re-validate before writing: if the cursor is on a definition that no longer reads newName,
+        // the author edited or reverted it after the offer appeared, so applying would rewrite
+        // references to a name the definition no longer carries. Drop the stale offer instead.
+        const current = definitionAtCursor(this.view.state);
+        if (current && current.name !== newName) {
+          this.setSuggestion(null);
+          return;
+        }
         this.applying = true; // in-flight lock: a second click must not fire a duplicate rename
         try {
           const { undo } = await applyRename({
@@ -292,8 +369,12 @@ function makePlugin(config: RenameSuggestionConfig) {
           this.undo = undo;
           this.dismissedName = newName; // a re-detected mismatch must not re-suggest this settled rename
           this.session = null;
+          this.oldNameUsages = null; // references were rewritten → the cached old-name usages are stale
           this.clearSettle();
-          this.setSuggestion({ ...suggestion, status: 'applied' });
+          // A leave timer armed before Apply (cursor left the definition, then the button was clicked)
+          // must not fire and hide the applied Undo affordance.
+          this.clearLeave();
+          this.setSuggestion({ ...suggestion, status: 'applied', revalidating: false });
         } catch {
           // The rewrite failed (e.g. rate limit / network / conflict): leave the offer visible so the
           // author can retry, rather than stranding the widget in a half-applied state.
@@ -311,6 +392,7 @@ function makePlugin(config: RenameSuggestionConfig) {
           return; // keep this.undo so the author can retry the undo
         }
         this.undo = null;
+        this.oldNameUsages = null; // references were restored → the cached usage set is stale again
         if (!this.destroyed) this.setSuggestion(null);
       }
 
@@ -343,7 +425,7 @@ function makePlugin(config: RenameSuggestionConfig) {
   );
 }
 
-/** The complete rename-suggestion extension (state field + orchestration plugin). */
+/** The complete rename-suggestion extension (state fields + orchestration plugin). */
 export function renameSuggestion(config: RenameSuggestionConfig): Extension {
-  return [suggestionField, makePlugin(config)];
+  return [suggestionField, renameSeedField, makePlugin(config)];
 }

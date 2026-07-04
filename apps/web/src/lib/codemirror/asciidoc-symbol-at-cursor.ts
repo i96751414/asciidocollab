@@ -11,15 +11,16 @@ export interface CursorSymbol {
 
 // Attribute reference `{name}` and definition `:name:` / `:name!:` (line-anchored).
 const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
-const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)!?:/g;
-// Anchors: `[[id]]`, `[#id]`, and the `anchor:id[]` macro.
-const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
+/** Attribute definition `:name:` / `:name!:`, anchored to the start of the line. */
+export const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)!?:/g;
+/** Explicit anchors: `[[id]]`, `[#id]`, and the `anchor:id[` macro opener. */
+export const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
 // Cross-references: angle-bracket `<<id>>` / `<<id,label>>` and the `xref:target[…]` macro.
 const XREF_ANGLE_RE = /<<([^<>,\]]+)(?:,[^<>]*)?>>/g;
 const XREF_MACRO_RE = /xref:([^\s[\]]+)\[[^\]]*\]/g;
 
 /** The match of `re` whose token covers `pos` within `line` (end-inclusive), or null. */
-function covering(line: string, pos: number, re: RegExp): RegExpMatchArray | null {
+export function covering(line: string, pos: number, re: RegExp): RegExpMatchArray | null {
   for (const match of line.matchAll(re)) {
     const start = match.index ?? 0;
     if (pos >= start && pos <= start + match[0].length) return match;

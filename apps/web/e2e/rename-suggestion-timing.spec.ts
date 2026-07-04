@@ -4,7 +4,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// Feature 033: the suggestion appears only after the ~2s settle, and after the cursor leaves
+// Feature 033: the suggestion appears only after the ~1s settle, and after the cursor leaves
 // the definition it disappears ~5s later — unless the cursor returns within that window.
 
 /** Rename the `:edition:` definition to `:release:`, leaving the cursor in it. */
@@ -32,14 +32,14 @@ test.describe('033 — suggestion timing & location', () => {
     if (projectId) await cleanupProject(page, projectId);
   });
 
-  test('does not appear until ~2s after the edit settles', async ({ page }) => {
+  test('does not appear until ~1s after the edit settles', async ({ page }) => {
     await renameDefinition(page);
     const suggestion = page.getByTestId('rename-suggestion');
-    // Immediately after typing, the 2s settle has not elapsed.
+    // Immediately after typing, the 1s settle has not elapsed.
     await expect(suggestion).toBeHidden();
-    await page.waitForTimeout(1000);
-    await expect(suggestion).toBeHidden(); // still within the settle window at ~1s
-    await expect(suggestion).toBeVisible({ timeout: 4000 }); // appears after the 2s settle
+    await page.waitForTimeout(400);
+    await expect(suggestion).toBeHidden(); // still well within the ~1s settle window
+    await expect(suggestion).toBeVisible({ timeout: 4000 }); // appears after the settle + lookup
   });
 
   test('hides ~5s after leaving, but returning within the window keeps it', async ({ page }) => {

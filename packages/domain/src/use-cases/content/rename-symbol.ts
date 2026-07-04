@@ -3,11 +3,15 @@ import { ProjectId } from '../../value-objects/ids/project-id';
 import { ProjectMemberRepository } from '../../ports/project/project-member.repository';
 import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
+import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { CollaborativeContentEditor, ContentReplacement } from '../../ports/storage/collaborative-content-editor';
 import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
 import { Document } from '../../entities/document';
 import { resolveFileContent, liveContentDeps } from './live-content';
+import { projectInheritedAttributes } from './project-inherited-attributes';
+import { stripLeadingSlash } from '../file-tree/reference-rewrite';
+import { definitionSymbols } from '@asciidocollab/asciidoc-core';
 import { dedupeReplacements } from './content-replacements';
 import { AuditLogRepository } from '../../ports/admin/audit-log.repository';
 import { Logger } from '../../ports/observability/logger';
@@ -105,6 +109,11 @@ export class RenameSymbolUseCase {
     private readonly documentRepo?: Pick<DocumentRepository, 'findByFileNodeId'>,
     private readonly collaborativeContentEditor?: CollaborativeContentEditor,
     private readonly collaborativeContentReader?: CollaborativeContentReader,
+    // Optional: the project repository, read only for the configured main file id. When supplied and
+    // a main file is set, section ids are derived with the id-generation attributes each file
+    // inherits from its ancestors (`idprefix`/`idseparator`/`sectids`), so the scan and its merge
+    // guard see the same section ids the preview and editor do.
+    private readonly projectRepo?: Pick<ProjectRepository, 'findById'>,
   ) {}
 
   /**
@@ -160,26 +169,52 @@ export class RenameSymbolUseCase {
     const staged: Array<{ node: FileNode; content: string; edits: Edit[]; document: Document | null }> = [];
     let conflictingNewDefinition = false;
     let oldStillDefined = false;
+    let newNameDefinitions = 0;
 
+    // Preload every document's content once: the include-graph inheritance walk needs the whole
+    // project's content in hand, and the scan below reads the same snapshot — the same files this scan
+    // always read, gathered up front so the rewrite pass can reuse them.
     const contentDeps = this.contentDeps(); // build once; reused for every file in the scan
+    const scanned: Array<{ node: FileNode; content: string; document: Document | null }> = [];
     for (const node of documents) {
       const resolved = await resolveFileContent(contentDeps, projectId, node);
       if (!resolved) continue;
-      const { content, document } = resolved;
+      scanned.push({ node, content: resolved.content, document: resolved.document });
+    }
 
-      const symbols = extractSymbols(node.id.value, content);
+    // Attributes each file inherits from the documents that include it, so a section id derived below
+    // reflects an `idprefix`/`idseparator`/`sectids` a parent set above the include — the scan and its
+    // merge guard then see the same ids the preview renders.
+    const inherited = projectInheritedAttributes(
+      scanned.map(({ node, content }) => ({ fileId: node.id.value, path: stripLeadingSlash(node.path.value), content })),
+      await this.mainFileId(projectId),
+    );
+
+    for (const { node, content, document } of scanned) {
+      const symbols = extractSymbols(node.id.value, content, inherited.get(node.id.value));
+      // `definitionSymbols` is the single authority for what defines a name in this family: for an
+      // anchor rename it includes a heading's auto-generated section id (same xref namespace) but drops
+      // a section whose id an explicit `[[id]]`/`[#id]` already declares, so one logical id is never
+      // counted twice (which would falsely trip the merge guard below).
+      const definitions = definitionSymbols(symbols, symbolKind);
       if (hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) conflictingNewDefinition = true;
-      if (symbols.some((symbol) => symbol.kind === symbolKind && matchesOld(symbol.name))) oldStillDefined = true;
+      if (definitions.some((symbol) => matchesOld(symbol.name))) oldStillDefined = true;
+      newNameDefinitions += definitions.filter((symbol) => matchesNew(symbol.name)).length;
 
       const edits = computeEdits(symbolKind, oldName, newName, content, symbols, matchesOld);
       if (edits.length > 0) staged.push({ node, content, edits, document });
     }
 
     // A distinct new-name definition is a merge conflict for a normal rename. In
-    // definition-already-renamed mode (feature 033) the author has already retyped the definition,
-    // so the new-name definition is EXPECTED and only a conflict if the old name is somehow still
-    // defined too — a genuine two-symbol merge (and a guard against a caller misusing the flag).
-    if (conflictingNewDefinition && (!definitionAlreadyRenamed || oldStillDefined)) {
+    // definition-already-renamed mode (feature 033) the author has already retyped the definition, so
+    // exactly ONE new-name definition is expected (the one they typed). It is a genuine two-symbol
+    // merge only if the old name is somehow still defined too, OR a SECOND new-name definition exists
+    // (a pre-existing collision, or one that appeared between the client's check and this write). The
+    // count makes the server independently reject a merge rather than trusting the caller's flag.
+    const merge = definitionAlreadyRenamed
+      ? oldStillDefined || newNameDefinitions > 1
+      : conflictingNewDefinition;
+    if (merge) {
       return {
         success: false,
         error: new ValidationError(`Cannot rename to "${newName}": a ${symbolKind} with that name already exists`),
@@ -237,6 +272,13 @@ export class RenameSymbolUseCase {
     }, this.logger);
 
     return { success: true, value: { rewrittenFiles, updatedReferences, warnings } };
+  }
+
+  /** The configured main file id, or null when none is set or the project repo was not supplied. */
+  private async mainFileId(projectId: ProjectId): Promise<string | null> {
+    if (!this.projectRepo) return null;
+    const project = await this.projectRepo.findById(projectId);
+    return project?.mainFileNodeId?.value ?? null;
   }
 
   /** Assembles the optional live-content dependencies for {@link resolveFileContent}. */

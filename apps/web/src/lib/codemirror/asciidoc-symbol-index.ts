@@ -5,7 +5,7 @@ import {
   extractOwnAttributes,
   resolveReference,
   effectiveLevelOffset,
-} from '../asciidoc/extraction';
+} from '@asciidocollab/asciidoc-core';
 import { resolveSandboxedPath } from '../asciidoc/sandbox-path';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 import type { DocumentTree, ProjectSymbol, Reference } from '@asciidocollab/shared';
@@ -161,7 +161,10 @@ export function buildProjectSymbolIndex(
   for (const fileId of tree.nodes) {
     const content = getContent(fileId);
     if (content === null) continue;
-    symbols.push(...extractSymbols(fileId, content));
+    // Pass the attributes this file inherits from including documents, so extractSymbols resolves
+    // id-generation attributes (`idprefix`/`idseparator`) a parent set above the include — and the
+    // file's own entries applied line-aware on top — matching what the preview renders.
+    symbols.push(...extractSymbols(fileId, content, inheritedAttributes.get(fileId)));
     references.push(...extractReferences(fileId, content));
     // A file's OWN net attributes (in document order): `:name:` entries AND inline `{set:}`
     // assignments alike, so a `{set:}`-defined name is project-wide known. Later files in
