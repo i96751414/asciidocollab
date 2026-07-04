@@ -161,6 +161,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
+   - **No spec-local identifiers in code**: tasks.md and the spec reference IDs like `T042`, `FR-020`, `US8`, `SC-003`, `SEC1`, `NFR-002`, `R05`, `INV-1`, `CFG3` (and combos/ranges like `US8/FR-020`, `FR-064-065`). These are unique only within `specs/<feature>/` and are meaningless elsewhere — NEVER carry them into source code, test names (`describe`/`it`/`test` strings), or comments. Describe the behavior or reason instead. See AGENTS.md → Code Quality Rules for the full policy and the look-alike tokens (`SHA-256`, `UTF-8`, `CM6`, `Constitution VIII`, …) that must be preserved.
 
 8. Progress tracking and error handling:
    - Report progress after each completed task
