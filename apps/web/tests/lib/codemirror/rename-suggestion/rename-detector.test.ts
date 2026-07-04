@@ -1,9 +1,9 @@
 import { EditorState } from '@codemirror/state';
+import { definitionAtCursor } from '@/lib/codemirror/rename-suggestion/rename-detector';
 import {
-  definitionAtCursor,
-  renameSeedField,
-  setRenameSeedEffect,
-} from '@/lib/codemirror/rename-suggestion/rename-detector';
+  inheritedAttributesField,
+  setInheritedAttributesEffect,
+} from '@/lib/codemirror/inherited-attributes-field';
 
 /** Build a state whose cursor sits at the first occurrence of `caret` inside `doc` (caret stripped). */
 function stateWithCaret(document: string): EditorState {
@@ -18,8 +18,8 @@ function stateWithSeed(document: string, seed: Map<string, string>): EditorState
   const at = document.indexOf('|');
   if (at === -1) throw new Error('test doc must contain a | caret marker');
   const text = document.slice(0, at) + document.slice(at + 1);
-  const base = EditorState.create({ doc: text, selection: { anchor: at }, extensions: [renameSeedField] });
-  return base.update({ effects: setRenameSeedEffect.of(seed) }).state;
+  const base = EditorState.create({ doc: text, selection: { anchor: at }, extensions: [inheritedAttributesField] });
+  return base.update({ effects: setInheritedAttributesEffect.of(seed) }).state;
 }
 
 describe('definitionAtCursor', () => {

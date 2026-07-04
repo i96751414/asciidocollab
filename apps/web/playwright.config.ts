@@ -4,7 +4,11 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  // Per-test budget. Kept generous so a COLD first render — the AsciiDoc→HTML web worker and Yjs
+  // sync warming up on the first preview/editor mount after the stack starts — has room to complete
+  // within a single attempt under gate load, rather than tripping the deadline and surfacing as a
+  // flaky retry. Steady-state tests finish in a few seconds; only cold starts approach this.
+  timeout: 45_000,
   retries: process.env.CI ? 2 : 0,
   // Cap concurrency for the isolated stack: every collab-backed test opens Yjs sync session(s) against
   // a SINGLE test collaboration server, and collab pair-tests use two browser contexts each. The

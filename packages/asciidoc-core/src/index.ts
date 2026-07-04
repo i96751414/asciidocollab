@@ -18,6 +18,7 @@ export type {
   DocumentTree,
 } from './types';
 export { substitutePathAttributes } from './attribute-substitution';
+export { isValidNewName, type RenamableSymbolKind } from './name-validation';
 export {
   ENDIF_LINE_RE,
   CONDITIONAL_REGION_OPENER_RE,

@@ -10,6 +10,12 @@ import { resolveSandboxedPath } from '../asciidoc/sandbox-path';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '../asciidoc/render-intrinsics';
 import type { DocumentTree, ProjectSymbol, Reference } from '@asciidocollab/shared';
 
+// A single shared empty map for files that inherit nothing (the common single-file / root case).
+// Returning a MODULE-level constant — rather than a fresh `new Map()` per index build — keeps
+// `inheritedAttributes(fileId)` identity-stable across rebuilds, so downstream `useMemo`/refresh
+// effects keyed on it (the rename seed, and any future consumer) don't churn every ~250ms rebuild.
+const EMPTY_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
+
 /**
  * Client projection over the shared `asciidoc-model`. This is a
  * read-only cache derived from the shared extraction + include-graph rules — NOT
@@ -172,9 +178,8 @@ export function buildProjectSymbolIndex(
     for (const [name, value] of extractOwnAttributes(content)) attributes.set(name, value);
   }
 
-  const noAttributes: ReadonlyMap<string, string> = new Map();
   const inheritedAttributesOf = (fileId: string): ReadonlyMap<string, string> =>
-    inheritedAttributes.get(fileId) ?? noAttributes;
+    inheritedAttributes.get(fileId) ?? EMPTY_INHERITED_ATTRIBUTES;
 
   // `inheritedOffset` re-walks the whole include tree from the root (effectiveLevelOffset reads and
   // scans every file), and it is read on every editor render. Memoize per file for this index

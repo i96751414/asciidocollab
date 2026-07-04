@@ -1,8 +1,9 @@
 import { ViewPlugin, Decoration, EditorView, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { StateField, type EditorState, type Extension } from '@codemirror/state';
+import { isValidNewName } from '@asciidocollab/asciidoc-core';
 import type { RenameSymbolKind, RenameSymbolResult, SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange, RefactorResult, RenameSuggestion, SymbolKind } from './types';
-import { definitionAtCursor, renameSeedField } from './rename-detector';
+import { definitionAtCursor } from './rename-detector';
 import { evaluateUsages, isEditedDefinition } from './usage-lookup';
 import { applyRename } from './apply-rename';
 import { RenameSuggestionWidget } from './rename-suggestion-widget';
@@ -65,28 +66,30 @@ export interface RenameSuggestionConfig {
   leaveMs?: number;
 }
 
-/**
- * Name validity per kind (Principle IX). These MUST stay in lock step with the server's authoritative
- * `NEW_NAME_PATTERN` (packages/domain rename-symbol-validation.ts) so the widget never offers or
- * blocks a rename the backend would decide oppositely: attribute names are word-only, and anchor ids
- * (like the domain's) allow a leading `_` and `:.-` — auto-generated section ids begin with the `_`
- * idprefix. A heading's derived id maps to the anchor kind server-side, so it shares that rule.
- */
-function isValidName(kind: SymbolKind, name: string): boolean {
-  if (name.length === 0) return false;
-  if (kind === 'attribute') return /^[A-Za-z0-9][\w-]*$/.test(name);
-  return /^[A-Za-z_][\w:.-]*$/.test(name);
-}
-
 /** The reused endpoints only distinguish anchor vs attribute; a heading rewrites its derived id. */
 function toApiKind(kind: SymbolKind): RenameSymbolKind {
   return kind === 'attribute' ? 'attribute' : 'anchor';
 }
 
+/**
+ * Name validity per kind (Principle IX), delegated to the server's authoritative validator in
+ * `@asciidocollab/asciidoc-core` so the widget can never offer or block a rename the backend would
+ * decide oppositely. A heading's derived id maps to the anchor kind, matching the rewrite path.
+ */
+function isValidName(kind: SymbolKind, name: string): boolean {
+  return isValidNewName(toApiKind(kind), name);
+}
+
 /** Build the block-widget decoration for the shown suggestion (below its definition line). */
 function buildDecoration(value: RenameSuggestion | null, state: EditorState): DecorationSet {
   if (!value) return Decoration.none;
-  const line = state.doc.lineAt(value.candidate.definitionRange.from);
+  // Clamp: an async settle can produce an offer whose captured definitionRange predates a deletion
+  // that shrank the document (a collaborator or a fast local delete during the usage lookup), so
+  // `from` may exceed the current length. lineAt() would throw a RangeError inside this compute and
+  // break the editor update; clamping renders the widget at the document end until the next edit
+  // re-maps or clears it.
+  const from = Math.min(value.candidate.definitionRange.from, state.doc.length);
+  const line = state.doc.lineAt(from);
   const widget = new RenameSuggestionWidget({
     oldName: value.candidate.oldName,
     newName: value.candidate.newName,
@@ -133,14 +136,16 @@ export const suggestionField = StateField.define<RenameSuggestion | null>({
           // The author typed on to a *different* new name. Keep the dialog open and update it in
           // place — showing the current name and its range immediately, so Apply can never rewrite
           // references to a name the definition no longer carries — rather than flashing it closed
-          // and re-opening after the next settle. Mark it `revalidating`: the carried-over
-          // `collision` flag was computed for the PREVIOUS name and is not authoritative for the new
-          // one, so Apply is blocked until the plugin's re-run (armed by this same keystroke)
-          // refreshes it. `usageCount`/`fileCount` track the invariant old name, so they stay valid.
+          // and re-opening after the next settle. Mark it `revalidating` (Apply blocked) and clear
+          // `collision`: the previous name's collision flag is not authoritative for the new name, and
+          // leaving it true would render a false "already exists" for a name never checked. The
+          // plugin's re-run (armed by this same keystroke) refreshes both. `usageCount`/`fileCount`
+          // track the invariant old name, so they stay valid.
           if (definition.name !== next.candidate.newName) {
             next = {
               ...next,
               candidate: { ...next.candidate, newName: definition.name, definitionRange: definition.range },
+              collision: false,
               revalidating: true,
             };
           }
@@ -175,13 +180,6 @@ function makePlugin(config: RenameSuggestionConfig) {
       private leaveTimer: ReturnType<typeof setTimeout> | null = null;
       private seq = 0;
       private dismissedName: string | null = null;
-      /**
-       * Cache of the project-wide usages of the session's OLD name. The old name is the invariant
-       * session baseline (it does not change as the author refines the new name), so this is fetched
-       * at most once per session instead of on every settle. Invalidated when a new session starts or
-       * a rename/undo rewrites references.
-       */
-      private oldNameUsages: { key: string; usages: SymbolUsage[] } | null = null;
       private undo: (() => Promise<RefactorResult>) | null = null;
       /** Set on destroy so a late async callback never dispatches on a torn-down view. */
       private destroyed = false;
@@ -212,13 +210,16 @@ function makePlugin(config: RenameSuggestionConfig) {
       /** Manage the baseline session, the 1s settle timer, and the 5s leave timer. No dispatch here. */
       private track(state: EditorState) {
         // Read-only / observer editors never rename; a remote edit must not surface an offer to them.
-        // If edit rights were lost while an offer was already open, hide it too — not just cancel a
-        // pending one — so a downgraded author cannot click Apply on a stale widget. The clear is
-        // deferred to a microtask because `track` runs inside the editor update, which may not dispatch.
+        // If edit rights were lost while a LIVE offer was open, hide it too — not just cancel a pending
+        // one — so a downgraded author cannot click Apply on a stale widget. An applied suggestion
+        // keeps its Undo affordance (like every other clear path here); the undo write is separately
+        // guarded in runUndo(). The clear is deferred to a microtask because `track` runs inside the
+        // editor update, which may not dispatch.
         if (config.getCanEdit && !config.getCanEdit()) {
           this.clearSettle();
           this.clearLeave();
-          if (this.view.state.field(suggestionField)) void Promise.resolve().then(() => this.setSuggestion(null));
+          const shown = this.view.state.field(suggestionField);
+          if (shown && shown.status !== 'applied') void Promise.resolve().then(() => this.setSuggestion(null));
           return;
         }
         const definition = definitionAtCursor(state);
@@ -243,7 +244,6 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (!this.session || this.session.line !== line) {
           this.session = { kind: definition.kind, oldName: definition.name, lastName: definition.name, line };
           this.dismissedName = null;
-          this.oldNameUsages = null; // new baseline → the cached old-name usage set no longer applies
           this.clearSettle();
           return;
         }
@@ -256,7 +256,15 @@ function makePlugin(config: RenameSuggestionConfig) {
           this.clearSettle(); // reverted → the field clears the suggestion synchronously
           return;
         }
-        if (newName === this.dismissedName) return; // dismissed this settled name
+        if (newName === this.dismissedName) {
+          // The author typed back to a name they already dismissed → no settle is armed to re-evaluate.
+          // The field kept the offer open in-place (revalidating), so clear it here, otherwise it would
+          // hang in "checking…" with Apply disabled forever. Preserve an applied Undo affordance.
+          this.clearSettle();
+          const shown = this.view.state.field(suggestionField);
+          if (shown && shown.status !== 'applied') void Promise.resolve().then(() => this.setSuggestion(null));
+          return;
+        }
 
         this.clearSettle();
         const session = this.session;
@@ -272,27 +280,27 @@ function makePlugin(config: RenameSuggestionConfig) {
 
       /** After the settle, look up project-wide usages + collision and show or suppress the suggestion. */
       private async evaluate(session: Session, newName: string, definitionRange: DocumentRange) {
-        if (!isValidName(session.kind, newName)) return;
+        // A momentarily-invalid name (mid-typing, or paused on an invalid intermediate) is not an
+        // applyable rename; drop a live offer rather than leave it stuck showing an unapplyable name.
+        if (!isValidName(session.kind, newName)) {
+          this.clearLiveOffer();
+          return;
+        }
         const projectId = config.getProjectId();
         const fileNodeId = config.getFileNodeId();
         if (!projectId || !fileNodeId) return;
 
         const apiKind = toApiKind(session.kind);
         const seq = ++this.seq;
-        // The old-name usage set is invariant for the session; fetch it once and reuse across settles.
-        const oldNameKey = `${apiKind}:${session.oldName}`;
         let usages: SymbolUsage[];
-        if (this.oldNameUsages && this.oldNameUsages.key === oldNameKey) {
-          usages = this.oldNameUsages.usages;
-        } else {
-          try {
-            usages = await config.findSymbolUsages(projectId, session.oldName, apiKind);
-          } catch {
-            // A failed lookup (e.g. rate limit / network) simply produces no suggestion this settle;
-            // the next edit re-arms detection. Never leave the promise rejection unhandled.
-            return;
-          }
-          this.oldNameUsages = { key: oldNameKey, usages };
+        try {
+          usages = await config.findSymbolUsages(projectId, session.oldName, apiKind);
+        } catch {
+          // A failed lookup (rate limit / network) can't confirm the offer; clear a live one so it
+          // does not hang in 'checking…'. The next edit re-arms detection. Never leave the rejection
+          // unhandled.
+          this.clearLiveOffer();
+          return;
         }
         if (this.destroyed || seq !== this.seq) return; // torn down, or a newer settle superseded this one
 
@@ -309,6 +317,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         try {
           collisionUsages = await config.findSymbolUsages(projectId, newName, apiKind);
         } catch {
+          this.clearLiveOffer(); // couldn't confirm collision → don't leave the offer stuck in 'checking…'
           return;
         }
         if (this.destroyed || seq !== this.seq) return;
@@ -319,6 +328,13 @@ function makePlugin(config: RenameSuggestionConfig) {
         // it — clearing here would flash-close the very offer the field is keeping alive.
         const current = definitionAtCursor(this.view.state);
         if (current && current.name !== newName) return;
+
+        // The captured range may be stale if the definition was deleted during the lookups; never
+        // surface an offer anchored past the document end (buildDecoration would have to clamp it).
+        if (definitionRange.from > this.view.state.doc.length) {
+          this.clearLiveOffer();
+          return;
+        }
 
         // Never overwrite an applied offer's Undo affordance with a fresh 'visible' offer (the author
         // may have kept editing the just-renamed definition, starting a new session mid-flight).
@@ -369,7 +385,6 @@ function makePlugin(config: RenameSuggestionConfig) {
           this.undo = undo;
           this.dismissedName = newName; // a re-detected mismatch must not re-suggest this settled rename
           this.session = null;
-          this.oldNameUsages = null; // references were rewritten → the cached old-name usages are stale
           this.clearSettle();
           // A leave timer armed before Apply (cursor left the definition, then the button was clicked)
           // must not fire and hide the applied Undo affordance.
@@ -384,6 +399,8 @@ function makePlugin(config: RenameSuggestionConfig) {
       }
 
       private async runUndo() {
+        // Undo is a project-wide write; a downgrade after Apply must not let an observer reverse it.
+        if (config.getCanEdit && !config.getCanEdit()) return;
         const undo = this.undo;
         if (!undo) return;
         try {
@@ -392,7 +409,6 @@ function makePlugin(config: RenameSuggestionConfig) {
           return; // keep this.undo so the author can retry the undo
         }
         this.undo = null;
-        this.oldNameUsages = null; // references were restored → the cached usage set is stale again
         if (!this.destroyed) this.setSuggestion(null);
       }
 
@@ -401,6 +417,12 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (suggestion) this.dismissedName = suggestion.candidate.newName;
         this.clearLeave();
         this.setSuggestion(null);
+      }
+
+      /** Clear a shown LIVE (non-applied) offer; an applied Undo affordance is preserved. */
+      private clearLiveOffer() {
+        const shown = this.view.state.field(suggestionField);
+        if (shown && shown.status !== 'applied') this.setSuggestion(null);
       }
 
       private setSuggestion(value: RenameSuggestion | null) {
@@ -425,7 +447,7 @@ function makePlugin(config: RenameSuggestionConfig) {
   );
 }
 
-/** The complete rename-suggestion extension (state fields + orchestration plugin). */
+/** The complete rename-suggestion extension (state field + orchestration plugin). */
 export function renameSuggestion(config: RenameSuggestionConfig): Extension {
-  return [suggestionField, renameSeedField, makePlugin(config)];
+  return [suggestionField, makePlugin(config)];
 }

@@ -1,6 +1,6 @@
 import type { CompletionSource, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { extractSymbols } from '@asciidocollab/asciidoc-core';
-import { renameSeedField } from '@/lib/codemirror/rename-suggestion/rename-detector';
+import { inheritedAttributesSeed } from '@/lib/codemirror/inherited-attributes-field';
 import { crossFileSymbolNames, type ProjectIndexGetter } from '@/lib/codemirror/completions/symbol-index';
 
 // The current document's section/anchor ids come from extractSymbols — the SINGLE authority for
@@ -27,7 +27,7 @@ export function createXrefCompletionSource(getIndex?: ProjectIndexGetter): Compl
 
     const text = context.state.doc.toString();
     const prefix = match.text.slice(2);
-    const localIds = localSectionAndAnchorIds(text, context.state.field(renameSeedField, false));
+    const localIds = localSectionAndAnchorIds(text, inheritedAttributesSeed(context.state));
     const crossFile = crossFileSymbolNames(getIndex, ['section', 'anchor']);
     const allIds = [...new Set([...localIds, ...crossFile])];
     const filtered = allIds.filter((id) => id.startsWith(prefix));

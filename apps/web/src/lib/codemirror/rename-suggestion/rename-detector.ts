@@ -1,5 +1,6 @@
-import { StateEffect, StateField, type EditorState, type Text } from '@codemirror/state';
+import type { EditorState, Text } from '@codemirror/state';
 import { extractSymbols, type ProjectSymbol } from '@asciidocollab/asciidoc-core';
+import { inheritedAttributesSeed } from '@/lib/codemirror/inherited-attributes-field';
 import { ATTR_DEF_RE, ANCHOR_RE, covering } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { INLINE_SET_RE } from '@/lib/codemirror/asciidoc-attribute-fold';
 import type { DocumentRange, SymbolKind } from './types';
@@ -35,23 +36,6 @@ const SET_PREFIX_LENGTH = 5;
 const SECTION_HEADING_LINE_RE = /^={2,6}\s+\S/;
 // An explicit id set on the line before a heading (`[#id]` / `[[id]]`) overrides the derived id.
 const EXPLICIT_ID_LINE_RE = /^\[(?:#|\[)[A-Za-z][\w:.-]*/;
-
-/**
- * The open file's attributes inherited from the documents that include it (its ancestors along the
- * include path from the project main file). A heading's auto-generated id reflects an
- * `idprefix`/`idseparator`/`sectids` set by a PARENT above the include, so seeding the symbol scan
- * with these keeps the editor's derived id in step with the server (which seeds the same way via
- * `projectInheritedAttributes`) and the preview. Empty when the file inherits nothing or the seed has
- * not been supplied. The editor keeps this in sync via {@link setRenameSeedEffect}.
- */
-export const setRenameSeedEffect = StateEffect.define<ReadonlyMap<string, string>>();
-export const renameSeedField = StateField.define<ReadonlyMap<string, string> | undefined>({
-  create: () => undefined,
-  update(value, tr) {
-    for (const effect of tr.effects) if (effect.is(setRenameSeedEffect)) return effect.value;
-    return value;
-  },
-});
 
 // Recognising a heading definition needs the WHOLE document's symbols (the block-boundary rule plus
 // the `idprefix`/`idseparator`/`sectids` in scope), but `definitionAtCursor` is called repeatedly on
@@ -132,7 +116,7 @@ export function definitionAtCursor(state: EditorState): DefinitionMatch | null {
   if (SECTION_HEADING_LINE_RE.test(text)) {
     const previous = line.number > 1 ? state.doc.line(line.number - 1).text : '';
     if (EXPLICIT_ID_LINE_RE.test(previous)) return null;
-    const seed = state.field(renameSeedField, false);
+    const seed = inheritedAttributesSeed(state);
     const section = documentSymbols(state.doc, seed).find(
       (symbol) => symbol.kind === 'section' && symbol.range.from >= line.from && symbol.range.from <= line.to,
     );

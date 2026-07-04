@@ -11,6 +11,8 @@ import {
 } from '@/lib/codemirror/rename-suggestion/rename-suggestion-state';
 import {
   applyRequestEffect,
+  dismissRequestEffect,
+  setSuggestionEffect,
   undoRequestEffect,
 } from '@/lib/codemirror/rename-suggestion/rename-suggestion-effects';
 
@@ -192,6 +194,102 @@ describe('rename suggestion state machine', () => {
     view.dispatch({ selection: { anchor: 15 } }); // any change re-runs tracking
     await flush(); // the clear is dispatched from a microtask (never during the update)
     expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('a downgrade after Apply keeps the Undo affordance (only live offers are hidden)', async () => {
+    let canEdit = true;
+    const { config, renameSymbol } = makeConfig({ getCanEdit: () => canEdit });
+    const view = mount(':edition:\n\nbody text here\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(shown(view)?.status).toBe('applied');
+
+    canEdit = false; // role downgraded after the rename was applied
+    view.dispatch({ selection: { anchor: 15 } }); // re-runs tracking
+    await flush();
+    expect(shown(view)?.status).toBe('applied'); // Undo affordance preserved
+
+    view.dispatch({ effects: undoRequestEffect.of(null) }); // ...but the undo WRITE is blocked
+    await flush();
+    expect(renameSymbol).toHaveBeenCalledTimes(1); // only the forward apply, no undo call
+    view.destroy();
+  });
+
+  test('a failed collision lookup clears the revalidating offer instead of leaving it stuck', async () => {
+    // findSymbolUsages resolves for the old name but rejects for the freshly-typed new name.
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> => {
+      if (name === 'edition') return [u('F', 'definition', 0), u('G', 'xref', 5)];
+      if (name === 'boom') throw new Error('rate limited');
+      return [];
+    });
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount(':edition:\n', config);
+    beginRename(view); // → :release:, offer pending
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+    view.dispatch({ changes: { from: 1, to: 8, insert: 'boom' }, selection: { anchor: 4 } }); // :boom:
+    expect(shown(view)?.revalidating).toBe(true);
+    await jest.advanceTimersByTimeAsync(2000); // settle → collision lookup rejects
+    await flush();
+    expect(shown(view)).toBeNull(); // cleared, not stuck disabled in 'checking…'
+    view.destroy();
+  });
+
+  test('typing back to a dismissed name clears the revalidating offer (not stuck)', async () => {
+    const { config } = makeConfig();
+    const view = mount(':edition:\n', config);
+    beginRename(view); // → :release:
+    await jest.advanceTimersByTimeAsync(2000);
+    view.dispatch({ effects: dismissRequestEffect.of(null) }); // dismiss 'release'
+    await flush();
+    expect(shown(view)).toBeNull();
+
+    view.dispatch({ changes: { from: 1, to: 8, insert: 'other' }, selection: { anchor: 4 } }); // :other:
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.candidate.newName).toBe('other'); // a fresh, non-dismissed offer
+    view.dispatch({ changes: { from: 1, to: 6, insert: 'release' }, selection: { anchor: 4 } }); // back to dismissed
+    expect(shown(view)?.revalidating).toBe(true); // field keeps it open in-place first
+    await flush(); // track sees the dismissed name and clears it via microtask
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('typing on from a colliding name clears the stale collision immediately (no false warning)', async () => {
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> => {
+      if (name === 'edition') return [u('F', 'definition', 0), u('G', 'xref', 5)];
+      if (name === 'taken') return [u('H', 'definition', 0)]; // collides
+      return [];
+    });
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount(':edition:\n', config);
+    view.dispatch({ selection: { anchor: 4 } });
+    view.dispatch({ changes: { from: 1, to: 8, insert: 'taken' }, selection: { anchor: 4 } }); // :taken:
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.collision).toBe(true); // 'taken' already exists
+    view.dispatch({ changes: { from: 6, to: 6, insert: 'x' }, selection: { anchor: 7 } }); // :takenx:
+    expect(shown(view)?.collision).toBe(false); // stale collision cleared at once, not carried over
+    expect(shown(view)?.revalidating).toBe(true);
+    view.destroy();
+  });
+
+  test('an offer whose definitionRange is past the document end does not crash the decoration', () => {
+    const view = mount(':edition:\n', makeConfig().config);
+    // Simulate an async offer captured before a deletion shrank the doc: an out-of-bounds range.
+    expect(() =>
+      view.dispatch({
+        effects: setSuggestionEffect.of({
+          candidate: { kind: 'attribute', oldName: 'edition', newName: 'release', definitionRange: { from: 9999, to: 10_006 } },
+          usageCount: 2,
+          fileCount: 1,
+          status: 'visible',
+          collision: false,
+          revalidating: false,
+        }),
+      }),
+    ).not.toThrow();
     view.destroy();
   });
 

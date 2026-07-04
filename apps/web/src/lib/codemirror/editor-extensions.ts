@@ -11,6 +11,7 @@ import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
+import { inheritedAttributesField } from '@/lib/codemirror/inherited-attributes-field';
 import { asciidocCrossDocumentAttributes } from '@/lib/codemirror/cross-document-attributes';
 import { asciidocConditionalDimming } from '@/lib/codemirror/conditional-dimming';
 import { asciidocBlockDecorations } from '@/lib/codemirror/asciidoc-block-decorations';
@@ -154,6 +155,10 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
   const collab = collabExtension ? [collabExtension] : [];
 
   return [
+    // The open file's inherited-attribute seed, read by the rename detector and xref completion to
+    // derive heading ids under a parent-set idprefix/idseparator. Installed in the base set so those
+    // consumers never depend on an optional feature extension being present; seeded from use-editor-mount.
+    inheritedAttributesField,
     // The language lives in a compartment so the source-highlight loader can
     // reconfigure it (forcing a re-parse) once an embedded language loads.
     compartments.language.of(asciidoc()),

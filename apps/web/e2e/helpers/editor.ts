@@ -76,7 +76,7 @@ export async function openFile(
   expectText?: string | RegExp,
 ): Promise<void> {
   await page.getByTestId(`tree-node-${fileName}`).click();
-  await expect(editorContent(page)).toBeVisible({ timeout: 10_000 });
+  await expect(editorContent(page)).toBeVisible({ timeout: 15_000 }); // cold editor mount under gate load
   if (expectText !== undefined) {
     await expect(editorContent(page)).toContainText(expectText, { timeout: 15_000 });
   }
@@ -103,7 +103,10 @@ export async function typeAtEnd(page: Page, text: string): Promise<void> {
 /** Toggle the HTML preview open (expand) / closed. */
 export async function expandPreview(page: Page): Promise<void> {
   await page.getByRole('button', { name: /expand preview/i }).click();
-  await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 15_000 });
+  // Cold-start tolerant: the first preview render must spin up the AsciiDoc→HTML web worker (bundle
+  // load + Asciidoctor init), which under gate load occasionally exceeds a tighter budget on the
+  // first attempt (warm on retry). Kept within the per-test timeout so it absorbs the cold start.
+  await expect(page.getByTestId('asciidoc-output')).toBeVisible({ timeout: 25_000 });
 }
 
 export async function collapsePreview(page: Page): Promise<void> {
