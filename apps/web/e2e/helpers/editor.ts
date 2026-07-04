@@ -93,6 +93,28 @@ export async function getEditorText(page: Page): Promise<string> {
   return lines.join('\n');
 }
 
+/**
+ * Rename the first occurrence of `word` in the editor to `replacement` by double-clicking it and
+ * typing over the selection.
+ *
+ * Robust against the collab-sync race: the editor mounts read-only (`contenteditable="false"`) and
+ * only becomes editable once its Yjs document has synced, so under parallel gate load a double-click +
+ * type issued too early is silently dropped — the definition never changes, the rename is never
+ * detected, and the offer never appears. This waits for the editor to be editable first, then confirms
+ * the edit actually registered before returning.
+ *
+ * @param page - The Playwright page.
+ * @param word - The exact word to double-click (its first DOM occurrence).
+ * @param replacement - The text typed over the selected word.
+ */
+export async function renameFirstWord(page: Page, word: string, replacement: string): Promise<void> {
+  const content = editorContent(page);
+  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
+  await content.getByText(word, { exact: false }).first().dblclick();
+  await page.keyboard.type(replacement);
+  await expect(content).toContainText(replacement, { timeout: 10_000 }); // the edit registered
+}
+
 /** Place the cursor at the end of the document and type `text`. */
 export async function typeAtEnd(page: Page, text: string): Promise<void> {
   await editorContent(page).click();

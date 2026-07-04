@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, openProject, openFile, getEditorText, editorContent } from './helpers/editor';
+import { createAdocFile, openProject, openFile, getEditorText, renameFirstWord } from './helpers/editor';
 
 // Feature 033: renaming a section heading whose AUTO-GENERATED id is referenced offers to
 // update the cross-references to the new derived id — but only when the heading has no explicit id.
@@ -10,8 +10,7 @@ import { createAdocFile, openProject, openFile, getEditorText, editorContent } f
 /** Replace the first word of the heading, changing its derived id. */
 async function renameHeadingWordTo(page: Page, replacement: string): Promise<void> {
   // The first `Install` in DOM order is the heading on line 1 (the `<<_install_guide>>` xref follows).
-  await editorContent(page).getByText('Install', { exact: false }).first().dblclick();
-  await page.keyboard.type(replacement);
+  await renameFirstWord(page, 'Install', replacement);
 }
 
 test.describe('033 — section-heading auto-id rename suggestion', () => {

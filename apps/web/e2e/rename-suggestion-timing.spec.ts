@@ -2,15 +2,14 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, openProject, openFile, editorContent } from './helpers/editor';
+import { createAdocFile, openProject, openFile, editorContent, renameFirstWord } from './helpers/editor';
 
 // Feature 033: the suggestion appears only after the ~1s settle, and after the cursor leaves
 // the definition it disappears ~5s later — unless the cursor returns within that window.
 
 /** Rename the `:edition:` definition to `:release:`, leaving the cursor in it. */
 async function renameDefinition(page: Page): Promise<void> {
-  await editorContent(page).getByText('edition', { exact: false }).first().dblclick();
-  await page.keyboard.type('release');
+  await renameFirstWord(page, 'edition', 'release');
 }
 
 test.describe('033 — suggestion timing & location', () => {

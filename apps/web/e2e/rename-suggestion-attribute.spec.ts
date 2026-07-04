@@ -2,14 +2,12 @@ import { test, expect } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import type { Page } from '@playwright/test';
-import { createAdocFile, openProject, openFile, getEditorText, editorContent, expandPreview } from './helpers/editor';
+import { createAdocFile, openProject, openFile, getEditorText, editorContent, renameFirstWord, expandPreview } from './helpers/editor';
 
 /** Select the attribute name in the definition line and replace it, leaving the cursor in it. */
 async function renameDefinitionTo(page: Page, newName: string): Promise<void> {
-  // Double-click selects the whole word `edition`; the first match in DOM order is the definition
-  // on line 1 (the `{edition}` reference is later in the document).
-  await editorContent(page).getByText('edition', { exact: false }).first().dblclick();
-  await page.keyboard.type(newName);
+  // The first `edition` in DOM order is the definition on line 1 (the `{edition}` reference is later).
+  await renameFirstWord(page, 'edition', newName);
 }
 
 // Feature 033: renaming an attribute DEFINITION offers a project-wide refactor of every
@@ -75,10 +73,13 @@ test.describe('033 — attribute rename suggestion', () => {
     await openFile(page, 'main.adoc', 'edition');
 
     // The inline {set:} folds to a value widget; place the cursor on line 1 to reveal the raw source,
-    // then select the name and rename it.
+    // then select the name and rename it. Wait for the editor to be editable first so the type is not
+    // dropped against a still-syncing (read-only) document under parallel load, then confirm it landed.
+    await expect(editorContent(page)).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
     await editorContent(page).locator('.cm-line').first().click();
     await editorContent(page).getByText('edition', { exact: false }).first().dblclick();
     await page.keyboard.type('release');
+    await expect(editorContent(page)).toContainText('release', { timeout: 10_000 });
 
     const suggestion = page.getByTestId('rename-suggestion');
     await expect(suggestion).toBeVisible({ timeout: 20_000 }); // API headroom under parallel gate load

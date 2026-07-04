@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, openProject, openFile, getEditorText, editorContent } from './helpers/editor';
+import { createAdocFile, openProject, openFile, getEditorText, renameFirstWord } from './helpers/editor';
 
 // Feature 033: renaming an explicit anchor DEFINITION (`[[id]]`) offers a project-wide refactor
 // of every cross-reference (`<<id>>` / `xref:id[]`) to the new id, applied in one click and undoable.
@@ -10,8 +10,7 @@ import { createAdocFile, openProject, openFile, getEditorText, editorContent } f
 /** Select the anchor id in the definition and replace it, leaving the cursor in it. */
 async function renameAnchorTo(page: Page, newId: string): Promise<void> {
   // The first `install` in DOM order is the `[[install]]` definition on line 1.
-  await editorContent(page).getByText('install', { exact: false }).first().dblclick();
-  await page.keyboard.type(newId);
+  await renameFirstWord(page, 'install', newId);
 }
 
 test.describe('033 — anchor rename suggestion', () => {
