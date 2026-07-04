@@ -218,8 +218,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (config.getCanEdit && !config.getCanEdit()) {
           this.clearSettle();
           this.clearLeave();
-          const shown = this.view.state.field(suggestionField);
-          if (shown && shown.status !== 'applied') void Promise.resolve().then(() => this.setSuggestion(null));
+          if (this.view.state.field(suggestionField)) void Promise.resolve().then(() => this.clearLiveOffer());
           return;
         }
         const definition = definitionAtCursor(state);
@@ -259,10 +258,9 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (newName === this.dismissedName) {
           // The author typed back to a name they already dismissed → no settle is armed to re-evaluate.
           // The field kept the offer open in-place (revalidating), so clear it here, otherwise it would
-          // hang in "checking…" with Apply disabled forever. Preserve an applied Undo affordance.
+          // hang in "checking…" with Apply disabled forever. clearLiveOffer preserves an applied Undo.
           this.clearSettle();
-          const shown = this.view.state.field(suggestionField);
-          if (shown && shown.status !== 'applied') void Promise.resolve().then(() => this.setSuggestion(null));
+          if (this.view.state.field(suggestionField)) void Promise.resolve().then(() => this.clearLiveOffer());
           return;
         }
 
@@ -297,9 +295,9 @@ function makePlugin(config: RenameSuggestionConfig) {
           usages = await config.findSymbolUsages(projectId, session.oldName, apiKind);
         } catch {
           // A failed lookup (rate limit / network) can't confirm the offer; clear a live one so it
-          // does not hang in 'checking…'. The next edit re-arms detection. Never leave the rejection
-          // unhandled.
-          this.clearLiveOffer();
+          // does not hang in 'checking…'. The next edit re-arms detection. Only clear if THIS evaluate
+          // still owns the offer — a newer settle may have superseded it and shown a valid one.
+          if (!this.destroyed && seq === this.seq) this.clearLiveOffer();
           return;
         }
         if (this.destroyed || seq !== this.seq) return; // torn down, or a newer settle superseded this one
@@ -317,7 +315,9 @@ function makePlugin(config: RenameSuggestionConfig) {
         try {
           collisionUsages = await config.findSymbolUsages(projectId, newName, apiKind);
         } catch {
-          this.clearLiveOffer(); // couldn't confirm collision → don't leave the offer stuck in 'checking…'
+          // Couldn't confirm collision → don't leave the offer stuck in 'checking…', but only if this
+          // evaluate still owns it (a newer settle may already have shown a valid offer).
+          if (!this.destroyed && seq === this.seq) this.clearLiveOffer();
           return;
         }
         if (this.destroyed || seq !== this.seq) return;
