@@ -51,9 +51,16 @@ export function extractAttributeDefinitions(content: string): Array<{ name: stri
   const definitions: Array<{ name: string; value: string }> = [];
   for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
     // ATTR_DEF_VALUE_RE captures the raw line tail; trim surrounding spaces/tabs (only — a trailing
-    // `\r` from CRLF files is intentionally kept, matching the prior regex's behavior).
-    const value = match[2].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
-    definitions.push({ name: match[1].toLowerCase(), value });
+    // `\r` from CRLF files is intentionally kept). Done with an index walk rather than
+    // `/^[ \t]+/`/`/[ \t]+$/` replaces: the trailing anchored trim is quadratic on all-whitespace
+    // input (ReDoS), whereas this is linear and behaviour-identical (a final `\r` blocks the
+    // trailing walk, so spaces before it and the `\r` are preserved, exactly as `$` did).
+    const raw = match[2];
+    let start = 0;
+    let end = raw.length;
+    while (start < end && (raw[start] === ' ' || raw[start] === '\t')) start++;
+    while (end > start && (raw[end - 1] === ' ' || raw[end - 1] === '\t')) end--;
+    definitions.push({ name: match[1].toLowerCase(), value: raw.slice(start, end) });
   }
   return definitions;
 }
