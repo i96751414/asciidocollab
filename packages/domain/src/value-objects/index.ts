@@ -1,6 +1,7 @@
 /** @file Barrel re-exports for value-objects. */
 // AsciiDoc file-name rule + project-path security/relative-path rules (pure domain primitives).
 export { isAsciiDocumentFileName, ASCIIDOC_EXTENSIONS } from './files/asciidoc-file-name';
+export { isSearchableTextFile } from './files/searchable-text-file';
 export { resolveSandboxedPath } from './files/sandboxed-path';
 export type { SandboxedPathResult } from './files/sandboxed-path';
 export { relativeProjectPath, toProjectRelative } from './files/relative-project-path';

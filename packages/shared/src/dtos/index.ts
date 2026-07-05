@@ -41,3 +41,10 @@ export type { KeyBindingDto } from './key-binding.dto';
 export type { EditorPreferencesDto, SpellcheckLanguageDto } from './editor-preferences.dto';
 export type { AuditLogDto, AuditLogPageDto } from './audit-log.dto';
 export type { CollabAuthRole, CollabDocumentAuthResponse, CollabPresenceAuthResponse, CollabDocumentInfo } from './collab.dto';
+export type {
+  SearchMode,
+  SearchQueryDto,
+  SearchMatchDto,
+  FileMatchGroupDto,
+  SearchResultDto,
+} from './project-search.dto';
