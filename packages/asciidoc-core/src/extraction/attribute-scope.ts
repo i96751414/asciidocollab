@@ -50,7 +50,10 @@ function inheritedAttributeSeed(arguments_: ProjectScopeArguments): ReadonlyMap<
 export function extractAttributeDefinitions(content: string): Array<{ name: string; value: string }> {
   const definitions: Array<{ name: string; value: string }> = [];
   for (const match of content.matchAll(ATTR_DEF_VALUE_RE)) {
-    definitions.push({ name: match[1].toLowerCase(), value: match[2] });
+    // ATTR_DEF_VALUE_RE captures the raw line tail; trim surrounding spaces/tabs (only — a trailing
+    // `\r` from CRLF files is intentionally kept, matching the prior regex's behavior).
+    const value = match[2].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+    definitions.push({ name: match[1].toLowerCase(), value });
   }
   return definitions;
 }

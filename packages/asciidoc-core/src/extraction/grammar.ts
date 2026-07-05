@@ -15,8 +15,11 @@ export const IMAGE_RE = /image::?((?:(?!image:)[^[\n])+)\[/g;
 export const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
 export const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z](?:(?!anchor:)[\w:.-])*)\[/g;
 export const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):/gm;
-// Attribute definition WITH its value: `:name: value` (an unset `:name!:` does not match).
-export const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*((?:[^ \t\n](?:[^\n]*[^ \t\n])?)?)[ \t]*$/gm;
+// Attribute definition WITH its value: `:name: value` (an unset `:name!:` does not match). Group 2
+// captures the raw remainder of the line; the caller trims surrounding spaces/tabs. Capturing the
+// whole tail (rather than a `[ \t]*(value)[ \t]*$` sandwich) keeps matching linear — the two
+// whitespace runs around an optional value are a polynomial-ReDoS shape flagged by CodeQL.
+export const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):(.*)$/gm;
 // A single attribute-entry LINE (anchored, not global): a set `:name: value`, a prefix unset
 // `:!name:`, or a suffix unset `:name!:`. Group 1/3 = name (set / suffix-unset), group 2 = value,
 // group 4 = prefix-unset name. Used by the line-scanning event builder so wrapping continuation
@@ -34,7 +37,10 @@ export const VALUE_CONTINUATION_RE = /\\[ \t]*$/;
 export const INCLUDE_TAGS_RE = /\btags?\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,\]]+))/;
 export const INCLUDE_LINES_RE = /\blines\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,\]]+))/;
 export const SELECTOR_SEPARATOR_RE = /[;,]/;
-export const HEADING_RE = /^(={1,6})\s+(.+)$/gm;
+// Group 2 starts at the first non-space (`\S`) so the `\s+` separator and the title do not overlap
+// on the space character — `\s+(.+)` is a polynomial-ReDoS shape (both match ' ') that CodeQL flags;
+// `\s+(\S.*)` is linear and, since `\s+` is greedy, captures the identical title.
+export const HEADING_RE = /^(={1,6})\s+(\S.*)$/gm;
 // An explicit block id (`[#id]` or `[[id]]`) on its own line. When it sits
 // immediately above a heading it overrides the auto-generated section id.
 export const SECTION_ID_ATTR_RE = /^[ \t]*\[(?:#([A-Za-z][\w:.-]*)|\[([A-Za-z][\w:.-]*)\])\][ \t]*$/;
