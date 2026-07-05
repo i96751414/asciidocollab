@@ -33,6 +33,10 @@ export interface CollabConfig {
   apiInternalUrl: string;
   /** Auth hook HTTP request timeout in milliseconds. */
   authTimeoutMs: number;
+  /** Path on the API internal server that receives content-changed notifications for live edits. */
+  contentChangedNotifyPath: string;
+  /** Per-room debounce window in milliseconds for coalescing a burst of live edits into one notify. */
+  contentChangedDebounceMs: number;
   /** Orphaned-room watchdog polling interval in milliseconds. */
   watchdogIntervalMs: number;
   /** Comma-separated list of allowed WebSocket-handshake Origins; empty disables the check. */
@@ -119,6 +123,18 @@ export function createCollabConfig() {
       format: positiveInteger('authTimeoutMs'),
       default: 3000,
       env: 'ASCIIDOCOLLAB_COLLAB_AUTH_TIMEOUT_MS',
+    },
+    contentChangedNotifyPath: {
+      doc: 'Path on the API internal server that receives content-changed notifications for live edits.',
+      format: String,
+      default: '/internal/collab/content-changed',
+      env: 'ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_NOTIFY_PATH',
+    },
+    contentChangedDebounceMs: {
+      doc: 'Per-room debounce window in milliseconds for coalescing a burst of live edits into one content-changed notify.',
+      format: positiveInteger('contentChangedDebounceMs'),
+      default: 400,
+      env: 'ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_DEBOUNCE_MS',
     },
     watchdogIntervalMs: {
       doc: 'Orphaned-room watchdog polling interval in milliseconds.',

@@ -5,6 +5,12 @@ import { InviteUserDto } from '../../src/dtos/invite-user.dto';
 import { RemoveMemberDto } from '../../src/dtos/remove-member.dto';
 import { ChangeMemberRoleDto } from '../../src/dtos/change-member-role.dto';
 import { GetProjectTreeDto, FileTreeNodeDto, GetProjectTreeResultDto } from '../../src/dtos/get-project-tree.dto';
+import {
+  ContentChangedEventDto,
+  MainFileChangedEventDto,
+  ProjectEventDto,
+} from '../../src/dtos/project-event.dto';
+import { FileTreeEventDto } from '../../src/dtos/file-tree-event.dto';
 
 describe('CreateProject DTOs', () => {
   test('CreateProjectDto shape', () => {
@@ -130,5 +136,55 @@ describe('GetProjectTree DTOs', () => {
 
     const result: GetProjectTreeResultDto = { root };
     expect(result.root.id).toBe(root.id);
+  });
+});
+
+describe('ProjectEvent DTOs', () => {
+  test('ContentChangedEventDto shape', () => {
+    const dto: ContentChangedEventDto = {
+      type: 'content-changed',
+      fileNodeId: '550e8400-e29b-41d4-a716-446655440001',
+    };
+    expect(dto.type).toBe('content-changed');
+    expect(dto.fileNodeId).toBeDefined();
+  });
+
+  test('MainFileChangedEventDto carries a main file id or null', () => {
+    const set: MainFileChangedEventDto = {
+      type: 'main-file-changed',
+      mainFileNodeId: '550e8400-e29b-41d4-a716-446655440002',
+    };
+    const cleared: MainFileChangedEventDto = { type: 'main-file-changed', mainFileNodeId: null };
+    expect(set.mainFileNodeId).toBe('550e8400-e29b-41d4-a716-446655440002');
+    expect(cleared.mainFileNodeId).toBeNull();
+  });
+
+  test('ProjectEventDto unifies file-tree, content-changed, and main-file-changed and discriminates on type', () => {
+    const fileTree: FileTreeEventDto = {
+      type: 'created',
+      fileNodeId: '550e8400-e29b-41d4-a716-446655440003',
+      nodeType: 'file',
+      name: 'child.adoc',
+      path: '/child.adoc',
+      parentId: null,
+    };
+    const events: ProjectEventDto[] = [
+      fileTree,
+      { type: 'content-changed', fileNodeId: '550e8400-e29b-41d4-a716-446655440004' },
+      { type: 'main-file-changed', mainFileNodeId: null },
+    ];
+
+    const types = events.map((event) => event.type);
+    expect(types).toEqual(['created', 'content-changed', 'main-file-changed']);
+
+    for (const event of events) {
+      if (event.type === 'content-changed') {
+        expect(event.fileNodeId).toBeDefined();
+      } else if (event.type === 'main-file-changed') {
+        expect('mainFileNodeId' in event).toBe(true);
+      } else {
+        expect(event.nodeType).toBeDefined();
+      }
+    }
   });
 });

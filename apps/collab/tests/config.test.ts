@@ -67,6 +67,41 @@ describe('createCollabConfig', () => {
     });
   });
 
+  describe('content-changed notify config', () => {
+    it('defaults contentChangedNotifyPath to the internal collab route', () => {
+      const config = createCollabConfig();
+      expect(config.get('contentChangedNotifyPath')).toBe('/internal/collab/content-changed');
+    });
+
+    it('defaults contentChangedDebounceMs to a positive window', () => {
+      const config = createCollabConfig();
+      expect(config.get('contentChangedDebounceMs')).toBe(400);
+    });
+
+    it('reads contentChangedNotifyPath from ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_NOTIFY_PATH', () => {
+      withEnvironment({ ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_NOTIFY_PATH: '/internal/collab/changed' }, () => {
+        const config = createCollabConfig();
+        expect(config.get('contentChangedNotifyPath')).toBe('/internal/collab/changed');
+      });
+    });
+
+    it('reads contentChangedDebounceMs from ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_DEBOUNCE_MS', () => {
+      withEnvironment({ ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_DEBOUNCE_MS: '250' }, () => {
+        const config = createCollabConfig();
+        expect(config.get('contentChangedDebounceMs')).toBe(250);
+      });
+    });
+
+    it('throws when contentChangedDebounceMs is zero', () => {
+      withEnvironment({ ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_DEBOUNCE_MS: '0' }, () => {
+        expect(() => {
+          const config = createCollabConfig();
+          config.validate();
+        }).toThrow();
+      });
+    });
+  });
+
   it('apiInternalTls.cert defaults to empty string (mTLS disabled in development)', () => {
     const config = createCollabConfig();
     expect(config.get('apiInternalTls.cert')).toBe('');
