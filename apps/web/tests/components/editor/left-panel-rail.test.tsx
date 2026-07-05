@@ -7,7 +7,7 @@ describe('LeftPanelRail', () => {
     render(<LeftPanelRail activeTab="files" onTabChange={jest.fn()} />);
     const tablist = screen.getByRole('tablist');
     expect(tablist).toHaveAttribute('aria-orientation', 'vertical');
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 
   test('marks the active tab with aria-selected and points aria-controls at the body', () => {
@@ -50,7 +50,13 @@ describe('LeftPanelRail', () => {
     const onTabChange = jest.fn();
     render(<LeftPanelRail activeTab="files" onTabChange={onTabChange} />);
     fireEvent.keyDown(screen.getByRole('tab', { name: /files/i }), { key: 'ArrowUp' });
-    expect(onTabChange).toHaveBeenCalledWith('outline');
+    expect(onTabChange).toHaveBeenCalledWith('search');
+  });
+
+  test('renders the Search tab alongside Files and Outline', () => {
+    render(<LeftPanelRail activeTab="search" onTabChange={jest.fn()} />);
+    const searchTab = screen.getByRole('tab', { name: /search/i });
+    expect(searchTab).toHaveAttribute('aria-selected', 'true');
   });
 
   test('renders a collapse control (always visible) that calls onCollapse', () => {
@@ -58,7 +64,7 @@ describe('LeftPanelRail', () => {
     render(<LeftPanelRail activeTab="outline" onTabChange={jest.fn()} onCollapse={onCollapse} />);
     // The collapse button is a sibling of the tablist, not a tab — so it is reachable from any view.
     const collapse = screen.getByRole('button', { name: /collapse sidebar/i });
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
     fireEvent.click(collapse);
     expect(onCollapse).toHaveBeenCalledTimes(1);
   });

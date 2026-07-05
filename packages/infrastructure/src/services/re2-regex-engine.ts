@@ -21,6 +21,13 @@ import type {
  * identically.
  */
 export class Re2RegexEngine implements RegexEngine {
+  /**
+   * Compiles `pattern` with RE2, rejecting an invalid pattern as a `ValidationError`.
+   *
+   * @param pattern - The user-supplied regular-expression source.
+   * @param flags - Case/multiline options.
+   * @returns A reusable linear-time matcher, or a `ValidationError`.
+   */
   compile(pattern: string, flags: RegexFlags): Result<CompiledMatcher, ValidationError> {
     const re2Flags = `g${flags.caseSensitive ? '' : 'i'}${flags.multiline ? 'm' : ''}`;
     try {
@@ -38,6 +45,13 @@ export class Re2RegexEngine implements RegexEngine {
 class Re2CompiledMatcher implements CompiledMatcher {
   constructor(private readonly regexp: InstanceType<typeof RE2>) {}
 
+  /**
+   * Returns all matches in `input`, in document order, bounded by `budget`.
+   *
+   * @param input - The text to scan.
+   * @param budget - The hard bounds on this pass.
+   * @returns The matches, in document order.
+   */
   matches(input: string, budget: MatchBudget): MatchSpan[] {
     this.regexp.lastIndex = 0;
     const now = budget.now ?? Date.now;

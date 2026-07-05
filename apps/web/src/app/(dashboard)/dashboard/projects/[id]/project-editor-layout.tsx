@@ -22,6 +22,7 @@ import { type ConnectionState } from '@/hooks/use-collab-document';
 
 import { LeftPanel } from '@/components/editor/left-panel';
 import { OutlineView } from '@/components/editor/outline-view';
+import { SearchView, type SearchResultTarget } from '@/components/editor/search-view';
 import { NonLiveIndicator } from '@/components/editor/non-live-indicator';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { assembleOutline, mapOutlinePresence } from '@/lib/outline';
@@ -413,6 +414,22 @@ export function ProjectEditorLayout({
     [revealLine, handleLineClick, handleNavigateToFile, pendingXrefLine, previewOpen, scrollSyncEnabled],
   );
 
+  // Project-wide search result activation: reveal in place when the match is in the open file,
+  // otherwise switch to its file and reveal the match line once the new editor mounts (reuses the
+  // same pending-line seam as xref/outline navigation).
+  const handleSearchResultNavigate = useCallback(
+    (target: SearchResultTarget) => {
+      if (selectedFile?.nodeId === target.fileNodeId) {
+        revealLine(target.line);
+        if (previewOpen && !scrollSyncEnabled) handleLineClick(target.line);
+        return;
+      }
+      pendingXrefLine.current = target.line;
+      handleNavigateToFile(target.path);
+    },
+    [selectedFile, revealLine, handleLineClick, handleNavigateToFile, pendingXrefLine, previewOpen, scrollSyncEnabled],
+  );
+
   const showPreview = selectedFile !== null && isAsciiDocFile(selectedFile.nodeName);
 
   return (
@@ -486,6 +503,7 @@ export function ProjectEditorLayout({
                 outlinePresence={outlinePresence}
               />
             }
+            searchSlot={<SearchView projectId={projectId} onNavigate={handleSearchResultNavigate} />}
           />
         </div>
         {sidebarOpen && (

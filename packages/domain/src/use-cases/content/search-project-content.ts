@@ -101,8 +101,10 @@ const PER_FILE_MATCH_LIMIT = 100_000;
 /** Precomputed 0-based line-start offsets for fast offset → line/column mapping. */
 function lineStarts(content: string): number[] {
   const starts = [0];
-  for (let i = 0; i < content.length; i += 1) {
-    if (content[i] === '\n') starts.push(i + 1);
+  let index = content.indexOf('\n');
+  while (index !== -1) {
+    starts.push(index + 1);
+    index = content.indexOf('\n', index + 1);
   }
   return starts;
 }
@@ -136,6 +138,7 @@ function lineTextAt(content: string, starts: number[], lineIndex: number): strin
  * file is scanned.
  */
 export class SearchProjectContentUseCase {
+  /** Initializes the use case with the repositories, file store, and regex engine it needs. */
   constructor(
     private readonly projectMemberRepo: ProjectMemberRepository,
     private readonly fileNodeRepo: FileNodeRepository,
@@ -146,6 +149,15 @@ export class SearchProjectContentUseCase {
     private readonly logger?: Logger,
   ) {}
 
+  /**
+   * Searches every text-decodable file in the project.
+   *
+   * @param actorId - The user requesting the search (must be a project member).
+   * @param projectId - The project to search.
+   * @param input - The query and the config-driven budgets that bound the scan.
+   * @returns The grouped results with true/returned totals, or a
+   *   `PermissionDeniedError` (non-member) / `ValidationError` (invalid regex).
+   */
   async execute(
     actorId: UserId,
     projectId: ProjectId,

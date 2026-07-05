@@ -126,58 +126,58 @@ export function substitute(
 ): Result<string, ValidationError> {
   if (mode === 'literal') return { success: true, value: replacement };
   let out = '';
-  let i = 0;
-  while (i < replacement.length) {
-    const char = replacement[i];
+  let index = 0;
+  while (index < replacement.length) {
+    const char = replacement[index];
     if (char !== '$') {
       out += char;
-      i += 1;
+      index += 1;
       continue;
     }
-    const next = replacement[i + 1];
+    const next = replacement[index + 1];
     if (next === '$') {
       out += '$';
-      i += 2;
+      index += 2;
       continue;
     }
     if (next === '&') {
       out += span.groups[0] ?? '';
-      i += 2;
+      index += 2;
       continue;
     }
     if (next === '{') {
-      const close = replacement.indexOf('}', i + 2);
+      const close = replacement.indexOf('}', index + 2);
       if (close !== -1) {
-        const name = replacement.slice(i + 2, close);
+        const name = replacement.slice(index + 2, close);
         if (!span.named || !(name in span.named)) {
           return { success: false, error: new ValidationError(`Replacement references unknown capture group \${${name}}`) };
         }
         out += span.named[name] ?? '';
-        i = close + 1;
+        index = close + 1;
         continue;
       }
     }
     if (isDigit(next)) {
-      const twoDigit = replacement.slice(i + 1, i + 3);
+      const twoDigit = replacement.slice(index + 1, index + 3);
       if (/^\d\d$/.test(twoDigit)) {
         const twoNumber = Number.parseInt(twoDigit, 10);
         if (twoNumber > 0 && twoNumber < span.groups.length) {
           out += span.groups[twoNumber] ?? '';
-          i += 3;
+          index += 3;
           continue;
         }
       }
       const oneNumber = Number.parseInt(next, 10);
       if (oneNumber > 0 && oneNumber < span.groups.length) {
         out += span.groups[oneNumber] ?? '';
-        i += 2;
+        index += 2;
         continue;
       }
       return { success: false, error: new ValidationError(`Replacement references absent capture group $${next}`) };
     }
     // A lone `$` not followed by a recognised token is a literal dollar sign.
     out += '$';
-    i += 1;
+    index += 1;
   }
   return { success: true, value: out };
 }

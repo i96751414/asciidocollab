@@ -46,6 +46,10 @@ export interface CompiledMatcher {
   /**
    * Returns all matches in `input`, in document order, bounded by `budget`.
    * MUST be linear-time in the length of `input` (no catastrophic backtracking).
+   *
+   * @param input - The text to scan.
+   * @param budget - The hard bounds (max matches, deadline) on this pass.
+   * @returns The matches, in document order.
    */
   matches(input: string, budget: MatchBudget): MatchSpan[];
 }
@@ -64,6 +68,8 @@ export interface RegexEngine {
   /**
    * Compiles `pattern` under `flags`.
    *
+   * @param pattern - The user-supplied regular-expression source.
+   * @param flags - Case/multiline options.
    * @returns A reusable matcher on success, or a `ValidationError` when the
    *   pattern is invalid (the caller surfaces this as an inline error and never
    *   runs anything).

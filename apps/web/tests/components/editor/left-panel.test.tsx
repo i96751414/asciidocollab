@@ -2,13 +2,14 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { LeftPanel } from '@/components/editor/left-panel';
 
-function renderPanel(activeTab: 'files' | 'outline') {
+function renderPanel(activeTab: 'files' | 'outline' | 'search') {
   return render(
     <LeftPanel
       activeTab={activeTab}
       onTabChange={jest.fn()}
       filesSlot={<div data-testid="files-slot">FILES CONTENT</div>}
       outlineSlot={<div data-testid="outline-slot">OUTLINE CONTENT</div>}
+      searchSlot={<div data-testid="search-slot">SEARCH CONTENT</div>}
     />,
   );
 }
@@ -27,16 +28,26 @@ describe('LeftPanel', () => {
     expect(screen.queryByText('OUTLINE')).not.toBeInTheDocument();
   });
 
-  test('keeps BOTH slots mounted; the inactive one is hidden', () => {
+  test('keeps ALL slots mounted; the inactive ones are hidden', () => {
     renderPanel('files');
     const files = screen.getByTestId('files-slot');
     const outline = screen.getByTestId('outline-slot');
-    // Both present in the DOM (never unmounted) so the file tree + editor/preview never re-initialize.
+    const search = screen.getByTestId('search-slot');
+    // All present in the DOM (never unmounted) so the file tree + editor/preview never re-initialize.
     expect(files).toBeInTheDocument();
     expect(outline).toBeInTheDocument();
-    // The inactive (outline) slot is hidden via the `hidden` class on its wrapper.
+    expect(search).toBeInTheDocument();
+    // The inactive (outline + search) slots are hidden via the `hidden` class on their wrappers.
     expect(outline.closest('[hidden], .hidden')).not.toBeNull();
+    expect(search.closest('[hidden], .hidden')).not.toBeNull();
     expect(files.closest('[hidden], .hidden')).toBeNull();
+  });
+
+  test('activating the search tab reveals the search slot only', () => {
+    renderPanel('search');
+    expect(screen.getByTestId('search-slot').closest('[hidden], .hidden')).toBeNull();
+    expect(screen.getByTestId('files-slot').closest('[hidden], .hidden')).not.toBeNull();
+    expect(screen.getByTestId('outline-slot').closest('[hidden], .hidden')).not.toBeNull();
   });
 
   test('toggling activeTab flips visibility without unmounting either slot', () => {
@@ -48,6 +59,7 @@ describe('LeftPanel', () => {
         onTabChange={jest.fn()}
         filesSlot={<div data-testid="files-slot">FILES CONTENT</div>}
         outlineSlot={<div data-testid="outline-slot">OUTLINE CONTENT</div>}
+        searchSlot={<div data-testid="search-slot">SEARCH CONTENT</div>}
       />,
     );
     // Same DOM node identity for the files slot proves it was not unmounted.

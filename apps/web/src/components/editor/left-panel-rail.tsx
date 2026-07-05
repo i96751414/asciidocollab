@@ -1,6 +1,6 @@
 'use client';
 import { useRef } from 'react';
-import { FolderTree, ListTree, ChevronLeft } from 'lucide-react';
+import { FolderTree, ListTree, Search, ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { LeftPanelTab } from '@/hooks/use-editor-preferences';
@@ -25,6 +25,7 @@ interface RailView {
 const VIEWS: readonly RailView[] = [
   { id: 'files', label: 'Files', icon: FolderTree },
   { id: 'outline', label: 'Outline', icon: ListTree },
+  { id: 'search', label: 'Search', icon: Search },
 ];
 
 /**

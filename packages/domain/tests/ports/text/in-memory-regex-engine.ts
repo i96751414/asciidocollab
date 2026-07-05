@@ -20,7 +20,6 @@ export class InMemoryRegexEngine implements RegexEngine {
     const jsFlags = `g${flags.caseSensitive ? '' : 'i'}${flags.multiline ? 'm' : ''}`;
     try {
       // Validate at compile time (mirrors RE2's compile-or-reject contract).
-      // eslint-disable-next-line security/detect-non-literal-regexp, redos/no-vulnerable
       new RegExp(pattern, jsFlags);
     } catch (error) {
       return {
@@ -39,7 +38,6 @@ class JsCompiledMatcher implements CompiledMatcher {
   ) {}
 
   matches(input: string, budget: MatchBudget): MatchSpan[] {
-    // eslint-disable-next-line security/detect-non-literal-regexp, redos/no-vulnerable
     const regexp = new RegExp(this.pattern, this.jsFlags);
     const now = budget.now ?? Date.now;
     const spans: MatchSpan[] = [];

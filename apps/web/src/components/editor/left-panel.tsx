@@ -11,6 +11,7 @@ interface LeftPanelProperties {
   onCollapse?: () => void;
   filesSlot: ReactNode;
   outlineSlot: ReactNode;
+  searchSlot: ReactNode;
 }
 
 /**
@@ -22,7 +23,7 @@ interface LeftPanelProperties {
  * Outline view's "Outline" header), so the panel adds no title row of its own — that avoids showing
  * the active title twice. File actions therefore appear only while Files is active.
  */
-export function LeftPanel({ activeTab, onTabChange, onCollapse, filesSlot, outlineSlot }: LeftPanelProperties) {
+export function LeftPanel({ activeTab, onTabChange, onCollapse, filesSlot, outlineSlot, searchSlot }: LeftPanelProperties) {
   return (
     <div className="flex h-full overflow-hidden">
       <LeftPanelRail activeTab={activeTab} onTabChange={onTabChange} onCollapse={onCollapse} />
@@ -32,6 +33,9 @@ export function LeftPanel({ activeTab, onTabChange, onCollapse, filesSlot, outli
         </div>
         <div className={`h-full overflow-y-auto ${activeTab === 'outline' ? '' : 'hidden'}`}>
           {outlineSlot}
+        </div>
+        <div className={`h-full overflow-hidden ${activeTab === 'search' ? '' : 'hidden'}`}>
+          {searchSlot}
         </div>
       </div>
     </div>

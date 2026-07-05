@@ -12,7 +12,7 @@ const MAX_CONTROL_RATIO = 0.3;
 
 function isTextControlByte(byte: number): boolean {
   // Tab, LF, VT, FF, CR are ordinary in text; other C0 control bytes are not.
-  return byte === 0x09 || byte === 0x0a || byte === 0x0b || byte === 0x0c || byte === 0x0d;
+  return byte === 0x09 || byte === 0x0A || byte === 0x0B || byte === 0x0C || byte === 0x0D;
 }
 
 /**

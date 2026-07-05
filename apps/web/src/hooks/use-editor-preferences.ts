@@ -29,11 +29,11 @@ export function isEditorThemeValue(value: string): value is EditorThemeValue {
 }
 
 /** Which view the editor's left panel shows (028). Persisted client-only, never synced to the account. */
-export type LeftPanelTab = 'files' | 'outline';
+export type LeftPanelTab = 'files' | 'outline' | 'search';
 
 /** Returns true when `value` is a recognised LeftPanelTab. */
 function isLeftPanelTab(value: unknown): value is LeftPanelTab {
-  return value === 'files' || value === 'outline';
+  return value === 'files' || value === 'outline' || value === 'search';
 }
 
 /** Whether the outline shows the full assembled document or only the open file (032). */
