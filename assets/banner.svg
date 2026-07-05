@@ -1,0 +1,85 @@
+<svg width="1280" height="400" viewBox="0 0 1280 400" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="'IBM Plex Sans', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a1519"/>
+      <stop offset="1" stop-color="#091417"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(1050 60) rotate(130) scale(560 480)">
+      <stop offset="0" stop-color="#12454f" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#12454f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e7d8b"/>
+      <stop offset="1" stop-color="#0c3a42"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect width="1280" height="400" fill="url(#glow)"/>
+
+  <!-- wordmark -->
+  <g transform="translate(64 46)">
+    <rect width="40" height="40" rx="11" fill="url(#tile)"/>
+    <path d="M11 14h11M11 21h18M11 28h8" stroke="#8ef0fb" stroke-width="2.6" stroke-linecap="round"/>
+    <text x="54" y="28" font-size="25" font-weight="700" letter-spacing="-0.3">
+      <tspan fill="#eaf6f7">Asciido</tspan><tspan fill="#45c3d3">collab</tspan>
+    </text>
+  </g>
+
+  <!-- headline -->
+  <text x="64" y="188" font-size="56" font-weight="700" letter-spacing="-0.6" xml:space="preserve"><tspan fill="#eaf3f4">Collaborative </tspan><tspan fill="#45c3d3">AsciiDoc</tspan><tspan fill="#eaf3f4"> editing</tspan></text>
+  <text x="64" y="252" font-size="56" font-weight="700" letter-spacing="-0.6" fill="#eaf3f4">for teams</text>
+
+  <!-- caret: Dana (after "editing") -->
+  <g transform="translate(844 148)">
+    <rect x="0" y="0" width="4" height="48" rx="2" fill="#e0a458"/>
+    <g transform="translate(4 -26)">
+      <rect width="58" height="24" rx="6" fill="#e0a458"/>
+      <text x="29" y="16" font-size="13" font-weight="700" fill="#3a2606" text-anchor="middle">Dana</text>
+    </g>
+  </g>
+
+  <!-- caret: You (after "teams") -->
+  <g transform="translate(318 212)">
+    <rect x="0" y="0" width="4" height="48" rx="2" fill="#f0876a"/>
+    <g transform="translate(4 -26)">
+      <rect width="52" height="24" rx="6" fill="#f0876a"/>
+      <text x="26" y="16" font-size="13" font-weight="700" fill="#3a1409" text-anchor="middle">You</text>
+    </g>
+  </g>
+
+  <!-- subtitle -->
+  <text x="64" y="312" font-size="17" font-weight="400" fill="#93aaad" letter-spacing="0.1">
+    Write, preview, and publish technical documentation together — in real time, on your own infrastructure. No lock-in.
+  </text>
+
+  <!-- feature pills -->
+  <g transform="translate(64 344)" font-size="13" font-weight="500">
+    <!-- Real-time co-editing -->
+    <g>
+      <rect x="0" y="0" width="192" height="34" rx="17" fill="#183a40" fill-opacity="0.55" stroke="#2a4d54"/>
+      <circle cx="20" cy="17" r="4" fill="#45c3d3"/>
+      <text x="34" y="22" fill="#bfe6ec">Real-time co-editing</text>
+    </g>
+    <!-- Live preview -->
+    <g transform="translate(204 0)">
+      <rect x="0" y="0" width="132" height="34" rx="17" fill="#183a40" fill-opacity="0.55" stroke="#2a4d54"/>
+      <circle cx="20" cy="17" r="4" fill="#45c3d3"/>
+      <text x="34" y="22" fill="#bfe6ec">Live preview</text>
+    </g>
+    <!-- Self-hosted -->
+    <g transform="translate(348 0)">
+      <rect x="0" y="0" width="128" height="34" rx="17" fill="#183a40" fill-opacity="0.55" stroke="#2a4d54"/>
+      <circle cx="20" cy="17" r="4" fill="#45c3d3"/>
+      <text x="34" y="22" fill="#bfe6ec">Self-hosted</text>
+    </g>
+    <!-- Git-native -->
+    <g transform="translate(488 0)">
+      <rect x="0" y="0" width="122" height="34" rx="17" fill="#183a40" fill-opacity="0.55" stroke="#2a4d54"/>
+      <circle cx="20" cy="17" r="4" fill="#45c3d3"/>
+      <text x="34" y="22" fill="#bfe6ec">Git-native</text>
+    </g>
+  </g>
+</svg>

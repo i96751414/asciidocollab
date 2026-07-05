@@ -1,8 +1,17 @@
 <p align="center"><img src="assets/banner.png" alt="AsciiDoCollab" width="100%"></p>
 
+<p align="center">
+  <a href="https://github.com/joaoleal/asciidocollab/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/joaoleal/asciidocollab/ci.yml?branch=main&label=CI&logo=github" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white" alt="Node >= 24">
+  <img src="https://img.shields.io/badge/pnpm-%3E%3D11-f69220?logo=pnpm&logoColor=white" alt="pnpm >= 11">
+  <img src="https://img.shields.io/badge/status-pre--MVP-e0a458.svg" alt="Status: pre-MVP">
+</p>
+
 > **⚠ Pre-MVP — not ready for production use.**
-> The editor and file management are built and working. Real-time co-editing — the central feature — is not yet
-> implemented. See [Project status](#project-status) for the honest picture.
+> The editor, file management, and real-time co-editing are built and working — co-editing is under active
+> hardening. Git integration and PDF export are not yet built. See [Project status](#project-status) for the
+> honest picture.
 
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
@@ -21,6 +30,8 @@ self-hosted web application.
 
 **Foundation (built, under active hardening)**
 
+- Real-time co-editing — edit the same document together and see collaborators' cursors, selections, and changes
+  as they happen; conflict-free by construction (Yjs CRDT over WebSocket) with shared undo/redo
 - User accounts — self-registration with email verification, admin invitation flow
 - Secure login with session management (Argon2id, encrypted sessions, rate limiting, breach detection
   via [Have I Been Pwned](https://haveibeenpwned.com))
@@ -35,7 +46,6 @@ self-hosted web application.
 
 **Not yet built (MVP blockers)**
 
-- Real-time co-editing — see collaborators' cursors and changes as they happen
 - Git integration — push, pull, branch, and create pull requests from the UI
 - PDF export via Asciidoctor-PDF
 
@@ -50,8 +60,9 @@ self-hosted web application.
 
 **This project has not reached MVP.**
 
-The authentication, file management, and editor layers are feature-complete and have been through multiple rounds of
-code review and hardening. Real-time co-editing — the reason this project exists — is not yet implemented.
+The authentication, file management, editor, and real-time collaboration layers are built and have been through
+multiple rounds of code review and hardening. Git integration and PDF export — the remaining MVP features — are not
+yet started.
 
 | Layer                               | Status            |
 |-------------------------------------|-------------------|
@@ -76,7 +87,7 @@ The fastest way to get AsciiDoCollab running locally is with the included startu
 
 - [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL and local email)
 - [Node.js 24+](https://nodejs.org)
-- [pnpm 9+](https://pnpm.io/installation)
+- [pnpm 11+](https://pnpm.io/installation)
 
 ```bash
 git clone https://github.com/joaoleal/asciidocollab.git
