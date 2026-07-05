@@ -352,18 +352,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # Resolve the latest tag with `gh` (pre-installed, authenticated via GH_TOKEN) rather than an
+      # unauthenticated `curl | grep`, which silently returns exit 1 under `bash -e` when the GitHub
+      # API rate-limits the shared runner IP (the response has no `tag_name` to match).
       - name: Install gitleaks
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          GL=$(curl -sSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -oP '"tag_name": "v\K[^"]+')
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GL}/gitleaks_${GL}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
+          GL=$(gh release view --repo gitleaks/gitleaks --json tagName -q .tagName)
+          GL=${GL#v}
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GL}/gitleaks_${GL}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
 
       - name: gitleaks (secret scan across full history)
         run: gitleaks git --redact --verbose
 
       - name: Install OSV-Scanner
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          OSV=$(curl -sSL https://api.github.com/repos/google/osv-scanner/releases/latest | grep -oP '"tag_name": "v\K[^"]+')
-          curl -sSL -o /usr/local/bin/osv-scanner "https://github.com/google/osv-scanner/releases/download/v${OSV}/osv-scanner_linux_amd64"
+          OSV=$(gh release view --repo google/osv-scanner --json tagName -q .tagName)
+          OSV=${OSV#v}
+          curl -fsSL -o /usr/local/bin/osv-scanner "https://github.com/google/osv-scanner/releases/download/v${OSV}/osv-scanner_linux_amd64"
           chmod +x /usr/local/bin/osv-scanner
 
       # Broader dependency-CVE coverage than `pnpm audit`. Gated at High+ (CVSS ≥ 7.0) to match the
