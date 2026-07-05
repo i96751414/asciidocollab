@@ -31,7 +31,7 @@ function namespaceSvgIds(svg: string, token: string): string {
   return svg
     .replaceAll(/ id="([^"]+)"/g, ` id="$1-${token}"`)
     .replaceAll(/href="#([^"]+)"/g, `href="#$1-${token}"`)
-    .replaceAll(/url\(#([^"]+)\)/g, `url(#$1-${token})`);
+    .replaceAll(/url\(#([^"()]+)\)/g, `url(#$1-${token})`);
 }
 
 /**
@@ -65,7 +65,7 @@ export function Avatar({ avatarKey, displayName, size = 32, className }: AvatarP
     <span
       className={className}
       style={{ display: 'inline-block', width: size, height: size, flexShrink: 0 }}
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={/* nosemgrep: react-dangerouslysetinnerhtml -- SVG is DiceBear-generated from a fixed first-party style registry, not user HTML */ { __html: svg }}
     />
   );
 }

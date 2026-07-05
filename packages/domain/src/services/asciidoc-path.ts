@@ -35,6 +35,14 @@ const REMOTE_OR_ABSOLUTE_RE = /^(?:[a-z][a-z0-9+.-]*:\/\/|data:|[/\\]|[A-Za-z]:[
 // (images resolve relative to the project root + imagesdir, not the folder of the macro's file).
 const PROJECT_ROOT = '_root_';
 
+// Strip trailing '/' characters. Linear-time (no regex) to keep it ReDoS-free; equivalent to
+// `s.replace(/\/+$/, '')`.
+function stripTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s[end - 1] === '/') end--;
+  return s.slice(0, end);
+}
+
 /**
  * The effective `:imagesdir:` (attribute-expanded, trimmed, trailing-slash-free),
  * or `''` when unset. The returned value is still document-relative — it is
@@ -46,7 +54,7 @@ const PROJECT_ROOT = '_root_';
 export function imagesDirectory(attributes: ReadonlyMap<string, string>): string {
   const raw = attributes.get('imagesdir');
   if (raw === undefined) return '';
-  return substitutePathAttributes(raw, attributes).trim().replace(/\/+$/, '');
+  return stripTrailingSlashes(substitutePathAttributes(raw, attributes).trim());
 }
 
 /**

@@ -23,7 +23,7 @@ import { resolveAttributeReferences } from '@asciidocollab/asciidoc-core';
 // Inline attribute assignment `{set:name:value}` / `{set:name!}`. Group 1 is the name, group 2 the
 // value (undefined for an unset). The single source of this grammar for the editor's CodeMirror layer
 // (e.g. the rename detector); the resolution itself lives in the centralized extraction authority.
-export const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:([^}]*))\}/g;
+export const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:((?:(?!\{set:)[^}])*))\}/g;
 const NO_INHERITED_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 
 /**

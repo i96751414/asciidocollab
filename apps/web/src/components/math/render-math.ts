@@ -258,8 +258,18 @@ interface BlockSite extends ParsedExpression {
 }
 
 // A delimited run anywhere in a text node: asciimath `\$…\$`, inline latexmath `\(…\)`, or display
-// latexmath `\[…\]`. Non-greedy bodies; `[^]` matches across newlines (display math can span lines).
-const INLINE_MATH_RE = /\\\$([^]*?)\\\$|\\\(([^]*?)\\\)|\\\[([^]*?)\\\]/g;
+// latexmath `\[…\]`. Each body is an unrolled loop matching every char up to the FIRST delimiter
+// character — any non-backslash, or a backslash not immediately before the opening/closing delimiter
+// char. This is behavior-equivalent to a non-greedy `[^]*?` body (bodies span newlines: display math
+// can be multi-line) for all realistic math, but is provably linear-time: excluding the OPENING delim
+// char from the body is what removes the O(n^2) global-scan blow-up on adversarial repeated openers
+// (e.g. `\(\(\(…`). Caveat: a backslash placed IMMEDIATELY before a delimiter char ends the body
+// there, so a body cannot contain a literal `\(`/`\[`/`\]`/`\)` nor the LaTeX line-break-spacing form
+// `\\[2pt]` (its `\\` then `[` reads as an early stop). A provably-linear form that also handles that
+// case needs lookahead-guarded escapes (which the ReDoS checker rejects as polynomial) or atomic
+// groups (unsupported by the runtime); such content is left as literal text rather than typeset.
+const INLINE_MATH_RE =
+  /\\\$((?:[^\\]|\\(?!\$))*)\\\$|\\\(((?:[^\\]|\\(?![()]))*)\\\)|\\\[((?:[^\\]|\\(?![[\]]))*)\\\]/g;
 
 /**
  * Classify a regex match of {@link INLINE_MATH_RE} into the expression, notation, and layout it

@@ -35,8 +35,29 @@ jest.mock('@/lib/create-render-worker', () => ({
 
 // ── DOMPurify mock ───────────────────────────────────────────────────────────
 
+// Test double for DOMPurify: strips <script>…</script> with a linear, non-regex scan so the mock
+// itself does not trip the ReDoS / incomplete-sanitization scanners the way a regex HTML filter would.
+// The name is `mock`-prefixed so jest permits it inside the hoisted jest.mock factory below.
+function mockStripScriptTags(html: string): string {
+  const lower = html.toLowerCase();
+  let out = '';
+  let index = 0;
+  while (index < html.length) {
+    const start = lower.indexOf('<script', index);
+    if (start === -1) {
+      out += html.slice(index);
+      break;
+    }
+    out += html.slice(index, start);
+    const end = lower.indexOf('</script>', start);
+    if (end === -1) break; // unterminated: drop the remainder
+    index = end + '</script>'.length;
+  }
+  return out;
+}
+
 jest.mock('dompurify', () => ({
-  sanitize: jest.fn((html: string) => html.replaceAll(/<script[^>]*>.*?<\/script>/gi, '')),
+  sanitize: jest.fn((html: string) => mockStripScriptTags(html)),
 }));
 
 // ── editor-config mock — fixed debounce so tests don't depend on env ─────────
@@ -60,7 +81,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   MockWorker.instances = [];
   mockSanitize.mockClear();
-  mockSanitize.mockImplementation((html: string) => html.replaceAll(/<script[^>]*>.*?<\/script>/gi, ''));
+  mockSanitize.mockImplementation((html: string) => mockStripScriptTags(html));
   mockCreateRenderWorker.mockClear();
   mockCreateRenderWorker.mockImplementation(() => new MockWorker());
 });

@@ -3,6 +3,8 @@ const tseslint = require('typescript-eslint');
 const jsdoc = require('eslint-plugin-jsdoc');
 const unicorn = require('eslint-plugin-unicorn').default;
 const nextPlugin = require('@next/eslint-plugin-next');
+const redos = require('eslint-plugin-redos');
+const security = require('eslint-plugin-security');
 const globals = require('globals');
 
 module.exports = tseslint.config(
@@ -26,6 +28,29 @@ module.exports = tseslint.config(
   jsdoc.configs['flat/recommended-typescript'],
 
   unicorn.configs['flat/recommended'],
+
+  // ReDoS detection (recheck engine) — catches polynomial/exponential regex backtracking.
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    plugins: { redos },
+    rules: { 'redos/no-vulnerable': 'error' },
+  },
+
+  // Security heuristics — high-signal subset only. The blunt heuristics below are disabled:
+  // they lack taint tracking and fire on legitimate code (the filesystem store's own I/O, client
+  // string compares, internally-built regexes). Semgrep's taint analysis covers real path-injection
+  // with precision, and `redos` (recheck) is the authority on regex safety — so the weaker
+  // `safe-regex`-based rules here are redundant.
+  security.configs.recommended,
+  {
+    rules: {
+      'security/detect-object-injection': 'off',
+      'security/detect-non-literal-fs-filename': 'off',
+      'security/detect-possible-timing-attacks': 'off',
+      'security/detect-non-literal-regexp': 'off',
+      'security/detect-unsafe-regex': 'off',
+    },
+  },
 
   {
     languageOptions: {
@@ -162,6 +187,8 @@ module.exports = tseslint.config(
       'jsdoc/require-throws': 'off',
       'jsdoc/no-blank-blocks': 'off',
       'jsdoc/require-description': 'off',
+      // Test doubles/fixtures intentionally use throwaway regexes on tiny literal inputs.
+      'redos/no-vulnerable': 'off',
     },
   },
 );

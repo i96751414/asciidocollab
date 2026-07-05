@@ -22,7 +22,7 @@ const CONDITIONAL_RE = /^(ifdef|ifndef|ifeval)::([^[\]]*)?\[(.*)\]$/;
 const COND_OR_SEPARATOR = ',';
 const COND_AND_SEPARATOR = '+';
 // The restricted, non-`eval` `ifeval` comparison grammar: `lhs op rhs` with a fixed operator set.
-const IFEVAL_COMPARISON_RE = /^(.*?)(==|!=|<=|>=|<|>)(.*)$/;
+const IFEVAL_COMPARISON_RE = /^((?:(?!==|!=|<=|>=|<|>).)*)(==|!=|<=|>=|<|>)(.*)$/;
 
 // A whole-line `endif::[]` (optionally `endif::name[]`) region closer.
 export const ENDIF_LINE_RE = /^[ \t]*endif::[^[\]]*\[\]\s*$/;

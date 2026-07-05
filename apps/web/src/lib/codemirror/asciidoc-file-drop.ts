@@ -63,7 +63,7 @@ export function padBlockMacro(macro: string, charBefore: string | null, charAfte
 }
 
 // Block (image::) and inline (image:) image macros, plus include::; the capture is the path target.
-const MACRO_PATH = /(?:include|image)::?([^[\n]+)\[/;
+const MACRO_PATH = /(?:include|image)::?((?:(?!(?:include|image)::?)[^[\n])+)\[/;
 
 /**
  * Locates the path span of an include::/image:: macro within a line (column offsets), for the

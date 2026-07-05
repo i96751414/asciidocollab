@@ -70,6 +70,12 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { projectId: string; fileNodeId: string } }>(
     '/projects/:projectId/files/:fileNodeId/collab',
     {
+      config: {
+        rateLimit: {
+          max: app.config.project.fileContent.rateLimitMax,
+          timeWindow: app.config.project.fileContent.rateLimitWindow,
+        },
+      },
       schema: {
         params: {
           type: 'object',

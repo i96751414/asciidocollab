@@ -9,7 +9,7 @@ async function corsPlugin(app: FastifyInstance): Promise<void> {
     origin: origins.length > 0 ? origins : false,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 }
 

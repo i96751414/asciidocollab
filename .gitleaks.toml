@@ -1,0 +1,23 @@
+# Gitleaks configuration. Extends the built-in ruleset and allowlists the deterministic,
+# non-secret test fixtures this repo intentionally commits (CI/e2e session encryption key and
+# session secret). These are throwaway values used only to boot an isolated local/CI stack.
+title = "asciidocollab gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Committed test/CI fixtures — not real secrets."
+regexTarget = "match"
+regexes = [
+  # Base64 and raw forms of the well-known 32-byte test AES key ("ci-test-encryption-key-32bytes!!").
+  '''Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE=''',
+  '''ci-test-encryption-key-32bytes!!''',
+  '''ci-test-session-secret-for-e2e-tests''',
+]
+paths = [
+  '''.*\.test\.ts$''',
+  '''.*/tests?/.*''',
+  '''scripts/.*\.sh$''',
+  '''\.github/workflows/ci\.yml$''',
+]

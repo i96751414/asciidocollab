@@ -13,18 +13,22 @@
  * Pure and dependency-free so it is unit-testable in isolation.
  */
 
-const HEADING_RE = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
-const UNORDERED_RE = /^(\s*)[-*+]\s+(.*)$/;
-const ORDERED_RE = /^(\s*)\d+[.)]\s+(.*)$/;
-const FENCE_RE = /^\s*(```|~~~)\s*([\w+#-]*)\s*$/;
-const TABLE_SEPARATOR_RE = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
+// The trailing groups avoid overlapping quantifiers (linear-time, no ReDoS): the title is anchored to
+// end on a non-space/non-`#` char so the closing `#*` / whitespace strip can't ambiguously split it.
+// Group 2 is undefined only for an empty (text-less) heading, which real Markdown never emits.
+const HEADING_RE = /^(#{1,6})[ \t]+([^ \t\n](?:[^\n]*[^ \t#\n])?)[ \t]*(?:#+[ \t]*)?$/;
+const UNORDERED_RE = /^([ \t]*)[-*+][ \t]+((?:\S.*)?)$/;
+const ORDERED_RE = /^([ \t]*)\d+[.)][ \t]+((?:\S.*)?)$/;
+// Group 2 (language) is undefined when the fence has no info string; callers coerce with `?? ''`.
+const FENCE_RE = /^[ \t]*(```|~~~)(?:[ \t]*([\w+#-]+)[ \t]*|[ \t]*)$/;
+const TABLE_SEPARATOR_RE = /^\s*(?:\|\s*)?:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*(?:\|\s*)?$/;
 
 /** Convert one line's inline Markdown markup to AsciiDoc. */
 export function convertInlineMarkdown(text: string): string {
   let out = text;
 
   // Links: [label](url) → url[label] (bare URL) or link:url[label] (relative).
-  out = out.replaceAll(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label: string, url: string) =>
+  out = out.replaceAll(/\[([^\][]+)\]\(([^)\s[]+)\)/g, (_match, label: string, url: string) =>
     /^(https?|ftp|irc|mailto):/i.test(url) ? `${url}[${label}]` : `link:${url}[${label}]`,
   );
 
@@ -65,7 +69,7 @@ export function markdownSubsetToAsciidoc(markdown: string): string {
     if (fence && !inFence) {
       inFence = true;
       fenceMarker = fence[1];
-      const language = canonicalFenceLanguage(fence[2]);
+      const language = canonicalFenceLanguage(fence[2] ?? '');
       if (language) out.push(`[source,${language}]`);
       out.push('----');
       index += 1;

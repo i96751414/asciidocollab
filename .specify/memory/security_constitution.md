@@ -54,7 +54,17 @@ Internet → Load Balancer (TLS) → Fastify API → Domain Use Cases → Infras
   internal state (stack traces, DB IDs, file paths) to the client. Fastify's error
   handler maps domain errors to safe HTTP responses.
 - **Dependency scanning:** All runtime dependencies MUST be scanned for known
-  vulnerabilities as part of the CI pipeline.
+  vulnerabilities as part of the CI pipeline (`pnpm audit` + OSV-Scanner, gated at
+  High+ / CVSS ≥ 7.0).
+- **Static analysis (SAST):** Application code MUST be scanned by a SAST tool in CI
+  (Semgrep — `p/security-audit` + `p/owasp-top-ten` packs plus first-party
+  `.semgrep.yml` rules) to catch injection, path traversal, weak crypto, and missing
+  sanitization. Regexes MUST be linear-time (no catastrophic backtracking), enforced by
+  `eslint-plugin-redos`.
+- **Secret & workflow scanning:** The repository MUST be scanned for committed secrets
+  across full git history (gitleaks) and CI workflow definitions MUST be hardened
+  (zizmor). These run in the CI `security` job (mirrored locally by
+  `scripts/ci/security.sh`).
 
 ---
 
@@ -106,7 +116,7 @@ Internet → Load Balancer (TLS) → Fastify API → Domain Use Cases → Infras
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-13
+**Version**: 1.2.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-05
 
 <!--
 AMENDMENT 1.0.0 → 1.1.0 (2026-06-13, MINOR): "API & Integration Security" rate-limiting rule expanded.

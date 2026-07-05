@@ -14,6 +14,14 @@ export const COLLAB_APPLY_EDITS_PATH = '/internal/collab/apply-edits';
 /** Path of the internal read-content endpoint on the collaboration server. */
 export const COLLAB_READ_CONTENT_PATH = '/internal/collab/read-content';
 
+// Strip trailing '/' characters. Linear-time (no regex) to keep it ReDoS-free; equivalent to
+// `s.replace(/\/+$/, '')`.
+function stripTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s[end - 1] === '/') end--;
+  return s.slice(0, end);
+}
+
 /** Configuration for the HTTP collaborative-content editor adapter. */
 export interface HttpCollaborativeContentEditorConfig {
   /** Base URL of the collaboration server's internal HTTP endpoint (e.g., `http://127.0.0.1:4003`). */
@@ -54,7 +62,7 @@ export class HttpCollaborativeContentEditor implements CollaborativeContentEdito
    * @returns The response on a 2xx, or an error (transport failure or non-2xx).
    */
   private async post(path: string, body: unknown, label: string): Promise<Result<Response, Error>> {
-    const url = `${this.config.baseUrl.replace(/\/+$/, '')}${path}`;
+    const url = `${stripTrailingSlashes(this.config.baseUrl)}${path}`;
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.config.secret) headers['x-collab-internal-secret'] = this.config.secret;
 

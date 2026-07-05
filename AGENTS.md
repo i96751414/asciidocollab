@@ -40,6 +40,7 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-
 | Monorepo                | pnpm workspaces                                             |
 | Tests                   | Jest + Testing Library + Playwright (E2E)                   |
 | Architecture validation | fresh-onion                                                 |
+| Security scanning       | Semgrep · zizmor · gitleaks · OSV-Scanner · knip (CI `security` job / `scripts/ci/security.sh`) |
 
 ## Monorepo Structure
 
@@ -74,7 +75,7 @@ asciidocollab/
 │   └── api/                        # Fastify — delivery layer
 │       └── src/
 │           ├── config/             # convict schema, formats
-│           ├── plugins/            # auth, cors, csrf, rate-limit, file-tree-event-bus,
+│           ├── plugins/            # auth, cors, origin-check, rate-limit, file-tree-event-bus,
 │           │                       # require-auth/admin
 │           └── routes/
 │               ├── projects/       # file-tree (GET/POST/PATCH/DELETE), file-content,
@@ -127,6 +128,8 @@ pnpm test:coverage        # run tests with coverage
 pnpm typecheck            # TypeScript type-checking
 pnpm lint                 # lint all packages
 pnpm fresh-onion          # validate architecture boundaries
+pnpm semgrep              # SAST scan (Semgrep packs + first-party .semgrep.yml rules)
+pnpm knip                 # dead-code / unused-dependency report (non-gating)
 ```
 
 ## Test Execution Rules
@@ -144,12 +147,12 @@ Run tests for **every package touched**. Do not stop at typecheck.
 
 MUST NOT run `npx jest` from the repo root without `--filter` — it picks up configs from all workspace packages and produces misleading results.
 
-### Pre-merge gate (all four jobs must pass with zero failures)
+### Pre-merge gate (all five jobs must pass with zero failures)
 
 Run the whole gate locally with one command:
 
 ```bash
-pnpm gate    # = scripts/ci/gate.sh — runs all four jobs below, stops on first failure
+pnpm gate    # = scripts/ci/gate.sh — runs all five jobs below, stops on first failure
 ```
 
 `pnpm gate` uses the **isolated** e2e job (`scripts/ci/e2e-local.sh`), so it is safe to run while `scripts/dev.sh` is up — it never clashes on the dev ports or touches the dev database. **When asked to "run all quality gates with e2e", use `pnpm gate` (or `scripts/ci/e2e-local.sh` for the e2e job) — never `scripts/ci/e2e.sh` while a dev stack is running** (see below). The individual jobs (all under `scripts/ci/`):
@@ -158,8 +161,13 @@ pnpm gate    # = scripts/ci/gate.sh — runs all four jobs below, stops on first
 ./scripts/ci/quality.sh      # Job 1: build · lint · types · architecture · audit
 ./scripts/ci/unit.sh         # Job 2: unit tests + coverage — shared, domain, api, collab, web (needs Job 1)
 ./scripts/ci/integration.sh  # Job 3: integration tests via Testcontainers (needs Job 1)
-./scripts/ci/e2e-local.sh    # Job 4: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
+./scripts/ci/security.sh     # Job 4: security scan — Semgrep · zizmor · gitleaks · OSV-Scanner (High+) · knip
+./scripts/ci/e2e-local.sh    # Job 5: E2E on an isolated stack (needs Jobs 2+3, requires Docker)
 ```
+
+**Directive — "run all quality gates" / "run the quality gates" ALWAYS includes Job 4 (the security scan above).** Lint + typecheck + tests are NOT the whole gate. Run the full sweep with `pnpm gate`, or Job 4 alone with `./scripts/ci/security.sh` (mirrors the CI `security` job in `.github/workflows/ci.yml`). Whether Job 5 / e2e is included follows the "with e2e" convention above.
+
+`security.sh` behavior: its four scanners are NOT npm-managed (Semgrep, zizmor → pip; gitleaks, osv-scanner → release binaries). Locally it **skips** any not installed (prints an install hint) and still exits 0 — so `pnpm gate` scans with whatever is present; knip always runs. `SECURITY_STRICT=1` (set by `CI=1`) makes a missing scanner a hard failure. Reproduce CI offline: `pipx install semgrep zizmor` + the gitleaks/osv-scanner release binaries.
 
 E2E tests are mandatory before merge — they are the only layer that catches missing route registrations and broken API contracts.
 

@@ -3,14 +3,16 @@ import { resolveIncludeTarget, resolveImageTarget, NO_ATTRIBUTES } from '@/lib/a
 import type { ProjectSymbolIndex } from './asciidoc-symbol-index';
 
 // Pattern matchers for different link types within a line of text
-const INCLUDE_MACRO = /include::([^[\n]+)\[/;
+// The path captures forbid the macro keyword from recurring inside the target (a tempered token),
+// which keeps them linear-time (no ReDoS) — a real target never contains its own macro keyword.
+const INCLUDE_MACRO = /include::((?:(?!include::)[^[\n])+)\[/;
 // Cross-references: angle-bracket `<<id>>` / `<<id,label>>` and the `xref:target[...]` macro.
 const XREF_ANGLE = /<<([^<>,\]]+)(?:,[^<>]*)?>>/g;
-const XREF_MACRO = /xref:([^\s[\]]+)\[[^\]]*\]/g;
+const XREF_MACRO = /xref:((?:(?!xref:)[^\s[\]])+)\[(?:(?!xref:)[^\]])*\]/g;
 // Block (image::) and inline (image:) image macros. A local target navigates to the file in the
 // tree; an absolute http(s) target opens as a URL (handled in the matcher below).
-const IMAGE_MACRO = /image::?([^[\n]+)\[/;
-const LINK_MACRO = /link:([^[\n]+)\[/;
+const IMAGE_MACRO = /image::?((?:(?!image::?)[^[\n])+)\[/;
+const LINK_MACRO = /link:((?:(?!link:)[^[\n])+)\[/;
 const BARE_URL = /https?:\/\/[^\s[\]<>]+/;
 // An attribute REFERENCE `{name}` (word chars only — never matches a `{set:name:value}` assignment,
 // which contains `:`). Ctrl+clicking one jumps to where the attribute is defined.

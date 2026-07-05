@@ -49,6 +49,7 @@ function buildTestServer(options: { contentId?: string; activeSession?: boolean 
     },
   });
   app.addContentTypeParser('text/plain', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
+  app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
   app.register(fileContentRoutes);
   return app;
 }
@@ -252,6 +253,7 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
       fileStore: { read: jest.fn().mockResolvedValue(Buffer.from('= Hello')), write: jest.fn().mockResolvedValue(undefined) },
     });
     app.addContentTypeParser('text/markdown', { parseAs: 'string' }, (_request, body, done) => done(null, body));
+    app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
     app.register(fileContentRoutes);
     await app.ready();
 

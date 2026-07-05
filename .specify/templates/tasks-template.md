@@ -253,6 +253,7 @@ With multiple developers:
 - Each user story should be independently completable and testable
 - Commit after each task or logical group (only after green phase)
 - Stop at any checkpoint to validate story independently
-- After ALL tasks complete: run full quality-gate sweep (lint, typecheck, unit + integration + e2e)
-  and run `/code-review` in a loop until zero findings (see Constitution §End-of-Feature Verification)
+- After ALL tasks complete: run full quality-gate sweep (lint, typecheck, unit + integration +
+  security scan + e2e — i.e. `pnpm gate`) and run `/code-review` in a loop until zero findings
+  (see Constitution §End-of-Feature Verification)
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence

@@ -137,10 +137,12 @@ function unescapeHtml(value: string): string {
 
 // Matches the <pre class="highlight"><code class="language-X" ...>...</code></pre>
 // markup Asciidoctor emits for a source block that declares a language. The code
-// body is HTML-escaped, so the only literal "</code>" is the real closing tag,
-// which makes the lazy capture safe.
+// body is HTML-escaped (every literal "<" is emitted as "&lt;"), so the body itself
+// contains no "<" and the first "<" after the open tag is always the real "</code>".
+// Capturing the body as `[^<]*` is therefore behavior-equivalent to a lazy
+// `[\s\S]*?` up to the close, but provably linear-time (no backtracking overlap).
 const SOURCE_BLOCK_RE =
-  /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g;
+  /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([^<]*)<\/code><\/pre>/g;
 
 // Asciidoctor renders checklist items as a leading unicode glyph in the paragraph text
 // (&#10003; "✓" when checked, &#10063; "❏" otherwise) — emitted only as these numeric

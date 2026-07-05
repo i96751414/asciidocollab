@@ -1,0 +1,23 @@
+# First-party Semgrep rules for asciidocollab.
+#
+# Semgrep config files can only hold local `rules:` — registry rulesets (p/security-audit,
+# p/owasp-top-ten) cannot be `extends`-ed from here, so they are added alongside this file on the
+# command line. Run the full set (packs + these rules) with `pnpm semgrep`, which is exactly what
+# the CI `security` job runs, so local and CI results match. Path excludes live in `.semgrepignore`.
+rules:
+  - id: gcm-cipher-missing-auth-tag-length
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >
+      AES-GCM cipher/decipher created without an explicit authTagLength option. Pin the tag length
+      (e.g. { authTagLength: 16 }) so truncated-authentication-tag ciphertexts are rejected.
+      (Non-AEAD ciphers such as CBC do not need this — add a nosemgrep with a reason if intentional.)
+    metadata:
+      category: security
+      cwe: "CWE-310: Cryptographic Issues"
+      references:
+        - https://nodejs.org/api/crypto.html#cryptocreatecipherivalgorithm-key-iv-options
+    patterns:
+      - pattern-either:
+          - pattern: createCipheriv($A, $K, $IV)
+          - pattern: createDecipheriv($A, $K, $IV)

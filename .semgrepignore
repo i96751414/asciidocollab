@@ -1,0 +1,20 @@
+# Semgrep scan excludes. Mirrors the ESLint/build ignores so the security scan stays high-signal.
+node_modules/
+**/node_modules/
+**/dist/
+**/.next/
+**/coverage/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/tests/
+apps/web/e2e/
+scripts/
+.claude/
+# GitHub Actions workflow security is owned by zizmor (see zizmor.yml) — avoid duplicate,
+# conflicting findings (e.g. Semgrep's mutable-action-tag vs our chosen ref-pin policy).
+.github/
+# pnpm supply-chain hardening (trustPolicy / minimumReleaseAge / exotic-subdeps) is an opinionated
+# install-behavior policy decision, tracked separately rather than enforced by the SAST gate.
+pnpm-workspace.yaml
+pnpm-lock.yaml

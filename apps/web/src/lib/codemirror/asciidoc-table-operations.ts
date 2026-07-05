@@ -184,7 +184,7 @@ export function checkSpanConflict(
 
       // Extract up to 20 chars before this | to find a span specifier
       const before = line.slice(Math.max(0, index - 20), index);
-      const spanMatch = before.match(/(\d+)\+[<>^.]*$/);
+      const spanMatch = before.match(/(?<!\d)(\d+)\+[<>^.]*$/);
       const span = spanMatch ? Number.parseInt(spanMatch[1], 10) : 1;
 
       // Only spanning cells (span > 1) create conflicts

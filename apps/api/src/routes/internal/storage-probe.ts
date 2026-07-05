@@ -39,8 +39,15 @@ export async function storageProbeRoute(app: FastifyInstance): Promise<void> {
       if (!UUID_REGEX.test(token)) {
         return reply.status(400).send({ error: 'Invalid token' });
       }
-      const storageRoot = request.server.config.storage.path;
+      const storageRoot = path.resolve(request.server.config.storage.path);
       const sentinel = path.resolve(storageRoot, `${STORAGE_PROBE_PREFIX}${token}`);
+      // Defense-in-depth (CWE-22): the token is already UUID-validated above, but re-confirm the
+      // resolved path stays inside the storage root before any filesystem access. This makes the
+      // safety explicit to both readers and static taint analysis rather than relying solely on the
+      // regex to exclude separators.
+      if (sentinel !== storageRoot && !sentinel.startsWith(storageRoot + path.sep)) {
+        return reply.status(400).send({ error: 'Invalid token' });
+      }
       return reply.status(200).send({ shared: existsSync(sentinel) });
     },
   );

@@ -1,0 +1,11 @@
+# zizmor (GitHub Actions static analysis) configuration.
+#
+# unpinned-uses: we intentionally pin actions to major-version tags (e.g. @v4) rather than commit
+# SHAs so the workflow tracks the latest compatible release automatically. `ref-pin` requires a
+# tag/ref (never a floating branch), which is the policy we want; hash-pinning would freeze versions
+# and conflict with keeping tooling current.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin

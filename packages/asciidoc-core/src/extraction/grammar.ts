@@ -6,24 +6,24 @@
  * (`apps/web`).
  */
 
-export const XREF_RE = /<<([^,>\n]+)(?:,[^>\n]*)?>>|xref:([^[\n]+)\[/g;
+export const XREF_RE = /<<([^,>\n<]+)(?:,[^>\n<]*)?>>|xref:((?:(?!xref:)[^[\n])+)\[/g;
 // An include directive must occupy the WHOLE line (trailing whitespace only) to be processed by
 // Asciidoctor — `include::x[] trailing` is a paragraph, not a directive. End-anchored so the symbol
 // index, reference extraction, and offset/inheritance walks all agree with the preview assembler.
-export const INCLUDE_RE = /^[ \t]*include::([^[\n]+)\[([^\]\n]*)\][ \t]*$/gm;
-export const IMAGE_RE = /image::?([^[\n]+)\[/g;
+export const INCLUDE_RE = /^[ \t]*include::((?:(?!include::)[^[\n])+)\[((?:(?!include::)[^\]\n])*)\][ \t]*$/gm;
+export const IMAGE_RE = /image::?((?:(?!image:)[^[\n])+)\[/g;
 export const ATTR_REF_RE = /\{([A-Za-z0-9][\w-]*)\}/g;
-export const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z][\w:.-]*)\[/g;
+export const ANCHOR_RE = /\[\[([A-Za-z][\w:.-]*)\]\]|\[#([A-Za-z][\w:.-]*)\]|anchor:([A-Za-z](?:(?!anchor:)[\w:.-])*)\[/g;
 export const ATTR_DEF_RE = /^:([A-Za-z0-9][\w-]*)(!?):/gm;
 // Attribute definition WITH its value: `:name: value` (an unset `:name!:` does not match).
-export const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*?)[ \t]*$/gm;
+export const ATTR_DEF_VALUE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*((?:[^ \t\n](?:[^\n]*[^ \t\n])?)?)[ \t]*$/gm;
 // A single attribute-entry LINE (anchored, not global): a set `:name: value`, a prefix unset
 // `:!name:`, or a suffix unset `:name!:`. Group 1/3 = name (set / suffix-unset), group 2 = value,
 // group 4 = prefix-unset name. Used by the line-scanning event builder so wrapping continuation
 // (a trailing `\`) and unset can be handled, which the global value regex cannot express.
-export const ATTR_ENTRY_LINE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*)$|^:!([A-Za-z0-9][\w-]*):[ \t]*$|^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
+export const ATTR_ENTRY_LINE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*([^ \t\n][^\n]*|)$|^:!([A-Za-z0-9][\w-]*):[ \t]*$|^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
 // Inline attribute assignment in body text: `{set:name:value}` (set) or `{set:name!}` (unset).
-export const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:([^}]*))\}/g;
+export const INLINE_SET_RE = /\{set:([A-Za-z0-9][\w-]*)(?:!|:([^{}]*))\}/g;
 // A soft-set precedence marker: a value ending in `@` is an overridable default (Asciidoctor
 // soft-set), so it must NOT clobber an attribute already in scope. The marker is stripped.
 export const SOFT_SET_SUFFIX = '@';
@@ -56,4 +56,4 @@ export const VERBATIM_FENCE_RE = /^(-{4,}|\.{4,}|\+{4,}|\/{4,})[ \t]*$/;
 // (`:!leveloffset:`, group 1) or the suffix form (`:leveloffset!:`, group 2); an empty value (group 3)
 // is also a reset. Mirrors the document-order `ATTR_ENTRY_LINE_RE` unset handling so the assembler's
 // inlined offset tracking agrees with the resolution layer's event-based walk for both unset forms.
-export const LEVELOFFSET_ENTRY_RE = /^:(!?)leveloffset(!?):[ \t]*(.*?)[ \t]*$/;
+export const LEVELOFFSET_ENTRY_RE = /^:(!?)leveloffset(!?):[ \t]*([^ \t\n][^\n]*|)$/;

@@ -1,6 +1,6 @@
 import { ValidationError } from '../../errors/common/validation-error';
 
-const RFC_5322_BASIC = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RFC_5322_BASIC = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
  * Represents an email address.

@@ -37,6 +37,7 @@ function buildTestServer(
   app.decorate('stores', {
     fileStore: { read: jest.fn(), write: jest.fn() },
   });
+  app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
   app.register(fileContentRoutes);
   return app;
 }
@@ -110,6 +111,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
       collaborationSession: { isActive: jest.fn().mockResolvedValue(false) },
     });
     app.decorate('stores', { fileStore: { read: jest.fn(), write: jest.fn() } });
+    app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
     app.register(fileContentRoutes);
 
     const response = await app.inject({
@@ -139,6 +141,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
       collaborationSession: { isActive: jest.fn() },
     });
     app.decorate('stores', { fileStore: { read: jest.fn(), write: jest.fn() } });
+    app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
     app.register(fileContentRoutes);
 
     const response = await app.inject({

@@ -11,6 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default for the GITHUB_TOKEN across every job (CWE-275). Jobs that
+# need more must opt in explicitly with their own `permissions:` block.
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -22,6 +27,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the checkout token in .git/config where an uploaded artifact could leak it.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -65,6 +73,13 @@ jobs:
       - name: Security audit (high+ severity)
         run: pnpm audit --audit-level=high
 
+      # Dead-code / unused-dependency report. Non-gating for now: this monorepo's built-package
+      # (dist entry) layout and dynamic (build-time) deps produce known false positives that need
+      # curation before knip can block. Tracked as a follow-up.
+      - name: Dead-code report (knip)
+        run: npx knip
+        continue-on-error: true
+
   # ── Domain unit tests with coverage ────────────────────────────────────────
   unit:
     name: Unit tests + coverage
@@ -73,6 +88,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the checkout token in .git/config where an uploaded artifact could leak it.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -139,6 +157,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the checkout token in .git/config where an uploaded artifact could leak it.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -169,6 +190,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't leave the checkout token in .git/config where an uploaded artifact could leak it.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -228,6 +252,8 @@ jobs:
           ASCIIDOCOLLAB_AUTH_INVITATION_RATE_LIMIT_MAX: 500
           # Outline / cross-document suites set a project's main file many times; raise the 50/hour default.
           ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_MAX: 10000
+          # Editor-open hits GET .../collab per document; 12 workers share one IP, so raise the 600/hour default.
+          ASCIIDOCOLLAB_PROJECT_FILE_CONTENT_RATE_LIMIT_MAX: 10000
 
       - name: Wait for API to be ready
         run: |
@@ -297,3 +323,56 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # ── Security scanning: SAST · secrets · dependency CVEs · workflow hardening ─
+  security:
+    name: Security scan (SAST · secrets · deps · workflows)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # full history for secret scanning
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep and zizmor
+        run: pip install --upgrade semgrep zizmor
+
+      # Registry packs + first-party rules in .semgrep.yml (path excludes in .semgrepignore). Same
+      # command as the `pnpm semgrep` script so local runs reproduce CI exactly.
+      - name: Semgrep (SAST — path traversal, weak crypto, sanitization, …)
+        run: semgrep --config p/security-audit --config p/owasp-top-ten --config .semgrep.yml --error --quiet .
+
+      - name: zizmor (GitHub Actions workflow hardening)
+        run: zizmor .github/workflows/
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Install gitleaks
+        run: |
+          GL=$(curl -sSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -oP '"tag_name": "v\K[^"]+')
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GL}/gitleaks_${GL}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
+
+      - name: gitleaks (secret scan across full history)
+        run: gitleaks git --redact --verbose
+
+      - name: Install OSV-Scanner
+        run: |
+          OSV=$(curl -sSL https://api.github.com/repos/google/osv-scanner/releases/latest | grep -oP '"tag_name": "v\K[^"]+')
+          curl -sSL -o /usr/local/bin/osv-scanner "https://github.com/google/osv-scanner/releases/download/v${OSV}/osv-scanner_linux_amd64"
+          chmod +x /usr/local/bin/osv-scanner
+
+      # Broader dependency-CVE coverage than `pnpm audit`. Gated at High+ (CVSS ≥ 7.0) to match the
+      # repo's existing `pnpm audit --audit-level=high` policy; medium/low transitive advisories are
+      # reported but non-blocking.
+      - name: OSV-Scanner (dependency CVEs, gate at High+)
+        run: |
+          osv-scanner scan --lockfile=pnpm-lock.yaml --format=json > osv.json || true
+          osv-scanner scan --lockfile=pnpm-lock.yaml || true   # human-readable table in the log
+          HIGH=$(jq '[.results[].packages[].groups[].max_severity | select(. != "") | tonumber] | map(select(. >= 7.0)) | length' osv.json)
+          echo "High+ (CVSS >= 7.0) advisories: $HIGH"
+          test "$HIGH" -eq 0

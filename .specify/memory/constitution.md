@@ -1,7 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.3.0 → 2.4.0 (MINOR — two new subsections added to Development Workflow:
+Version change: 2.4.0 → 2.5.0 (MINOR — End-of-Feature Verification's full quality-gate sweep now
+includes a security scan step: the `security` gate (scripts/ci/security.sh — Semgrep SAST, zizmor,
+gitleaks, OSV-Scanner gated at High+, plus a non-gating knip report), mirroring the CI `security`
+job. See the aligned security_constitution.md 1.2.0 which adds the SAST and secret/workflow-scanning
+patterns. No principle removed or redefined.)
+
+--- prior change (2.3.0 → 2.4.0) retained for context ---
+MINOR — two new subsections added to Development Workflow:
 "Implementation Discipline" mandates /tdd skill for every implementation task and forbids
 splitting test/implementation into separate tasks; "End-of-Feature Verification" mandates a
 full quality-gate sweep (lint, typecheck, unit + integration + e2e tests across all touched
@@ -291,6 +298,9 @@ considered done and a PR is opened:
    - `pnpm typecheck` — zero type errors.
    - All unit tests — full suite, all green.
    - All integration tests — full suite, all green.
+   - **Security scan** — the `security` gate (`scripts/ci/security.sh`: Semgrep SAST,
+     zizmor, gitleaks, OSV-Scanner gated at High+, plus a non-gating knip report), zero
+     blocking findings. This runs as part of `pnpm gate` and mirrors the CI `security` job.
    - All e2e tests — full suite, all green.
 2. **Code review loop** — the `/code-review` skill MUST be invoked. If it surfaces any
    findings, each finding MUST be fixed and the skill MUST be re-invoked. This loop
@@ -344,4 +354,4 @@ document (including CLAUDE.md, AGENTS.md, or template files), this Constitution 
   intentional and justified, it MUST be documented in the PR description and the plan's
   complexity tracking section.
 
-**Version**: 2.4.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-21
+**Version**: 2.5.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-05

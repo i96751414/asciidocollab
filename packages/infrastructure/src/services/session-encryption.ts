@@ -3,6 +3,9 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const KEY_LENGTH = 32;
+// Pin the GCM authentication tag to the full 16 bytes on both sides. Being explicit rejects
+// truncated-tag ciphertexts (a weaker-integrity attack surface) rather than relying on the default.
+const AUTH_TAG_LENGTH = 16;
 
 /**
  * Configuration for session encryption.
@@ -68,7 +71,7 @@ export class SessionEncryption {
   encrypt(text: string): string {
     const key = this.getEncryptionKey();
     const iv = randomBytes(IV_LENGTH);
-    const cipher = createCipheriv(ALGORITHM, key, iv);
+    const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const tag = cipher.getAuthTag();
@@ -87,7 +90,7 @@ export class SessionEncryption {
     const iv = Buffer.from(parts[0], 'hex');
     const tag = Buffer.from(parts[1], 'hex');
     const encrypted = parts[2];
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(tag);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');

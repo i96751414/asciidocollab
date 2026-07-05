@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local pre-merge gate runner — runs all four CI jobs in order and stops on the
+# Local pre-merge gate runner — runs all five CI jobs in order and stops on the
 # first failure.
 #
 # The e2e job uses scripts/ci/e2e-local.sh (a fully ISOLATED stack: its own
@@ -23,16 +23,19 @@ cd "$ROOT"
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'
 gate() { echo -e "\n${CYAN}━━━ $* ━━━${RESET}"; }
 
-gate "Job 1/4 — Quality (build · lint · types · architecture · audit)"
+gate "Job 1/5 — Quality (build · lint · types · architecture · audit)"
 "$ROOT/scripts/ci/quality.sh"
 
-gate "Job 2/4 — Unit tests + coverage"
+gate "Job 2/5 — Unit tests + coverage"
 "$ROOT/scripts/ci/unit.sh"
 
-gate "Job 3/4 — Integration tests (Testcontainers)"
+gate "Job 3/5 — Integration tests (Testcontainers)"
 "$ROOT/scripts/ci/integration.sh"
 
-gate "Job 4/4 — E2E (isolated stack — safe alongside scripts/dev.sh)"
+gate "Job 4/5 — Security scan (SAST · secrets · dep CVEs · workflows · dead code)"
+"$ROOT/scripts/ci/security.sh"
+
+gate "Job 5/5 — E2E (isolated stack — safe alongside scripts/dev.sh)"
 "$ROOT/scripts/ci/e2e-local.sh"
 
 echo -e "\n${GREEN}✓ All pre-merge gates passed.${RESET}"

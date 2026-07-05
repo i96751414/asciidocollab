@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": ["**/dist/**", "**/*.d.ts", "**/coverage/**", "**/.next/**", "specs/**"],
+  "ignoreDependencies": [
+    "dictionary-.+",
+    "tailwindcss-animate",
+    "pg",
+    "shadcn"
+  ],
+  "ignoreBinaries": ["scripts/ci/.+\\.sh"],
+  "workspaces": {
+    "apps/api": { "ignoreDependencies": ["@asciidocollab/db"] },
+    "apps/collab": { "ignoreDependencies": ["@asciidocollab/db"] },
+    "packages/infrastructure": { "ignoreDependencies": ["@asciidocollab/db"] }
+  }
+}

@@ -30,6 +30,13 @@ export const NO_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 // (images resolve relative to the project root + imagesdir, not the folder of the macro's file).
 const PROJECT_ROOT = '_root_';
 
+/** Strip trailing `/` characters in linear time (a `/\/+$/` regex is polynomial ReDoS). */
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end--;
+  return value.slice(0, end);
+}
+
 /**
  * The effective `:imagesdir:` (attribute-expanded, trimmed, trailing-slash-free),
  * or `''` when unset — document-relative, combined with the target by callers.
@@ -40,7 +47,7 @@ const PROJECT_ROOT = '_root_';
 export function imagesDirectory(attributes: ReadonlyMap<string, string>): string {
   const raw = attributes.get('imagesdir');
   if (raw === undefined) return '';
-  return substitutePathAttributes(raw, attributes).trim().replace(/\/+$/, '');
+  return stripTrailingSlashes(substitutePathAttributes(raw, attributes).trim());
 }
 
 /**

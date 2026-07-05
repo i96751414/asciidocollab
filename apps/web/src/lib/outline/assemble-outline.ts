@@ -50,7 +50,11 @@ const HEADING_PREFIX_RE = /^={1,6}\s+/;
 // AsciiDoc attribute-definition lines: `:name: value` (set) and `:name!:` (unset). Matched per line
 // while scanning so `{attr}` titles resolve against attributes defined earlier in the (assembled)
 // document — AsciiDoc's define-before-use, document-order semantics.
-const ATTR_SET_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*?)[ \t]*$/;
+// Group 2 is the value with surrounding [ \t] trimmed. Structured as words separated by single
+// [ \t]+ runs (no `.*`/`[ \t]*` overlap → provably linear); the leading [ \t]* only exists when a
+// value follows, so an empty value can't leave two adjacent [ \t]* (which recheck flags as
+// polynomial). An empty value therefore yields `undefined`, normalized to '' by the caller.
+const ATTR_SET_RE = /^:([A-Za-z0-9][\w-]*):(?:[ \t]*(\S+(?:[ \t]+\S+)*))?[ \t]*$/;
 const ATTR_UNSET_RE = /^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
 // Verbatim/comment delimited-block fences whose bodies are NOT subject to attribute substitution:
 // listing (`----`), literal (`....`), passthrough (`++++`), and comment (`////`). A `:name:` line
@@ -66,7 +70,7 @@ function applyAttributeLine(line: string, attributes: Map<string, string>): void
     return;
   }
   const set = ATTR_SET_RE.exec(line);
-  if (set) attributes.set(set[1].toLowerCase(), set[2]);
+  if (set) attributes.set(set[1].toLowerCase(), set[2] ?? '');
 }
 
 /** Determines, for each 1-based line of documentText, whether it is inside an inactive conditional. */

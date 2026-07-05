@@ -24,6 +24,13 @@ export interface ProjectConfig {
     /** Detection (symbol-usages) rate limit window in milliseconds. */
     suggestionRateLimitWindow: number;
   };
+  /** Collaborative-document-info read (GET .../files/:id/collab) rate limiting configuration. */
+  fileContent: {
+    /** Maximum collab-info read requests per user/IP per window. */
+    rateLimitMax: number;
+    /** Collab-info read rate limit window in milliseconds. */
+    rateLimitWindow: number;
+  };
 }
 
 /** Convict schema fragment for the project-scoped (main-file, refactoring) domain. */
@@ -66,6 +73,20 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
       format: 'integer',
       default: 3_600_000,
       env: 'ASCIIDOCOLLAB_PROJECT_REFACTORING_SUGGESTION_RATE_LIMIT_WINDOW',
+    },
+  },
+  fileContent: {
+    rateLimitMax: {
+      doc: 'Maximum collaborative-document-info read requests per user/IP per window.',
+      format: 'integer',
+      default: 600,
+      env: 'ASCIIDOCOLLAB_PROJECT_FILE_CONTENT_RATE_LIMIT_MAX',
+    },
+    rateLimitWindow: {
+      doc: 'Collaborative-document-info read rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_FILE_CONTENT_RATE_LIMIT_WINDOW',
     },
   },
 };

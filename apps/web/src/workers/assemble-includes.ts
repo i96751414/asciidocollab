@@ -76,7 +76,7 @@ export interface AssembleResult {
 // An attribute SET entry whose value may wrap: `:name: value` (a prefix/suffix unset has no value to
 // continue). Group 1 = name, group 2 = the (raw) value. Used by the assembler to detect a wrapped
 // value so its continuation lines can be joined for attribute tracking.
-const ATTR_SET_LINE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*(.*)$/;
+const ATTR_SET_LINE_RE = /^:([A-Za-z0-9][\w-]*):[ \t]*((?:[^ \t].*)?)$/;
 // A trailing `\` (after optional whitespace) continues an attribute value onto the next line.
 const VALUE_CONTINUATION_RE = /\\[ \t]*$/;
 // The single-line conditional form `ifdef::flag[include::target[attrs]]` — the conditional's text is
@@ -97,7 +97,7 @@ const DEFAULT_MAX_EXPANSIONS = 10_000;
 // suffix-unset (`:name!:`). These are emitted verbatim in hide mode so Asciidoctor sees them
 // in document order and resolves attribute state correctly (029).
 const ATTR_ENTRY_RE =
-  /^:([A-Za-z0-9][\w-]*):[ \t]*.*$|^:!([A-Za-z0-9][\w-]*):[ \t]*$|^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
+  /^:([A-Za-z0-9][\w-]*):.*$|^:!([A-Za-z0-9][\w-]*):[ \t]*$|^:([A-Za-z0-9][\w-]*)!:[ \t]*$/;
 
 /**
  * Format an ABSOLUTE `:leveloffset:` value entry body. The assembler emits absolute offsets (a bare
