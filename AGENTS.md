@@ -136,14 +136,14 @@ pnpm knip                 # dead-code / unused-dependency report (non-gating)
 
 Run tests for **every package touched**. Do not stop at typecheck.
 
-| Package touched                                                    | Command to run                           |
-|--------------------------------------------------------------------|------------------------------------------|
-| `apps/web/src/` or `apps/web/tests/`                               | `pnpm --filter @asciidocollab/web test`  |
-| `apps/api/src/` or `apps/api/tests/`                               | `cd apps/api && npx jest`                |
-| `packages/domain/src/` or `packages/domain/tests/`                 | `cd packages/domain && npx jest`         |
-| `packages/infrastructure/src/` or `packages/infrastructure/tests/` | `cd packages/infrastructure && npx jest` |
+| Package touched                                                    | Command to run                             |
+|--------------------------------------------------------------------|--------------------------------------------|
+| `apps/web/src/` or `apps/web/tests/`                               | `pnpm --filter @asciidocollab/web test`    |
+| `apps/api/src/` or `apps/api/tests/`                               | `cd apps/api && npx jest`                  |
+| `packages/domain/src/` or `packages/domain/tests/`                 | `cd packages/domain && npx jest`           |
+| `packages/infrastructure/src/` or `packages/infrastructure/tests/` | `cd packages/infrastructure && npx jest`   |
 | `apps/collab/src/` or `apps/collab/tests/`                         | `pnpm --filter @asciidocollab/collab test` |
-| `apps/web/e2e/`                                                    | Run E2E suite (see Pre-merge gate)       |
+| `apps/web/e2e/`                                                    | Run E2E suite (see Pre-merge gate)         |
 
 MUST NOT run `npx jest` from the repo root without `--filter` — it picks up configs from all workspace packages and produces misleading results.
 
