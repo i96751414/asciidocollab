@@ -236,10 +236,6 @@ export function ProjectEditorLayout({
     // the index on the cached/persisted copy so a file switch doesn't transiently blank the open file
     // (which would drop its headings from the assembled outline and re-add them a frame later).
     liveContent: liveOverlayContent,
-    // Hold live observer connections for included files ONLY while the full-document outline is on
-    // screen. Otherwise every open file with includes would keep idle collaborative
-    // sessions alive for a panel the user isn't looking at.
-    observeReachableDocuments: leftPanelTab === 'outline' && outlineScope === 'full' && mainFile != null,
   });
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line

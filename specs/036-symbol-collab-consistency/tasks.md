@@ -93,8 +93,8 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: Reproduce an inherited-attribute change across {outline open/closed, scope current/full, main-file set/unset}; the open doc updates identically in every combination.
 
-- [ ] T013 [US5] Delete the Hocuspocus observer subsystem (`documentObservers`, `createDocumentObserver`, the reconcile loop, and the `observeReachableDocuments` gating) from `apps/web/src/hooks/use-project-symbol-index.ts`, and drop its wiring from `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx`; retain only the outline-shown gate for the unrelated-sibling full-outline recompute (T007 handler replaces the observer's `onUpdate` role) (FR-016).
-- [ ] T014 [US5] Two-client E2E in `apps/web/tests/e2e/collab-consistency-panel-independence.spec.ts`: with the outline panel **closed** (and across current/full scope and main-file present/absent) an inherited-attribute/ID change updates A's highlighting and heading IDs identically to outline-open (SC-009).
+- [X] T013 [US5] Delete the Hocuspocus observer subsystem (`documentObservers`, `createDocumentObserver`, the reconcile loop, and the `observeReachableDocuments` gating) from `apps/web/src/hooks/use-project-symbol-index.ts`, and drop its wiring from `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx`; retain only the outline-shown gate for the unrelated-sibling full-outline recompute (T007 handler replaces the observer's `onUpdate` role) (FR-016).
+- [X] T014 [US5] Two-client E2E in `apps/web/tests/e2e/collab-consistency-panel-independence.spec.ts`: with the outline panel **closed** (and across current/full scope and main-file present/absent) an inherited-attribute/ID change updates A's highlighting and heading IDs identically to outline-open (SC-009).
 
 **Checkpoint**: Consistency no longer switches off with a UI toggle; observer sockets gone.
 
