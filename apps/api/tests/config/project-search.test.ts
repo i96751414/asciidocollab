@@ -7,7 +7,7 @@ import { createConfig } from '../../src/config/schema';
  * ASCIIDOCOLLAB_PROJECT_SEARCH_* environment bindings.
  */
 describe('project.search config', () => {
-  const searchEnvKeys = [
+  const searchEnvironmentKeys = [
     'ASCIIDOCOLLAB_PROJECT_SEARCH_RATE_LIMIT_MAX',
     'ASCIIDOCOLLAB_PROJECT_SEARCH_RATE_LIMIT_WINDOW',
     'ASCIIDOCOLLAB_PROJECT_SEARCH_REPLACE_RATE_LIMIT_MAX',
@@ -21,14 +21,14 @@ describe('project.search config', () => {
   const saved: Record<string, string | undefined> = {};
 
   beforeEach(() => {
-    for (const key of searchEnvKeys) {
+    for (const key of searchEnvironmentKeys) {
       saved[key] = process.env[key];
       delete process.env[key];
     }
   });
 
   afterEach(() => {
-    for (const key of searchEnvKeys) {
+    for (const key of searchEnvironmentKeys) {
       if (saved[key] === undefined) delete process.env[key];
       else process.env[key] = saved[key];
     }
@@ -41,8 +41,8 @@ describe('project.search config', () => {
       rateLimitWindow: 3_600_000,
       replaceRateLimitMax: 30,
       replaceRateLimitWindow: 3_600_000,
-      maxMatchesReturned: 1_000,
-      maxPatternLength: 1_000,
+      maxMatchesReturned: 1000,
+      maxPatternLength: 1000,
       perFileTimeBudgetMs: 250,
       maxFileBytes: 2_000_000,
     });

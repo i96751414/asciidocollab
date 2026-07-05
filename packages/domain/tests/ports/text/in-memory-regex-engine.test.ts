@@ -34,7 +34,7 @@ describe('InMemoryRegexEngine (domain test fake)', () => {
   });
 
   it('exposes named capture groups', () => {
-    const result = engine.compile('(?<year>\\d{4})', { caseSensitive: true, multiline: false });
+    const result = engine.compile(String.raw`(?<year>\d{4})`, { caseSensitive: true, multiline: false });
     if (!result.success) return;
     const spans = result.value.matches('year 2026', budget());
     expect(spans[0]?.named).toEqual({ year: '2026' });

@@ -141,13 +141,13 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
     maxMatchesReturned: {
       doc: 'Maximum matches returned to the client (the true total is still reported).',
       format: 'integer',
-      default: 1_000,
+      default: 1000,
       env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_MATCHES_RETURNED',
     },
     maxPatternLength: {
       doc: 'Maximum accepted search-pattern length (bounds a user-supplied regex).',
       format: 'integer',
-      default: 1_000,
+      default: 1000,
       env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_PATTERN_LENGTH',
     },
     perFileTimeBudgetMs: {

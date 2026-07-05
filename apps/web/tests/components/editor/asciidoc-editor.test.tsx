@@ -248,6 +248,10 @@ jest.mock('@/lib/codemirror/asciidoc-theme', () => ({
   asciidocTheme: [],
 }));
 
+jest.mock('@/lib/codemirror/search-panel-theme', () => ({
+  searchPanelTheme: [],
+}));
+
 jest.mock('@/lib/codemirror/asciidoc-fold', () => ({
   asciidocFold: {},
 }));

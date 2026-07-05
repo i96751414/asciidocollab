@@ -142,13 +142,14 @@ describe('ReplaceProjectContentUseCase', () => {
   it('applies a regex capture-group substitution and records the audit entry', async () => {
     structured.seed(liveYjs, 'date 2026-07 here');
     const result = await useCase.execute(editorId, projectId, input({
-      query: { text: '(\\d{4})-(\\d{2})', mode: 'regex', caseSensitive: true, wholeWord: false },
+      query: { text: String.raw`(\d{4})-(\d{2})`, mode: 'regex', caseSensitive: true, wholeWord: false },
       replacement: '$2/$1',
       files: [{ fileNodeId: liveFileId, selections: [{ ordinal: 0, expectedText: '2026-07' }] }],
     }));
     if (!result.success) return;
     expect(structured.contentOf(liveYjs)).toBe('date 07/2026 here');
-    const entry = (await auditRepo.findAll()).find((l) => l.action === AUDIT_PROJECT_CONTENT_REPLACED);
+    const logs = await auditRepo.findAll();
+    const entry = logs.find((l) => l.action === AUDIT_PROJECT_CONTENT_REPLACED);
     expect(entry).toBeDefined();
     expect(entry?.metadata).toMatchObject({ scope: 'project', mode: 'regex', replacedCount: 1, affectedFiles: 1 });
   });

@@ -159,7 +159,7 @@ export function substitute(
  * always valid. Regex mode checks every `$n`/`${name}` against the pattern's
  * group count and names.
  *
- * @param replacement - The replacement template.
+ * @param replacement - The `$n`/`${name}` template to expand at apply time.
  * @param mode - Literal or regex.
  * @param groupCount - Number of numbered capture groups the pattern defines.
  * @param groupNames - Named capture groups the pattern defines.

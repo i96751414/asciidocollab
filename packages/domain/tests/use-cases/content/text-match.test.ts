@@ -63,7 +63,7 @@ describe('computeMatches — regex', () => {
   const engine = new InMemoryRegexEngine();
 
   it('matches via the injected engine with capture groups', () => {
-    const result = computeMatches('2026-07', query({ text: '(\\d+)-(\\d+)', mode: 'regex' }), engine, budget());
+    const result = computeMatches('2026-07', query({ text: String.raw`(\d+)-(\d+)`, mode: 'regex' }), engine, budget());
     if (!result.success) return;
     expect(result.value[0]?.groups).toEqual(['2026-07', '2026', '07']);
   });

@@ -211,6 +211,16 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
           )}
         </div>
 
+        {query.mode === 'regex' && (
+          <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+            Regex mode (RE2): use <code className="rounded bg-muted px-0.5">\b</code> for word boundaries. In{' '}
+            <strong>Replace</strong>, insert capture groups with <code className="rounded bg-muted px-0.5">$1</code>{' '}
+            <code className="rounded bg-muted px-0.5">$2</code>, named groups with{' '}
+            <code className="rounded bg-muted px-0.5">{'${name}'}</code>, and a literal{' '}
+            <code className="rounded bg-muted px-0.5">$</code> with <code className="rounded bg-muted px-0.5">$$</code>.
+            Lookaround and backreferences are not supported.
+          </p>
+        )}
         {error && (
           <p role="alert" className="px-1 text-xs text-destructive">
             {error.code === 'INVALID_PATTERN' ? `Invalid pattern: ${error.message}` : error.message}

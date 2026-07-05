@@ -16,7 +16,7 @@ const spec: StructuredReplacementSpec = {
 
 describe('HttpStructuredCollaborativeEditor', () => {
   it('posts the spec to the structured-apply endpoint and returns the applied count', async () => {
-    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ applied: 3 }), { status: 200 }));
+    const fetchMock = jest.fn(async () => Response.json({ applied: 3 }, { status: 200 }));
     const editor = new HttpStructuredCollaborativeEditor({ baseUrl: 'http://collab:4101/', secret: 's3cret', fetch: fetchMock });
 
     const result = await editor.applyStructuredReplacement(projectId, yjsStateId, spec);
@@ -43,7 +43,7 @@ describe('HttpStructuredCollaborativeEditor', () => {
   });
 
   it('returns an error on a malformed body', async () => {
-    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ nope: true }), { status: 200 }));
+    const fetchMock = jest.fn(async () => Response.json({ nope: true }, { status: 200 }));
     const editor = new HttpStructuredCollaborativeEditor({ baseUrl: 'http://collab:4101', fetch: fetchMock });
     const result = await editor.applyStructuredReplacement(projectId, yjsStateId, spec);
     expect(result.success).toBe(false);

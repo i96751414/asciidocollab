@@ -8,8 +8,8 @@ const searchProjectContent = jest.fn();
 const replaceProjectContent = jest.fn();
 
 jest.mock('@/lib/api/project-search', () => ({
-  searchProjectContent: (...args: unknown[]) => searchProjectContent(...args),
-  replaceProjectContent: (...args: unknown[]) => replaceProjectContent(...args),
+  searchProjectContent: (...arguments_: unknown[]) => searchProjectContent(...arguments_),
+  replaceProjectContent: (...arguments_: unknown[]) => replaceProjectContent(...arguments_),
   ProjectSearchApiError: class ProjectSearchApiError extends Error {
     constructor(public readonly status: number, public readonly code: string, message: string) {
       super(message);
@@ -51,18 +51,18 @@ const TWO_MATCH_RESULT: SearchResultDto = {
   skippedFiles: 0,
 };
 
+const type = (value: string) =>
+  fireEvent.change(screen.getByLabelText('Search query'), { target: { value } });
+
+const typeReplacement = (value: string) =>
+  fireEvent.change(screen.getByLabelText('Replacement text'), { target: { value } });
+
 describe('SearchView', () => {
   beforeEach(() => {
     searchProjectContent.mockReset();
     replaceProjectContent.mockReset();
     replaceProjectContent.mockResolvedValue({ replacedCount: 1, affectedFiles: 1, skipped: [] });
   });
-
-  const type = (value: string) =>
-    fireEvent.change(screen.getByLabelText('Search query'), { target: { value } });
-
-  const typeReplacement = (value: string) =>
-    fireEvent.change(screen.getByLabelText('Replacement text'), { target: { value } });
 
   test('idle before any query', () => {
     render(<SearchView projectId="p1" onNavigate={jest.fn()} />);

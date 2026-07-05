@@ -5,7 +5,7 @@ import { useProjectSearch } from '@/hooks/use-project-search';
 const searchProjectContent = jest.fn();
 
 jest.mock('@/lib/api/project-search', () => ({
-  searchProjectContent: (...args: unknown[]) => searchProjectContent(...args),
+  searchProjectContent: (...arguments_: unknown[]) => searchProjectContent(...arguments_),
   ProjectSearchApiError: class extends Error {
     constructor(public readonly status: number, public readonly code: string, message: string) {
       super(message);

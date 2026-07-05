@@ -112,7 +112,7 @@ describe('SearchProjectContentUseCase', () => {
   it('matches a regex with capture groups via the injected engine', async () => {
     await seedFile(alphaId, 'dates.txt', 'on 2026-07-05 and 1999-12-31\n');
     const result = await build().execute(memberId, projectId, {
-      query: literal('(\\d{4})-(\\d{2})-(\\d{2})', { mode: 'regex' }),
+      query: literal(String.raw`(\d{4})-(\d{2})-(\d{2})`, { mode: 'regex' }),
       limits: LIMITS,
     });
     if (!result.success) return;
@@ -129,7 +129,7 @@ describe('SearchProjectContentUseCase', () => {
 
   it('skips binary and oversize files, reporting the count', async () => {
     await seedFile(alphaId, 'text.adoc', 'foo\n');
-    await seedFile(betaId, 'image.bin', Buffer.from([0x66, 0x00, 0x6f, 0x6f])); // NUL => binary
+    await seedFile(betaId, 'image.bin', Buffer.from([0x66, 0x00, 0x6F, 0x6F])); // NUL => binary
     await seedFile(FileNodeId.create('ee0e8400-e29b-41d4-a716-44665544000a'), 'big.txt', 'foo foo foo foo\n');
 
     const result = await build().execute(memberId, projectId, { query: literal('foo'), limits: { ...LIMITS, maxFileBytes: 6 } });

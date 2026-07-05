@@ -22,7 +22,7 @@ describe('isSearchableTextFile', () => {
   });
 
   it('rejects content dominated by non-text control bytes (binary)', () => {
-    const binary = new Uint8Array(100).map((_, i) => (i % 2 === 0 ? 0x01 : 0x02));
+    const binary = new Uint8Array(100).map((_, index) => (index % 2 === 0 ? 0x01 : 0x02));
     expect(isSearchableTextFile(binary)).toBe(false);
   });
 

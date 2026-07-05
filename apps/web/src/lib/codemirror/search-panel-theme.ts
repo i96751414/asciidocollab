@@ -28,8 +28,19 @@ export const searchPanelTheme = EditorView.theme({
     fontFamily: 'var(--font-sans, ui-sans-serif, system-ui, sans-serif)',
   },
   '.cm-panel.cm-search label': {
+    // The stock panel wraps each checkbox and its text in a <label>; baseline
+    // alignment leaves the box sitting high, so lay it out as a centred inline row.
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    verticalAlign: 'middle',
     color: c('--muted-foreground'),
     fontSize: '12px',
+  },
+  '.cm-panel.cm-search input[type=checkbox]': {
+    margin: '0',
+    verticalAlign: 'middle',
+    accentColor: c('--primary'),
   },
   '.cm-panel.cm-search .cm-textfield': {
     backgroundColor: c('--background'),
@@ -58,9 +69,6 @@ export const searchPanelTheme = EditorView.theme({
   },
   '.cm-panel.cm-search .cm-button:active': {
     backgroundColor: c('--primary', 0.1),
-  },
-  '.cm-panel.cm-search input[type=checkbox]': {
-    accentColor: c('--primary'),
   },
   '.cm-panel.cm-search [name=close]': {
     color: c('--muted-foreground'),

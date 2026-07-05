@@ -91,7 +91,7 @@ describe('POST /projects/:projectId/search', () => {
 
   test('200 — regex mode matches with capture groups', async () => {
     const app = await buildServer({ store: new Map([['/alpha.adoc', 'ref 2026-07\n'], ['/beta.txt', '']]) });
-    const response = await search(app, { query: '(\\d{4})-(\\d{2})', mode: 'regex', caseSensitive: true, wholeWord: false });
+    const response = await search(app, { query: String.raw`(\d{4})-(\d{2})`, mode: 'regex', caseSensitive: true, wholeWord: false });
     expect(response.statusCode).toBe(200);
     expect(response.json().data.groups[0].matches[0].matchText).toBe('2026-07');
     await app.close();

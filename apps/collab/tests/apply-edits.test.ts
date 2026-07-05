@@ -81,27 +81,27 @@ describe('applyEditsToDocument', () => {
   });
 });
 
+function serverSeeded(seed: string): { server: Server; stored: string[] } {
+  const stored: string[] = [];
+  const extension = {
+    onLoadDocument: async ({ document }: { document: Y.Doc }) => {
+      const ytext = document.getText('codemirror');
+      if (ytext.length === 0) ytext.insert(0, seed);
+    },
+    onStoreDocument: async ({ document }: { document: Y.Doc }) => {
+      stored.push(document.getText('codemirror').toString());
+    },
+  };
+  return { server: new Server({ port: 0, extensions: [extension as unknown as Extension] }), stored };
+}
+
+const literalQuery = (text: string) => ({ text, mode: 'literal' as const, caseSensitive: true, wholeWord: false });
+
 describe('applyStructuredReplacementToDocument', () => {
   const engine = new Re2RegexEngine();
   const PROJECT_ID = '770e8400-e29b-41d4-a716-446655440003';
   const YJS_STATE_ID = '11111111-e29b-41d4-a716-446655440111';
   const ROOM = `${PROJECT_ID}/${YJS_STATE_ID}`;
-
-  function serverSeeded(seed: string): { server: Server; stored: string[] } {
-    const stored: string[] = [];
-    const extension = {
-      onLoadDocument: async ({ document }: { document: Y.Doc }) => {
-        const ytext = document.getText('codemirror');
-        if (ytext.length === 0) ytext.insert(0, seed);
-      },
-      onStoreDocument: async ({ document }: { document: Y.Doc }) => {
-        stored.push(document.getText('codemirror').toString());
-      },
-    };
-    return { server: new Server({ port: 0, extensions: [extension as unknown as Extension] }), stored };
-  }
-
-  const literal = (text: string) => ({ text, mode: 'literal' as const, caseSensitive: true, wholeWord: false });
 
   it('rewrites only the confirmed ordinals of a dormant document and persists the result', async () => {
     const { server, stored } = serverSeeded('foo foo foo');
@@ -109,7 +109,7 @@ describe('applyStructuredReplacementToDocument', () => {
       const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
         projectId: PROJECT_ID,
         yjsStateId: YJS_STATE_ID,
-        query: literal('foo'),
+        query: literalQuery('foo'),
         replacement: 'bar',
         selections: [{ ordinal: 0, expectedText: 'foo' }, { ordinal: 2, expectedText: 'foo' }],
       });
@@ -126,7 +126,7 @@ describe('applyStructuredReplacementToDocument', () => {
       const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
         projectId: PROJECT_ID,
         yjsStateId: YJS_STATE_ID,
-        query: literal('dog'),
+        query: literalQuery('dog'),
         replacement: 'x',
         selections: [{ ordinal: 0, expectedText: 'dog' }],
       });
@@ -144,7 +144,7 @@ describe('applyStructuredReplacementToDocument', () => {
       const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
         projectId: PROJECT_ID,
         yjsStateId: YJS_STATE_ID,
-        query: { text: '(\\d{4})-(\\d{2})', mode: 'regex', caseSensitive: true, wholeWord: false },
+        query: { text: String.raw`(\d{4})-(\d{2})`, mode: 'regex', caseSensitive: true, wholeWord: false },
         replacement: '$2/$1',
         selections: [{ ordinal: 0, expectedText: '2026-07' }],
       });
@@ -165,7 +165,7 @@ describe('applyStructuredReplacementToDocument', () => {
       const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
         projectId: PROJECT_ID,
         yjsStateId: YJS_STATE_ID,
-        query: literal('foo'),
+        query: literalQuery('foo'),
         replacement: 'bar',
         selections: [{ ordinal: 0, expectedText: 'foo' }],
       });

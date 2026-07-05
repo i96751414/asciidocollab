@@ -25,7 +25,7 @@ describe('Re2RegexEngine', () => {
   });
 
   it('returns spans with numbered and named capture groups', () => {
-    const result = engine.compile('(?<y>\\d{4})-(\\d{2})', { caseSensitive: true, multiline: true });
+    const result = engine.compile(String.raw`(?<y>\d{4})-(\d{2})`, { caseSensitive: true, multiline: true });
     expect(result.success).toBe(true);
     if (!result.success) return;
     const spans = result.value.matches('2026-07 and 1999-12', budget());
