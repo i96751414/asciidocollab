@@ -76,9 +76,11 @@ jobs:
       # Dead-code / unused-dependency report. Non-gating for now: this monorepo's built-package
       # (dist entry) layout and dynamic (build-time) deps produce known false positives that need
       # curation before knip can block. Tracked as a follow-up.
-      - name: Dead-code report (knip)
-        run: npx knip
-        continue-on-error: true
+      # `|| true` keeps the report informational AND exits 0, so knip's normal "found issues" exit 1
+      # does not surface a misleading "Process completed with exit code 1" failure annotation on the
+      # otherwise-green Quality job (which is what `continue-on-error` alone left behind).
+      - name: Dead-code report (knip, non-gating)
+        run: npx knip || echo "::notice::knip reported findings (non-gating — see log for details)"
 
   # ── Domain unit tests with coverage ────────────────────────────────────────
   unit:
@@ -136,7 +138,7 @@ jobs:
         run: npx jest --coverage --coverageReporters=text lcov
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
@@ -317,7 +319,7 @@ jobs:
           MAILPIT_URL: http://localhost:8025
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
