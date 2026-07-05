@@ -224,7 +224,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
   const affectedFiles = result?.groups.filter((group) => group.matches.some((match) => !search.isExcluded(group.fileNodeId, match.ordinal))).length ?? 0;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div data-testid="search-view" className="flex h-full flex-col overflow-hidden">
       <div className="flex items-center px-2 border-b shrink-0 h-9">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Search</span>
       </div>

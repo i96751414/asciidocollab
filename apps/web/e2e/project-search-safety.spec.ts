@@ -47,7 +47,7 @@ test.describe('Project search — regex safety and limits', () => {
     const start = Date.now();
     await page.getByLabel('Search query').fill('(a+)+$');
     // A no-results (or results) state must settle quickly; the request cannot hang the client.
-    await expect(page.getByText(/no matches found|matches/i).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByTestId('search-view').getByText(/no matches found|refine your search/i)).toBeVisible({ timeout: 8000 });
     expect(Date.now() - start).toBeLessThan(8000);
 
     // The UI stays responsive: the query field still accepts input.
@@ -61,7 +61,7 @@ test.describe('Project search — regex safety and limits', () => {
     await openProject(page, projectId);
     await openSearchTab(page);
     await page.getByLabel('Search query').fill('z');
-    await expect(page.getByText(/showing 1000 of \d+ matches/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByTestId('search-view').getByText(/showing 1000 of \d+ matches/i)).toBeVisible({ timeout: 8000 });
   });
 
   test('surfaces files skipped for binary content', async ({ page }) => {
@@ -71,7 +71,7 @@ test.describe('Project search — regex safety and limits', () => {
     await openProject(page, projectId);
     await openSearchTab(page);
     await page.getByLabel('Search query').fill('findme');
-    await expect(page.getByText('text.adoc')).toBeVisible();
-    await expect(page.getByText(/1 file skipped/i)).toBeVisible();
+    await expect(page.getByTestId('search-view').getByText('text.adoc')).toBeVisible();
+    await expect(page.getByTestId('search-view').getByText(/1 file skipped/i)).toBeVisible();
   });
 });

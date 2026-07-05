@@ -58,11 +58,11 @@ test.describe('Project-wide find and replace', () => {
     await searchFor(page, 'needle');
 
     // Both files appear — including the dormant one that was never opened.
-    await expect(page.getByText('opened.adoc')).toBeVisible();
-    await expect(page.getByText('dormant.adoc')).toBeVisible();
+    await expect(page.getByTestId('search-view').getByText('opened.adoc')).toBeVisible();
+    await expect(page.getByTestId('search-view').getByText('dormant.adoc')).toBeVisible();
 
     // Activating the dormant result opens that file with the match visible.
-    await page.getByRole('button', { name: /another needle lives here/i }).click();
+    await page.getByTestId('search-view').getByRole('button', { name: /another needle lives here/i }).click();
     await expect(editorContent(page)).toContainText('Another needle lives here.');
   });
 
@@ -86,8 +86,8 @@ test.describe('Project-wide find and replace', () => {
 
     // Re-search: the excluded occurrence remains, the included ones are gone.
     await searchFor(page, 'replace');
-    await expect(page.getByText('a.adoc')).toBeVisible();
-    await expect(page.getByText('b.adoc')).toHaveCount(0);
+    await expect(page.getByTestId('search-view').getByText('a.adoc')).toBeVisible();
+    await expect(page.getByTestId('search-view').getByText('b.adoc')).toHaveCount(0);
 
     // The dormant file b.adoc was persisted with the replacement.
     await openFile(page, 'b.adoc', /REPLACED/);
