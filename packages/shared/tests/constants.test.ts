@@ -1,9 +1,11 @@
 import * as shared from '../src/index';
 import {
   COLLAB_INTERNAL_PORT_DEFAULT,
+  COLLAB_CONTENT_CHANGED_PATH,
   PRESENCE_ROOM_PREFIX,
   presenceRoomName,
   isPresenceRoom,
+  parseContentRoom,
 } from '../src/constants';
 
 describe('constants', () => {
@@ -29,5 +31,19 @@ describe('constants', () => {
   test('isPresenceRoom distinguishes presence rooms from document rooms', () => {
     expect(isPresenceRoom(presenceRoomName('proj-1'))).toBe(true);
     expect(isPresenceRoom('proj-1/yjs-state-1')).toBe(false);
+  });
+
+  test('parseContentRoom splits a document room into its two id strings', () => {
+    expect(parseContentRoom('proj-1/yjs-state-1')).toEqual({ projectId: 'proj-1', yjsStateId: 'yjs-state-1' });
+  });
+
+  test('parseContentRoom returns null for a malformed room name', () => {
+    expect(parseContentRoom('no-slash')).toBeNull();
+    expect(parseContentRoom('/only-yjs')).toBeNull();
+    expect(parseContentRoom('only-project/')).toBeNull();
+  });
+
+  test('COLLAB_CONTENT_CHANGED_PATH is the shared internal notify path', () => {
+    expect(COLLAB_CONTENT_CHANGED_PATH).toBe('/internal/collab/content-changed');
   });
 });

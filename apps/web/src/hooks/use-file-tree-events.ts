@@ -40,8 +40,10 @@ export interface ProjectEventHandlers {
    * @param event - The main-file-changed event.
    */
   onMainFileChanged?: (event: MainFileChangedEventDto) => void;
-  /** Handles an SSE reconnect; the consumer should resync from scratch. */
+  /** The SSE connection dropped (fires on error and on each failed retry); the consumer should resync. */
   onReconnect?: () => void;
+  /** The SSE connection was (re)established; content is live again. */
+  onConnected?: () => void;
 }
 
 /**
@@ -65,6 +67,10 @@ export function useFileTreeEvents(projectId: string, handlers: ProjectEventHandl
       const data = message.data;
       if (data?.type === 'reconnect') {
         handlersReference.current.onReconnect?.();
+        return;
+      }
+      if (data?.type === 'sse-connected') {
+        handlersReference.current.onConnected?.();
         return;
       }
       if (data?.type !== 'project-event') return;

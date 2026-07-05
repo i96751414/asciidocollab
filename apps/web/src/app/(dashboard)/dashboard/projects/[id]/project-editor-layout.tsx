@@ -249,8 +249,10 @@ export function ProjectEditorLayout({
   // reachability, which is too narrow for a project-wide rename). The bumped nonce nudges the editor's
   // rename plugin to re-query while an offer is visible.
   const [renameRefreshNonce, setRenameRefreshNonce] = useState(0);
-  // A dropped SSE delivery means related content may be resolved from last-saved rather than a live
-  // session, until the connection recovers and the index rebuilds; surface that subtly to the user.
+  // While the SSE stream is down, a collaborator's live edits are not being delivered, so related
+  // content may be resolved from last-saved rather than a live session — surface that subtly. Driven
+  // by the true connection edges (dropped ⇒ non-live, (re)established ⇒ live), not by a rebuild, so it
+  // stays steadily on through an outage and clears exactly when the stream actually recovers.
   const [nonLive, setNonLive] = useState(false);
   useFileTreeEvents(projectId, {
     onContentChanged: () => setRenameRefreshNonce((nonce) => nonce + 1),
@@ -258,11 +260,8 @@ export function ProjectEditorLayout({
     // symbol index's root and the preview root re-resolve against the new anchor (no split-brain).
     onMainFileChanged: (event) => setMainFile(event.mainFileNodeId),
     onReconnect: () => setNonLive(true),
+    onConnected: () => setNonLive(false),
   });
-  // A rebuild (reachableDocVersion bump) after the connection recovers clears the non-live state.
-  useLayoutEffect(() => {
-    setNonLive(false);
-  }, [reachableDocVersion]);
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
   // used to mark the current section. Held here so the panel is fed without remounting the editor.

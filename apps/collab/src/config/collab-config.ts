@@ -1,5 +1,5 @@
 import convict from 'convict';
-import { COLLAB_INTERNAL_PORT_DEFAULT } from '@asciidocollab/shared';
+import { COLLAB_INTERNAL_PORT_DEFAULT, COLLAB_CONTENT_CHANGED_PATH } from '@asciidocollab/shared';
 
 /** Builds a convict format that rejects anything other than a positive integer (>= 1). */
 function positiveInteger(name: string) {
@@ -127,7 +127,8 @@ export function createCollabConfig() {
     contentChangedNotifyPath: {
       doc: 'Path on the API internal server that receives content-changed notifications for live edits.',
       format: String,
-      default: '/internal/collab/content-changed',
+      // Single source of truth shared with the API route so the two cannot drift.
+      default: COLLAB_CONTENT_CHANGED_PATH,
       env: 'ASCIIDOCOLLAB_COLLAB_CONTENT_CHANGED_NOTIFY_PATH',
     },
     contentChangedDebounceMs: {

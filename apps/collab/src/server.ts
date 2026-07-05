@@ -8,7 +8,7 @@ import type {
 import type { SystemSettingRepository, DocumentRepository } from '@asciidocollab/domain';
 import { YjsStateId, ProjectId, DocumentId } from '@asciidocollab/domain';
 import type { Result } from '@asciidocollab/domain';
-import { PRESENCE_ROOM_PREFIX, isPresenceRoom } from '@asciidocollab/shared';
+import { PRESENCE_ROOM_PREFIX, isPresenceRoom, parseContentRoom } from '@asciidocollab/shared';
 import pino from 'pino';
 
 const defaultLogger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
@@ -65,14 +65,14 @@ export function parsePresenceRoom(documentName: string) {
 
 /** Parses a Hocuspocus room name of the form `<projectId>/<yjsStateId>` into typed value objects. */
 export function parseRoomName(documentName: string) {
-  const slash = documentName.indexOf('/');
   // Fail clearly on a malformed name rather than fabricating ids from slice(0, -1)/slice(0).
-  if (slash === -1) {
+  const parsed = parseContentRoom(documentName);
+  if (!parsed) {
     throw new Error(`Invalid room name (expected "<projectId>/<yjsStateId>"): ${documentName}`);
   }
   return {
-    projectId: ProjectId.create(documentName.slice(0, slash)),
-    yjsStateId: YjsStateId.create(documentName.slice(slash + 1)),
+    projectId: ProjectId.create(parsed.projectId),
+    yjsStateId: YjsStateId.create(parsed.yjsStateId),
   };
 }
 

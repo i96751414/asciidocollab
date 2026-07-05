@@ -1,6 +1,6 @@
 import type { Extension, onChangePayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
-import { isPresenceRoom } from '@asciidocollab/shared';
+import { isPresenceRoom, parseContentRoom } from '@asciidocollab/shared';
 
 /** Options for {@link ChangeNotifierExtension}. */
 export interface ChangeNotifierOptions {
@@ -60,7 +60,7 @@ export class ChangeNotifierExtension implements Extension {
   /** Starts/refreshes the per-room debounce timer for a content room; presence rooms are skipped. */
   private scheduleNotify(documentName: string): void {
     if (isPresenceRoom(documentName)) return;
-    const room = parseRoom(documentName);
+    const room = parseContentRoom(documentName);
     if (!room) return;
 
     const existing = this.timers.get(documentName);
@@ -89,14 +89,4 @@ export class ChangeNotifierExtension implements Extension {
       this.logger.warn({ err: error, projectId }, 'content-changed notify failed (best-effort)');
     }
   }
-}
-
-/** Parses a content room name (`<projectId>/<yjsStateId>`) into its two id strings, or null. */
-function parseRoom(documentName: string): { projectId: string; yjsStateId: string } | null {
-  const slash = documentName.indexOf('/');
-  if (slash === -1) return null;
-  const projectId = documentName.slice(0, slash);
-  const yjsStateId = documentName.slice(slash + 1);
-  if (!projectId || !yjsStateId) return null;
-  return { projectId, yjsStateId };
 }

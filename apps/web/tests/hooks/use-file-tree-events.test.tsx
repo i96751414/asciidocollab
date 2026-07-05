@@ -31,8 +31,9 @@ describe('useFileTreeEvents', () => {
   const onContentChanged = jest.fn();
   const onMainFileChanged = jest.fn();
   const onReconnect = jest.fn();
+  const onConnected = jest.fn();
 
-  const handlers = { onFileTreeEvent, onContentChanged, onMainFileChanged, onReconnect };
+  const handlers = { onFileTreeEvent, onContentChanged, onMainFileChanged, onReconnect, onConnected };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,6 +85,14 @@ describe('useFileTreeEvents', () => {
     renderHook(() => useFileTreeEvents(projectId, handlers));
     act(() => triggerMessage({ type: 'reconnect' }));
     expect(onReconnect).toHaveBeenCalledTimes(1);
+    expect(onConnected).not.toHaveBeenCalled();
+  });
+
+  it('calls onConnected when the sse-connected message received', () => {
+    renderHook(() => useFileTreeEvents(projectId, handlers));
+    act(() => triggerMessage({ type: 'sse-connected' }));
+    expect(onConnected).toHaveBeenCalledTimes(1);
+    expect(onReconnect).not.toHaveBeenCalled();
   });
 
   it('posts unsubscribe message on unmount', () => {

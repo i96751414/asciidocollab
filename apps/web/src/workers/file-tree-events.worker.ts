@@ -37,6 +37,16 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
     }
   });
 
+  // 'open' fires when the SSE connection is (re)established; 'error' when it drops (and on each failed
+  // retry). Forward both as connection-status edges so subscribers can reflect true live/offline state,
+  // and keep the 'reconnect' resync signal on 'error' so consumers refetch once the stream is back.
+  source.addEventListener('open', () => {
+    const projectPorts = ports.get(projectId) ?? [];
+    for (const port of projectPorts) {
+      port.postMessage({ type: 'sse-connected' });
+    }
+  });
+
   source.addEventListener('error', () => {
     const projectPorts = ports.get(projectId) ?? [];
     for (const port of projectPorts) {

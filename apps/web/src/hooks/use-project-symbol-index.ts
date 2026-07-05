@@ -227,21 +227,24 @@ export function useProjectSymbolIndex({
     },
     [build],
   );
-  // A dropped SSE connection reconnected: the cache may be stale, so clear it, rebuild, and bump the
-  // recompute counter — the latter is what lets the editor host clear its "last-saved" indicator once
-  // the connection has recovered (without it the counter would only move on the next collaborator edit).
+  // The SSE stream dropped (and may retry): the cache may be stale, so clear it and rebuild from the
+  // server. The connection-status signal (not this rebuild) drives the non-live indicator, so there is
+  // no version bump here.
   const handleReconnect = useCallback(() => {
     treeLoaded.current = false;
     contentCache.current.clear();
-    void build().then(() => setReachableDocumentVersion((v) => v + 1));
+    build();
   }, [build]);
 
   // Coalesce a burst of content-changed frames into at most one fetch+rebuild per microtask batch;
-  // the build's token check supersedes any still-in-flight build so recompute stays bounded.
+  // the build's token check supersedes any still-in-flight build so recompute stays bounded. The
+  // .catch keeps a rare synchronous build failure from leaving an unhandled rejection.
   const contentChangedScheduled = useRef(false);
   const flushContentChanged = useCallback(() => {
     contentChangedScheduled.current = false;
-    void build().then(() => setReachableDocumentVersion((v) => v + 1));
+    void build()
+      .then(() => setReachableDocumentVersion((v) => v + 1))
+      .catch(() => {});
   }, [build]);
 
   // A collaborator's live edit (or a peer's save) to a reachable, non-open file: invalidate that

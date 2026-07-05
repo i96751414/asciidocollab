@@ -19,6 +19,24 @@ export function isPresenceRoom(roomName: string): boolean {
 }
 
 /**
+ * Parses a content-document room name (`<projectId>/<yjsStateId>`) into its two id strings, or returns
+ * null when the name is not a well-formed content room. Single authority for the content-room grammar,
+ * shared by the collab server (which layers typed value objects on top) and the change notifier — so
+ * the split-on-first-`/` convention lives in exactly one place.
+ *
+ * @param roomName - The Hocuspocus room name to parse.
+ * @returns The `{ projectId, yjsStateId }` id strings, or null when malformed.
+ */
+export function parseContentRoom(roomName: string): { projectId: string; yjsStateId: string } | null {
+  const slash = roomName.indexOf('/');
+  if (slash === -1) return null;
+  const projectId = roomName.slice(0, slash);
+  const yjsStateId = roomName.slice(slash + 1);
+  if (!projectId || !yjsStateId) return null;
+  return { projectId, yjsStateId };
+}
+
+/**
  * Paths of the internal collaboration auth endpoints (apps/api internal server). Shared so the
  * collab auth-hook URL builder and the API route registration reference one source and cannot drift.
  */

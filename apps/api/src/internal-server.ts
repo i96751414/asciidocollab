@@ -24,7 +24,12 @@ export interface InternalServerDeps {
   fileTreeEventBus: FileTreeEventBus;
 }
 
-/** Creates the internal Fastify server that exposes the collab auth endpoint. When TLS cert paths are configured, the server requires mutual TLS; otherwise it binds to the loopback interface over plain HTTP. */
+/**
+ * Creates the internal Fastify server that hosts the collaboration trust-boundary endpoints — collab
+ * auth, the storage-consistency probe, and the collab→API content-changed notify relay (which emits
+ * onto the shared per-project event bus so the main server's SSE subscribers refresh). When TLS cert
+ * paths are configured the server requires mutual TLS; otherwise it binds to loopback over plain HTTP.
+ */
 export async function createInternalServer(deps: InternalServerDeps): Promise<FastifyInstance> {
   const { cert, key, clientCa } = deps.config.collab.internalTls;
   const useTls = Boolean(cert && key && clientCa);
