@@ -74,6 +74,14 @@ export async function projectMainFileRoutes(app: FastifyInstance): Promise<void>
       }
 
       const project = result.value;
+
+      // The main file anchors every open document's inherited context; a change re-resolves them all,
+      // so broadcast a main-file-changed event (mainFileNodeId is null when the main file is cleared).
+      request.server.fileTreeEventBus.emit(projectId.value, {
+        type: 'main-file-changed',
+        mainFileNodeId: project.mainFileNodeId?.value ?? null,
+      });
+
       return reply.status(200).send({
         data: {
           id: project.id.value,

@@ -32,6 +32,7 @@ function makeDeferred<T>(): Deferred<T> {
 function latestSseHandlers(): {
   onEvent: (event: FileTreeEventDto) => void;
   onContentChanged: (event: { type: 'content-changed'; fileNodeId: string }) => void;
+  onMainFileChanged: (event: { type: 'main-file-changed'; mainFileNodeId: string | null }) => void;
   onReconnect: () => void;
 } {
   const calls = mockFileTreeEvents.mock.calls;
@@ -39,6 +40,7 @@ function latestSseHandlers(): {
   return {
     onEvent: handlers.onFileTreeEvent!,
     onContentChanged: handlers.onContentChanged!,
+    onMainFileChanged: handlers.onMainFileChanged!,
     onReconnect: handlers.onReconnect!,
   };
 }
@@ -270,6 +272,26 @@ describe('useProjectSymbolIndex', () => {
       await Promise.resolve();
     });
     expect(mockGetContent.mock.calls.length).toBe(before); // 'c' is not a dependency — no rebuild
+  });
+
+  test('a main-file-changed frame retargets the resolution anchor and rebuilds unconditionally', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'a', openFileId: 'a', liveContent: CONTENT.a }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    // Rooted at 'a', b.adoc is unreachable, so its anchor does not resolve.
+    expect(result.current.index!.resolveXref('anchor-b')).toBe('unresolved');
+    const v0 = result.current.reachableDocVersion;
+
+    // The project main file becomes 'main' (which includes a + b) — the anchor retargets even though
+    // 'main' is not in the current dependency graph.
+    const { onMainFileChanged } = latestSseHandlers();
+    await act(async () => {
+      onMainFileChanged({ type: 'main-file-changed', mainFileNodeId: 'main' });
+    });
+
+    await waitFor(() => expect(result.current.index!.resolveXref('anchor-b')).not.toBe('unresolved'));
+    expect(result.current.reachableDocVersion).toBeGreaterThan(v0);
   });
 
   test('clears the entire cache and rebuilds on an SSE reconnect', async () => {

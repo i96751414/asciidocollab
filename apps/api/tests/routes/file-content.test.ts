@@ -50,8 +50,14 @@ function buildTestServer(options: { contentId?: string; activeSession?: boolean 
   });
   app.addContentTypeParser('text/plain', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
   app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
+  app.decorate('fileTreeEventBus', { emit: jest.fn(), subscribe: jest.fn() });
   app.register(fileContentRoutes);
   return app;
+}
+
+/** Reads the fileTreeEventBus.emit mock off a built test server. */
+function emitMock(app: ReturnType<typeof buildTestServer>) {
+  return (app as unknown as { fileTreeEventBus: { emit: jest.Mock } }).fileTreeEventBus.emit;
 }
 
 describe('GET /projects/:projectId/files/:fileNodeId/content', () => {
@@ -213,6 +219,39 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
     expect((response.headers['etag'] as string).length).toBeGreaterThan(0);
   });
 
+  test('emits a content-changed event for the saved file so open dependents refresh', async () => {
+    jest.spyOn(SaveDocumentContentUseCase.prototype, 'execute').mockResolvedValue({
+      success: true,
+      value: { contentId: CONTENT_ID } as never,
+    });
+
+    const app = buildTestServer();
+    const response = await app.inject({
+      method: 'PUT',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
+      payload: '= Updated',
+      headers: { 'content-type': 'text/plain' },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(emitMock(app)).toHaveBeenCalledWith(PROJECT_ID, { type: 'content-changed', fileNodeId: FILE_NODE_ID });
+  });
+
+  test('does not emit a content-changed event when the save is rejected', async () => {
+    jest.spyOn(SaveDocumentContentUseCase.prototype, 'execute').mockResolvedValue({
+      success: false,
+      error: new PermissionDeniedError(),
+    });
+
+    const app = buildTestServer();
+    await app.inject({
+      method: 'PUT',
+      url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/content`,
+      payload: '= Updated',
+      headers: { 'content-type': 'text/plain' },
+    });
+    expect(emitMock(app)).not.toHaveBeenCalled();
+  });
+
   test('accepts JSON body (non-Buffer) and returns 204', async () => {
     jest.spyOn(SaveDocumentContentUseCase.prototype, 'execute').mockResolvedValue({
       success: true,
@@ -254,6 +293,7 @@ describe('PUT /projects/:projectId/files/:fileNodeId/content', () => {
     });
     app.addContentTypeParser('text/markdown', { parseAs: 'string' }, (_request, body, done) => done(null, body));
     app.decorate('config', { project: { fileContent: { rateLimitMax: 600, rateLimitWindow: 3_600_000 } } } as never);
+    app.decorate('fileTreeEventBus', { emit: jest.fn(), subscribe: jest.fn() });
     app.register(fileContentRoutes);
     await app.ready();
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ContentChangedEventDto, FileTreeEventDto } from '@asciidocollab/shared';
+import type { ContentChangedEventDto, FileTreeEventDto, MainFileChangedEventDto } from '@asciidocollab/shared';
 import {
   buildProjectSymbolIndex,
   makeIncludeResolver,
@@ -137,6 +137,16 @@ export function useProjectSymbolIndex({
     liveOverlay.current = next;
   }
 
+  // Resolution anchor override: normally the `rootFileId` prop drives the anchor, but a
+  // `main-file-changed` SSE frame can retarget it before the layout's own project state catches up
+  // (FR-009). `undefined` ⇒ not overridden. Cleared when the prop moves, so the prop stays authoritative.
+  const anchorOverride = useRef<string | null | undefined>(undefined);
+  const previousRootFileId = useRef(rootFileId);
+  if (previousRootFileId.current !== rootFileId) {
+    previousRootFileId.current = rootFileId;
+    anchorOverride.current = undefined;
+  }
+
   const readContent = useCallback((fileId: string): string | null => {
     const overlay = liveOverlay.current;
     if (overlay.id !== null && fileId === overlay.id && overlay.text !== null) return overlay.text;
@@ -144,7 +154,9 @@ export function useProjectSymbolIndex({
   }, []);
 
   const build = useCallback(async () => {
-    if (!rootFileId) {
+    // The live main-file anchor: a main-file-changed override when present, else the prop.
+    const root = anchorOverride.current !== undefined ? anchorOverride.current : rootFileId;
+    if (!root) {
       buildToken.current += 1;
       indexReference.current = null;
       setIndex(null);
@@ -173,7 +185,7 @@ export function useProjectSymbolIndex({
     );
 
     const completed = await fetchReachableContent({
-      rootFileId,
+      rootFileId: root,
       readContent,
       resolveInclude,
       fetchContent: (id) => getDocumentContent(projectId, id),
@@ -189,10 +201,10 @@ export function useProjectSymbolIndex({
     if (!completed) return;
 
     const built = buildProjectSymbolIndex(
-      rootFileId,
+      root,
       readContent,
       resolveInclude,
-      liveOverlay.current.id ?? rootFileId,
+      liveOverlay.current.id ?? root,
       (id) => pathById.current.get(id) ?? null,
     );
     indexReference.current = built;
@@ -259,9 +271,25 @@ export function useProjectSymbolIndex({
     [flushContentChanged],
   );
 
+  // The project's main file changed: retarget the resolution anchor and rebuild UNCONDITIONALLY —
+  // an anchor change can add or drop reachability for any open document, so there is no dependency-
+  // graph membership check (FR-009). A cleared main file (null) falls back to the open file, matching
+  // the layout's `mainFile ?? selectedFile` derivation (the open document resolves from itself).
+  const handleMainFileChanged = useCallback(
+    (event: MainFileChangedEventDto) => {
+      anchorOverride.current = event.mainFileNodeId ?? liveOverlay.current.id ?? null;
+      if (!contentChangedScheduled.current) {
+        contentChangedScheduled.current = true;
+        queueMicrotask(flushContentChanged);
+      }
+    },
+    [flushContentChanged],
+  );
+
   useFileTreeEvents(projectId, {
     onFileTreeEvent: handleEvent,
     onContentChanged: handleContentChanged,
+    onMainFileChanged: handleMainFileChanged,
     onReconnect: handleReconnect,
   });
 

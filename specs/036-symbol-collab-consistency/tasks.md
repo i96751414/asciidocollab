@@ -106,8 +106,8 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: B edits+saves an included file then disconnects (no live session); A refreshes to the saved content once the save settles.
 
-- [ ] T015 [US6] Emit `content-changed` on the per-project bus from the `PUT …/content` save path (both sessionless and session saves) in `apps/api/src/routes/projects/file-content.ts`.
-- [ ] T016 [US6] Two-client E2E in `apps/web/tests/e2e/collab-consistency-saved-edit.spec.ts`: B edits **and saves** a related file, then disconnects (no live session) → A's derived views refresh to the saved content after it settles, with no reconnect/structural event/manual refresh, coherently from one recomputed state (SC-010; FR-017; US6 scenarios 1–3).
+- [X] T015 [US6] Emit `content-changed` on the per-project bus from the `PUT …/content` save path (both sessionless and session saves) in `apps/api/src/routes/projects/file-content.ts`.
+- [X] T016 [US6] Two-client E2E in `apps/web/tests/e2e/collab-consistency-saved-edit.spec.ts`: B edits **and saves** a related file, then disconnects (no live session) → A's derived views refresh to the saved content after it settles, with no reconnect/structural event/manual refresh, coherently from one recomputed state (SC-010; FR-017; US6 scenarios 1–3).
 
 **Checkpoint**: Everyday edit-and-save propagates; no unbounded staleness.
 
@@ -119,9 +119,9 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: A has a child document open; a collaborator changes the project main file; A's inherited attribute values, heading IDs, and preview re-resolve against the new anchor with no reload.
 
-- [ ] T017 Emit `{ type: 'main-file-changed', mainFileNodeId }` on the per-project bus from the main-file PUT handler in `apps/api/src/routes/projects/main-file.ts` (after the `set-project-main-file` use case succeeds; `mainFileNodeId` may be `null` when cleared).
-- [ ] T018 Handle `main-file-changed` in `apps/web/src/hooks/use-project-symbol-index.ts`: update the resolution anchor to the new `mainFileNodeId`, `build()` (unconditionally — every open document re-resolves, independent of `built.tree.nodes` membership), then bump `reachableDocVersion` (FR-009); coalesce with the existing rebuild path (depends on T007).
-- [ ] T019 Two-client E2E in `apps/web/tests/e2e/collab-consistency-main-file.spec.ts`: B changes the project main file → A's open document's inherited attribute values / heading IDs / preview re-resolve to the new anchor with no reload or structural file event (FR-009; edge case "Main/root file change").
+- [X] T017 Emit `{ type: 'main-file-changed', mainFileNodeId }` on the per-project bus from the main-file PUT handler in `apps/api/src/routes/projects/main-file.ts` (after the `set-project-main-file` use case succeeds; `mainFileNodeId` may be `null` when cleared).
+- [X] T018 Handle `main-file-changed` in `apps/web/src/hooks/use-project-symbol-index.ts`: update the resolution anchor to the new `mainFileNodeId`, `build()` (unconditionally — every open document re-resolves, independent of `built.tree.nodes` membership), then bump `reachableDocVersion` (FR-009); coalesce with the existing rebuild path (depends on T007).
+- [X] T019 Two-client E2E in `apps/web/tests/e2e/collab-consistency-main-file.spec.ts`: B changes the project main file → A's open document's inherited attribute values / heading IDs / preview re-resolve to the new anchor with no reload or structural file event (FR-009; edge case "Main/root file change").
 
 **Checkpoint**: Changing the project anchor refreshes all open documents.
 

@@ -156,6 +156,13 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
       }
 
+      // A save changes a file's persisted content — tell any open dependent documents to refresh so a
+      // sessionless (or session) save propagates without a reconnect or structural event (US6/FR-017).
+      request.server.fileTreeEventBus.emit(projectId.value, {
+        type: 'content-changed',
+        fileNodeId: fileNodeId.value,
+      });
+
       return reply.status(204).header('ETag', `"${result.value.contentId}"`).send();
     },
   );

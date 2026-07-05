@@ -58,9 +58,15 @@ async function buildServer(options: ServerOptions = {}): Promise<FastifyInstance
     },
     auditLog: { save: jest.fn() },
   } as never);
+  app.decorate('fileTreeEventBus', { emit: jest.fn(), subscribe: jest.fn() });
   await app.register(projectMainFileRoutes);
   await app.ready();
   return app;
+}
+
+/** Reads the fileTreeEventBus.emit mock off a built test server. */
+function emitMock(app: FastifyInstance) {
+  return (app as unknown as { fileTreeEventBus: { emit: jest.Mock } }).fileTreeEventBus.emit;
 }
 
 function put(app: FastifyInstance, body: unknown) {
@@ -81,6 +87,27 @@ describe('PUT /projects/:projectId/main-file', () => {
     const response = await put(app, { mainFileNodeId: null });
     expect(response.statusCode).toBe(200);
     expect(response.json().data.mainFileNodeId).toBeNull();
+    await app.close();
+  });
+
+  test('emits main-file-changed with the new anchor on a successful set', async () => {
+    const app = await buildServer({ role: 'editor' });
+    await put(app, { mainFileNodeId: ADOC_ID });
+    expect(emitMock(app)).toHaveBeenCalledWith(PROJECT_ID, { type: 'main-file-changed', mainFileNodeId: ADOC_ID });
+    await app.close();
+  });
+
+  test('emits main-file-changed with null when the main file is cleared', async () => {
+    const app = await buildServer({ role: 'owner' });
+    await put(app, { mainFileNodeId: null });
+    expect(emitMock(app)).toHaveBeenCalledWith(PROJECT_ID, { type: 'main-file-changed', mainFileNodeId: null });
+    await app.close();
+  });
+
+  test('does not emit main-file-changed when the request is rejected', async () => {
+    const app = await buildServer({ role: 'viewer' });
+    await put(app, { mainFileNodeId: ADOC_ID });
+    expect(emitMock(app)).not.toHaveBeenCalled();
     await app.close();
   });
 
