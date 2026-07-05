@@ -8,6 +8,7 @@ import {
   PrismaSystemSettingRepository,
   PrismaDocumentRepository,
   PrismaFileNodeRepository,
+  Re2RegexEngine,
 } from '@asciidocollab/infrastructure';
 import { OpenCollaborationSessionUseCase, CloseCollaborationSessionUseCase } from '@asciidocollab/domain';
 import { PersistenceExtension } from './extensions/persistence.js';
@@ -37,6 +38,10 @@ export async function compositionRoot() {
 
   const openCollaborationSessionUseCase = new OpenCollaborationSessionUseCase();
   const closeCollaborationSessionUseCase = new CloseCollaborationSessionUseCase();
+
+  // Linear-time (RE2) engine shared by the structured find/replace apply so it
+  // re-matches live content with exactly the same semantics as the API search.
+  const regexEngine = new Re2RegexEngine();
 
   const logger = pino({ redact: ['req.headers.cookie', 'req.headers.Cookie'] });
 
@@ -106,6 +111,8 @@ export async function compositionRoot() {
     documentRepository,
     // Exposed so the internal edit server's read endpoint can decode a dormant room's persisted state.
     yjsStateStore,
+    // Exposed so the internal structured-apply endpoint re-matches with the same engine as search.
+    regexEngine,
     openCollaborationSessionUseCase,
     closeCollaborationSessionUseCase,
     config,

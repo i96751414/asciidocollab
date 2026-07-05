@@ -17,3 +17,4 @@ export {
   COLLAB_APPLY_EDITS_PATH,
 } from './http-collaborative-content-editor';
 export { createMtlsFetch } from './mtls-fetch';
+export { Re2RegexEngine } from './re2-regex-engine';

@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/036-symbol-collab-consistency/plan.md
+Active feature plan: specs/037-project-find-replace/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

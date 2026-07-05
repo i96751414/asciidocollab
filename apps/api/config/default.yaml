@@ -102,3 +102,17 @@ downloads:
   file:
     rateLimitMax: 30
     rateLimitWindow: 60000
+
+project:
+  # Project-wide find/replace. Both routes fan out over every text-decodable
+  # file, so both are rate-limited and budget-bounded. Every field is
+  # overridable via its ASCIIDOCOLLAB_PROJECT_SEARCH_* environment variable.
+  search:
+    rateLimitMax: 120           # read/search budget
+    rateLimitWindow: 3600000    # 1 hour
+    replaceRateLimitMax: 30     # conservative write/replace budget
+    replaceRateLimitWindow: 3600000
+    maxMatchesReturned: 1000    # display cap (true total still reported)
+    maxPatternLength: 1000
+    perFileTimeBudgetMs: 250    # per-file match-evaluation budget
+    maxFileBytes: 2000000       # skip/flag files larger than this

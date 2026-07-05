@@ -31,6 +31,30 @@ export interface ProjectConfig {
     /** Collab-info read rate limit window in milliseconds. */
     rateLimitWindow: number;
   };
+  /**
+   * Project-wide find/replace configuration. Search and replace both fan out
+   * over every text-decodable file in the project, so both are rate-limited and
+   * budget-bounded (mandatory for amplifying routes; user-supplied patterns are
+   * untrusted input).
+   */
+  search: {
+    /** Maximum project-wide search (read) requests per user/IP per window. */
+    rateLimitMax: number;
+    /** Search rate limit window in milliseconds. */
+    rateLimitWindow: number;
+    /** Maximum project-wide replace (write) requests per user/IP per window. */
+    replaceRateLimitMax: number;
+    /** Replace rate limit window in milliseconds. */
+    replaceRateLimitWindow: number;
+    /** Maximum matches returned to the client (the true total is still reported). */
+    maxMatchesReturned: number;
+    /** Maximum accepted search-pattern length (bounds a user-supplied regex). */
+    maxPatternLength: number;
+    /** Per-file match-evaluation time budget in milliseconds. */
+    perFileTimeBudgetMs: number;
+    /** Files larger than this (bytes) are skipped for match evaluation and reported. */
+    maxFileBytes: number;
+  };
 }
 
 /** Convict schema fragment for the project-scoped (main-file, refactoring) domain. */
@@ -87,6 +111,56 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
       format: 'integer',
       default: 3_600_000,
       env: 'ASCIIDOCOLLAB_PROJECT_FILE_CONTENT_RATE_LIMIT_WINDOW',
+    },
+  },
+  search: {
+    rateLimitMax: {
+      doc: 'Maximum project-wide search (read) requests per user/IP per window.',
+      format: 'integer',
+      default: 120,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_RATE_LIMIT_MAX',
+    },
+    rateLimitWindow: {
+      doc: 'Project-wide search rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_RATE_LIMIT_WINDOW',
+    },
+    replaceRateLimitMax: {
+      doc: 'Maximum project-wide replace (write) requests per user/IP per window.',
+      format: 'integer',
+      default: 30,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_REPLACE_RATE_LIMIT_MAX',
+    },
+    replaceRateLimitWindow: {
+      doc: 'Project-wide replace rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_REPLACE_RATE_LIMIT_WINDOW',
+    },
+    maxMatchesReturned: {
+      doc: 'Maximum matches returned to the client (the true total is still reported).',
+      format: 'integer',
+      default: 1_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_MATCHES_RETURNED',
+    },
+    maxPatternLength: {
+      doc: 'Maximum accepted search-pattern length (bounds a user-supplied regex).',
+      format: 'integer',
+      default: 1_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_PATTERN_LENGTH',
+    },
+    perFileTimeBudgetMs: {
+      doc: 'Per-file match-evaluation time budget in milliseconds.',
+      format: 'integer',
+      default: 250,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_PER_FILE_TIME_BUDGET_MS',
+    },
+    maxFileBytes: {
+      doc: 'Files larger than this (bytes) are skipped for match evaluation and reported.',
+      format: 'integer',
+      default: 2_000_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_FILE_BYTES',
     },
   },
 };

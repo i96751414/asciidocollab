@@ -30,6 +30,7 @@ import type {
   YjsStateStore,
   CollaborativeContentEditor,
   CollaborativeContentReader,
+  RegexEngine,
   PasswordHasher,
   BreachChecker,
   CommonPasswordChecker,
@@ -101,6 +102,8 @@ export interface AppContainer {
     yjsStateStore: YjsStateStore;
     /** Applies content edits to / reads live content from collaborative documents (Yjs source of truth). */
     collaborativeContentEditor: CollaborativeContentEditor & CollaborativeContentReader;
+    /** Linear-time (RE2) engine for compiling and matching untrusted user regexes. */
+    regexEngine: RegexEngine;
   };
   /** Collection of domain service implementations. */
   services: {
@@ -258,6 +261,7 @@ declare module 'fastify' {
       fileStore: ProjectFileStore;
       yjsStateStore: YjsStateStore;
       collaborativeContentEditor: CollaborativeContentEditor & CollaborativeContentReader;
+      regexEngine: RegexEngine;
     };
     services: {
       passwordHasher: PasswordHasher;

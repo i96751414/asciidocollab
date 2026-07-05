@@ -21,6 +21,9 @@ export { InMemoryAssetRepository } from './file-tree/in-memory-asset.repository'
 export { InMemoryProjectFileStore } from './storage/in-memory-project-file-store';
 export { InMemoryYjsStateStore } from './storage/in-memory-yjs-state-store';
 
+// text/
+export { InMemoryRegexEngine } from './text/in-memory-regex-engine';
+
 // auth-tokens/
 export { InMemoryEmailChangeTokenRepository } from './auth-tokens/in-memory-email-change-token.repository';
 export { InMemoryEmailVerificationTokenRepository } from './auth-tokens/in-memory-email-verification-token.repository';

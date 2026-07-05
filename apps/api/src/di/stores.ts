@@ -3,6 +3,7 @@ import {
   FilesystemProjectFileStore,
   FilesystemYjsStateStore,
   HttpCollaborativeContentEditor,
+  Re2RegexEngine,
 } from '@asciidocollab/infrastructure';
 import type { getConfig } from '../config';
 import type { FastifyInstance } from 'fastify';
@@ -30,5 +31,6 @@ export function createStores(
         ? { tls: { cert: readFileSync(editTls.cert), key: readFileSync(editTls.key), ca: readFileSync(editTls.ca) } }
         : {}),
     }),
+    regexEngine: new Re2RegexEngine(),
   };
 }

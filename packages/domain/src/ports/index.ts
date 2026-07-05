@@ -25,6 +25,9 @@ export { YjsStateStore } from './storage/yjs-state-store';
 export { CollaborativeContentEditor, ContentReplacement } from './storage/collaborative-content-editor';
 export { CollaborativeContentReader } from './storage/collaborative-content-reader';
 
+// text/
+export { RegexEngine, RegexFlags, MatchBudget, MatchSpan, CompiledMatcher } from './text/regex-engine';
+
 // auth-tokens/
 export { EmailChangeTokenRepository } from './auth-tokens/email-change-token.repository';
 export { EmailVerificationTokenRepository } from './auth-tokens/email-verification-token.repository';

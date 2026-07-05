@@ -20,6 +20,7 @@
     "@hocuspocus/server": "^4.1.1",
     "convict": "^6.2.5",
     "pino": "^10.3.1",
+    "re2": "^1.25.0",
     "yjs": "^13.6.31"
   },
   "devDependencies": {
