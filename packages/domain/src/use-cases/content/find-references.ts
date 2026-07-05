@@ -8,7 +8,7 @@ import { ProjectRepository } from '../../ports/project/project.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
 import { Logger } from '../../ports/observability/logger';
-import { Reference, TextRange } from '../../types/asciidoc';
+import { Reference, TextRange, ProjectSymbol } from '../../types/asciidoc';
 import { extractReferences, extractSymbols, definitionSymbols } from '@asciidocollab/asciidoc-core';
 import { isAsciiDocumentFileName } from '../../value-objects/files/asciidoc-file-name';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
@@ -34,8 +34,16 @@ export interface ReferenceUsage {
   fileNodeId: FileNodeId;
   /** The file's project-relative path (no leading slash). */
   path: string;
-  /** The kind of usage — a reference macro, or `definition` for the declaring `[[id]]`/`:attr:`. */
+  /** The kind of usage — a reference macro, or `definition` for the declaring `[[id]]`/`:attr:`/heading. */
   kind: UsageKind;
+  /**
+   * For a `definition` usage, which kind of definition it is — a derived section id, an explicit
+   * anchor, or an attribute. A rename never rewrites a `section` heading (only references and
+   * explicit-anchor/attribute definitions), so a consumer distinguishing "would this rename touch it"
+   * needs this: two independent headings sharing a derived id are distinct symbols. Absent for
+   * non-definition usages.
+   */
+  definitionKind?: ProjectSymbol['kind'];
   /** The usage's location within its file. */
   range: TextRange;
 }
@@ -140,7 +148,7 @@ export class FindReferencesUseCase {
         const defines =
           (wantAnchor && (symbol.kind === 'anchor' || symbol.kind === 'section') && symbol.name === symbolName) ||
           (wantAttribute && symbol.kind === 'attribute' && symbol.name.toLowerCase() === target);
-        if (defines) inFile.push({ fileNodeId: node.id, path, kind: 'definition', range: symbol.range });
+        if (defines) inFile.push({ fileNodeId: node.id, path, kind: 'definition', definitionKind: symbol.kind, range: symbol.range });
       }
 
       for (const reference of extractReferences(node.id.value, content)) {

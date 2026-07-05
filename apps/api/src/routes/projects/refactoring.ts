@@ -81,6 +81,9 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
             fileNodeId: usage.fileNodeId.value,
             path: usage.path,
             kind: usage.kind,
+            // Present only for `definition` usages; lets the client tell a derived section id from an
+            // explicit anchor, so an unrelated same-id heading is not counted as a rewritable usage.
+            ...(usage.definitionKind && { definitionKind: usage.definitionKind }),
             range: { from: usage.range.from, to: usage.range.to },
           })),
         },
@@ -90,7 +93,13 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
 
   app.post<{
     Params: { projectId: string };
-    Body: { symbolKind: 'anchor' | 'attribute'; oldName: string; newName: string; definitionAlreadyRenamed?: boolean };
+    Body: {
+      symbolKind: 'anchor' | 'attribute';
+      oldName: string;
+      newName: string;
+      definitionAlreadyRenamed?: boolean;
+      renamedDefinitionIsSection?: boolean;
+    };
   }>(
     '/projects/:projectId/symbol-rename',
     {
@@ -105,6 +114,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
             oldName: { type: 'string', minLength: 1, maxLength: 200 },
             newName: { type: 'string', minLength: 1, maxLength: 200 },
             definitionAlreadyRenamed: { type: 'boolean' },
+            renamedDefinitionIsSection: { type: 'boolean' },
           },
         },
       },
@@ -138,6 +148,7 @@ export async function projectRefactoringRoutes(app: FastifyInstance): Promise<vo
           oldName: request.body.oldName,
           newName: request.body.newName,
           definitionAlreadyRenamed: request.body.definitionAlreadyRenamed ?? false,
+          renamedDefinitionIsSection: request.body.renamedDefinitionIsSection ?? false,
         },
         requestContextFrom(request),
       );

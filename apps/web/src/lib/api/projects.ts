@@ -149,8 +149,15 @@ export interface SymbolUsage {
   fileNodeId: string;
   /** The referencing file's project-relative path (no leading slash). */
   path: string;
-  /** The kind of reference (`xref` / `attributeRef` / …). */
+  /** The kind of reference (`xref` / `attributeRef` / `definition` / …). */
   kind: string;
+  /**
+   * For a `definition` usage, which kind of definition it is — a derived `section` id, an explicit
+   * `anchor`, or an `attribute`. A rename never rewrites a section heading, so a consumer deciding
+   * whether the rename would touch an occurrence uses this to tell an unrelated same-id heading from a
+   * real anchor/attribute definition. Absent for non-definition usages.
+   */
+  definitionKind?: 'section' | 'anchor' | 'attribute';
   /** The reference's character offset range within its file. */
   range: { from: number; to: number };
 }
@@ -214,7 +221,13 @@ export async function findSymbolUsages(
  */
 export async function renameSymbol(
   projectId: string,
-  input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
+  input: {
+    symbolKind: RenameSymbolKind;
+    oldName: string;
+    newName: string;
+    definitionAlreadyRenamed?: boolean;
+    renamedDefinitionIsSection?: boolean;
+  },
 ): Promise<RenameSymbolResult> {
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}/symbol-rename`, {
     method: 'POST',

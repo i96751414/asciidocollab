@@ -105,8 +105,19 @@ export function computeEdits(
     if (replacement !== slice) edits.push({ from: symbol.range.from, to: symbol.range.to, replacement });
   }
 
+  // A `<<old>>` reference in a file that locally defines `old` as a SECTION heading resolves to THAT
+  // local section, not the identically-derived section being renamed elsewhere. Since a rename never
+  // rewrites a section heading, rewriting such a reference would leave it dangling (pointing at an id
+  // no heading in this file carries). So a file that owns the id through its own section keeps its
+  // references — unless an explicit `[[old]]`/`[#old]` anchor also declares it, in which case that
+  // anchor is the symbol being renamed and its references do follow.
+  const ownsIdViaLocalSection =
+    symbolKind === 'anchor' &&
+    symbols.some((symbol) => symbol.kind === 'section' && matchesOld(symbol.name)) &&
+    !symbols.some((symbol) => symbol.kind === 'anchor' && matchesOld(symbol.name));
+
   // References (the `<<old>>` / `{old}` usages).
-  for (const reference of extractReferences('', content)) {
+  for (const reference of ownsIdViaLocalSection ? [] : extractReferences('', content)) {
     let oldRaw: string | undefined;
     let newRaw: string | undefined;
     if (symbolKind === 'anchor' && reference.kind === 'xref' && xrefAnchorId(reference.target) === oldName) {

@@ -130,11 +130,14 @@ export class RenameSuggestionWidget extends WidgetType {
 
     if (this.data.applied) {
       message.append('Renamed ', ...renameFragment(this.data.oldName, this.data.newName));
-      root.append(
-        message,
-        button('Undo', 'rename-suggestion-undo', 'primary', undoRequestEffect.of(null)),
-        button('Dismiss', 'rename-suggestion-dismiss', 'ghost', dismissRequestEffect.of(null)),
-      );
+      root.append(message);
+      // A section heading's rename is not reversible by the tool: it never retyped the heading, so an
+      // undo would rewrite references back to an id no heading carries (a dangling reference). Offer
+      // Undo only for anchors/attributes, whose definition the rewrite genuinely restores.
+      if (this.data.kind !== 'heading') {
+        root.append(button('Undo', 'rename-suggestion-undo', 'primary', undoRequestEffect.of(null)));
+      }
+      root.append(button('Dismiss', 'rename-suggestion-dismiss', 'ghost', dismissRequestEffect.of(null)));
       return root;
     }
 

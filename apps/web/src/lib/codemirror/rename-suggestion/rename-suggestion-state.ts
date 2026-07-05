@@ -4,7 +4,7 @@ import { isValidNewName } from '@asciidocollab/asciidoc-core';
 import type { RenameSymbolKind, RenameSymbolResult, SymbolUsage } from '@/lib/api/projects';
 import type { DocumentRange, RefactorResult, RenameSuggestion, SymbolKind } from './types';
 import { definitionAtCursor } from './rename-detector';
-import { evaluateUsages, isEditedDefinition } from './usage-lookup';
+import { evaluateUsages, isEditedDefinition, isRewritableOccurrence } from './usage-lookup';
 import { applyRename } from './apply-rename';
 import { RenameSuggestionWidget } from './rename-suggestion-widget';
 import {
@@ -55,11 +55,18 @@ export interface RenameSuggestionConfig {
    * @param input.oldName - The name to rewrite from.
    * @param input.newName - The name to rewrite to.
    * @param input.definitionAlreadyRenamed - Whether the definition already carries the new name.
+   * @param input.renamedDefinitionIsSection - Whether the retyped definition is a section heading.
    * @returns The rename outcome.
    */
   renameSymbol: (
     projectId: string,
-    input: { symbolKind: RenameSymbolKind; oldName: string; newName: string; definitionAlreadyRenamed?: boolean },
+    input: {
+      symbolKind: RenameSymbolKind;
+      oldName: string;
+      newName: string;
+      definitionAlreadyRenamed?: boolean;
+      renamedDefinitionIsSection?: boolean;
+    },
   ) => Promise<RenameSymbolResult>;
   /** Delay before a settled rename shows its suggestion. Default 1000ms. */
   settleMs?: number;
@@ -335,7 +342,7 @@ function makePlugin(config: RenameSuggestionConfig) {
         }
         if (this.destroyed || seq !== this.seq) return; // torn down, or a newer settle superseded this one
 
-        const impact = evaluateUsages(usages, { definitionFileNodeId: fileNodeId, definitionRange });
+        const impact = evaluateUsages(usages, { targetFamily: apiKind, definitionFileNodeId: fileNodeId, definitionRange });
         if (impact.suppressed) {
           // Nothing references the old name → nothing to refactor. Skip the collision lookup: it only
           // gates a suggestion that will not be shown, so firing it every settle just burns the
@@ -373,8 +380,15 @@ function makePlugin(config: RenameSuggestionConfig) {
         // may have kept editing the just-renamed definition, starting a new session mid-flight).
         if (this.view.state.field(suggestionField)?.status === 'applied') return;
 
+        // Only a definition the rename would actually rewrite is a real collision. A derived section id
+        // that merely coincides with the new name (an unrelated `== New Title` in another file) is a
+        // distinct section the rename never touches, so it is not a collision; an explicit `[[id]]`
+        // anchor with that id IS (see isRewritableOccurrence).
         const collision = collisionUsages.some(
-          (u) => u.kind === 'definition' && !isEditedDefinition(u, fileNodeId, definitionRange),
+          (u) =>
+            u.kind === 'definition' &&
+            isRewritableOccurrence(u, apiKind) &&
+            !isEditedDefinition(u, fileNodeId, definitionRange),
         );
         this.setSuggestion({
           candidate: { kind: session.kind, oldName: session.oldName, newName, definitionRange },
@@ -410,12 +424,16 @@ function makePlugin(config: RenameSuggestionConfig) {
           const { undo } = await applyRename({
             projectId,
             symbolKind: toApiKind(kind),
+            renamedDefinitionIsSection: kind === 'heading',
             oldName,
             newName,
             renameSymbol: config.renameSymbol,
           });
           if (this.destroyed) return;
-          this.undo = undo;
+          // A heading rename is not reversible by the tool: it never retyped the heading, so an undo
+          // would only rewrite references back to an id no heading carries (a dangling reference). Drop
+          // the undo affordance for headings (the widget hides its button for `kind === 'heading'`).
+          this.undo = kind === 'heading' ? null : undo;
           this.dismissedName = newName; // a re-detected mismatch must not re-suggest this settled rename
           this.session = null;
           this.clearSettle();

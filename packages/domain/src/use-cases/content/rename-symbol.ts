@@ -63,6 +63,16 @@ export interface RenameSymbolInput {
    * Defaults to false — the normal rename renames the definition too and guards against merges.
    */
   definitionAlreadyRenamed?: boolean;
+  /**
+   * In `definitionAlreadyRenamed` mode, whether the retyped definition is a section heading (its id is
+   * a derived section id) rather than an explicit anchor/attribute. It matters for the new-name merge
+   * count: a section is never counted (it is per-document and not rewritten), so the author's own
+   * retyped heading contributes 0 — meaning ANY other rewritable definition of the new name is a
+   * genuine collision. For a retyped anchor/attribute the author's own contributes 1, so the guard
+   * only trips on a second. Lets the server reach the same collision verdict the client does instead
+   * of being off by one for headings. Defaults to false. Ignored outside `definitionAlreadyRenamed`.
+   */
+  renamedDefinitionIsSection?: boolean;
 }
 
 /** Outcome of a successful rename. */
@@ -145,7 +155,7 @@ export class RenameSymbolUseCase {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    const { symbolKind, oldName, newName, definitionAlreadyRenamed = false } = input;
+    const { symbolKind, oldName, newName, definitionAlreadyRenamed = false, renamedDefinitionIsSection = false } = input;
     if (!isValidNewName(symbolKind, newName)) {
       return { success: false, error: new ValidationError(`Invalid ${symbolKind} name: "${newName}"`) };
     }
@@ -198,21 +208,37 @@ export class RenameSymbolUseCase {
       // counted twice (which would falsely trip the merge guard below).
       const definitions = definitionSymbols(symbols, symbolKind);
       if (hasConflictingDefinition(symbols, symbolKind, matchesNew, matchesOld)) conflictingNewDefinition = true;
-      if (definitions.some((symbol) => matchesOld(symbol.name))) oldStillDefined = true;
-      newNameDefinitions += definitions.filter((symbol) => matchesNew(symbol.name)).length;
+      // A section heading's auto-derived id is per-document: another file's independent `== Same Title`
+      // that happens to derive the same id is a DISTINCT section, not the old symbol lingering — and
+      // the rename never rewrites section headings (only references + explicit-anchor/attribute
+      // definitions). So a section definition must NOT count as "old still defined", otherwise a
+      // heading rename that carries a real reference is wrongly refused as a two-symbol merge (the
+      // author renamed their own heading, the reference is real, yet Apply silently fails). An explicit
+      // `[[id]]` anchor (or an attribute) DOES share a project-wide namespace, so it still counts.
+      if (definitions.some((symbol) => symbol.kind !== 'section' && matchesOld(symbol.name))) oldStillDefined = true;
+      // Same per-document reasoning for the NEW name: a section elsewhere deriving the new id is a
+      // distinct section, not a colliding definition of this symbol (and is never rewritten). The
+      // client's collision check ignores it too, so counting it here would make Apply silently fail on
+      // a rename the suggestion presented as valid. Explicit-anchor duplicates of the new name still
+      // count (and the client blocks those as collisions), so a genuine anchor merge is still refused.
+      newNameDefinitions += definitions.filter((symbol) => symbol.kind !== 'section' && matchesNew(symbol.name)).length;
 
       const edits = computeEdits(symbolKind, oldName, newName, content, symbols, matchesOld);
       if (edits.length > 0) staged.push({ node, content, edits, document });
     }
 
     // A distinct new-name definition is a merge conflict for a normal rename. In
-    // definition-already-renamed mode (feature 033) the author has already retyped the definition, so
-    // exactly ONE new-name definition is expected (the one they typed). It is a genuine two-symbol
-    // merge only if the old name is somehow still defined too, OR a SECOND new-name definition exists
-    // (a pre-existing collision, or one that appeared between the client's check and this write). The
-    // count makes the server independently reject a merge rather than trusting the caller's flag.
+    // definition-already-renamed mode the author has already retyped the definition, so the expected
+    // number of rewritable new-name definitions is exactly the author's own: 1 for a retyped
+    // anchor/attribute, but 0 for a retyped section HEADING (a section is never counted — it is
+    // per-document and not rewritten). Anything beyond that baseline is a genuine collision (a
+    // pre-existing one, or one that raced in between the client's check and this write). Deriving the
+    // baseline from `renamedDefinitionIsSection` lets the server reach the same verdict the client's
+    // collision check does — instead of being off by one for headings — so it independently rejects a
+    // merge rather than trusting the caller's flag.
+    const newNameBaseline = renamedDefinitionIsSection ? 0 : 1;
     const merge = definitionAlreadyRenamed
-      ? oldStillDefined || newNameDefinitions > 1
+      ? oldStillDefined || newNameDefinitions > newNameBaseline
       : conflictingNewDefinition;
     if (merge) {
       return {
