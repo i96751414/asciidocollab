@@ -1,20 +1,24 @@
 import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
-import type { FileTreeEventDto } from '@asciidocollab/shared';
+import type { ProjectEventDto } from '@asciidocollab/shared';
 
-type Listener = (event: FileTreeEventDto) => void;
+type Listener = (event: ProjectEventDto) => void;
 
-/** Event bus for broadcasting file tree changes to SSE subscribers keyed by project. */
+/**
+ * Per-project event bus broadcasting the full {@link ProjectEventDto} union — structural file-tree
+ * changes plus content-changed and main-file-changed signals — to SSE subscribers. Subscribers
+ * discriminate on `event.type`.
+ */
 export interface FileTreeEventBus {
   /**
-   * Emits a file tree event to all subscribers for the given project.
+   * Emits a project event to all subscribers for the given project.
    *
    * @param projectId - The project whose subscribers receive the event.
-   * @param event - The file tree change event payload.
+   * @param event - The project event payload (file-tree, content-changed, or main-file-changed).
    */
-  emit(projectId: string, event: FileTreeEventDto): void;
+  emit(projectId: string, event: ProjectEventDto): void;
   /**
-   * Registers a listener for file tree events on a project and returns an unsubscribe function.
+   * Registers a listener for project events and returns an unsubscribe function.
    *
    * @param projectId - The project to subscribe to.
    * @param listener - Callback invoked for each incoming event.
@@ -34,7 +38,7 @@ export const fileTreeEventBusPlugin = fp(async function (app: FastifyInstance) {
   const listenerCounts = new Map<string, number>();
 
   const bus: FileTreeEventBus = {
-    emit(projectId: string, event: FileTreeEventDto) {
+    emit(projectId: string, event: ProjectEventDto) {
       targets.get(projectId)?.dispatchEvent(new CustomEvent('event', { detail: event }));
     },
 

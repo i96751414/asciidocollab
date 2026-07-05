@@ -258,7 +258,7 @@ export function FileTree({ projectId, canEdit, onSelectFile, selectedNodeId, pre
     fetchTree();
   }, [fetchTree]);
 
-  useFileTreeEvents(projectId, onEvent, onReconnect);
+  useFileTreeEvents(projectId, { onFileTreeEvent: onEvent, onReconnect });
 
   // Resolve a Ctrl+click navigation request (project-relative path) to a node and select it.
   // Selecting a file updates `selectedNodeId`, which drives the auto-reveal/scroll effect above.

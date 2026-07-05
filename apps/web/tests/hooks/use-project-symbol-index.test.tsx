@@ -31,11 +31,16 @@ function makeDeferred<T>(): Deferred<T> {
 /** Grab the latest (stable) SSE handlers the hook registered with useFileTreeEvents. */
 function latestSseHandlers(): {
   onEvent: (event: FileTreeEventDto) => void;
+  onContentChanged: (event: { type: 'content-changed'; fileNodeId: string }) => void;
   onReconnect: () => void;
 } {
   const calls = mockFileTreeEvents.mock.calls;
-  const last = calls.at(-1)!;
-  return { onEvent: last[1], onReconnect: last[2] };
+  const handlers = calls.at(-1)![1];
+  return {
+    onEvent: handlers.onFileTreeEvent!,
+    onContentChanged: handlers.onContentChanged!,
+    onReconnect: handlers.onReconnect!,
+  };
 }
 
 // Tree: main.adoc → a.adoc + b.adoc; b.adoc → a.adoc (cycle/dup); c.adoc is unreachable.
@@ -214,6 +219,57 @@ describe('useProjectSymbolIndex', () => {
     await waitFor(() => expect(mockGetContent.mock.calls.length).toBeGreaterThan(before));
     const refetched = mockGetContent.mock.calls.slice(before).map((call) => call[1]);
     expect(refetched).toContain('a'); // the invalidated file is re-read
+  });
+
+  test('a content-changed frame for a reachable non-open file re-reads it and bumps reachableDocVersion', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300)); // let the debounced rebuild settle
+    const before = mockGetContent.mock.calls.length;
+    const v0 = result.current.reachableDocVersion;
+
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      onContentChanged({ type: 'content-changed', fileNodeId: 'a' });
+    });
+
+    await waitFor(() => expect(result.current.reachableDocVersion).toBeGreaterThan(v0));
+    const refetched = mockGetContent.mock.calls.slice(before).map((call) => call[1]);
+    expect(refetched).toContain('a'); // the invalidated file is re-read via the live-aware endpoint
+  });
+
+  test('a content-changed frame for the open file is ignored (editor holds the live copy)', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'a', liveContent: CONTENT.a }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const before = mockGetContent.mock.calls.length;
+
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      onContentChanged({ type: 'content-changed', fileNodeId: 'a' });
+      await Promise.resolve();
+    });
+    expect(mockGetContent.mock.calls.length).toBe(before); // no re-fetch for the open file
+  });
+
+  test('a content-changed frame for a file outside the dependency graph is ignored', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const before = mockGetContent.mock.calls.length;
+
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      onContentChanged({ type: 'content-changed', fileNodeId: 'c' }); // unreachable from main
+      await Promise.resolve();
+    });
+    expect(mockGetContent.mock.calls.length).toBe(before); // 'c' is not a dependency — no rebuild
   });
 
   test('clears the entire cache and rebuilds on an SSE reconnect', async () => {

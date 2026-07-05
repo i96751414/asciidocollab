@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { fileTreeEventBusPlugin } from '../../src/plugins/file-tree-event-bus';
-import type { FileTreeEventDto } from '@asciidocollab/shared';
+import type { FileTreeEventDto, ProjectEventDto } from '@asciidocollab/shared';
 
 const makeEvent = (overrides: Partial<FileTreeEventDto> = {}): FileTreeEventDto => ({
   type: 'created',
@@ -58,6 +58,18 @@ describe('FileTreeEventBus', () => {
     unsubscribe();
     app.fileTreeEventBus.emit('project-1', makeEvent());
     expect(received).toHaveLength(0);
+    await app.close();
+  });
+
+  it('carries content-changed and main-file-changed union members to subscribers', async () => {
+    const app = await buildTestServer();
+    const received: ProjectEventDto[] = [];
+    app.fileTreeEventBus.subscribe('project-1', (event) => received.push(event));
+    app.fileTreeEventBus.emit('project-1', { type: 'content-changed', fileNodeId: 'node-9' });
+    app.fileTreeEventBus.emit('project-1', { type: 'main-file-changed', mainFileNodeId: null });
+    expect(received).toHaveLength(2);
+    expect(received[0]).toEqual({ type: 'content-changed', fileNodeId: 'node-9' });
+    expect(received[1]).toEqual({ type: 'main-file-changed', mainFileNodeId: null });
     await app.close();
   });
 

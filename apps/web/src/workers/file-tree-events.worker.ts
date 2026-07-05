@@ -30,8 +30,10 @@ function getOrOpenSource(projectId: string, apiBase: string): EventSource {
 
   source.addEventListener('message', (event) => {
     const projectPorts = ports.get(projectId) ?? [];
+    // Forward the full ProjectEventDto union (file-tree, content-changed, main-file-changed)
+    // verbatim; the subscribing hook discriminates on the event's own `type`.
     for (const port of projectPorts) {
-      port.postMessage({ type: 'file-tree-change', event: JSON.parse(event.data) });
+      port.postMessage({ type: 'project-event', event: JSON.parse(event.data) });
     }
   });
 

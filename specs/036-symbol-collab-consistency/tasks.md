@@ -39,11 +39,11 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **⚠️ CRITICAL**: No user story or cross-cutting phase can be validated end-to-end until this phase is complete.
 
-- [ ] T003 [P] Extend the shared per-project event bus to carry the full `ProjectEventDto` union (`content-changed` and `main-file-changed` alongside the existing file-tree events) in `apps/api/src/plugins/file-tree-event-bus.ts`.
-- [ ] T004 Carry every `ProjectEventDto` union member on the project SSE stream (serialize the union; clients discriminate on `type`) in `apps/api/src/routes/projects/events.ts` (depends on T003).
-- [ ] T005 [P] Fan out all `ProjectEventDto` frames (not just file-tree events) to subscribers in `apps/web/src/workers/file-tree-events.worker.ts`.
-- [ ] T006 Surface the `ProjectEventDto` union to subscribers (discriminate on `type`; expose per-type callbacks including `content-changed` and `main-file-changed`) in `apps/web/src/hooks/use-file-tree-events.ts` (depends on T005).
-- [ ] T007 Implement the core `content-changed` recompute handler in `apps/web/src/hooks/use-project-symbol-index.ts`: ignore the frame when `fileNodeId` is the open file or is not in `built.tree.nodes`; otherwise `contentCache.delete(fileNodeId)`, `build()` (re-fetch via the live-aware `GET …/content` fixpoint), then bump `reachableDocVersion`; coalesce rapid frames per file (one in-flight fetch+rebuild per file, supersede stale) per FR-018/FR-020 (depends on T006).
+- [X] T003 [P] Extend the shared per-project event bus to carry the full `ProjectEventDto` union (`content-changed` and `main-file-changed` alongside the existing file-tree events) in `apps/api/src/plugins/file-tree-event-bus.ts`.
+- [X] T004 Carry every `ProjectEventDto` union member on the project SSE stream (serialize the union; clients discriminate on `type`) in `apps/api/src/routes/projects/events.ts` (depends on T003).
+- [X] T005 [P] Fan out all `ProjectEventDto` frames (not just file-tree events) to subscribers in `apps/web/src/workers/file-tree-events.worker.ts`.
+- [X] T006 Surface the `ProjectEventDto` union to subscribers (discriminate on `type`; expose per-type callbacks including `content-changed` and `main-file-changed`) in `apps/web/src/hooks/use-file-tree-events.ts` (depends on T005).
+- [X] T007 Implement the core `content-changed` recompute handler in `apps/web/src/hooks/use-project-symbol-index.ts`: ignore the frame when `fileNodeId` is the open file or is not in `built.tree.nodes`; otherwise `contentCache.delete(fileNodeId)`, `build()` (re-fetch via the live-aware `GET …/content` fixpoint), then bump `reachableDocVersion`; coalesce rapid frames per file (one in-flight fetch+rebuild per file, supersede stale) per FR-018/FR-020 (depends on T006).
 
 **Checkpoint**: Emitting any `ProjectEventDto` on the bus for a reachable file coherently refreshes every derived view from one rebuilt snapshot. Downstream phases now just add triggers + acceptance.
 

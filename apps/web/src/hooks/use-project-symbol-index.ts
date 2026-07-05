@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FileTreeEventDto } from '@asciidocollab/shared';
+import type { ContentChangedEventDto, FileTreeEventDto } from '@asciidocollab/shared';
 import {
   buildProjectSymbolIndex,
   makeIncludeResolver,
@@ -379,7 +379,39 @@ export function useProjectSymbolIndex({
     contentCache.current.clear();
     build();
   }, [build]);
-  useFileTreeEvents(projectId, handleEvent, handleReconnect);
+
+  // Coalesce a burst of content-changed frames into at most one fetch+rebuild per microtask batch;
+  // the build's token check supersedes any still-in-flight build so recompute stays bounded (FR-020).
+  const contentChangedScheduled = useRef(false);
+  const flushContentChanged = useCallback(() => {
+    contentChangedScheduled.current = false;
+    void build().then(() => setReachableDocumentVersion((v) => v + 1));
+  }, [build]);
+
+  // A collaborator's live edit (or a peer's save) to a reachable, non-open file: invalidate that
+  // file's cached content and rebuild so every derived view re-resolves from one refreshed snapshot
+  // (FR-018). The open file is skipped — its own editor holds the authoritative live copy — and a
+  // file outside this document's dependency graph is irrelevant (client-side relevance filter, D4).
+  const handleContentChanged = useCallback(
+    (event: ContentChangedEventDto) => {
+      const fileId = event.fileNodeId;
+      if (fileId === liveOverlay.current.id) return;
+      const built = indexReference.current;
+      if (!built || !built.tree.nodes.includes(fileId)) return;
+      contentCache.current.delete(fileId);
+      if (!contentChangedScheduled.current) {
+        contentChangedScheduled.current = true;
+        queueMicrotask(flushContentChanged);
+      }
+    },
+    [flushContentChanged],
+  );
+
+  useFileTreeEvents(projectId, {
+    onFileTreeEvent: handleEvent,
+    onContentChanged: handleContentChanged,
+    onReconnect: handleReconnect,
+  });
 
   // Discard all cached content + the tree and rebuild from the server (used after a symbol rename
   // rewrites persisted files without emitting a file-tree event). Mirrors the reconnect path.

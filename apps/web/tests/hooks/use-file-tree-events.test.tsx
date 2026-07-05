@@ -27,8 +27,12 @@ function triggerMessage(data: unknown) {
 
 describe('useFileTreeEvents', () => {
   const projectId = 'project-123';
-  const onEvent = jest.fn();
+  const onFileTreeEvent = jest.fn();
+  const onContentChanged = jest.fn();
+  const onMainFileChanged = jest.fn();
   const onReconnect = jest.fn();
+
+  const handlers = { onFileTreeEvent, onContentChanged, onMainFileChanged, onReconnect };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -36,7 +40,7 @@ describe('useFileTreeEvents', () => {
   });
 
   it('posts subscribe message on mount with correct projectId and apiBase', () => {
-    renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    renderHook(() => useFileTreeEvents(projectId, handlers));
     expect(mockPort.postMessage).toHaveBeenCalledWith({
       type: 'subscribe',
       projectId,
@@ -44,8 +48,8 @@ describe('useFileTreeEvents', () => {
     });
   });
 
-  it('calls onEvent callback when file-tree-change message received', () => {
-    renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+  it('routes a file-tree event to onFileTreeEvent', () => {
+    renderHook(() => useFileTreeEvents(projectId, handlers));
     const event: FileTreeEventDto = {
       type: 'created',
       fileNodeId: 'node-1',
@@ -54,34 +58,53 @@ describe('useFileTreeEvents', () => {
       path: '/test.txt',
       parentId: null,
     };
-    act(() => triggerMessage({ type: 'file-tree-change', event }));
-    expect(onEvent).toHaveBeenCalledWith(event);
+    act(() => triggerMessage({ type: 'project-event', event }));
+    expect(onFileTreeEvent).toHaveBeenCalledWith(event);
+    expect(onContentChanged).not.toHaveBeenCalled();
+    expect(onMainFileChanged).not.toHaveBeenCalled();
+  });
+
+  it('routes a content-changed event to onContentChanged only', () => {
+    renderHook(() => useFileTreeEvents(projectId, handlers));
+    const event = { type: 'content-changed', fileNodeId: 'node-7' };
+    act(() => triggerMessage({ type: 'project-event', event }));
+    expect(onContentChanged).toHaveBeenCalledWith(event);
+    expect(onFileTreeEvent).not.toHaveBeenCalled();
+  });
+
+  it('routes a main-file-changed event to onMainFileChanged only', () => {
+    renderHook(() => useFileTreeEvents(projectId, handlers));
+    const event = { type: 'main-file-changed', mainFileNodeId: 'node-3' };
+    act(() => triggerMessage({ type: 'project-event', event }));
+    expect(onMainFileChanged).toHaveBeenCalledWith(event);
+    expect(onFileTreeEvent).not.toHaveBeenCalled();
   });
 
   it('calls onReconnect when reconnect message received', () => {
-    renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    renderHook(() => useFileTreeEvents(projectId, handlers));
     act(() => triggerMessage({ type: 'reconnect' }));
     expect(onReconnect).toHaveBeenCalledTimes(1);
   });
 
   it('posts unsubscribe message on unmount', () => {
-    const { unmount } = renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    const { unmount } = renderHook(() => useFileTreeEvents(projectId, handlers));
     unmount();
     expect(mockPort.postMessage).toHaveBeenCalledWith({ type: 'unsubscribe', projectId });
   });
 
   it('removes message listener on unmount so events stop firing', () => {
-    const { unmount } = renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    const { unmount } = renderHook(() => useFileTreeEvents(projectId, handlers));
     unmount();
     act(() => triggerMessage({ type: 'reconnect' }));
     expect(onReconnect).not.toHaveBeenCalled();
   });
 
   it('ignores messages with no data or an unknown type', () => {
-    renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+    renderHook(() => useFileTreeEvents(projectId, handlers));
     act(() => triggerMessage(undefined));
     act(() => triggerMessage({ type: 'something-else' }));
-    expect(onEvent).not.toHaveBeenCalled();
+    expect(onFileTreeEvent).not.toHaveBeenCalled();
+    expect(onContentChanged).not.toHaveBeenCalled();
     expect(onReconnect).not.toHaveBeenCalled();
   });
 
@@ -90,7 +113,7 @@ describe('useFileTreeEvents', () => {
     // @ts-expect-error — simulate an environment without SharedWorker
     delete globalThis.SharedWorker;
     try {
-      renderHook(() => useFileTreeEvents(projectId, onEvent, onReconnect));
+      renderHook(() => useFileTreeEvents(projectId, handlers));
       expect(mockPort.postMessage).not.toHaveBeenCalled();
     } finally {
       globalThis.SharedWorker = original;

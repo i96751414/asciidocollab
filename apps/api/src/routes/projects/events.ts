@@ -4,7 +4,7 @@ import {
   ProjectId,
 } from '@asciidocollab/domain';
 import { getAuthenticatedUserId } from '../../plugins/require-auth';
-import type { FileTreeEventDto } from '@asciidocollab/shared';
+import type { ProjectEventDto } from '@asciidocollab/shared';
 import { flushFastifyHeadersToRaw } from '../../lib/flush-fastify-headers';
 
 const KEEPALIVE_INTERVAL_MS = 30_000;
@@ -31,7 +31,8 @@ export async function eventsRoutes(app: FastifyInstance): Promise<void> {
 
       reply.raw.flushHeaders();
 
-      const sendEvent = (event: FileTreeEventDto) => {
+      // Serialize every ProjectEventDto union member verbatim; the client discriminates on `type`.
+      const sendEvent = (event: ProjectEventDto) => {
         reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
