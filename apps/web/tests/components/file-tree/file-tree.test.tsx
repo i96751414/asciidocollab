@@ -5,10 +5,10 @@ import type { FileTreeEventDto } from '@asciidocollab/shared';
 
 // Mock dependencies
 jest.mock('@/hooks/use-file-tree-events', () => ({
-  useFileTreeEvents: jest.fn((_projectId: string, onEvent: (event: FileTreeEventDto) => void, onReconnect: () => void) => {
+  useFileTreeEvents: jest.fn((_projectId: string, handlers: { onFileTreeEvent?: (event: FileTreeEventDto) => void; onReconnect?: () => void }) => {
     // expose for test use
-    (globalThis as unknown as Record<string, unknown>).__lastOnEvent = onEvent;
-    (globalThis as unknown as Record<string, unknown>).__lastOnReconnect = onReconnect;
+    (globalThis as unknown as Record<string, unknown>).__lastOnEvent = handlers.onFileTreeEvent;
+    (globalThis as unknown as Record<string, unknown>).__lastOnReconnect = handlers.onReconnect;
   }),
 }));
 

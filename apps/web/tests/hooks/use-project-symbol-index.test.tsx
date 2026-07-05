@@ -294,6 +294,61 @@ describe('useProjectSymbolIndex', () => {
     expect(result.current.reachableDocVersion).toBeGreaterThan(v0);
   });
 
+  test('coalesces a burst of content-changed frames for one file into a bounded recompute (FR-012/020)', async () => {
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const v0 = result.current.reachableDocVersion;
+    const before = mockGetContent.mock.calls.length;
+
+    // A rapid burst of frames for the same file, all within one microtask batch. The final content
+    // wins; the recompute must be bounded — NOT one fetch+rebuild per frame.
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) =>
+      Promise.resolve(fileId === 'a' ? '[[anchor-a]]\n== Section A Final\n' : (CONTENT[fileId] ?? '')),
+    );
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      for (let index = 0; index < 6; index++) {
+        onContentChanged({ type: 'content-changed', fileNodeId: 'a' });
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.reachableDocVersion).toBeGreaterThan(v0));
+    const aRefetches = mockGetContent.mock.calls.slice(before).filter((call) => call[1] === 'a').length;
+    expect(aRefetches).toBeLessThanOrEqual(2); // coalesced, not 6
+    expect(aRefetches).toBeGreaterThan(0); // but the change WAS picked up (converges on the final value)
+  });
+
+  test('keeps resolution bounded/safe when a content-changed rebuild hits a self-referential include (FR-013)', async () => {
+    // A collaborator turns a.adoc into a self-include (a→a) and b already includes a (b→a→a…).
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) => {
+      if (fileId === 'a') return Promise.resolve('include::a.adoc[]\n[[anchor-a]]\n');
+      return Promise.resolve(CONTENT[fileId] ?? '');
+    });
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
+    );
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+
+    const before = mockGetContent.mock.calls.length;
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      onContentChanged({ type: 'content-changed', fileNodeId: 'a' });
+      await Promise.resolve();
+    });
+
+    // The cycle-guarded walk terminates: the rebuild completes with an index and does not fetch 'a'
+    // unboundedly (each file is read at most a small, bounded number of times).
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    const aRefetches = mockGetContent.mock.calls.slice(before).filter((call) => call[1] === 'a').length;
+    expect(aRefetches).toBeLessThanOrEqual(2);
+    expect(result.current.index!.resolveXref('anchor-a')).not.toBe('unresolved'); // still resolves safely
+  });
+
   test('clears the entire cache and rebuilds on an SSE reconnect', async () => {
     const { result } = renderHook(() => useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main' }));
     await waitFor(() => expect(result.current.index).not.toBeNull());

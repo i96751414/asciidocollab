@@ -267,9 +267,19 @@ describe('ProjectEditorLayout', () => {
     render(<ProjectEditorLayout {...defaultProps} projectId="p1" />);
     await waitFor(() => expect(screen.getByTestId('node-doc.adoc')).toBeInTheDocument());
 
-    expect(mockUseFileTreeEvents).toHaveBeenCalledWith('p1', expect.any(Function), expect.any(Function));
+    expect(mockUseFileTreeEvents).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ onFileTreeEvent: expect.any(Function) }),
+    );
 
-    const onEvent: (event: FileTreeEventDto) => void = mockUseFileTreeEvents.mock.calls[0][1];
+    // The layout registers several SSE consumers (the file tree, and the rename/non-live subscription);
+    // pick the file-tree one — the handler that applies structural events to the rendered tree.
+    const fileTreeCall = mockUseFileTreeEvents.mock.calls.find(
+      (call) => call[0] === 'p1' && typeof (call[1] as { onFileTreeEvent?: unknown }).onFileTreeEvent === 'function',
+    );
+    const onEvent: (event: FileTreeEventDto) => void = (
+      fileTreeCall![1] as { onFileTreeEvent: (event: FileTreeEventDto) => void }
+    ).onFileTreeEvent;
     const createdEvent: FileTreeEventDto = {
       type: 'created',
       fileNodeId: 'file-2',
