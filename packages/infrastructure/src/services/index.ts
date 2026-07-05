@@ -18,3 +18,8 @@ export {
 } from './http-collaborative-content-editor';
 export { createMtlsFetch } from './mtls-fetch';
 export { Re2RegexEngine } from './re2-regex-engine';
+export {
+  HttpStructuredCollaborativeEditor,
+  HttpStructuredCollaborativeEditorConfig,
+  COLLAB_APPLY_STRUCTURED_REPLACEMENT_PATH,
+} from './http-structured-collaborative-editor';

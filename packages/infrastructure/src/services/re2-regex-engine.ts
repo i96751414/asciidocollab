@@ -32,7 +32,12 @@ export class Re2RegexEngine implements RegexEngine {
     const re2Flags = `g${flags.caseSensitive ? '' : 'i'}${flags.multiline ? 'm' : ''}`;
     try {
       const compiled = new RE2(pattern, re2Flags);
-      return { success: true, value: new Re2CompiledMatcher(compiled) };
+      // Probe the capture-group shape: making the pattern optional and matching '' forces every
+      // group to participate (as undefined), so the result's length/keys describe the groups.
+      const probe = new RE2(`(?:${pattern})|`, re2Flags).exec('');
+      const groupCount = probe ? probe.length - 1 : 0;
+      const groupNames = probe?.groups ? Object.keys(probe.groups) : [];
+      return { success: true, value: new Re2CompiledMatcher(compiled, groupCount, groupNames) };
     } catch (error) {
       return {
         success: false,
@@ -43,7 +48,11 @@ export class Re2RegexEngine implements RegexEngine {
 }
 
 class Re2CompiledMatcher implements CompiledMatcher {
-  constructor(private readonly regexp: InstanceType<typeof RE2>) {}
+  constructor(
+    private readonly regexp: InstanceType<typeof RE2>,
+    readonly groupCount: number,
+    readonly groupNames: readonly string[],
+  ) {}
 
   /**
    * Returns all matches in `input`, in document order, bounded by `budget`.

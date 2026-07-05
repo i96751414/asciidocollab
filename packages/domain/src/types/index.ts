@@ -1,5 +1,6 @@
 /** @file Barrel re-exports for domain types. */
 export { Result } from './result';
+export type { SearchQuery, SearchMode, ReplaceSelection, PositionalEdit } from './search';
 export type { RegistrationMethod } from './registration-method';
 export type { RequestContext } from './request-context';
 // AsciiDoc structural DTOs — cross-boundary type contracts (re-exported type-only by shared).

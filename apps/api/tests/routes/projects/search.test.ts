@@ -24,7 +24,9 @@ function nodes(): FileNode[] {
 
 interface ServerOptions {
   isMember?: boolean;
+  role?: string;
   store?: Map<string, string>;
+  applyStructured?: jest.Mock;
 }
 
 async function buildServer(options: ServerOptions = {}): Promise<FastifyInstance> {
@@ -47,9 +49,10 @@ async function buildServer(options: ServerOptions = {}): Promise<FastifyInstance
     },
   } as never);
   app.decorate('repos', {
-    projectMember: { findByCompositeKey: jest.fn(async () => (isMember ? { role: { value: 'viewer' } } : null)) },
+    projectMember: { findByCompositeKey: jest.fn(async () => (isMember ? { role: { value: options.role ?? 'viewer' } } : null)) },
     fileNode: { findByProjectId: jest.fn(async () => nodes()) },
     document: { findByFileNodeId: jest.fn(async () => null) },
+    auditLog: { save: jest.fn() },
   } as never);
   app.decorate('stores', {
     fileStore: {
@@ -57,9 +60,13 @@ async function buildServer(options: ServerOptions = {}): Promise<FastifyInstance
         const content = store.get(path.value);
         return content === undefined ? null : Buffer.from(content, 'utf8');
       }),
+      write: jest.fn(async (_p: unknown, path: { value: string }, content: Buffer) => {
+        store.set(path.value, content.toString('utf8'));
+      }),
     },
     regexEngine: new Re2RegexEngine(),
     collaborativeContentEditor: { readContent: jest.fn(async () => ({ success: true, value: null })) },
+    structuredCollaborativeEditor: { applyStructuredReplacement: options.applyStructured ?? jest.fn(async () => ({ success: true, value: 1 })) },
   } as never);
   await app.register(projectSearchRoutes);
   await app.ready();
@@ -116,6 +123,62 @@ describe('POST /projects/:projectId/search', () => {
   test('400 — schema rejects an unknown mode', async () => {
     const app = await buildServer();
     const response = await search(app, { query: 'foo', mode: 'glob', caseSensitive: true, wholeWord: false });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+});
+
+const replace = (app: FastifyInstance, body: unknown) =>
+  app.inject({ method: 'POST', url: `/projects/${PROJECT_ID}/replace`, payload: body });
+
+const replaceBody = (over: Record<string, unknown> = {}) => ({
+  query: { query: 'foo', mode: 'literal', caseSensitive: true, wholeWord: false },
+  replacement: 'X',
+  scope: 'project',
+  files: [{ fileNodeId: ALPHA_ID, selections: [{ ordinal: 0, expectedText: 'foo' }] }],
+  ...over,
+});
+
+describe('POST /projects/:projectId/replace', () => {
+  test('200 — replaces a dormant file via the file store and returns the outcome', async () => {
+    const app = await buildServer({ role: 'editor' });
+    const response = await replace(app, replaceBody());
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toMatchObject({ replacedCount: 1, affectedFiles: 1, skipped: [] });
+    await app.close();
+  });
+
+  test('403 FORBIDDEN — a viewer cannot replace', async () => {
+    const app = await buildServer({ role: 'viewer' });
+    const response = await replace(app, replaceBody());
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    await app.close();
+  });
+
+  test('400 INVALID_PATTERN — invalid regex is rejected', async () => {
+    const app = await buildServer({ role: 'editor' });
+    const response = await replace(app, replaceBody({ query: { query: '(bad', mode: 'regex', caseSensitive: true, wholeWord: false }, files: [] }));
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_PATTERN');
+    await app.close();
+  });
+
+  test('400 INVALID_REPLACEMENT — template references an absent capture group', async () => {
+    const app = await buildServer({ role: 'editor' });
+    const response = await replace(app, replaceBody({
+      query: { query: '(foo)', mode: 'regex', caseSensitive: true, wholeWord: false },
+      replacement: '$2',
+      files: [],
+    }));
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_REPLACEMENT');
+    await app.close();
+  });
+
+  test('400 — schema rejects a missing files array', async () => {
+    const app = await buildServer({ role: 'editor' });
+    const response = await replace(app, { query: { query: 'foo', mode: 'literal', caseSensitive: true, wholeWord: false }, replacement: 'X', scope: 'project' });
     expect(response.statusCode).toBe(400);
     await app.close();
   });

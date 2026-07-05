@@ -20,6 +20,7 @@ export { InMemoryAssetRepository } from './file-tree/in-memory-asset.repository'
 // storage/
 export { InMemoryProjectFileStore } from './storage/in-memory-project-file-store';
 export { InMemoryYjsStateStore } from './storage/in-memory-yjs-state-store';
+export { InMemoryStructuredCollaborativeEditor } from './storage/in-memory-structured-collaborative-editor';
 
 // text/
 export { InMemoryRegexEngine } from './text/in-memory-regex-engine';

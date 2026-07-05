@@ -1,9 +1,28 @@
 import * as Y from 'yjs';
 import type { Hocuspocus } from '@hocuspocus/server';
-import { ProjectId, YjsStateId, type ContentReplacement, type YjsStateStore } from '@asciidocollab/domain';
+import {
+  ProjectId,
+  YjsStateId,
+  computeMatches,
+  selectSpans,
+  type ContentReplacement,
+  type YjsStateStore,
+  type RegexEngine,
+  type MatchBudget,
+  type SearchQuery,
+  type ReplaceSelection,
+} from '@asciidocollab/domain';
 
 /** The Y.Text name the CodeMirror binding (and persistence) uses for document content. */
 const CODEMIRROR_TEXT = 'codemirror';
+
+/**
+ * In-transaction match budget for the structured apply. RE2 is linear-time, so
+ * this is a generous safety bound, not a functional limit — the number of
+ * confirmed selections is already small and client-bounded.
+ */
+const STRUCTURED_APPLY_BUDGET_MS = 1000;
+const STRUCTURED_APPLY_MAX_MATCHES = 1_000_000;
 
 /** A request to apply literal reference rewrites to one collaborative document. */
 export interface ApplyEditsRequest {
@@ -77,6 +96,70 @@ export async function applyEditsToDocument(
   try {
     await connection.transact((document) => {
       applied = applyReplacementsToYText(document.getText(CODEMIRROR_TEXT), request.replacements);
+    });
+  } finally {
+    await connection.disconnect();
+  }
+  return applied;
+}
+
+/** A request to apply a selection- and regex-aware replacement to one collaborative document. */
+export interface StructuredApplyRequest {
+  /** Project that owns the document. */
+  projectId: string;
+  /** Yjs state identifier — identifies the document's collaboration room. */
+  yjsStateId: string;
+  /** The query, re-evaluated against the live content inside the transaction. */
+  query: SearchQuery;
+  /** Literal replacement text, or a capture-group template in regex mode. */
+  replacement: string;
+  /** The confirmed `{ordinal, expectedText}` selections for this document. */
+  selections: ReplaceSelection[];
+}
+
+/**
+ * Applies a structured (selection- and regex-aware) replacement to the live collaborative document.
+ *
+ * Unlike {@link applyEditsToDocument} (occurrence-global literal), this re-runs the query against
+ * the CURRENT live `Y.Text` **inside the direct-connection transaction**, computes exact match
+ * spans, and rewrites only the confirmed selections — right-to-left so offsets stay valid. A span
+ * whose live text no longer equals its `expectedText` is skipped (stale), so the operation merges
+ * cleanly with concurrent edits and never over-writes. Re-matching late (rather than trusting
+ * scan-time offsets) is what makes positional editing safe here. `disconnect()` forces the normal
+ * writeback (Yjs blob + plain text) and unloads the room if idle.
+ *
+ * @param hocuspocus - The Hocuspocus instance owning the live documents.
+ * @param engine - The RE2 engine used to re-match a regex query (same adapter as the API scan).
+ * @param request - The document identity, query, replacement, and confirmed selections.
+ * @returns The number of occurrences actually replaced (0 when the live content diverged from every
+ *   selection — the caller must NOT then force a plain-text write).
+ */
+export async function applyStructuredReplacementToDocument(
+  hocuspocus: Pick<Hocuspocus, 'openDirectConnection'>,
+  engine: RegexEngine,
+  request: StructuredApplyRequest,
+): Promise<number> {
+  const roomName = `${request.projectId}/${request.yjsStateId}`;
+  const connection = await hocuspocus.openDirectConnection(roomName);
+  let applied = 0;
+  try {
+    await connection.transact((document) => {
+      const ytext = document.getText(CODEMIRROR_TEXT);
+      const content = ytext.toString();
+      const budget: MatchBudget = {
+        maxMatches: STRUCTURED_APPLY_MAX_MATCHES,
+        deadline: Date.now() + STRUCTURED_APPLY_BUDGET_MS,
+      };
+      const matched = computeMatches(content, request.query, engine, budget);
+      if (!matched.success) return; // invalid pattern (already rejected upstream) → no-op
+      const edits = selectSpans(matched.value, request.selections, request.replacement, request.query.mode);
+      if (!edits.success) return; // invalid template (already rejected upstream) → no-op
+      // Edits are right-to-left, so applying each one leaves earlier offsets valid.
+      for (const edit of edits.value) {
+        ytext.delete(edit.from, edit.to - edit.from);
+        ytext.insert(edit.from, edit.replacement);
+        applied += 1;
+      }
     });
   } finally {
     await connection.disconnect();

@@ -48,3 +48,9 @@ export type {
   FileMatchGroupDto,
   SearchResultDto,
 } from './project-search.dto';
+export type {
+  ReplaceScope,
+  FileReplaceSelectionDto,
+  ReplaceRequestDto,
+  ReplaceResultDto,
+} from './project-replace.dto';

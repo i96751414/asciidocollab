@@ -4,16 +4,21 @@ import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Hocuspocus } from '@hocuspocus/server';
 import type { Logger } from 'pino';
-import type { ContentReplacement, YjsStateStore } from '@asciidocollab/domain';
+import type { ContentReplacement, YjsStateStore, RegexEngine, ReplaceSelection } from '@asciidocollab/domain';
 import {
   applyEditsToDocument,
+  applyStructuredReplacementToDocument,
   readDocumentContent,
   type ApplyEditsRequest,
   type ReadContentRequest,
+  type StructuredApplyRequest,
 } from './apply-edits.js';
 
 /** Path of the internal endpoint the API calls to rewrite references in live documents. */
 export const APPLY_EDITS_PATH = '/internal/collab/apply-edits';
+
+/** Path of the internal endpoint the API calls for a selection-/regex-aware replace in live documents. */
+export const APPLY_STRUCTURED_REPLACEMENT_PATH = '/internal/collab/apply-structured-replacement';
 
 /** Path of the internal endpoint the API calls to read live document content. */
 export const READ_CONTENT_PATH = '/internal/collab/read-content';
@@ -79,6 +84,45 @@ export function parseApplyEditsBody(raw: string): ApplyEditsRequest | null {
 }
 
 /**
+ * Validates and normalises a structured-apply request body. Returns null on any malformed input —
+ * non-UUID ids, an unknown mode, or a selection missing its ordinal/expectedText. The query carries
+ * the domain field name `text` (this endpoint is internal; the API maps the DTO's `query` field to
+ * it before calling).
+ *
+ * @param raw - The raw JSON request body.
+ * @returns The parsed request, or null if invalid.
+ */
+export function parseStructuredApplyBody(raw: string): StructuredApplyRequest | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(json)) return null;
+  const { projectId, yjsStateId, query, replacement, selections } = json;
+  if (typeof projectId !== 'string' || !UUID_REGEX.test(projectId)) return null;
+  if (typeof yjsStateId !== 'string' || !UUID_REGEX.test(yjsStateId)) return null;
+  if (typeof replacement !== 'string') return null;
+  if (!isRecord(query)) return null;
+  const { text, mode, caseSensitive, wholeWord } = query;
+  if (typeof text !== 'string') return null;
+  if (mode !== 'literal' && mode !== 'regex') return null;
+  if (typeof caseSensitive !== 'boolean' || typeof wholeWord !== 'boolean') return null;
+  if (!Array.isArray(selections)) return null;
+
+  const cleanSelections: ReplaceSelection[] = [];
+  for (const entry of selections) {
+    if (!isRecord(entry)) return null;
+    const { ordinal, expectedText } = entry;
+    if (typeof ordinal !== 'number' || !Number.isInteger(ordinal) || ordinal < 0) return null;
+    if (typeof expectedText !== 'string') return null;
+    cleanSelections.push({ ordinal, expectedText });
+  }
+  return { projectId, yjsStateId, query: { text, mode, caseSensitive, wholeWord }, replacement, selections: cleanSelections };
+}
+
+/**
  * Validates a read-content request body. Returns null on malformed input — including non-UUID ids.
  *
  * @param raw - The raw JSON request body.
@@ -130,6 +174,13 @@ export interface ApplyEditsHandlerDeps {
    */
   applyEdits: (request: ApplyEditsRequest) => Promise<number>;
   /**
+   * Applies a selection-/regex-aware structured replacement to the live document.
+   *
+   * @param request - The validated structured-apply request.
+   * @returns The number of occurrences actually replaced (0 ⇒ live diverged).
+   */
+  applyStructuredReplacement: (request: StructuredApplyRequest) => Promise<number>;
+  /**
    * Reads the live text of the document identified by the request.
    *
    * @param request - The validated read-content request.
@@ -154,7 +205,10 @@ export function createApplyEditsRequestHandler(
 ): (request: IncomingMessage, response: ServerResponse) => Promise<void> {
   return async (request, response) => {
     const path = (request.url ?? '').split('?')[0];
-    if (request.method !== 'POST' || (path !== APPLY_EDITS_PATH && path !== READ_CONTENT_PATH)) {
+    if (
+      request.method !== 'POST' ||
+      (path !== APPLY_EDITS_PATH && path !== APPLY_STRUCTURED_REPLACEMENT_PATH && path !== READ_CONTENT_PATH)
+    ) {
       request.resume(); // drain any body so the keep-alive connection stays healthy
       response.writeHead(404).end();
       return;
@@ -193,6 +247,22 @@ export function createApplyEditsRequestHandler(
       return;
     }
 
+    if (path === APPLY_STRUCTURED_REPLACEMENT_PATH) {
+      const parsed = parseStructuredApplyBody(raw);
+      if (!parsed) {
+        response.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Invalid body' }));
+        return;
+      }
+      try {
+        const applied = await deps.applyStructuredReplacement(parsed);
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ applied }));
+      } catch (error) {
+        deps.logger.error({ err: error }, 'apply-structured-replacement failed');
+        response.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'apply-structured-replacement failed' }));
+      }
+      return;
+    }
+
     const parsed = parseApplyEditsBody(raw);
     if (!parsed) {
       response.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Invalid body' }));
@@ -215,6 +285,8 @@ export interface InternalEditServerOptions {
   hocuspocus: Pick<Hocuspocus, 'openDirectConnection' | 'documents'>;
   /** Store used by the read endpoint to decode a dormant room's persisted Yjs state without loading it. */
   yjsStateStore: YjsStateStore;
+  /** Linear-time (RE2) engine used by the structured-apply endpoint to re-match a regex query. */
+  regexEngine: RegexEngine;
   /** Interface to bind to — defaults to loopback for safety. */
   host: string;
   /** Port to listen on. */
@@ -238,6 +310,8 @@ export interface InternalEditServerOptions {
 export function startInternalEditServer(options: InternalEditServerOptions): Promise<http.Server> {
   const handler = createApplyEditsRequestHandler({
     applyEdits: (request) => applyEditsToDocument(options.hocuspocus, request),
+    applyStructuredReplacement: (request) =>
+      applyStructuredReplacementToDocument(options.hocuspocus, options.regexEngine, request),
     readContent: (request) => readDocumentContent(options.hocuspocus, options.yjsStateStore, request),
     ...(options.secret ? { secret: options.secret } : {}),
     logger: options.logger,

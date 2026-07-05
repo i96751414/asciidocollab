@@ -24,6 +24,7 @@ export { ProjectFileStore } from './storage/project-file-store';
 export { YjsStateStore } from './storage/yjs-state-store';
 export { CollaborativeContentEditor, ContentReplacement } from './storage/collaborative-content-editor';
 export { CollaborativeContentReader } from './storage/collaborative-content-reader';
+export { StructuredCollaborativeEditor, StructuredReplacementSpec } from './storage/structured-collaborative-editor';
 
 // text/
 export { RegexEngine, RegexFlags, MatchBudget, MatchSpan, CompiledMatcher } from './text/regex-engine';

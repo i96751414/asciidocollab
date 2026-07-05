@@ -1,6 +1,7 @@
 import { Result } from '../../types/result';
 import { ValidationError } from '../../errors/common/validation-error';
 import { RegexEngine, MatchBudget, MatchSpan } from '../../ports/text/regex-engine';
+import { SearchQuery, SearchMode, ReplaceSelection, PositionalEdit } from '../../types/search';
 
 /**
  * Single source of truth for find/replace match semantics, shared by the
@@ -12,38 +13,7 @@ import { RegexEngine, MatchBudget, MatchSpan } from '../../ports/text/regex-engi
  * never a backtracking engine, because the pattern is untrusted input.
  */
 
-/** How a query string is interpreted. */
-export type SearchMode = 'literal' | 'regex';
-
-/** A find query, interpreted identically by search and by structured-apply. */
-export interface SearchQuery {
-  /** The literal text or the regular-expression source. */
-  readonly text: string;
-  /** Whether `text` is a literal or a regular expression. */
-  readonly mode: SearchMode;
-  /** Case-sensitive when true. */
-  readonly caseSensitive: boolean;
-  /** Whole-word only; ignored in regex mode (use `\b` in the pattern). */
-  readonly wholeWord: boolean;
-}
-
-/** One selected match to replace, identified concurrency-robustly. */
-export interface ReplaceSelection {
-  /** 0-based index of the match within its file, from the search that produced it. */
-  readonly ordinal: number;
-  /** The exact text expected at that ordinal; a live mismatch skips it (stale). */
-  readonly expectedText: string;
-}
-
-/** A positional edit ready to apply to text (or a Y.Text) left-unshifted. */
-export interface PositionalEdit {
-  /** Char offset where the replaced span starts (inclusive). */
-  readonly from: number;
-  /** Char offset where the replaced span ends (exclusive). */
-  readonly to: number;
-  /** The text to insert in place of `[from, to)`. */
-  readonly replacement: string;
-}
+export type { SearchQuery, SearchMode, ReplaceSelection, PositionalEdit } from '../../types/search';
 
 const WORD_CHAR = /[A-Za-z0-9_]/;
 
@@ -180,6 +150,66 @@ export function substitute(
     index += 1;
   }
   return { success: true, value: out };
+}
+
+/**
+ * Validates a replacement template up front (before any match), so an invalid
+ * capture-group reference is rejected as `INVALID_REPLACEMENT` even when no file
+ * currently matches (FR-006d). Literal mode inserts the text verbatim, so it is
+ * always valid. Regex mode checks every `$n`/`${name}` against the pattern's
+ * group count and names.
+ *
+ * @param replacement - The replacement template.
+ * @param mode - Literal or regex.
+ * @param groupCount - Number of numbered capture groups the pattern defines.
+ * @param groupNames - Named capture groups the pattern defines.
+ * @returns Ok when valid, or a `ValidationError` naming the offending reference.
+ */
+export function validateReplacementTemplate(
+  replacement: string,
+  mode: SearchMode,
+  groupCount: number,
+  groupNames: readonly string[],
+): Result<void, ValidationError> {
+  if (mode === 'literal') return { success: true, value: undefined };
+  let index = 0;
+  while (index < replacement.length) {
+    if (replacement[index] !== '$') {
+      index += 1;
+      continue;
+    }
+    const next = replacement[index + 1];
+    if (next === '$' || next === '&') {
+      index += 2;
+      continue;
+    }
+    if (next === '{') {
+      const close = replacement.indexOf('}', index + 2);
+      if (close !== -1) {
+        const name = replacement.slice(index + 2, close);
+        if (!groupNames.includes(name)) {
+          return { success: false, error: new ValidationError(`Replacement references unknown capture group \${${name}}`) };
+        }
+        index = close + 1;
+        continue;
+      }
+    }
+    if (isDigit(next)) {
+      const twoDigit = replacement.slice(index + 1, index + 3);
+      if (/^\d\d$/.test(twoDigit) && Number.parseInt(twoDigit, 10) > 0 && Number.parseInt(twoDigit, 10) <= groupCount) {
+        index += 3;
+        continue;
+      }
+      const oneNumber = Number.parseInt(next, 10);
+      if (oneNumber > 0 && oneNumber <= groupCount) {
+        index += 2;
+        continue;
+      }
+      return { success: false, error: new ValidationError(`Replacement references absent capture group $${next}`) };
+    }
+    index += 1;
+  }
+  return { success: true, value: undefined };
 }
 
 /**

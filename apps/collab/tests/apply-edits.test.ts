@@ -1,6 +1,12 @@
 import { Server, type Extension } from '@hocuspocus/server';
 import * as Y from 'yjs';
-import { applyReplacementsToYText, applyEditsToDocument, readDocumentContent } from '../src/apply-edits';
+import { Re2RegexEngine } from '@asciidocollab/infrastructure';
+import {
+  applyReplacementsToYText,
+  applyEditsToDocument,
+  applyStructuredReplacementToDocument,
+  readDocumentContent,
+} from '../src/apply-edits';
 
 function ytextWith(text: string): Y.Text {
   const document = new Y.Doc();
@@ -69,6 +75,107 @@ describe('applyEditsToDocument', () => {
       expect(stored.length).toBeGreaterThan(0);
       expect(stored.at(-1)).toContain('include::overview.adoc[]');
       expect(stored.at(-1)).not.toContain('intro.adoc');
+    } finally {
+      await server.destroy();
+    }
+  });
+});
+
+describe('applyStructuredReplacementToDocument', () => {
+  const engine = new Re2RegexEngine();
+  const PROJECT_ID = '770e8400-e29b-41d4-a716-446655440003';
+  const YJS_STATE_ID = '11111111-e29b-41d4-a716-446655440111';
+  const ROOM = `${PROJECT_ID}/${YJS_STATE_ID}`;
+
+  function serverSeeded(seed: string): { server: Server; stored: string[] } {
+    const stored: string[] = [];
+    const extension = {
+      onLoadDocument: async ({ document }: { document: Y.Doc }) => {
+        const ytext = document.getText('codemirror');
+        if (ytext.length === 0) ytext.insert(0, seed);
+      },
+      onStoreDocument: async ({ document }: { document: Y.Doc }) => {
+        stored.push(document.getText('codemirror').toString());
+      },
+    };
+    return { server: new Server({ port: 0, extensions: [extension as unknown as Extension] }), stored };
+  }
+
+  const literal = (text: string) => ({ text, mode: 'literal' as const, caseSensitive: true, wholeWord: false });
+
+  it('rewrites only the confirmed ordinals of a dormant document and persists the result', async () => {
+    const { server, stored } = serverSeeded('foo foo foo');
+    try {
+      const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
+        projectId: PROJECT_ID,
+        yjsStateId: YJS_STATE_ID,
+        query: literal('foo'),
+        replacement: 'bar',
+        selections: [{ ordinal: 0, expectedText: 'foo' }, { ordinal: 2, expectedText: 'foo' }],
+      });
+      expect(applied).toBe(2);
+      expect(stored.at(-1)).toBe('bar foo bar');
+    } finally {
+      await server.destroy();
+    }
+  });
+
+  it('skips a stale selection (live text diverged) — 0 applied, no write corruption', async () => {
+    const { server, stored } = serverSeeded('the cat sat');
+    try {
+      const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
+        projectId: PROJECT_ID,
+        yjsStateId: YJS_STATE_ID,
+        query: literal('dog'),
+        replacement: 'x',
+        selections: [{ ordinal: 0, expectedText: 'dog' }],
+      });
+      expect(applied).toBe(0);
+      // Any writeback must carry the unchanged text (never a corrupted splice).
+      if (stored.length > 0) expect(stored.at(-1)).toBe('the cat sat');
+    } finally {
+      await server.destroy();
+    }
+  });
+
+  it('expands a regex capture-group template', async () => {
+    const { server, stored } = serverSeeded('date 2026-07 end');
+    try {
+      const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
+        projectId: PROJECT_ID,
+        yjsStateId: YJS_STATE_ID,
+        query: { text: '(\\d{4})-(\\d{2})', mode: 'regex', caseSensitive: true, wholeWord: false },
+        replacement: '$2/$1',
+        selections: [{ ordinal: 0, expectedText: '2026-07' }],
+      });
+      expect(applied).toBe(1);
+      expect(stored.at(-1)).toBe('date 07/2026 end');
+    } finally {
+      await server.destroy();
+    }
+  });
+
+  it('merges with a concurrent edit made in an open session', async () => {
+    const { server } = serverSeeded('foo foo');
+    try {
+      // Open the room (loads + seeds) and make a concurrent edit that shifts offsets.
+      const live = await server.hocuspocus.openDirectConnection(ROOM);
+      await live.transact((document) => document.getText('codemirror').insert(0, 'PREFIX '));
+
+      const applied = await applyStructuredReplacementToDocument(server.hocuspocus, engine, {
+        projectId: PROJECT_ID,
+        yjsStateId: YJS_STATE_ID,
+        query: literal('foo'),
+        replacement: 'bar',
+        selections: [{ ordinal: 0, expectedText: 'foo' }],
+      });
+      expect(applied).toBe(1);
+
+      let text = '';
+      await live.transact((document) => { text = document.getText('codemirror').toString(); });
+      await live.disconnect();
+      // Both the concurrent prefix and the replacement survive (re-matched on live content).
+      expect(text).toBe('PREFIX bar foo');
     } finally {
       await server.destroy();
     }

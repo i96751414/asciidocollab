@@ -52,6 +52,7 @@ async function main() {
   const internalEditServer = await startInternalEditServer({
     hocuspocus: server.hocuspocus,
     yjsStateStore: root.yjsStateStore,
+    regexEngine: root.regexEngine,
     host: config.get('internalEditHost'),
     port: config.get('internalEditPort'),
     ...(editSecret ? { secret: editSecret } : {}),

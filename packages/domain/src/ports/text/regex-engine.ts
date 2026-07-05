@@ -43,6 +43,10 @@ export interface MatchSpan {
 
 /** A compiled, reusable matcher produced by {@link RegexEngine.compile}. */
 export interface CompiledMatcher {
+  /** Number of capture groups the pattern defines (for validating a `$n` replacement template). */
+  readonly groupCount: number;
+  /** Names of the pattern's named capture groups (for validating a `${name}` replacement template). */
+  readonly groupNames: readonly string[];
   /**
    * Returns all matches in `input`, in document order, bounded by `budget`.
    * MUST be linear-time in the length of `input` (no catastrophic backtracking).

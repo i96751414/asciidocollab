@@ -1,10 +1,13 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import * as Y from 'yjs';
+import { Re2RegexEngine } from '@asciidocollab/infrastructure';
 import {
   APPLY_EDITS_PATH,
+  APPLY_STRUCTURED_REPLACEMENT_PATH,
   READ_CONTENT_PATH,
   parseApplyEditsBody,
+  parseStructuredApplyBody,
   parseReadContentBody,
   startInternalEditServer,
 } from '../src/internal-edit-server';
@@ -12,6 +15,7 @@ import {
 const PROJECT_ID = '770e8400-e29b-41d4-a716-446655440003';
 const YJS_STATE_ID = '11111111-e29b-41d4-a716-446655440111';
 
+const regexEngine = new Re2RegexEngine();
 const silentLogger = { info: () => {}, error: () => {} } as unknown as import('pino').Logger;
 
 // A YjsStateStore stub — used by the read endpoint for dormant rooms; the apply-edits tests below
@@ -72,6 +76,32 @@ describe('parseApplyEditsBody', () => {
   });
 });
 
+describe('parseStructuredApplyBody', () => {
+  const valid = {
+    projectId: PROJECT_ID,
+    yjsStateId: YJS_STATE_ID,
+    query: { text: 'foo', mode: 'literal', caseSensitive: true, wholeWord: false },
+    replacement: 'bar',
+    selections: [{ ordinal: 0, expectedText: 'foo' }],
+  };
+
+  it('accepts a well-formed body', () => {
+    expect(parseStructuredApplyBody(JSON.stringify(valid))).toEqual(valid);
+  });
+
+  it('rejects a non-UUID id, an unknown mode, and a malformed selection', () => {
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, projectId: '../etc' }))).toBeNull();
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, query: { ...valid.query, mode: 'glob' } }))).toBeNull();
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, selections: [{ ordinal: -1, expectedText: 'foo' }] }))).toBeNull();
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, selections: [{ ordinal: 0 }] }))).toBeNull();
+  });
+
+  it('rejects a missing replacement or query', () => {
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, replacement: 5 }))).toBeNull();
+    expect(parseStructuredApplyBody(JSON.stringify({ ...valid, query: 'nope' }))).toBeNull();
+  });
+});
+
 describe('parseReadContentBody', () => {
   it('accepts a well-formed body', () => {
     expect(parseReadContentBody(JSON.stringify({ projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID }))).toEqual({
@@ -100,6 +130,7 @@ describe('internal edit server (HTTP)', () => {
     server = await startInternalEditServer({
       hocuspocus: fakeHocuspocus(),
       yjsStateStore: fakeStateStore(),
+      regexEngine,
       host: '127.0.0.1',
       port: 0,
       logger: silentLogger,
@@ -131,6 +162,33 @@ describe('internal edit server (HTTP)', () => {
   it('returns 400 for an invalid body', async () => {
     await startWith();
     const response = await fetch(`${baseUrl}${APPLY_EDITS_PATH}`, { method: 'POST', body: '{bad' });
+    expect(response.status).toBe(400);
+  });
+
+  it('applies a structured replacement and returns the applied count', async () => {
+    await startWith();
+    const response = await fetch(`${baseUrl}${APPLY_STRUCTURED_REPLACEMENT_PATH}`, {
+      method: 'POST',
+      headers: { connection: 'close' },
+      body: JSON.stringify({
+        projectId: PROJECT_ID,
+        yjsStateId: YJS_STATE_ID,
+        query: { text: 'a', mode: 'literal', caseSensitive: true, wholeWord: false },
+        replacement: 'Z',
+        selections: [{ ordinal: 0, expectedText: 'a' }],
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ applied: 1 });
+  });
+
+  it('returns 400 for an invalid structured-apply body', async () => {
+    await startWith();
+    const response = await fetch(`${baseUrl}${APPLY_STRUCTURED_REPLACEMENT_PATH}`, {
+      method: 'POST',
+      headers: { connection: 'close' },
+      body: JSON.stringify({ projectId: PROJECT_ID, yjsStateId: YJS_STATE_ID, query: 'nope', replacement: '', selections: [] }),
+    });
     expect(response.status).toBe(400);
   });
 
@@ -182,6 +240,7 @@ describe('internal edit server (HTTP)', () => {
       startInternalEditServer({
         hocuspocus: fakeHocuspocus(),
         yjsStateStore: fakeStateStore(),
+        regexEngine,
         host: '127.0.0.1',
         port: inUsePort,
         logger: silentLogger,
@@ -197,6 +256,7 @@ describe('internal edit server (HTTP)', () => {
     server = await startInternalEditServer({
       hocuspocus: fakeHocuspocus('a', rooms),
       yjsStateStore: fakeStateStore(),
+      regexEngine,
       host: '127.0.0.1',
       port: 0,
       logger: silentLogger,
@@ -220,7 +280,7 @@ describe('internal edit server (HTTP)', () => {
   it('returns 500 when applying the edits throws', async () => {
     // openDirectConnection rejects → applyEditsToDocument throws → 500 (no secret required here).
     const hocuspocus = { openDirectConnection: jest.fn().mockRejectedValue(new Error('room boom')), documents: new Map() } as never;
-    server = await startInternalEditServer({ hocuspocus, yjsStateStore: fakeStateStore(), host: '127.0.0.1', port: 0, logger: silentLogger });
+    server = await startInternalEditServer({ hocuspocus, yjsStateStore: fakeStateStore(), regexEngine, host: '127.0.0.1', port: 0, logger: silentLogger });
     await waitListening(server);
     const address = server.address() as AddressInfo;
     const response = await fetch(`http://127.0.0.1:${address.port}${APPLY_EDITS_PATH}`, { method: 'POST', body });

@@ -27,7 +27,12 @@ export class InMemoryRegexEngine implements RegexEngine {
         error: new ValidationError(error instanceof Error ? error.message : 'Invalid pattern'),
       };
     }
-    return { success: true, value: new JsCompiledMatcher(pattern, jsFlags) };
+    // Probe the pattern's capture-group shape by making the whole thing optional and matching '',
+    // so all groups participate (as undefined). Length − 1 is the group count; `groups` names them.
+    const probe = new RegExp(`(?:${pattern})|`, jsFlags).exec('');
+    const groupCount = probe ? probe.length - 1 : 0;
+    const groupNames = probe?.groups ? Object.keys(probe.groups) : [];
+    return { success: true, value: new JsCompiledMatcher(pattern, jsFlags, groupCount, groupNames) };
   }
 }
 
@@ -35,6 +40,8 @@ class JsCompiledMatcher implements CompiledMatcher {
   constructor(
     private readonly pattern: string,
     private readonly jsFlags: string,
+    readonly groupCount: number,
+    readonly groupNames: readonly string[],
   ) {}
 
   matches(input: string, budget: MatchBudget): MatchSpan[] {
