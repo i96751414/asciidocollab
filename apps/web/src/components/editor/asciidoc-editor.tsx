@@ -1,7 +1,7 @@
 'use client';
 import './editor-themes.css';
 import React from 'react';
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import type { CollabAuthRole } from '@asciidocollab/shared';
@@ -230,6 +230,22 @@ export function AsciiDocEditor({
     if (projectId && fileNodeId) save(value);
     onChange?.(value);
   }, [projectId, fileNodeId, save, onChange]);
+
+  // Re-assert the synced document to the parent's live buffer (which feeds the preview) the first
+  // time it is non-empty. On the collab path the parent resets that buffer to the null REST content
+  // DURING the file-switch render, and under concurrent rendering that reset can commit AFTER the
+  // Yjs-sync `onChange` already delivered the document — wedging the preview at empty (`state: idle`,
+  // "Preview not available") with no further edit to recover it. This effect runs POST-COMMIT, so a
+  // set-state-during-render reset cannot tear it; `docText` is the editor's own state, populated from
+  // the sync transaction independently of the parent buffer. The editor remounts per file (keyed on
+  // the node id), so this one-shot latch resets naturally for each opened document. Idempotent: if the
+  // buffer already holds this text, the parent's `setState` bails out.
+  const initialContentDeliveredReference = useRef(false);
+  useEffect(() => {
+    if (!onCollabPath || initialContentDeliveredReference.current || docText.length === 0) return;
+    initialContentDeliveredReference.current = true;
+    onChange?.(docText);
+  }, [onCollabPath, docText, onChange]);
 
   // Track cursor position for the status bar and report the line up for persistence.
   const handleCursorChange = useCallback((pos: { line: number; col: number; totalLines: number }) => {
