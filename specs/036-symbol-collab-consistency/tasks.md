@@ -69,7 +69,7 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: A has the child open in the editor; B adds a `:flag:` definition to the parent live; A's `{flag}` reference stops being flagged as undefined.
 
-- [ ] T011 [US2] Verify (and, only if a consumer is not already wired, wire) that `inheritedAttributesField` and the editor highlighting/conditional-region/path-resolution consumers in `apps/web/src/hooks/use-project-symbol-index.ts` recompute off the `reachableDocVersion` bump from T007; if the wiring turns out non-trivial, split it into its own `/tdd` task ahead of the test (Constitution §Implementation Discipline). Then add the two-client E2E in `apps/web/tests/e2e/collab-consistency-highlighting.spec.ts`: live add/remove of an inherited definition flips highlighting undefined↔known, and an `ifdef`/`imagesdir`/include-target change recomputes (SC-002; FR-002/006).
+- [X] T011 [US2] Verify (and, only if a consumer is not already wired, wire) that `inheritedAttributesField` and the editor highlighting/conditional-region/path-resolution consumers in `apps/web/src/hooks/use-project-symbol-index.ts` recompute off the `reachableDocVersion` bump from T007; if the wiring turns out non-trivial, split it into its own `/tdd` task ahead of the test (Constitution §Implementation Discipline). Then add the two-client E2E in `apps/web/tests/e2e/collab-consistency-highlighting.spec.ts`: live add/remove of an inherited definition flips highlighting undefined↔known, and an `ifdef`/`imagesdir`/include-target change recomputes (SC-002; FR-002/006).
 
 **Checkpoint**: Editor highlighting and inherited-attribute behavior stay live independent of the preview.
 
@@ -81,7 +81,7 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: A opens a file whose headings inherit `:idprefix:` from a parent; B changes the parent's `:idprefix:` live; A's outline entries and generated heading IDs adopt the new prefix.
 
-- [ ] T012 [US3] Verify (and, only if not already wired, wire) that heading-ID generation, `use-section-outline`, and cross-reference resolution recompute off the `reachableDocVersion` bump, and that the full-assembled-outline path consumes `content-changed` in `apps/web/src/hooks/use-project-symbol-index.ts` / the outline hook; if wiring is non-trivial, split it into its own `/tdd` task ahead of the test. Then add the two-client E2E in `apps/web/tests/e2e/collab-consistency-headings.spec.ts`: live `:idprefix:` change and live related-heading edits → A's heading IDs, outline, and xref labels match the assembled document (SC-003; FR-007).
+- [X] T012 [US3] Verify (and, only if not already wired, wire) that heading-ID generation, `use-section-outline`, and cross-reference resolution recompute off the `reachableDocVersion` bump, and that the full-assembled-outline path consumes `content-changed` in `apps/web/src/hooks/use-project-symbol-index.ts` / the outline hook; if wiring is non-trivial, split it into its own `/tdd` task ahead of the test. Then add the two-client E2E in `apps/web/tests/e2e/collab-consistency-headings.spec.ts`: live `:idprefix:` change and live related-heading edits → A's heading IDs, outline, and xref labels match the assembled document (SC-003; FR-007).
 
 **Checkpoint**: ID/outline/xref consistency holds for live cross-file structural changes.
 
