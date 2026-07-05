@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pre-push gate — BLOCKS any push whose tree can't pass CI Job 1 (Quality:
+# build · lint · types · architecture · audit).
+#
+# Why this exists: a ReDoS lint failure (redos/no-vulnerable in
+# packages/asciidoc-core) once reached `main` because someone pushed without
+# running the gates. This hook makes that impossible — the push aborts before
+# it leaves the machine if lint/types/architecture/audit fail.
+#
+# Scope: this runs the FAST authoritative gate (CI Job 1). The full suite
+# (unit · integration · security · e2e) is `pnpm gate` — run it before merging.
+#
+# Do not reach for `--no-verify`. If the gate is red, fix the code, not the gate.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+echo "── pre-push: running Quality gate (build · lint · types · architecture · audit) ──"
+if ! "$ROOT/scripts/ci/quality.sh"; then
+  echo ""
+  echo "✗ pre-push: Quality gate FAILED — push aborted. Fix the errors above and try again." >&2
+  echo "  (Full suite: pnpm gate. This hook runs only CI Job 1.)" >&2
+  exit 1
+fi
+
+echo "── pre-push: Quality gate passed; allowing push ──"

@@ -5,6 +5,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath scripts/git-hooks || true",
     "build": "pnpm -r build",
     "lint": "eslint .",
     "test": "pnpm -r test",
