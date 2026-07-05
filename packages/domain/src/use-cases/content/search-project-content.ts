@@ -219,13 +219,14 @@ export class SearchProjectContentUseCase {
         continue;
       }
 
-      const budget: MatchBudget = {
-        maxMatches: PER_FILE_MATCH_LIMIT,
-        deadline: Date.now() + input.limits.perFileTimeBudgetMs,
-      };
+      const deadline = Date.now() + input.limits.perFileTimeBudgetMs;
+      const budget: MatchBudget = { maxMatches: PER_FILE_MATCH_LIMIT, deadline };
       const spans = matcher ? matcher.matches(content, budget) : literalSpans(content, input, budget);
+      // The scan was cut short — so the total is a lower bound — if it filled the per-file match cap
+      // or ran out its time budget. Check the deadline before the empty-result skip, so a file that
+      // times out before finding any match still marks the results incomplete.
+      if (spans.length >= PER_FILE_MATCH_LIMIT || Date.now() >= deadline) truncated = true;
       if (spans.length === 0) continue;
-      if (spans.length >= PER_FILE_MATCH_LIMIT) truncated = true;
       totalMatches += spans.length;
 
       const starts = lineStarts(content);

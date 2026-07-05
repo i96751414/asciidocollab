@@ -204,8 +204,12 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
   const search = useProjectSearch(projectId);
   const { query, setQuery, result, status, error, replacement, setReplacement, replace, replaceStatus, replaceError, includedMatchCount } = search;
   const [confirmingAll, setConfirmingAll] = useState(false);
+  // Enter "replace mode" once the user engages the replacement field, so replacing with an EMPTY
+  // string (i.e. deleting matched text) is reachable — otherwise the controls would only appear when
+  // the field has text. Sticky (no blur reset) so clicking a replace button never races the blur.
+  const [replaceActive, setReplaceActive] = useState(false);
 
-  const showReplace = replacement.length > 0;
+  const showReplace = replacement.length > 0 || replaceActive;
   const hasResults = status === 'success' && result !== null && result.totalMatches > 0;
   const replaceControls: ReplaceControls = {
     replacement,
@@ -252,6 +256,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
             type="text"
             value={replacement}
             onChange={(event) => setReplacement(event.target.value)}
+            onFocus={() => setReplaceActive(true)}
             placeholder="Replace…"
             aria-label="Replacement text"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"

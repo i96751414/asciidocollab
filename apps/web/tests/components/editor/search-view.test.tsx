@@ -172,6 +172,24 @@ describe('SearchView', () => {
     expect(screen.queryByText('$1Title')).not.toBeInTheDocument();
   });
 
+  test('allows deleting matches (empty replacement) once the replace field is engaged', async () => {
+    searchProjectContent.mockResolvedValue(TWO_MATCH_RESULT);
+    render(<SearchView projectId="p1" onNavigate={jest.fn()} />);
+    type('foo');
+    await screen.findByText('a.adoc');
+
+    // With an empty replacement, controls stay hidden until the field is engaged.
+    expect(screen.queryByRole('button', { name: /replace all matches/i })).not.toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText('Replacement text'));
+
+    fireEvent.click(screen.getByRole('button', { name: /replace all matches/i }));
+    const dialog = await screen.findByRole('dialog', { name: /confirm replace all/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /replace all/i }));
+
+    await waitFor(() => expect(replaceProjectContent).toHaveBeenCalled());
+    expect(replaceProjectContent.mock.calls[0][1]).toMatchObject({ replacement: '', scope: 'project' });
+  });
+
   test('re-searches after a successful replace so resolved matches disappear', async () => {
     searchProjectContent.mockResolvedValue(TWO_MATCH_RESULT);
     render(<SearchView projectId="p1" onNavigate={jest.fn()} />);
