@@ -325,6 +325,9 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+          # The E2E step can fail before Playwright emits a report (e.g. stack bring-up fails); with
+          # `if: always()` the upload still runs, so don't warn when there is genuinely nothing.
+          if-no-files-found: ignore
 
   # ── Security scanning: SAST · secrets · dependency CVEs · workflow hardening ─
   security:

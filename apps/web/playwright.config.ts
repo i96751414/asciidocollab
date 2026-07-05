@@ -21,7 +21,10 @@ export default defineConfig({
   // bare local `npx playwright test` must not oversubscribe either. Override with PLAYWRIGHT_WORKERS
   // when you know the run won't contend (e.g. a single spec).
   workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 3,
-  reporter: [['line']],
+  // `line` for readable console output everywhere; in CI also emit the self-contained HTML report
+  // (traces/screenshots are copied into playwright-report/) that the workflow uploads as an artifact
+  // for debugging failures. `open: 'never'` so a failing CI run doesn't try to launch a browser.
+  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : [['line']],
   use: {
     baseURL: WEB_URL,
     trace: 'on-first-retry',

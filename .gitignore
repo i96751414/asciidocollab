@@ -55,6 +55,6 @@ apps/web/public/dictionaries/
 apps/web/public/vendor/
 
 /.claude/worktrees/
-/playwright-report/
+playwright-report/
 
 test-results/
