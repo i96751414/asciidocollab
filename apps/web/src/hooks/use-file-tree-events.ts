@@ -22,13 +22,25 @@ function getWorker(): SharedWorker | null {
 
 /** Per-type callbacks for the project SSE stream; every field is optional so a consumer opts into only what it needs. */
 export interface ProjectEventHandlers {
-  /** A structural file-tree change (created/deleted/renamed/moved). */
+  /**
+   * Handles a structural file-tree change (created/deleted/renamed/moved).
+   *
+   * @param event - The file-tree change event.
+   */
   onFileTreeEvent?: (event: FileTreeEventDto) => void;
-  /** A file's content changed live (a collaborator's edit) or was saved. */
+  /**
+   * Handles a file content change — a collaborator's live edit or a save.
+   *
+   * @param event - The content-changed event.
+   */
   onContentChanged?: (event: ContentChangedEventDto) => void;
-  /** The project's designated main file setting changed. */
+  /**
+   * Handles a change to the project's designated main file setting.
+   *
+   * @param event - The main-file-changed event.
+   */
   onMainFileChanged?: (event: MainFileChangedEventDto) => void;
-  /** The SSE connection dropped and reconnected; the consumer should resync from scratch. */
+  /** Handles an SSE reconnect; the consumer should resync from scratch. */
   onReconnect?: () => void;
 }
 
@@ -56,18 +68,21 @@ export function useFileTreeEvents(projectId: string, handlers: ProjectEventHandl
         return;
       }
       if (data?.type !== 'project-event') return;
-      const event = data.event as ProjectEventDto;
+      const event: ProjectEventDto = data.event;
       const current = handlersReference.current;
       switch (event.type) {
-        case 'content-changed':
+        case 'content-changed': {
           current.onContentChanged?.(event);
           break;
-        case 'main-file-changed':
+        }
+        case 'main-file-changed': {
           current.onMainFileChanged?.(event);
           break;
-        default:
+        }
+        default: {
           // Remaining union members are the structural file-tree events.
           current.onFileTreeEvent?.(event);
+        }
       }
     };
 

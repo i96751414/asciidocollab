@@ -155,7 +155,7 @@ export function useProjectSymbolIndex({
 
   const build = useCallback(async () => {
     // The live main-file anchor: a main-file-changed override when present, else the prop.
-    const root = anchorOverride.current !== undefined ? anchorOverride.current : rootFileId;
+    const root = anchorOverride.current === undefined ? rootFileId : anchorOverride.current;
     if (!root) {
       buildToken.current += 1;
       indexReference.current = null;
