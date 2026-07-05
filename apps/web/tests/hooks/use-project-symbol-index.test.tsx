@@ -32,7 +32,6 @@ function makeDeferred<T>(): Deferred<T> {
 function latestSseHandlers(): {
   onEvent: (event: FileTreeEventDto) => void;
   onContentChanged: (event: { type: 'content-changed'; fileNodeId: string }) => void;
-  onMainFileChanged: (event: { type: 'main-file-changed'; mainFileNodeId: string | null }) => void;
   onReconnect: () => void;
 } {
   const calls = mockFileTreeEvents.mock.calls;
@@ -40,7 +39,6 @@ function latestSseHandlers(): {
   return {
     onEvent: handlers.onFileTreeEvent!,
     onContentChanged: handlers.onContentChanged!,
-    onMainFileChanged: handlers.onMainFileChanged!,
     onReconnect: handlers.onReconnect!,
   };
 }
@@ -274,27 +272,53 @@ describe('useProjectSymbolIndex', () => {
     expect(mockGetContent.mock.calls.length).toBe(before); // 'c' is not a dependency — no rebuild
   });
 
-  test('a main-file-changed frame retargets the resolution anchor and rebuilds unconditionally', async () => {
-    const { result } = renderHook(() =>
-      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'a', openFileId: 'a', liveContent: CONTENT.a }),
+  test('rebuilds against the new root when the rootFileId prop changes (host retargets the main file)', async () => {
+    const { result, rerender } = renderHook(
+      ({ root }: { root: string }) =>
+        useProjectSymbolIndex({ projectId: 'p1', rootFileId: root, openFileId: 'a', liveContent: CONTENT.a }),
+      { initialProps: { root: 'a' } },
     );
     await waitFor(() => expect(result.current.index).not.toBeNull());
     // Rooted at 'a', b.adoc is unreachable, so its anchor does not resolve.
     expect(result.current.index!.resolveXref('anchor-b')).toBe('unresolved');
-    const v0 = result.current.reachableDocVersion;
 
-    // The project main file becomes 'main' (which includes a + b) — the anchor retargets even though
-    // 'main' is not in the current dependency graph.
-    const { onMainFileChanged } = latestSseHandlers();
-    await act(async () => {
-      onMainFileChanged({ type: 'main-file-changed', mainFileNodeId: 'main' });
-    });
-
+    // The host retargets the root to 'main' (which includes a + b) after a main-file change.
+    rerender({ root: 'main' });
     await waitFor(() => expect(result.current.index!.resolveXref('anchor-b')).not.toBe('unresolved'));
-    expect(result.current.reachableDocVersion).toBeGreaterThan(v0);
   });
 
-  test('coalesces a burst of content-changed frames for one file into a bounded recompute (FR-012/020)', async () => {
+  test('a content-changed frame arriving before the first build resolves still invalidates + rebuilds', async () => {
+    const firstContent = makeDeferred<string>();
+    let served = false;
+    mockGetContent.mockImplementation((_projectId: string, fileId: string) => {
+      if (!served) {
+        served = true;
+        return firstContent.promise;
+      }
+      return Promise.resolve(fileId === 'a' ? '[[anchor-a]]\n== Section A Edited\n' : (CONTENT[fileId] ?? ''));
+    });
+
+    const { result } = renderHook(() =>
+      useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
+    );
+    await waitFor(() => expect(mockGetContent).toHaveBeenCalled());
+    expect(result.current.index).toBeNull(); // initial build still in flight
+
+    // A frame for 'a' arrives while the index is null — it must not be dropped.
+    const { onContentChanged } = latestSseHandlers();
+    await act(async () => {
+      onContentChanged({ type: 'content-changed', fileNodeId: 'a' });
+      firstContent.resolve(CONTENT.main);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.index).not.toBeNull());
+    await waitFor(() =>
+      expect(mockGetContent.mock.calls.filter((call) => call[1] === 'a').length).toBeGreaterThan(0),
+    );
+  });
+
+  test('coalesces a burst of content-changed frames for one file into a bounded recompute', async () => {
     const { result } = renderHook(() =>
       useProjectSymbolIndex({ projectId: 'p1', rootFileId: 'main', openFileId: 'main', liveContent: CONTENT.main }),
     );
@@ -323,7 +347,7 @@ describe('useProjectSymbolIndex', () => {
     expect(aRefetches).toBeGreaterThan(0); // but the change WAS picked up (converges on the final value)
   });
 
-  test('keeps resolution bounded/safe when a content-changed rebuild hits a self-referential include (FR-013)', async () => {
+  test('keeps resolution bounded/safe when a content-changed rebuild hits a self-referential include', async () => {
     // A collaborator turns a.adoc into a self-include (a→a) and b already includes a (b→a→a…).
     mockGetContent.mockImplementation((_projectId: string, fileId: string) => {
       if (fileId === 'a') return Promise.resolve('include::a.adoc[]\n[[anchor-a]]\n');

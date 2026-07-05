@@ -22,7 +22,7 @@ export const undoRequestEffect = StateEffect.define<null>();
 /**
  * A collaborator changed some project file's content. While a suggestion is visible, the plugin
  * re-runs the project-wide usage/collision lookup so its reference count, file count, and collision
- * state reflect peers' live edits before Apply (feature 036, FR-010). Dispatched by the editor host
+ * state reflect peers' live edits before Apply. Dispatched by the editor host
  * on a (debounced) content-changed signal for any project file.
  */
 export const contentChangedRefreshEffect = StateEffect.define<null>();

@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// US2 / SC-002 (FR-002/006): the editor's treatment of an inherited attribute recomputes on a
+// The editor's treatment of an inherited attribute recomputes on a
 // collaborator's live change. A known/inherited attribute reference folds to its resolved value
 // (.cm-ad-attr-value); an unknown one stays raw. Client B live-adds then removes the parent's
 // definition; A's `{flag}` reference flips known↔undefined in the editor. Requires apps/api + collab.

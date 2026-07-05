@@ -56,7 +56,7 @@ interface AsciiDocEditorProperties {
   inheritedAttributes?: ReadonlyMap<string, string>;
   /** The open file's resolved cross-document attribute scope (inherited + own), for `{name}` known highlighting. */
   resolvedScope?: ReadonlyMap<string, string>;
-  /** Bumped when a collaborator changes any project file, so a visible rename offer re-queries its counts (FR-010). */
+  /** Bumped when a collaborator changes any project file, so a visible rename offer re-queries its counts. */
   renameRefreshNonce?: number;
   /** Live request to reveal a line in the open editor (same-file go-to-definition). */
   revealRequest?: { line: number; nonce: number } | null;

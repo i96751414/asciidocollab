@@ -1,12 +1,11 @@
 /**
  * A subtle, on-demand indicator that some of the open document's inherited inputs are resolved from
  * last-saved content rather than a collaborator's live session — shown when a reachable related file's
- * current content could not be obtained live (a fetch failure or a dropped SSE delivery) (feature 036,
- * FR-021).
+ * current content could not be obtained live (a fetch failure or a dropped SSE delivery).
  *
- * Deliberately quiet per Principles V/VI: design-token styled (correct in light and dark), no
- * disruptive warning colour, and it renders nothing when everything is live. It carries an accessible
- * label and a tooltip explaining the state rather than shouting an error.
+ * Deliberately quiet: design-token styled (correct in light and dark), no disruptive warning colour,
+ * and it renders nothing when everything is live. It carries an accessible label and a tooltip
+ * explaining the state rather than shouting an error.
  */
 interface NonLiveIndicatorProperties {
   /** Whether some inherited inputs are currently from last-saved (non-live) content. */

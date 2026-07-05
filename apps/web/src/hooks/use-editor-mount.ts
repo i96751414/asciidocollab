@@ -125,8 +125,8 @@ interface UseEditorMountOptions {
   renameSuggestionExtension?: Extension;
   /**
    * Monotonic counter bumped when a collaborator changes any project file's content. Nudges the
-   * rename-suggestion plugin to re-query its usage/collision counts while an offer is visible
-   * (feature 036, FR-010). Undefined ⇒ no external refresh.
+   * rename-suggestion plugin to re-query its usage/collision counts while an offer is visible.
+   * Undefined ⇒ no external refresh.
    */
   renameRefreshNonce?: number;
   /**
@@ -425,7 +425,7 @@ export function useEditorMount({
   }, [resolvedScope]);
 
   // A collaborator changed some project file: nudge the rename-suggestion plugin to re-query its
-  // usage/collision counts for a visible offer (FR-010). Skips the initial mount (nonce 0/undefined).
+  // usage/collision counts for a visible offer. Skips the initial mount (nonce 0/undefined).
   useEffect(() => {
     if (!renameRefreshNonce) return;
     viewReference.current?.dispatch({ effects: contentChangedRefreshEffect.of(null) });

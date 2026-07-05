@@ -157,7 +157,7 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // A save changes a file's persisted content — tell any open dependent documents to refresh so a
-      // sessionless (or session) save propagates without a reconnect or structural event (US6/FR-017).
+      // sessionless (or session) save propagates without a reconnect or a structural file event.
       request.server.fileTreeEventBus.emit(projectId.value, {
         type: 'content-changed',
         fileNodeId: fileNodeId.value,

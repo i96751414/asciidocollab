@@ -76,7 +76,7 @@ export async function compositionRoot() {
     fileNodeRepository,
   );
 
-  // Notifies the API of live edits so open dependents recompute (feature 036). Best-effort, off the
+  // Notifies the API of live edits so open dependent documents recompute. Best-effort, off the
   // Yjs hot path; reuses the same mTLS transport as the auth hook when configured.
   const changeNotifierExtension = new ChangeNotifierExtension({
     apiInternalUrl: config.get('apiInternalUrl'),

@@ -1,5 +1,5 @@
 import { ChangeNotifierExtension } from '../../src/extensions/change-notifier';
-import type { onChangePayload, beforeHandleMessagePayload } from '@hocuspocus/server';
+import type { onChangePayload } from '@hocuspocus/server';
 
 const PROJECT_ID = '550e8400-e29b-41d4-a716-446655440001';
 const YJS_STATE_ID = '550e8400-e29b-41d4-a716-446655440002';
@@ -59,12 +59,17 @@ describe('ChangeNotifierExtension', () => {
     const extension = makeExtension(fetchFunction);
 
     await extension.onChange(changePayload());
-    await extension.beforeHandleMessage({ documentName: DOCUMENT_NAME } as unknown as beforeHandleMessagePayload);
+    await extension.onChange(changePayload());
     await extension.onChange(changePayload());
     jest.advanceTimersByTime(100);
     await Promise.resolve();
 
     expect(fetchFunction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not expose a beforeHandleMessage hook (avoids firing on awareness/sync traffic)', () => {
+    const extension = makeExtension(okFetch());
+    expect((extension as unknown as { beforeHandleMessage?: unknown }).beforeHandleMessage).toBeUndefined();
   });
 
   it('skips presence rooms (no notify)', async () => {

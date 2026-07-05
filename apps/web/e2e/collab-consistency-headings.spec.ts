@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, editorContent } from './helpers/editor';
 
-// US3 / SC-003 (FR-007): headings, the assembled outline, and cross-references stay consistent with a
+// Headings, the assembled outline, and cross-references stay consistent with a
 // collaborator's live structural edits to a related file. A views the full-document outline; B live-
 // edits a heading in an included sibling; A's assembled outline adopts it — the same reachableDocVersion
 // recompute that keeps inherited heading IDs consistent. Requires apps/api AND apps/collab running.

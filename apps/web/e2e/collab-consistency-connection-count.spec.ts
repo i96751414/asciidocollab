@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, editorContent } from './helpers/editor';
 
-// SC-007 (FR-024): with the observer subsystem removed, a client reaching MANY related files holds no
+// With the observer subsystem removed, a client reaching MANY related files holds no
 // per-related-file collaborative sockets — only its own open document's room (and presence). The
 // number of collaborative WebSockets must NOT scale with the number of related files. The project SSE
 // is a single shared EventSource (not a WebSocket), so it is not counted here. Requires apps/api +
@@ -49,7 +49,7 @@ test.describe('Collab consistency — connection count does not scale with relat
     await page.waitForTimeout(3000);
 
     // The open file's own room + presence is a small constant; there must be NO extra socket per
-    // related file (before feature 036 this would have been ~4 observer sockets for c2..c4 + main).
+    // related file (before this change there would have been ~4 observer sockets for c2..c4 + main).
     expect(collabSockets.size).toBeLessThanOrEqual(3);
   });
 });

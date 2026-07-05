@@ -387,7 +387,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('a content-changed refresh re-queries usages and updates the visible offer count (FR-010)', async () => {
+  test('a content-changed refresh re-queries usages and updates the visible offer count', async () => {
     // A collaborator adds a reference to the old name live: the reported count must rise before Apply.
     let editionUsages: SymbolUsage[] = [u('F', 'definition', 0), u('G', 'xref', 5), u('G', 'xref', 20)];
     const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
@@ -411,7 +411,7 @@ describe('rename suggestion state machine', () => {
     view.destroy();
   });
 
-  test('a content-changed refresh withdraws the offer when the last occurrence is removed (FR-010)', async () => {
+  test('a content-changed refresh withdraws the offer when the last occurrence is removed', async () => {
     let editionUsages: SymbolUsage[] = [u('F', 'definition', 0), u('G', 'xref', 5)];
     const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
       name === 'edition' ? editionUsages : [],

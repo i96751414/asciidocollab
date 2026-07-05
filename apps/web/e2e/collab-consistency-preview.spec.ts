@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
 
-// US1 / SC-001 (FR-001/003/005/006): a collaborator's UNSAVED live edit to a parent's inherited
+// A collaborator's UNSAVED live edit to a parent's inherited
 // attribute re-renders the open child's preview. Requires apps/api AND apps/collab running.
 //
 // Client A opens the child and shows its preview (the child references {productName}, inherited from

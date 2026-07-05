@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent, getEditorText } from './helpers/editor';
 
-// FR-015 (edge case "Concurrent edits to the open document itself"): A edits the open document locally
+// Edge case "concurrent edits to the open document itself": A edits the open document locally
 // WHILE B changes its inherited context live. Both A's own edit and the inherited change must be
 // reflected; neither clobbers the other's derived state. Requires apps/api AND apps/collab running.
 

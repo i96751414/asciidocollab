@@ -218,7 +218,7 @@ function makePlugin(config: RenameSuggestionConfig) {
       /**
        * A collaborator changed some project file. Debounce, then re-query the project-wide usage and
        * collision for a VISIBLE (non-applied) offer so its counts, collision, and suppression reflect
-       * peers' live edits before Apply (FR-010). An applied offer keeps its Undo affordance untouched.
+       * peers' live edits before Apply. An applied offer keeps its Undo affordance untouched.
        */
       private scheduleRefresh() {
         const shown = this.view.state.field(suggestionField);

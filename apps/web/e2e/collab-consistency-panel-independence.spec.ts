@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
 
-// US5 / SC-009 (FR-016): cross-file consistency must NOT depend on the outline panel being open. With
+// Cross-file consistency must NOT depend on the outline panel being open. With
 // the left panel on the file tree (outline hidden), a collaborator's live inherited-attribute change
 // still updates the open document's derived views — the removed observer subsystem used to gate this
 // on outline visibility. Requires apps/api AND apps/collab running.

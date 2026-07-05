@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, openProject, openFile, editorContent, renameFirstWord } from './helpers/editor';
 
-// US4 / SC-004+SC-005 (FR-010/011): while A's rename suggestion is visible, its reference count and
+// While A's rename suggestion is visible, its reference count and
 // collision state track a collaborator's LIVE edits before Apply, and Apply then rewrites every
 // live+persisted occurrence with a single-step undo. Requires apps/api AND apps/collab running.
 

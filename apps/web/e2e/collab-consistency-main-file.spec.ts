@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview } from './helpers/editor';
 
-// FR-009 (edge case "Main/root file change"): when the project's designated main file changes, every
+// Edge case "main/root file change": when the project's designated main file changes, every
 // open document's inherited context — anchored at the main file — must re-resolve with no reload.
 // Client B changes the project main file; A's open child re-resolves its inherited attribute against
 // the new anchor. Requires apps/api running (the SSE + main-file path).

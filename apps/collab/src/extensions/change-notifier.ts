@@ -1,4 +1,4 @@
-import type { Extension, onChangePayload, beforeHandleMessagePayload } from '@hocuspocus/server';
+import type { Extension, onChangePayload } from '@hocuspocus/server';
 import type { Logger } from 'pino';
 import { isPresenceRoom } from '@asciidocollab/shared';
 
@@ -41,13 +41,13 @@ export class ChangeNotifierExtension implements Extension {
     this.fetchFunction = options.fetch ?? globalThis.fetch;
   }
 
-  /** Fires after a document update is applied — the primary change signal. */
+  /**
+   * Fires after a document's content actually changes — the authoritative, precise signal. Deliberately
+   * NOT hooked into `beforeHandleMessage`: that fires for every raw inbound frame (awareness/cursor
+   * traffic, initial sync on connect), which would both spam dependents on non-edits and let a steady
+   * awareness stream keep resetting the per-room debounce so a real edit's notify never fires.
+   */
   async onChange(payload: onChangePayload): Promise<void> {
-    this.scheduleNotify(payload.documentName);
-  }
-
-  /** Fires on every inbound update — a fallback signal that shares the per-room debounce. */
-  async beforeHandleMessage(payload: beforeHandleMessagePayload): Promise<void> {
     this.scheduleNotify(payload.documentName);
   }
 

@@ -58,7 +58,7 @@ interface ContentAreaProperties {
   inheritedAttributes?: ReadonlyMap<string, string>;
   // The open file's resolved cross-document scope (inherited + own), for `{name}` known highlighting.
   resolvedScope?: ReadonlyMap<string, string>;
-  // Bumped when a collaborator changes any project file, so a visible rename offer re-queries (FR-010).
+  // Bumped when a collaborator changes any project file, so a visible rename offer re-queries.
   renameRefreshNonce?: number;
   // Live request to reveal a line in the open editor (same-file go-to-definition).
   revealRequest?: { line: number; nonce: number } | null;
@@ -217,7 +217,7 @@ export function ProjectEditorLayout({
   // Layout-shell + live-content state: main-file selection, sidebar + preview visibility, and the
   // live editor buffer that feeds the preview.
   const {
-    mainFile,
+    mainFile, setMainFile,
     sidebarOpen, setSidebarOpen, sidebarResize,
     previewOpen, togglePreview,
     liveContent, liveOverlayContent, handleChange,
@@ -227,8 +227,7 @@ export function ProjectEditorLayout({
     content: contentState.content,
   });
 
-  // Editor preferences (read before the symbol index so the outline's visibility can gate live
-  // collaborative observers — see `observeReachableDocs` below).
+  // Editor preferences (preview style, outline scope/visibility, included-file display).
   const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
 
   // Cross-file symbol index: rooted at the configured main file, or the open file when
@@ -244,17 +243,20 @@ export function ProjectEditorLayout({
     liveContent: liveOverlayContent,
   });
 
-  // Rename freshness (036/FR-010): a rename suggestion's project-wide counts/collision must track a
-  // collaborator's edits to ANY project file — including files outside the open document's dependency
-  // graph — so this subscription is intentionally unfiltered (the symbol index's content-changed
-  // handler filters by reachability, which is too narrow for a project-wide rename). The bumped nonce
-  // nudges the editor's rename plugin to re-query while an offer is visible.
+  // Rename freshness: a rename suggestion's project-wide counts/collision must track a collaborator's
+  // edits to ANY project file — including files outside the open document's dependency graph — so this
+  // subscription is intentionally unfiltered (the symbol index's content-changed handler filters by
+  // reachability, which is too narrow for a project-wide rename). The bumped nonce nudges the editor's
+  // rename plugin to re-query while an offer is visible.
   const [renameRefreshNonce, setRenameRefreshNonce] = useState(0);
-  // Non-live indicator (036/FR-021): a dropped SSE delivery means related content may be resolved from
-  // last-saved rather than a live session, until the connection recovers and the index rebuilds.
+  // A dropped SSE delivery means related content may be resolved from last-saved rather than a live
+  // session, until the connection recovers and the index rebuilds; surface that subtly to the user.
   const [nonLive, setNonLive] = useState(false);
   useFileTreeEvents(projectId, {
     onContentChanged: () => setRenameRefreshNonce((nonce) => nonce + 1),
+    // A collaborator changed the project's main file: update the single source of truth so BOTH the
+    // symbol index's root and the preview root re-resolve against the new anchor (no split-brain).
+    onMainFileChanged: (event) => setMainFile(event.mainFileNodeId),
     onReconnect: () => setNonLive(true),
   });
   // A rebuild (reachableDocVersion bump) after the connection recovers clears the non-live state.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ContentChangedEventDto, FileTreeEventDto, MainFileChangedEventDto } from '@asciidocollab/shared';
+import type { ContentChangedEventDto, FileTreeEventDto } from '@asciidocollab/shared';
 import {
   buildProjectSymbolIndex,
   makeIncludeResolver,
@@ -137,16 +137,6 @@ export function useProjectSymbolIndex({
     liveOverlay.current = next;
   }
 
-  // Resolution anchor override: normally the `rootFileId` prop drives the anchor, but a
-  // `main-file-changed` SSE frame can retarget it before the layout's own project state catches up
-  // (FR-009). `undefined` ⇒ not overridden. Cleared when the prop moves, so the prop stays authoritative.
-  const anchorOverride = useRef<string | null | undefined>(undefined);
-  const previousRootFileId = useRef(rootFileId);
-  if (previousRootFileId.current !== rootFileId) {
-    previousRootFileId.current = rootFileId;
-    anchorOverride.current = undefined;
-  }
-
   const readContent = useCallback((fileId: string): string | null => {
     const overlay = liveOverlay.current;
     if (overlay.id !== null && fileId === overlay.id && overlay.text !== null) return overlay.text;
@@ -154,8 +144,7 @@ export function useProjectSymbolIndex({
   }, []);
 
   const build = useCallback(async () => {
-    // The live main-file anchor: a main-file-changed override when present, else the prop.
-    const root = anchorOverride.current === undefined ? rootFileId : anchorOverride.current;
+    const root = rootFileId;
     if (!root) {
       buildToken.current += 1;
       indexReference.current = null;
@@ -238,14 +227,17 @@ export function useProjectSymbolIndex({
     },
     [build],
   );
+  // A dropped SSE connection reconnected: the cache may be stale, so clear it, rebuild, and bump the
+  // recompute counter — the latter is what lets the editor host clear its "last-saved" indicator once
+  // the connection has recovered (without it the counter would only move on the next collaborator edit).
   const handleReconnect = useCallback(() => {
     treeLoaded.current = false;
     contentCache.current.clear();
-    build();
+    void build().then(() => setReachableDocumentVersion((v) => v + 1));
   }, [build]);
 
   // Coalesce a burst of content-changed frames into at most one fetch+rebuild per microtask batch;
-  // the build's token check supersedes any still-in-flight build so recompute stays bounded (FR-020).
+  // the build's token check supersedes any still-in-flight build so recompute stays bounded.
   const contentChangedScheduled = useRef(false);
   const flushContentChanged = useCallback(() => {
     contentChangedScheduled.current = false;
@@ -253,31 +245,18 @@ export function useProjectSymbolIndex({
   }, [build]);
 
   // A collaborator's live edit (or a peer's save) to a reachable, non-open file: invalidate that
-  // file's cached content and rebuild so every derived view re-resolves from one refreshed snapshot
-  // (FR-018). The open file is skipped — its own editor holds the authoritative live copy — and a
-  // file outside this document's dependency graph is irrelevant (client-side relevance filter, D4).
+  // file's cached content and rebuild so every derived view re-resolves from one refreshed snapshot.
+  // The open file is skipped — its own editor holds the authoritative live copy. A file already known
+  // to be outside this document's dependency graph is ignored (client-side relevance filter); but
+  // before the first build resolves the graph is unknown, so a frame arriving mid-initial-build still
+  // invalidates the cache and schedules a rebuild rather than being dropped.
   const handleContentChanged = useCallback(
     (event: ContentChangedEventDto) => {
       const fileId = event.fileNodeId;
       if (fileId === liveOverlay.current.id) return;
       const built = indexReference.current;
-      if (!built || !built.tree.nodes.includes(fileId)) return;
+      if (built && !built.tree.nodes.includes(fileId)) return;
       contentCache.current.delete(fileId);
-      if (!contentChangedScheduled.current) {
-        contentChangedScheduled.current = true;
-        queueMicrotask(flushContentChanged);
-      }
-    },
-    [flushContentChanged],
-  );
-
-  // The project's main file changed: retarget the resolution anchor and rebuild UNCONDITIONALLY —
-  // an anchor change can add or drop reachability for any open document, so there is no dependency-
-  // graph membership check (FR-009). A cleared main file (null) falls back to the open file, matching
-  // the layout's `mainFile ?? selectedFile` derivation (the open document resolves from itself).
-  const handleMainFileChanged = useCallback(
-    (event: MainFileChangedEventDto) => {
-      anchorOverride.current = event.mainFileNodeId ?? liveOverlay.current.id ?? null;
       if (!contentChangedScheduled.current) {
         contentChangedScheduled.current = true;
         queueMicrotask(flushContentChanged);
@@ -289,7 +268,6 @@ export function useProjectSymbolIndex({
   useFileTreeEvents(projectId, {
     onFileTreeEvent: handleEvent,
     onContentChanged: handleContentChanged,
-    onMainFileChanged: handleMainFileChanged,
     onReconnect: handleReconnect,
   });
 

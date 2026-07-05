@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
 
-// FR-008 (edge case "Reachability changes"): a collaborator's live include:: edit changes which files
+// Edge case "reachability changes": a collaborator's live include:: edit changes which files
 // are in the open document's context. A file that ENTERS starts contributing its attributes; a file
 // that LEAVES stops. Requires apps/api AND apps/collab running.
 

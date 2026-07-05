@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, writeFileContent } from './helpers/editor';
 
-// US6 / SC-010 (FR-017): a collaborator's plain content SAVE to a related file (no live session)
+// A collaborator's plain content SAVE to a related file (no live session)
 // propagates to open dependents best-effort — no reconnect, no structural event, no manual refresh.
 // Client B here saves via REST (the sessionless write path), which emits content-changed on the bus.
 // Requires apps/api running (the SSE + save path); no collab session is involved.

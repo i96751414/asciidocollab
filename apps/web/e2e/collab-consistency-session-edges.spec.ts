@@ -3,7 +3,7 @@ import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
 import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
 
-// US7 / SC-008 (FR-003): related files with no active session resolve from persisted content and
+// Related files with no active session resolve from persisted content and
 // switch to live automatically on session start, then back to persisted on session end — with no
 // stale intermediate. Requires apps/api AND apps/collab running.
 
