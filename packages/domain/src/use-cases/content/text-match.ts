@@ -27,12 +27,6 @@ function isWholeWordAt(content: string, from: number, to: number): boolean {
   return !isWordChar(before) && !isWordChar(after);
 }
 
-function pushLiteralMatch(spans: MatchSpan[], content: string, query: SearchQuery, from: number, to: number): void {
-  if (!query.wholeWord || isWholeWordAt(content, from, to)) {
-    spans.push({ from, to, groups: [content.slice(from, to)] });
-  }
-}
-
 function literalMatches(content: string, query: SearchQuery, budget: MatchBudget): MatchSpan[] {
   const needle = query.text;
   if (needle.length === 0) return [];
@@ -47,8 +41,12 @@ function literalMatches(content: string, query: SearchQuery, budget: MatchBudget
       const index = content.indexOf(needle, from);
       if (index === -1) break;
       const end = index + needle.length;
-      pushLiteralMatch(spans, content, query, index, end);
-      from = end;
+      if (!query.wholeWord || isWholeWordAt(content, index, end)) {
+        spans.push({ from: index, to: end, groups: [content.slice(index, end)] });
+        from = end; // matches don't overlap; resume past the accepted match
+      } else {
+        from = index + 1; // whole-word rejection — resume one char on, so an overlapping candidate still counts
+      }
     }
     return spans;
   }
@@ -63,16 +61,16 @@ function literalMatches(content: string, query: SearchQuery, budget: MatchBudget
   const needleLength = needle.length;
   for (let index = 0; index + needleLength <= content.length; ) {
     if (spans.length >= budget.maxMatches || now() >= budget.deadline) break;
-    if (content[index].toLowerCase() !== lowerFirst) {
-      index += 1;
-      continue;
-    }
-    if (content.slice(index, index + needleLength).toLowerCase() === lowerNeedle) {
-      const end = index + needleLength;
-      pushLiteralMatch(spans, content, query, index, end);
-      index = end;
+    const end = index + needleLength;
+    if (
+      content[index].toLowerCase() === lowerFirst &&
+      content.slice(index, end).toLowerCase() === lowerNeedle &&
+      (!query.wholeWord || isWholeWordAt(content, index, end))
+    ) {
+      spans.push({ from: index, to: end, groups: [content.slice(index, end)] });
+      index = end; // matches don't overlap; resume past the accepted match
     } else {
-      index += 1;
+      index += 1; // no match (or whole-word rejection) — try the next position
     }
   }
   return spans;

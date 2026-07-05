@@ -46,6 +46,18 @@ describe('computeMatches — literal', () => {
     expect(result.value.map((s) => s.from)).toEqual([0, 14]);
   });
 
+  it('finds an overlapping whole-word occurrence after a boundary-rejected candidate', () => {
+    // "a.a" at offset 1 is rejected (preceded by word char "x"); the overlapping "a.a" at offset 3
+    // (preceded by ".", at end of string) is a valid whole word and must still be found.
+    const sensitive = computeMatches('xa.a.a', query({ text: 'a.a', wholeWord: true }), undefined, budget());
+    if (!sensitive.success) return;
+    expect(sensitive.value.map((s) => s.from)).toEqual([3]);
+
+    const insensitive = computeMatches('XA.a.A', query({ text: 'a.a', wholeWord: true, caseSensitive: false }), undefined, budget());
+    if (!insensitive.success) return;
+    expect(insensitive.value.map((s) => s.from)).toEqual([3]);
+  });
+
   it('treats regex-special characters literally in literal mode', () => {
     const result = computeMatches('a.b axb a.b', query({ text: 'a.b' }), undefined, budget());
     if (!result.success) return;
