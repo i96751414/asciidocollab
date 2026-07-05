@@ -83,7 +83,6 @@
     "@tailwindcss/postcss": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/dompurify": "^3.0.5",
     "@types/node": "^24.12.4",
     "@types/nspell": "^2.1.6",
     "@types/react": "^19.2.15",
