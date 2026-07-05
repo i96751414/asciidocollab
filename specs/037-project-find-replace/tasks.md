@@ -101,9 +101,9 @@ description: "Task list for Project-Wide Find and Replace Panel"
 
 **Purpose**: Cross-story verification and the mandated end-of-feature gate.
 
-- [ ] T026 [P] Two-client Playwright E2E: project-wide search (open + dormant files), replace on an **open session** (live merge) and a **dormant file** (persisted), regex capture-group substitution, per-match exclude, audit entry, and **per-file undo** (open an affected file, undo, verify the replacement reverts; confirm there is no cross-file bulk-undo affordance — FR-018) — under `apps/web/tests/` (per quickstart.md; covers SC-001/003/004/005, FR-010/011/018).
-- [ ] T027 [P] E2E/UX verification of the regex safety + limits surface: invalid-pattern inline error, known ReDoS pattern stays bounded and non-blocking (SC-008), capped-total "refine" affordance, and `skippedFiles` surfaced — under `apps/web/tests/`.
-- [ ] T028 [P] E2E for the in-editor restyle + scroll-sync no-regression, and Search-tab remembered-across-reload (FR-002/SC-007, Principle VIII) — under `apps/web/tests/`.
+- [X] T026 [P] Two-client Playwright E2E: project-wide search (open + dormant files), replace on an **open session** (live merge) and a **dormant file** (persisted), regex capture-group substitution, per-match exclude, audit entry, and **per-file undo** (open an affected file, undo, verify the replacement reverts; confirm there is no cross-file bulk-undo affordance — FR-018) — under `apps/web/tests/` (per quickstart.md; covers SC-001/003/004/005, FR-010/011/018).
+- [X] T027 [P] E2E/UX verification of the regex safety + limits surface: invalid-pattern inline error, known ReDoS pattern stays bounded and non-blocking (SC-008), capped-total "refine" affordance, and `skippedFiles` surfaced — under `apps/web/tests/`.
+- [X] T028 [P] E2E for the in-editor restyle + scroll-sync no-regression, and Search-tab remembered-across-reload (FR-002/SC-007, Principle VIII) — under `apps/web/tests/`.
 - [ ] T029 Run `pnpm gate` (lint, typecheck, unit + integration + security scan + e2e across every touched package) and execute `/code-review` in a loop until zero findings (Constitution §End-of-Feature Verification). Run `quickstart.md` end-to-end.
 
 ---
