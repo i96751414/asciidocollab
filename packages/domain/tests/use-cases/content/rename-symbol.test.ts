@@ -225,6 +225,115 @@ describe('RenameSymbolUseCase', () => {
     expect(book).not.toContain('<<intro>>');
   });
 
+  it('with definitionAlreadyRenamed, renames a heading despite an unrelated same-id section in another file', async () => {
+    // The author retyped `== Section title` → `== New Title` in book.adoc; a `<<_section_title>>`
+    // reference lingers. chapter.adoc independently has its OWN `== Section title` deriving the same
+    // auto-id `_section_title`. Those are DISTINCT sections — the coincidental id must not trip the
+    // merge guard (previously it did: Apply silently failed). The reference must still rewrite, and the
+    // unrelated section must stay untouched.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('<<_section_title>>\n\n== New Title\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('== Section title\n\nbody\n'));
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: '_section_title',
+      newName: '_new_title',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(await read('/book.adoc')).toContain('<<_new_title>>');
+    expect(await read('/book.adoc')).not.toContain('<<_section_title>>');
+    expect(await read('/chapter.adoc')).toBe('== Section title\n\nbody\n'); // unrelated section untouched
+  });
+
+  it('with definitionAlreadyRenamed, does not clobber an unrelated file\'s own reference to its same-id section', async () => {
+    // chapter.adoc independently has `== Section title` AND its own `<<_section_title>>` pointing at it.
+    // Renaming book's (already-retitled) heading must rewrite book's lingering reference but leave
+    // chapter untouched — chapter's reference resolves to chapter's OWN section, so rewriting it would
+    // dangle it (its heading keeps the old id).
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('<<_section_title>>\n\n== New Title\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('== Section title\n\nSee <<_section_title>>.\n'));
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: '_section_title',
+      newName: '_new_title',
+      definitionAlreadyRenamed: true,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(await read('/book.adoc')).toContain('<<_new_title>>');
+    expect(await read('/chapter.adoc')).toBe('== Section title\n\nSee <<_section_title>>.\n'); // local ref intact
+  });
+
+  it('rewrites references in a file that declares the id with an explicit anchor even though a section shares it', async () => {
+    // `[[intro]]` above `== Intro` gives the section the explicit id `intro`, so the file owns the id
+    // via an ANCHOR (not a bare derived section). `<<intro>>` there must still be rewritten — the
+    // `ownsIdViaLocalSection` exception (a section alone would keep its references; a section declared
+    // by an explicit anchor does not).
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('[[intro]]\n== Intro\n\nSee <<intro>>.\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('No references.\n'));
+    const result = await useCase.execute(editorId, projectId, { symbolKind: 'anchor', oldName: 'intro', newName: 'overview' });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const book = await read('/book.adoc');
+    expect(book).toContain('[[overview]]');
+    expect(book).toContain('See <<overview>>'); // reference followed the explicit-anchor rename
+    expect(book).not.toContain('<<intro>>');
+  });
+
+  it('with definitionAlreadyRenamed, renames a heading onto an id an unrelated file\'s section already derives', async () => {
+    // The author retitled `== Foo` → `== Bar` in book (new id `_bar`), with a lingering `<<_foo>>`.
+    // chapter independently has its own `== Bar` (also `_bar`). Those are DISTINCT sections, so the new
+    // id is not a collision — Apply must proceed (previously the merge guard refused, so it silently
+    // no-oped), rewriting only book's reference.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('<<_foo>>\n\n== Bar\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('== Bar\n\nbody\n'));
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: '_foo',
+      newName: '_bar',
+      definitionAlreadyRenamed: true,
+      renamedDefinitionIsSection: true,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(await read('/book.adoc')).toContain('<<_bar>>');
+    expect(await read('/chapter.adoc')).toBe('== Bar\n\nbody\n'); // unrelated section untouched
+  });
+
+  it('with renamedDefinitionIsSection, blocks a heading rename onto an id an explicit anchor already holds', async () => {
+    // `:idprefix:` (empty) makes `== Bar` derive the letter-started id `bar`, which an explicit `[[bar]]`
+    // anchor in chapter can also carry (a `_`-prefixed derived id never could — anchor ids must start
+    // with a letter). The retyped heading is a section (contributes 0 to the new-name count), so the
+    // anchor is a genuine collision the server must reject independently — matching the client. Without
+    // the section flag the baseline of 1 would wrongly let this through.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':idprefix:\n\n<<foo>>\n\n== Bar\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('[[bar]]\nAnchor target.\n'));
+    const before = await read('/book.adoc');
+    const result = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: 'foo',
+      newName: 'bar',
+      definitionAlreadyRenamed: true,
+      renamedDefinitionIsSection: true,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBeInstanceOf(ValidationError);
+    expect(await read('/book.adoc')).toBe(before); // nothing rewritten
+
+    // The same shape for a retyped ANCHOR (renamedDefinitionIsSection defaults false) has a baseline of
+    // 1 — the author's own anchor — so a single other definition is expected, not a collision.
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from('[[bar]]\n\n<<foo>> and here.\n'));
+    await fileStore.write(projectId, FilePath.create('/chapter.adoc'), Buffer.from('No references.\n'));
+    const anchorResult = await useCase.execute(editorId, projectId, {
+      symbolKind: 'anchor',
+      oldName: 'foo',
+      newName: 'bar',
+      definitionAlreadyRenamed: true,
+    });
+    expect(anchorResult.success).toBe(true);
+  });
+
   it('with definitionAlreadyRenamed, blocks when a SECOND new-name definition exists even though the old name is gone', async () => {
     // The old name is defined nowhere (the author already retyped it), but two `:revision:`
     // definitions now exist across the project — a genuine collision (e.g. one raced in after the

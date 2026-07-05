@@ -76,6 +76,17 @@ describe('RenameSuggestionWidget', () => {
     expect(dispatch.mock.calls[0][0].effects.is(undoRequestEffect)).toBe(true);
   });
 
+  test('applied HEADING state offers no Undo (a heading rename cannot be reversed by the tool)', () => {
+    const { view } = fakeView();
+    const widget = new RenameSuggestionWidget({
+      oldName: '_intro', newName: '_overview', kind: 'heading', usageCount: 2, fileCount: 1, collision: false, revalidating: false, applied: true,
+    });
+    const dom = widget.toDOM(view);
+    expect(dom.querySelector('[data-testid="rename-suggestion-undo"]')).toBeNull();
+    expect(dom.textContent).toContain('Renamed');
+    expect(dom.querySelector('[data-testid="rename-suggestion-dismiss"]')).not.toBeNull(); // still dismissable
+  });
+
   test('Dismiss dispatches the dismiss request', () => {
     const { view, dispatch } = fakeView();
     const widget = new RenameSuggestionWidget({

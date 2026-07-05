@@ -17,10 +17,16 @@ import {
   contentChangedRefreshEffect,
 } from '@/lib/codemirror/rename-suggestion/rename-suggestion-effects';
 
-const u = (fileNodeId: string, kind: string, from: number): SymbolUsage => ({
+const u = (
+  fileNodeId: string,
+  kind: string,
+  from: number,
+  definitionKind: 'section' | 'anchor' | 'attribute' = 'attribute',
+): SymbolUsage => ({
   fileNodeId,
   path: `${fileNodeId}.adoc`,
   kind,
+  ...(kind === 'definition' && { definitionKind }),
   range: { from, to: from + 5 },
 });
 
@@ -122,6 +128,58 @@ describe('rename suggestion state machine', () => {
     beginRename(view);
     await jest.advanceTimersByTimeAsync(2000);
     expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('no heading suggestion when the id only appears as an unrelated same-title section in another file', async () => {
+    // Two independent files each headed `== Section title` derive the same auto-id `_section_title`,
+    // with no xref to it. Renaming one heading must not offer a phantom refactor for the other — the
+    // rename never rewrites another file's section heading.
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === '_section_title' ? [u('F', 'definition', 0, 'section'), u('B', 'definition', 50, 'section')] : [],
+    );
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount('== Section title\n\nbody\n', config);
+    view.dispatch({ selection: { anchor: 5 } }); // baseline captured on the heading: oldName = _section_title
+    view.dispatch({ changes: { from: 16, to: 16, insert: 'x' }, selection: { anchor: 17 } }); // retitle
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)).toBeNull();
+    expect(findSymbolUsages).toHaveBeenCalledWith('p1', '_section_title', 'anchor');
+    view.destroy();
+  });
+
+  test('still offers a heading rename when a real xref to its id exists', async () => {
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === '_section_title' ? [u('F', 'definition', 0, 'section'), u('B', 'xref', 50)] : [],
+    );
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount('== Section title\n\nbody\n', config);
+    view.dispatch({ selection: { anchor: 5 } });
+    view.dispatch({ changes: { from: 16, to: 16, insert: 'x' }, selection: { anchor: 17 } });
+    await jest.advanceTimersByTimeAsync(2000);
+    const s = shown(view);
+    expect(s?.status).toBe('visible');
+    expect(s?.usageCount).toBe(1);
+    view.destroy();
+  });
+
+  test('a heading rename whose new id collides with an explicit anchor still blocks apply', async () => {
+    // The new derived id `_section_titlex` is already held by an explicit `[[...]]` anchor elsewhere —
+    // a real collision the rename WOULD rewrite, so Apply must stay blocked (unlike a coincidental
+    // same-id section heading, which is not a collision).
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> => {
+      if (name === '_section_title') return [u('F', 'definition', 0, 'section'), u('B', 'xref', 50)];
+      if (name === '_section_titlex') return [u('C', 'definition', 80, 'anchor')];
+      return [];
+    });
+    const { config } = makeConfig({ findSymbolUsages });
+    const view = mount('== Section title\n\nbody\n', config);
+    view.dispatch({ selection: { anchor: 5 } });
+    view.dispatch({ changes: { from: 16, to: 16, insert: 'x' }, selection: { anchor: 17 } });
+    await jest.advanceTimersByTimeAsync(2000);
+    const heading = shown(view);
+    expect(heading?.status).toBe('visible');
+    expect(heading?.collision).toBe(true);
     view.destroy();
   });
 
@@ -352,6 +410,7 @@ describe('rename suggestion state machine', () => {
       oldName: 'edition',
       newName: 'release',
       definitionAlreadyRenamed: true,
+      renamedDefinitionIsSection: false,
     });
     expect(shown(view)?.status).toBe('applied');
 
@@ -359,6 +418,35 @@ describe('rename suggestion state machine', () => {
     await flush();
     expect(renameSymbol).toHaveBeenLastCalledWith('p1', { symbolKind: 'attribute', oldName: 'release', newName: 'edition' });
     expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('applying a heading rename flags the definition as a section and offers no undo', async () => {
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === '_section_title' ? [u('F', 'definition', 0, 'section'), u('B', 'xref', 50)] : [],
+    );
+    const { config, renameSymbol } = makeConfig({ findSymbolUsages });
+    const view = mount('== Section title\n\nbody\n', config);
+    view.dispatch({ selection: { anchor: 5 } });
+    view.dispatch({ changes: { from: 16, to: 16, insert: 'x' }, selection: { anchor: 17 } });
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(renameSymbol).toHaveBeenCalledWith('p1', {
+      symbolKind: 'anchor',
+      oldName: '_section_title',
+      newName: '_section_titlex',
+      definitionAlreadyRenamed: true,
+      renamedDefinitionIsSection: true,
+    });
+    expect(shown(view)?.status).toBe('applied');
+
+    // Undo would leave references dangling (the tool never retyped the heading), so it is a no-op.
+    view.dispatch({ effects: undoRequestEffect.of(null) });
+    await flush();
+    expect(renameSymbol).toHaveBeenCalledTimes(1); // no reverse rename issued
     view.destroy();
   });
 

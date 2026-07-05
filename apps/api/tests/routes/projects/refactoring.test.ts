@@ -86,7 +86,11 @@ describe('GET /projects/:projectId/symbol-usages', () => {
     const { usages } = response.json().data;
     // The [[intro]] definition in book + <<intro>> in book + two in chapter.
     expect(usages).toHaveLength(4);
-    expect(usages.filter((u: { kind: string }) => u.kind === 'definition')).toHaveLength(1);
+    const definitions = usages.filter((u: { kind: string }) => u.kind === 'definition');
+    expect(definitions).toHaveLength(1);
+    // The definition's kind survives the HTTP boundary (an explicit `[[intro]]` anchor), so the client
+    // can tell it from a derived section id — the round-trip guard for the definitionKind field.
+    expect(definitions[0].definitionKind).toBe('anchor');
     expect(usages.filter((u: { kind: string }) => u.kind === 'xref')).toHaveLength(3);
     await app.close();
   });

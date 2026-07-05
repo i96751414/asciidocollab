@@ -71,6 +71,29 @@ describe('FindReferencesUseCase', () => {
     expect(xrefs[0].range.from).toBeLessThan(xrefs[1].range.from);
   });
 
+  it('tags each definition with its kind: a derived section id vs an explicit anchor', async () => {
+    // A consumer must be able to tell a derived section id (never rewritten by a rename) from an
+    // explicit `[[id]]` anchor (which is), so an unrelated same-id heading is not miscounted.
+    const section = await useCase.execute(actorId, projectId, '_book'); // `= Book` → derived id
+    expect(section.success).toBe(true);
+    if (!section.success) return;
+    const sectionDefinition = section.value.find((usage) => usage.kind === 'definition');
+    expect(sectionDefinition?.definitionKind).toBe('section');
+
+    const anchor = await useCase.execute(actorId, projectId, 'intro'); // `[[intro]]` explicit anchor
+    expect(anchor.success).toBe(true);
+    if (!anchor.success) return;
+    const anchorDefinition = anchor.value.find((usage) => usage.kind === 'definition');
+    expect(anchorDefinition?.definitionKind).toBe('anchor');
+
+    await fileStore.write(projectId, FilePath.create('/book.adoc'), Buffer.from(':edition: 5\n\n{edition}\n'));
+    const attribute = await useCase.execute(actorId, projectId, 'edition', 'attribute');
+    expect(attribute.success).toBe(true);
+    if (!attribute.success) return;
+    const attributeDefinition = attribute.value.find((usage) => usage.kind === 'definition');
+    expect(attributeDefinition?.definitionKind).toBe('attribute');
+  });
+
   it('returns the definition site for a symbol that is defined but never referenced (the folder2 case)', async () => {
     // An attribute declared in a file but used nowhere must still be discoverable — otherwise
     // find-usages reports "not found" for a symbol the user just defined.
