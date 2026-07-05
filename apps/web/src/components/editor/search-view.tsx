@@ -1,5 +1,6 @@
 'use client';
-import { CaseSensitive, WholeWord, Regex } from 'lucide-react';
+import { useState } from 'react';
+import { CaseSensitive, WholeWord, Regex, Replace, ReplaceAll } from 'lucide-react';
 import type { FileMatchGroupDto, SearchMatchDto } from '@asciidocollab/shared';
 import { useProjectSearch } from '@/hooks/use-project-search';
 
@@ -23,6 +24,16 @@ interface SearchViewProperties {
   onNavigate: (target: SearchResultTarget) => void;
 }
 
+/** Replace controls threaded down to each result row. */
+interface ReplaceControls {
+  replacement: string;
+  showReplace: boolean;
+  isExcluded: (fileNodeId: string, ordinal: number) => boolean;
+  toggleExcluded: (fileNodeId: string, ordinal: number) => void;
+  onReplaceMatch: (fileNodeId: string, ordinal: number) => void;
+  onReplaceFile: (fileNodeId: string) => void;
+}
+
 /** A small option toggle (case, whole-word, regex) sharing the rail's active-accent treatment. */
 function OptionToggle({ label, pressed, onPressedChange, children }: { label: string; pressed: boolean; onPressedChange: (next: boolean) => void; children: React.ReactNode }) {
   return (
@@ -41,57 +52,113 @@ function OptionToggle({ label, pressed, onPressedChange, children }: { label: st
   );
 }
 
-/** Renders one line snippet with the matched substring highlighted. */
-function MatchSnippet({ match }: { match: SearchMatchDto }) {
+/** Renders one line snippet with the matched substring highlighted, and the replacement preview when replacing. */
+function MatchSnippet({ match, replacement, showReplace }: { match: SearchMatchDto; replacement: string; showReplace: boolean }) {
   const start = Math.max(0, match.column - 1);
   const end = Math.min(match.lineText.length, start + match.matchText.length);
   return (
     <span className="truncate">
       <span className="text-muted-foreground">{match.lineText.slice(0, start)}</span>
-      <mark className="rounded-sm bg-primary/20 text-foreground">{match.lineText.slice(start, end)}</mark>
+      {showReplace ? (
+        <>
+          <mark className="rounded-sm bg-destructive/15 text-foreground line-through">{match.lineText.slice(start, end)}</mark>
+          <mark className="rounded-sm bg-primary/20 text-foreground">{replacement}</mark>
+        </>
+      ) : (
+        <mark className="rounded-sm bg-primary/20 text-foreground">{match.lineText.slice(start, end)}</mark>
+      )}
       <span className="text-muted-foreground">{match.lineText.slice(end)}</span>
     </span>
   );
 }
 
 /** A file group header plus its match rows. */
-function ResultGroup({ group, onNavigate }: { group: FileMatchGroupDto; onNavigate: (target: SearchResultTarget) => void }) {
+function ResultGroup({ group, onNavigate, replace }: { group: FileMatchGroupDto; onNavigate: (target: SearchResultTarget) => void; replace: ReplaceControls }) {
   return (
     <li>
       <div className="flex items-baseline gap-2 px-3 pt-2 pb-1">
         <span className="truncate text-xs font-medium text-foreground" title={group.path}>{group.path}</span>
         <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">{group.matchCount}</span>
+        {replace.showReplace && (
+          <button
+            type="button"
+            aria-label={`Replace all in ${group.path}`}
+            title="Replace all in this file"
+            onClick={() => replace.onReplaceFile(group.fileNodeId)}
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ReplaceAll className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       <ul>
-        {group.matches.map((match) => (
-          <li key={match.ordinal}>
-            <button
-              type="button"
-              aria-label={`Line ${match.line}: ${match.lineText}`}
-              onClick={() => onNavigate({ fileNodeId: group.fileNodeId, path: group.path, line: match.line, from: match.from, to: match.to })}
-              className="flex w-full items-baseline gap-2 py-0.5 pl-5 pr-3 text-left text-xs hover:bg-accent"
-            >
-              <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{match.line}</span>
-              <MatchSnippet match={match} />
-            </button>
-          </li>
-        ))}
+        {group.matches.map((match) => {
+          const excluded = replace.isExcluded(group.fileNodeId, match.ordinal);
+          return (
+            <li key={match.ordinal} className="flex items-center gap-1 pr-3">
+              {replace.showReplace && (
+                <input
+                  type="checkbox"
+                  checked={!excluded}
+                  onChange={() => replace.toggleExcluded(group.fileNodeId, match.ordinal)}
+                  aria-label={excluded ? `Include match on line ${match.line}` : `Exclude match on line ${match.line}`}
+                  className="ml-3 shrink-0 accent-primary"
+                />
+              )}
+              <button
+                type="button"
+                aria-label={`Line ${match.line}: ${match.lineText}`}
+                onClick={() => onNavigate({ fileNodeId: group.fileNodeId, path: group.path, line: match.line, from: match.from, to: match.to })}
+                className={`flex flex-1 items-baseline gap-2 py-0.5 text-left text-xs hover:bg-accent ${replace.showReplace ? 'pl-1' : 'pl-5'} ${excluded ? 'opacity-50' : ''}`}
+              >
+                <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{match.line}</span>
+                <MatchSnippet match={match} replacement={replace.replacement} showReplace={replace.showReplace && !excluded} />
+              </button>
+              {replace.showReplace && !excluded && (
+                <button
+                  type="button"
+                  aria-label={`Replace match on line ${match.line}`}
+                  title="Replace this match"
+                  onClick={() => replace.onReplaceMatch(group.fileNodeId, match.ordinal)}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Replace className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </li>
   );
 }
 
 /**
- * The left-panel Search tab: a project-wide find over every text-decodable file.
- * The header (fixed h-9) matches Files/Outline; the query input and case /
- * whole-word / regex toggles are styled from design tokens. Results are grouped
- * by file with per-file and true-total counts; activating a result opens its
- * file with the cursor on the match. An invalid regex shows an inline error and
- * nothing runs. Whole-project scope only — single-file find stays in the
- * in-editor panel.
+ * The left-panel Search tab: a project-wide find/replace over every text-decodable
+ * file. The header (fixed h-9) matches Files/Outline; the query input, case /
+ * whole-word / regex toggles, and replacement input are styled from design tokens.
+ * Results are grouped by file with per-file and true-total counts; activating a
+ * result opens its file with the cursor on the match. Each match can be
+ * included/excluded and replaced individually, per file, or project-wide (with a
+ * scope confirmation). An invalid regex shows an inline error and nothing runs.
  */
 export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
-  const { query, setQuery, result, status, error } = useProjectSearch(projectId);
+  const search = useProjectSearch(projectId);
+  const { query, setQuery, result, status, error, replacement, setReplacement, replace, replaceStatus, replaceError, includedMatchCount } = search;
+  const [confirmingAll, setConfirmingAll] = useState(false);
+
+  const showReplace = replacement.length > 0;
+  const hasResults = status === 'success' && result !== null && result.totalMatches > 0;
+  const replaceControls: ReplaceControls = {
+    replacement,
+    showReplace,
+    isExcluded: search.isExcluded,
+    toggleExcluded: search.toggleExcluded,
+    onReplaceMatch: (fileNodeId, ordinal) => void replace({ scope: 'match', fileNodeId, ordinal }),
+    onReplaceFile: (fileNodeId) => void replace({ scope: 'file', fileNodeId }),
+  };
+
+  const affectedFiles = result?.groups.filter((group) => group.matches.some((match) => !search.isExcluded(group.fileNodeId, match.ordinal))).length ?? 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -120,12 +187,62 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
             <Regex className="h-4 w-4" />
           </OptionToggle>
         </div>
+
+        <div className="flex items-center gap-1 rounded border bg-background px-2 py-1">
+          <input
+            type="text"
+            value={replacement}
+            onChange={(event) => setReplacement(event.target.value)}
+            placeholder="Replace…"
+            aria-label="Replacement text"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+          {hasResults && showReplace && (
+            <button
+              type="button"
+              aria-label="Replace all matches"
+              onClick={() => setConfirmingAll(true)}
+              disabled={replaceStatus === 'replacing' || includedMatchCount === 0}
+              className="flex h-6 items-center gap-1 rounded border border-primary bg-primary/10 px-2 text-xs text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              <ReplaceAll className="h-3.5 w-3.5" />
+              Replace all
+            </button>
+          )}
+        </div>
+
         {error && (
           <p role="alert" className="px-1 text-xs text-destructive">
             {error.code === 'INVALID_PATTERN' ? `Invalid pattern: ${error.message}` : error.message}
           </p>
         )}
+        {replaceError && (
+          <p role="alert" className="px-1 text-xs text-destructive">
+            {replaceError.code === 'INVALID_REPLACEMENT' ? `Invalid replacement: ${replaceError.message}` : replaceError.message}
+          </p>
+        )}
       </div>
+
+      {confirmingAll && (
+        <div role="dialog" aria-label="Confirm replace all" className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-2 text-xs shrink-0">
+          <p>
+            Replace <strong>{includedMatchCount}</strong> {includedMatchCount === 1 ? 'match' : 'matches'} across{' '}
+            <strong>{affectedFiles}</strong> {affectedFiles === 1 ? 'file' : 'files'}?
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setConfirmingAll(false); void replace({ scope: 'project' }); }}
+              className="rounded border border-primary bg-primary/10 px-2 py-0.5 text-primary hover:bg-primary/20"
+            >
+              Replace all
+            </button>
+            <button type="button" onClick={() => setConfirmingAll(false)} className="rounded border px-2 py-0.5 text-muted-foreground hover:bg-accent">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {status === 'idle' && (
@@ -137,7 +254,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
         {status === 'success' && result && result.totalMatches === 0 && (
           <p className="px-3 py-4 text-xs text-muted-foreground">No matches found.</p>
         )}
-        {status === 'success' && result && result.totalMatches > 0 && (
+        {hasResults && result && (
           <>
             {result.capped && (
               <p className="px-3 py-2 text-[11px] text-muted-foreground">
@@ -146,7 +263,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
             )}
             <ul>
               {result.groups.map((group) => (
-                <ResultGroup key={group.fileNodeId} group={group} onNavigate={onNavigate} />
+                <ResultGroup key={group.fileNodeId} group={group} onNavigate={onNavigate} replace={replaceControls} />
               ))}
             </ul>
             {result.skippedFiles > 0 && (
