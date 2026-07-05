@@ -565,6 +565,7 @@ export function ProjectEditorLayout({
                   projectId={projectId}
                   mainPath={previewMainPath}
                   getFiles={getProjectFiles}
+                  filesVersion={reachableDocVersion}
                   rootFilePath={previewRootPath}
                   openFilePath={previewOpenPath}
                   scrollToLine={scrollRequest}

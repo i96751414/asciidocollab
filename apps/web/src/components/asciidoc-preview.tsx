@@ -48,6 +48,12 @@ interface AsciiDocPreviewProperties {
   /** Returns the path→content snapshot for include assembly; read lazily at render time. */
   getFiles?: () => Record<string, string>;
   /**
+   * Bumps when a reachable INCLUDED file's content changes (a collaborator's live edit or save) with
+   * no edit to the open file itself. Forwarded to the preview hook so the assembled render re-reads the
+   * fresh {@link getFiles} snapshot — keeping the preview consistent with the outline on the same signal.
+   */
+  filesVersion?: number;
+  /**
    * Project main-file path (root) for cross-document attribute resolution. When set
    * with {@link openFilePath} and {@link getFiles}, the open file's `{name}` references resolve to the
    * value in effect at its include-point under this root. Null/unset ⇒ standalone resolution.
@@ -93,6 +99,7 @@ export function AsciiDocPreview({
   projectId,
   mainPath,
   getFiles,
+  filesVersion,
   rootFilePath,
   openFilePath,
   scrollToLine = null,
@@ -115,6 +122,7 @@ export function AsciiDocPreview({
     imagesDir: imagesDirectory,
     mainPath,
     getFiles,
+    filesVersion,
     rootFileId: rootFilePath,
     openFileId: openFilePath,
     showIncludes: showIncludedFiles,

@@ -944,3 +944,41 @@ describe('useAsciidocPreview — live re-render on showIncludes change', () => {
     expect(lastWorker().postMessage.mock.calls[1][0].showIncludes).toBe(false);
   });
 });
+
+// ── useAsciidocPreview — live re-render when a reachable included file changes ──
+
+describe('useAsciidocPreview — live re-render on reachable-file change', () => {
+  // A collaborator's live edit to an INCLUDED file (not the open file) changes the assembled preview
+  // but leaves the open file's `content` prop, mainPath, and rootFileId untouched. The layout signals
+  // the change by bumping `filesVersion`; the hook must re-post a render carrying the fresh snapshot so
+  // the preview reflects the include's new heading level / content — matching the outline, which already
+  // recomputes on the same signal.
+  it('re-posts a render with the fresh snapshot when filesVersion bumps after an edit to an included file', () => {
+    let childBody = '== Child\n';
+    const { rerender } = renderHook(
+      ({ filesVersion }: { filesVersion: number }) =>
+        useAsciidocPreview({
+          content: '= Root\n\ninclude::child.adoc[]\n',
+          isEnabled: true,
+          scrollToLine: null,
+          openFileId: 'root.adoc',
+          filesVersion,
+          getFiles: () => ({ 'root.adoc': '= Root\n\ninclude::child.adoc[]\n', 'child.adoc': childBody }),
+        }),
+      { initialProps: { filesVersion: 0 } },
+    );
+
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(1);
+    expect(lastWorker().postMessage.mock.calls[0][0].files['child.adoc']).toBe('== Child\n');
+
+    // A collaborator promotes the child heading a level (=== → ==, etc.); the layout refetches the
+    // included file and bumps filesVersion. No open-file edit, no main-file change.
+    childBody = '= Child\n';
+    act(() => rerender({ filesVersion: 1 }));
+    act(() => jest.advanceTimersByTime(200));
+
+    expect(lastWorker().postMessage).toHaveBeenCalledTimes(2);
+    expect(lastWorker().postMessage.mock.calls[1][0].files['child.adoc']).toBe('= Child\n');
+  });
+});

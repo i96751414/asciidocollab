@@ -67,6 +67,14 @@ export interface UseAsciidocPreviewOptions {
   openFileId?: string;
   /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
+  /**
+   * Bumps whenever a reachable INCLUDED file's content changes (a collaborator's live edit or save,
+   * delivered as a `content-changed` frame) without the open file's own `content` changing. Changing
+   * it re-posts a render that reads the fresh {@link getFiles} snapshot, so an included file's new
+   * heading level / content propagates into the assembled preview — the preview's counterpart to the
+   * outline recomputing on the same signal. Leave unset when the preview has no include dependencies.
+   */
+  filesVersion?: number;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -100,6 +108,7 @@ export function useAsciidocPreview({
   rootFileId,
   openFileId,
   showIncludes,
+  filesVersion,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
@@ -228,11 +237,13 @@ export function useAsciidocPreview({
   // being, the configured main file) so the preview switches between assembled and open-file modes,
   // and when the project main-file setting changes the resolution root (rootFileId) so an open CHILD
   // file re-resolves its inherited cross-document attribute scope under the new root with no document
-  // edit — live re-resolution on main-file change for every open file.
+  // edit — live re-resolution on main-file change for every open file. `filesVersion` bumps when a
+  // reachable INCLUDED file changed (collaborator edit/save) with no open-file edit, so the assembled
+  // preview picks up the fresh snapshot — the counterpart to the outline recomputing on that signal.
   useEffect(() => {
     if (!isEnabled || !content) return;
     scheduleRender(content);
-  }, [mainPath, rootFileId, showIncludes]);
+  }, [mainPath, rootFileId, showIncludes, filesVersion]);
 
   // Scroll to line when scrollToLine changes.
   useEffect(() => {
