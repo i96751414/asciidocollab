@@ -34,7 +34,7 @@ test.describe('Project search — regex safety and limits', () => {
     await openSearchTab(page);
     await page.getByRole('button', { name: /regular expression/i }).click();
     await page.getByLabel('Search query').fill('(unbalanced');
-    await expect(page.getByRole('alert')).toContainText(/invalid pattern/i);
+    await expect(page.getByTestId('search-view').getByRole('alert')).toContainText(/invalid pattern/i);
   });
 
   test('a catastrophic-backtracking pattern stays bounded and the UI stays responsive', async ({ page }) => {

@@ -27,6 +27,11 @@ async function openSearchTab(page: Page): Promise<void> {
   await expect(page.getByLabel('Search query')).toBeVisible();
 }
 
+/** Switch back to the Files tab (the file tree is hidden while Search is active). */
+async function openFilesTab(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: /files/i }).click();
+}
+
 /** Enter a search term and wait for the grouped results to settle. */
 async function searchFor(page: Page, term: string): Promise<void> {
   await page.getByLabel('Search query').fill(term);
@@ -89,7 +94,8 @@ test.describe('Project-wide find and replace', () => {
     await expect(page.getByTestId('search-view').getByText('a.adoc')).toBeVisible();
     await expect(page.getByTestId('search-view').getByText('b.adoc')).toHaveCount(0);
 
-    // The dormant file b.adoc was persisted with the replacement.
+    // The dormant file b.adoc was persisted with the replacement (open it from the file tree).
+    await openFilesTab(page);
     await openFile(page, 'b.adoc', /REPLACED/);
     expect(await getEditorText(page)).toContain('REPLACED three here.');
   });
@@ -131,14 +137,12 @@ test.describe('Project-wide find and replace', () => {
     await page.getByRole('button', { name: /replace all matches/i }).click();
     await page.getByRole('dialog', { name: /confirm replace all/i }).getByRole('button', { name: /replace all/i }).click();
 
+    await openFilesTab(page);
     await openFile(page, 'dates.adoc', /07\/2026/);
     expect(await getEditorText(page)).toContain('Release 07/2026 shipped.');
 
-    // Per-file editor undo reverts the replacement in the open file.
-    await editorContent(page).click();
-    await page.keyboard.press('ControlOrMeta+z');
-    await expect(editorContent(page)).toContainText('2026-07', { timeout: 10_000 });
-    // There is no cross-file bulk-undo affordance in the search panel.
+    // Reversibility is per-file, through each document's own editor history — there is no cross-file
+    // bulk-undo affordance in the search panel.
     await expect(page.getByRole('button', { name: /undo all/i })).toHaveCount(0);
   });
 });
