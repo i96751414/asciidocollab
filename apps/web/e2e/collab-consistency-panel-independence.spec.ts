@@ -1,7 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
+import { createAdocFile, setMainFile, openProject, openFile, expandPreview, liveReplaceLine } from './helpers/editor';
 
 // Cross-file consistency must NOT depend on the outline panel being open. With
 // the left panel on the file tree (outline hidden), a collaborator's live inherited-attribute change
@@ -48,7 +48,7 @@ test.describe('Collab consistency — panel independence (outline hidden)', () =
       await signIn(pageB);
       await openProject(pageB, projectId);
       await openFile(pageB, 'main.adoc', /productName/);
-      await liveReplaceWord(pageB, 'Acme', 'Globex');
+      await liveReplaceLine(pageB, 'productName', ':productName: Globex');
 
       // A converges even though the outline panel was never opened.
       await expect(previewA).toContainText('Product is Globex.', { timeout: 20_000 });
@@ -58,11 +58,3 @@ test.describe('Collab consistency — panel independence (outline hidden)', () =
   });
 });
 
-/** Live-edit: double-click a word to select it and type over it, past the Yjs sync race. */
-async function liveReplaceWord(page: Page, word: string, replacement: string): Promise<void> {
-  const content = editorContent(page);
-  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
-  await content.getByText(word, { exact: false }).first().dblclick();
-  await page.keyboard.type(replacement);
-  await expect(content).toContainText(replacement, { timeout: 10_000 });
-}

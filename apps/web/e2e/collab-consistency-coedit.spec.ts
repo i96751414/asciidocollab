@@ -1,7 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent, getEditorText } from './helpers/editor';
+import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent, getEditorText, liveReplaceLine } from './helpers/editor';
 
 // Edge case "concurrent edits to the open document itself": A edits the open document locally
 // WHILE B changes its inherited context live. Both A's own edit and the inherited change must be
@@ -47,7 +47,7 @@ test.describe('Collab consistency — concurrent co-edit', () => {
       await page.keyboard.press('Control+End');
       await page.keyboard.type('\nA local marker line.');
 
-      await liveReplaceWord(pageB, 'Acme', 'Globex');
+      await liveReplaceLine(pageB, 'productName', ':productName: Globex');
 
       // Both changes survive: A's own edit is intact AND the inherited value converged to B's.
       await expect(previewA).toContainText('Product is Globex.', { timeout: 20_000 });
@@ -59,11 +59,3 @@ test.describe('Collab consistency — concurrent co-edit', () => {
   });
 });
 
-/** Live-edit: double-click a word to select it and type over it, past the Yjs sync race. */
-async function liveReplaceWord(page: Page, word: string, replacement: string): Promise<void> {
-  const content = editorContent(page);
-  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
-  await content.getByText(word, { exact: false }).first().dblclick();
-  await page.keyboard.type(replacement);
-  await expect(content).toContainText(replacement, { timeout: 10_000 });
-}

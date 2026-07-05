@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
+import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent, liveReplaceLine } from './helpers/editor';
 
 // A collaborator's UNSAVED live edit to a parent's inherited
 // attribute re-renders the open child's preview. Requires apps/api AND apps/collab running.
@@ -49,7 +49,7 @@ test.describe('Collab consistency — inherited attribute in the preview stays l
       await openProject(pageB, projectId);
       await openFile(pageB, 'main.adoc', /productName/);
 
-      await liveReplaceWord(pageB, 'Acme', 'Globex');
+      await liveReplaceLine(pageB, 'productName', ':productName: Globex');
 
       // A's preview converges to the new inherited value with no reload, save, or structural event.
       await expect(previewA).toContainText('Product is Globex.', { timeout: 20_000 });
@@ -68,14 +68,6 @@ async function editableContent(page: Page) {
   const content = editorContent(page);
   await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
   return content;
-}
-
-/** Live-edit: double-click a word to select it and type over it. */
-async function liveReplaceWord(page: Page, word: string, replacement: string): Promise<void> {
-  const content = await editableContent(page);
-  await content.getByText(word, { exact: false }).first().dblclick();
-  await page.keyboard.type(replacement);
-  await expect(content).toContainText(replacement, { timeout: 10_000 });
 }
 
 /** Live-edit: select the whole line containing `text` and delete it. */

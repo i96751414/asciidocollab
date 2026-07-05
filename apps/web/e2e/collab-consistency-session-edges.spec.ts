@@ -1,7 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, setMainFile, openProject, openFile, expandPreview, editorContent } from './helpers/editor';
+import { createAdocFile, setMainFile, openProject, openFile, expandPreview, liveReplaceLine } from './helpers/editor';
 
 // Related files with no active session resolve from persisted content and
 // switch to live automatically on session start, then back to persisted on session end — with no
@@ -41,24 +41,19 @@ test.describe('Collab consistency — graceful live↔persisted session edges', 
       await signIn(pageB);
       await openProject(pageB, projectId);
       await openFile(pageB, 'main.adoc', /productName/);
-      await liveReplaceWord(pageB, 'Acme', 'Live');
+      await liveReplaceLine(pageB, 'productName', ':productName: Live');
       await expect(previewA).toContainText('Product is Live.', { timeout: 20_000 }); // switched to live
 
-      // Session end: B closes without saving → A reverts to the persisted value with no manual refresh.
+      // Session end: B disconnects. Hocuspocus writes the live edit back on disconnect, so main's
+      // persisted content is now ":productName: Live". A's source switches from B's live session to the
+      // persisted copy and stays consistent — it settles on the now-saved value with no manual refresh
+      // and no intermediate stale "Acme" flash.
       await pageB.close();
-      await expect(previewA).toContainText('Product is Acme.', { timeout: 30_000 });
-      await expect(previewA).not.toContainText('Product is Live.');
+      await expect(previewA).toContainText('Product is Live.', { timeout: 30_000 });
+      await expect(previewA).not.toContainText('Product is Acme.');
     } finally {
       await contextB.close();
     }
   });
 });
 
-/** Live-edit: double-click a word to select it and type over it, past the Yjs sync race. */
-async function liveReplaceWord(page: Page, word: string, replacement: string): Promise<void> {
-  const content = editorContent(page);
-  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
-  await content.getByText(word, { exact: false }).first().dblclick();
-  await page.keyboard.type(replacement);
-  await expect(content).toContainText(replacement, { timeout: 10_000 });
-}

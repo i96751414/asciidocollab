@@ -115,6 +115,32 @@ export async function renameFirstWord(page: Page, word: string, replacement: str
   await expect(content).toContainText(replacement, { timeout: 10_000 }); // the edit registered
 }
 
+/**
+ * Live-edit: deterministically replace the whole logical line that contains `matchText` with
+ * `newLine`, by selecting the line (Home → Shift+End) and typing over it.
+ *
+ * Prefer this over double-clicking a word to edit it: `getByText(word)` resolves to the enclosing
+ * `.cm-line`, so `dblclick()` lands on the LINE's centre and selects whichever word sits there — for
+ * `:productName: Acme` that is `productName`, not `Acme`, silently corrupting the edit. Selecting the
+ * whole line by keyboard (the same reliable sequence `liveDeleteLineContaining` uses) has no such
+ * word-position ambiguity. Waits for the collaborative editor to be editable first (Yjs sync race).
+ *
+ * @param page - The Playwright page whose editor is edited.
+ * @param matchText - Text uniquely identifying the target line (clicked to place the caret in it).
+ * @param newLine - The full replacement line text typed over the selected line.
+ */
+export async function liveReplaceLine(page: Page, matchText: string, newLine: string): Promise<void> {
+  const content = editorContent(page);
+  await expect(content).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
+  await content.getByText(matchText, { exact: false }).first().click();
+  await page.keyboard.press('Home');
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('End');
+  await page.keyboard.up('Shift');
+  await page.keyboard.type(newLine);
+  await expect(content).toContainText(newLine, { timeout: 10_000 }); // the edit registered
+}
+
 /** Place the cursor at the end of the document and type `text`. */
 export async function typeAtEnd(page: Page, text: string): Promise<void> {
   await editorContent(page).click();

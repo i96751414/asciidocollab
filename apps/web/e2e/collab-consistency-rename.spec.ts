@@ -64,5 +64,7 @@ async function appendLine(page: Page, line: string): Promise<void> {
   await content.click();
   await page.keyboard.press('Control+End');
   await page.keyboard.type(`\n${line}`);
-  await expect(content).toContainText(line.replaceAll(/[{}]/g, ''), { timeout: 10_000 });
+  // Assert the literal typed line: `{edition}` is unresolved in the standalone child (no main file /
+  // include defines it), so the editor shows it verbatim with its braces — not folded to a value.
+  await expect(content).toContainText(line, { timeout: 10_000 });
 }

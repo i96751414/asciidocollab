@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ensureTestUser } from './helpers/test-user';
 import { signIn, createProject, cleanupProject } from './helpers/test-project';
-import { createAdocFile, setMainFile, openProject, editorContent, expandPreview } from './helpers/editor';
+import { createAdocFile, setMainFile, openProject, editorContent, expandPreview, liveReplaceLine } from './helpers/editor';
 
 // Headings, the assembled outline, the HTML preview, and cross-references stay consistent with a
 // collaborator's live structural edits to a related file. A views the full-document outline AND the
@@ -57,10 +57,9 @@ test.describe('Collab consistency — headings & assembled outline stay live', (
       await openProject(pageB, projectId);
       await pageB.getByTestId('tree-node-child.adoc').click();
       const contentB = editorContent(pageB);
-      await expect(contentB).toHaveAttribute('contenteditable', 'true', { timeout: 15_000 });
-      await contentB.getByText('Child Sec', { exact: false }).first().dblclick();
-      // Double-click selects the word "Sec"; retype it as "Renamed".
-      await pageB.keyboard.type('Renamed');
+      // Rename the included heading by replacing its whole line (deterministic — a double-click on the
+      // getByText match lands on the .cm-line centre and would select the wrong word).
+      await liveReplaceLine(pageB, 'Child Sec', '== Child Renamed');
       await expect(contentB).toContainText('Child Renamed', { timeout: 10_000 });
 
       // A's assembled outline adopts the collaborator's live heading with no manual refresh.
