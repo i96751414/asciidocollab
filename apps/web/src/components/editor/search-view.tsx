@@ -34,7 +34,9 @@ function expandReplacementPreview(replacement: string, match: SearchMatchDto, mo
     if (next === '{') {
       const close = replacement.indexOf('}', index + 2);
       if (close !== -1) {
-        out += match.named?.[replacement.slice(index + 2, close)] ?? '';
+        const name = replacement.slice(index + 2, close);
+        // Unknown named group → keep the token verbatim (matches the server's lenient expansion).
+        out += match.named && name in match.named ? (match.named[name] ?? '') : replacement.slice(index, close + 1);
         index = close + 1;
         continue;
       }
@@ -47,9 +49,8 @@ function expandReplacementPreview(replacement: string, match: SearchMatchDto, mo
         continue;
       }
       const oneNumber = Number(next);
-      if (oneNumber > 0 && oneNumber < match.groups.length) {
-        out += match.groups[oneNumber] ?? '';
-      }
+      // Absent group → emit `$` + the digit literally, exactly as the server does.
+      out += oneNumber > 0 && oneNumber < match.groups.length ? (match.groups[oneNumber] ?? '') : `$${next}`;
       index += 2;
       continue;
     }

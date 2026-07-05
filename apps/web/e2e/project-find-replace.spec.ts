@@ -57,11 +57,11 @@ test.describe('Project-wide find and replace', () => {
     await openSearchTab(page);
     await searchFor(page, 'needle');
 
-    // Both files appear — including the dormant one that was never opened (SC-001).
+    // Both files appear — including the dormant one that was never opened.
     await expect(page.getByText('opened.adoc')).toBeVisible();
     await expect(page.getByText('dormant.adoc')).toBeVisible();
 
-    // Activating the dormant result opens that file with the match visible (SC-003).
+    // Activating the dormant result opens that file with the match visible.
     await page.getByRole('button', { name: /another needle lives here/i }).click();
     await expect(editorContent(page)).toContainText('Another needle lives here.');
   });
@@ -84,12 +84,12 @@ test.describe('Project-wide find and replace', () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: /replace all/i }).click();
 
-    // Re-search: the excluded occurrence remains, the included ones are gone (SC-004).
+    // Re-search: the excluded occurrence remains, the included ones are gone.
     await searchFor(page, 'replace');
     await expect(page.getByText('a.adoc')).toBeVisible();
     await expect(page.getByText('b.adoc')).toHaveCount(0);
 
-    // The dormant file b.adoc was persisted with the replacement (FR-010).
+    // The dormant file b.adoc was persisted with the replacement.
     await openFile(page, 'b.adoc', /REPLACED/);
     expect(await getEditorText(page)).toContain('REPLACED three here.');
   });
@@ -113,7 +113,7 @@ test.describe('Project-wide find and replace', () => {
     await page.getByRole('button', { name: /replace all matches/i }).click();
     await page.getByRole('dialog', { name: /confirm replace all/i }).getByRole('button', { name: /replace all/i }).click();
 
-    // B sees the change live (SC-005, FR-011).
+    // B sees the change live, merged with any concurrent typing.
     await expect(editorContent(pageB)).toContainText('EDIT me please.', { timeout: 15_000 });
     await contextB.close();
   });
@@ -134,7 +134,7 @@ test.describe('Project-wide find and replace', () => {
     await openFile(page, 'dates.adoc', /07\/2026/);
     expect(await getEditorText(page)).toContain('Release 07/2026 shipped.');
 
-    // Per-file editor undo reverts the replacement in the open file (FR-018).
+    // Per-file editor undo reverts the replacement in the open file.
     await editorContent(page).click();
     await page.keyboard.press('ControlOrMeta+z');
     await expect(editorContent(page)).toContainText('2026-07', { timeout: 10_000 });

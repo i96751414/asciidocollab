@@ -52,6 +52,15 @@ describe('computeMatches — literal', () => {
     expect(result.value.map((s) => s.from)).toEqual([0, 8]);
   });
 
+  it('keeps offsets exact for case-insensitive search after a length-changing case char', () => {
+    // "İ" (U+0130) lower-cases to two code units; lowercasing the whole haystack would shift the
+    // reported offset of "foo". The match must stay at its true index 2 (İ=0, space=1, f=2).
+    const result = computeMatches('İ foo', query({ text: 'foo', caseSensitive: false }), undefined, budget());
+    if (!result.success) return;
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]).toMatchObject({ from: 2, to: 5, groups: ['foo'] });
+  });
+
   it('stops at the maxMatches budget', () => {
     const result = computeMatches('aaaa', query({ text: 'a' }), undefined, budget({ maxMatches: 2 }));
     if (!result.success) return;
@@ -90,25 +99,24 @@ describe('substitute', () => {
   };
 
   it('returns the replacement verbatim in literal mode', () => {
-    const result = substitute('$1 literal', span, 'literal');
-    expect(result.success && result.value).toBe('$1 literal');
+    expect(substitute('$1 literal', span, 'literal')).toBe('$1 literal');
   });
 
   it('expands numbered groups, named groups, $& and $$ in regex mode', () => {
-    expect(substitute('$2/$1', span, 'regex')).toEqual({ success: true, value: '07/2026' });
-    expect(substitute('${year}!', span, 'regex')).toEqual({ success: true, value: '2026!' });
-    expect(substitute('[$&]', span, 'regex')).toEqual({ success: true, value: '[2026-07]' });
-    expect(substitute('50$$', span, 'regex')).toEqual({ success: true, value: '50$' });
+    expect(substitute('$2/$1', span, 'regex')).toBe('07/2026');
+    expect(substitute('${year}!', span, 'regex')).toBe('2026!');
+    expect(substitute('[$&]', span, 'regex')).toBe('[2026-07]');
+    expect(substitute('50$$', span, 'regex')).toBe('50$');
   });
 
-  it('rejects a reference to an absent numbered group', () => {
-    const result = substitute('$5', span, 'regex');
-    expect(result.success).toBe(false);
+  it('emits a reference to an absent numbered group literally (JS/VS Code convention)', () => {
+    expect(substitute('$5 off', span, 'regex')).toBe('$5 off');
+    // `$1` resolves to group 1 (2026); the trailing digits are literal.
+    expect(substitute('$100', span, 'regex')).toBe('202600');
   });
 
-  it('rejects a reference to an unknown named group', () => {
-    const result = substitute('${month}', span, 'regex');
-    expect(result.success).toBe(false);
+  it('emits an unknown named group reference literally', () => {
+    expect(substitute('${month}!', span, 'regex')).toBe('${month}!');
   });
 });
 
@@ -120,7 +128,7 @@ describe('selectSpans', () => {
   ];
 
   it('keeps confirmed ordinals and orders edits right-to-left', () => {
-    const result = selectSpans(
+    const edits = selectSpans(
       spans,
       [
         { ordinal: 0, expectedText: 'foo' },
@@ -129,28 +137,30 @@ describe('selectSpans', () => {
       'bar',
       'literal',
     );
-    if (!result.success) return;
-    expect(result.value).toEqual([
+    expect(edits).toEqual([
       { from: 20, to: 23, replacement: 'bar' },
       { from: 0, to: 3, replacement: 'bar' },
     ]);
   });
 
   it('skips a stale ordinal whose live text diverged', () => {
-    const result = selectSpans(spans, [{ ordinal: 1, expectedText: 'FOO' }], 'bar', 'literal');
-    if (!result.success) return;
-    expect(result.value).toEqual([]);
+    expect(selectSpans(spans, [{ ordinal: 1, expectedText: 'FOO' }], 'bar', 'literal')).toEqual([]);
   });
 
   it('skips an ordinal that no longer exists', () => {
-    const result = selectSpans(spans, [{ ordinal: 9, expectedText: 'foo' }], 'bar', 'literal');
-    if (!result.success) return;
-    expect(result.value).toEqual([]);
+    expect(selectSpans(spans, [{ ordinal: 9, expectedText: 'foo' }], 'bar', 'literal')).toEqual([]);
   });
 
-  it('bubbles up an invalid replacement template', () => {
-    const withGroups: MatchSpan[] = [{ from: 0, to: 3, groups: ['abc'] }];
-    const result = selectSpans(withGroups, [{ ordinal: 0, expectedText: 'abc' }], '$3', 'regex');
-    expect(result.success).toBe(false);
+  it('de-duplicates a repeated ordinal so a span is edited at most once', () => {
+    const edits = selectSpans(
+      spans,
+      [
+        { ordinal: 1, expectedText: 'foo' },
+        { ordinal: 1, expectedText: 'foo' },
+      ],
+      'bar',
+      'literal',
+    );
+    expect(edits).toEqual([{ from: 8, to: 11, replacement: 'bar' }]);
   });
 });

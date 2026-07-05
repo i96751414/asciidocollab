@@ -25,6 +25,18 @@ describe('useProjectSearch', () => {
     expect(searchProjectContent).not.toHaveBeenCalled();
   });
 
+  it('clears match exclusions when the query changes (stale ordinals must not carry over)', async () => {
+    searchProjectContent.mockResolvedValue(emptyResult);
+    const { result } = renderHook(() => useProjectSearch('p1'));
+    act(() => result.current.setQuery({ query: 'foo' }));
+    act(() => result.current.toggleExcluded('file-1', 3));
+    expect(result.current.isExcluded('file-1', 3)).toBe(true);
+
+    act(() => result.current.setQuery({ query: 'bar' }));
+    // The new query renumbers matches, so file-1:3 must no longer be excluded.
+    await waitFor(() => expect(result.current.isExcluded('file-1', 3)).toBe(false));
+  });
+
   it('runs a debounced search and passes an abort signal', async () => {
     searchProjectContent.mockResolvedValue(emptyResult);
     const { result } = renderHook(() => useProjectSearch('p1'));

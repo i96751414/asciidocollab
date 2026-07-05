@@ -61,7 +61,7 @@ test.describe('In-editor restyle and Search-tab persistence', () => {
     await page.reload();
     await expect(page.getByText(/loading\.\.\./i)).not.toBeVisible({ timeout: 8000 });
 
-    // The Search tab restores as the active tab (SC-007).
+    // The Search tab restores as the active tab.
     await expect(page.getByRole('tab', { name: /search/i })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByLabel('Search query')).toBeVisible();
   });

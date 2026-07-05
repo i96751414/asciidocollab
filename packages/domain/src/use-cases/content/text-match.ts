@@ -27,29 +27,53 @@ function isWholeWordAt(content: string, from: number, to: number): boolean {
   return !isWordChar(before) && !isWordChar(after);
 }
 
-function literalMatches(
-  content: string,
-  query: SearchQuery,
-  budget: MatchBudget,
-): MatchSpan[] {
-  if (query.text.length === 0) return [];
-  // Case-insensitive literal search lowercases both sides. For the vast majority
-  // of text this preserves offsets; the handful of code points that change
-  // length under case folding are out of scope for literal mode (use regex).
-  const haystack = query.caseSensitive ? content : content.toLowerCase();
-  const needle = query.caseSensitive ? query.text : query.text.toLowerCase();
+function pushLiteralMatch(spans: MatchSpan[], content: string, query: SearchQuery, from: number, to: number): void {
+  if (!query.wholeWord || isWholeWordAt(content, from, to)) {
+    spans.push({ from, to, groups: [content.slice(from, to)] });
+  }
+}
+
+function literalMatches(content: string, query: SearchQuery, budget: MatchBudget): MatchSpan[] {
+  const needle = query.text;
+  if (needle.length === 0) return [];
   const now = budget.now ?? Date.now;
   const spans: MatchSpan[] = [];
-  let from = 0;
-  for (;;) {
-    if (spans.length >= budget.maxMatches || now() >= budget.deadline) break;
-    const index = haystack.indexOf(needle, from);
-    if (index === -1) break;
-    const end = index + needle.length;
-    if (!query.wholeWord || isWholeWordAt(content, index, end)) {
-      spans.push({ from: index, to: end, groups: [content.slice(index, end)] });
+
+  if (query.caseSensitive) {
+    // Fast path — `indexOf` reports offsets in the original string, so they are exact.
+    let from = 0;
+    for (;;) {
+      if (spans.length >= budget.maxMatches || now() >= budget.deadline) break;
+      const index = content.indexOf(needle, from);
+      if (index === -1) break;
+      const end = index + needle.length;
+      pushLiteralMatch(spans, content, query, index, end);
+      from = end;
     }
-    from = end;
+    return spans;
+  }
+
+  // Case-insensitive — compare a same-length window of the ORIGINAL content against the folded
+  // needle. Lowercasing the whole haystack (`content.toLowerCase()`) and using its index would
+  // shift every offset after a code point whose lower-case form has a different length (e.g. `İ`),
+  // corrupting span offsets — and thus the eventual replace splice. Comparing in place keeps offsets
+  // exact (a length-changing code point simply fails to match, which is acceptable for literal mode).
+  const lowerNeedle = needle.toLowerCase();
+  const lowerFirst = lowerNeedle[0];
+  const needleLength = needle.length;
+  for (let index = 0; index + needleLength <= content.length; ) {
+    if (spans.length >= budget.maxMatches || now() >= budget.deadline) break;
+    if (content[index].toLowerCase() !== lowerFirst) {
+      index += 1;
+      continue;
+    }
+    if (content.slice(index, index + needleLength).toLowerCase() === lowerNeedle) {
+      const end = index + needleLength;
+      pushLiteralMatch(spans, content, query, index, end);
+      index = end;
+    } else {
+      index += 1;
+    }
   }
   return spans;
 }
@@ -86,15 +110,13 @@ function isDigit(char: string | undefined): boolean {
 /**
  * Expands a replacement against one match. Literal mode inserts `replacement`
  * verbatim. Regex mode supports `$$` (literal `$`), `$&` (whole match), `$1`
- * numbered groups, and `${name}` named groups, rejecting any reference to a
- * group the pattern does not define (FR-006d).
+ * numbered groups, and `${name}` named groups. A reference to a group the
+ * pattern does not define is emitted **literally** (matching the JS/VS Code
+ * find-replace convention), so a `$`-and-digits string like `$100` and named
+ * placeholders survive when they are not capture references.
  */
-export function substitute(
-  replacement: string,
-  span: MatchSpan,
-  mode: SearchMode,
-): Result<string, ValidationError> {
-  if (mode === 'literal') return { success: true, value: replacement };
+export function substitute(replacement: string, span: MatchSpan, mode: SearchMode): string {
+  if (mode === 'literal') return replacement;
   let out = '';
   let index = 0;
   while (index < replacement.length) {
@@ -119,10 +141,8 @@ export function substitute(
       const close = replacement.indexOf('}', index + 2);
       if (close !== -1) {
         const name = replacement.slice(index + 2, close);
-        if (!span.named || !(name in span.named)) {
-          return { success: false, error: new ValidationError(`Replacement references unknown capture group \${${name}}`) };
-        }
-        out += span.named[name] ?? '';
+        // A known named group expands; anything else keeps the token verbatim.
+        out += span.named && name in span.named ? (span.named[name] ?? '') : replacement.slice(index, close + 1);
         index = close + 1;
         continue;
       }
@@ -138,101 +158,41 @@ export function substitute(
         }
       }
       const oneNumber = Number.parseInt(next, 10);
-      if (oneNumber > 0 && oneNumber < span.groups.length) {
-        out += span.groups[oneNumber] ?? '';
-        index += 2;
-        continue;
-      }
-      return { success: false, error: new ValidationError(`Replacement references absent capture group $${next}`) };
+      // A valid group expands; an absent one emits `$` + the digit literally.
+      out += oneNumber > 0 && oneNumber < span.groups.length ? (span.groups[oneNumber] ?? '') : `$${next}`;
+      index += 2;
+      continue;
     }
     // A lone `$` not followed by a recognised token is a literal dollar sign.
     out += '$';
     index += 1;
   }
-  return { success: true, value: out };
-}
-
-/**
- * Validates a replacement template up front (before any match), so an invalid
- * capture-group reference is rejected as `INVALID_REPLACEMENT` even when no file
- * currently matches (FR-006d). Literal mode inserts the text verbatim, so it is
- * always valid. Regex mode checks every `$n`/`${name}` against the pattern's
- * group count and names.
- *
- * @param replacement - The `$n`/`${name}` template to expand at apply time.
- * @param mode - Literal or regex.
- * @param groupCount - Number of numbered capture groups the pattern defines.
- * @param groupNames - Named capture groups the pattern defines.
- * @returns Ok when valid, or a `ValidationError` naming the offending reference.
- */
-export function validateReplacementTemplate(
-  replacement: string,
-  mode: SearchMode,
-  groupCount: number,
-  groupNames: readonly string[],
-): Result<void, ValidationError> {
-  if (mode === 'literal') return { success: true, value: undefined };
-  let index = 0;
-  while (index < replacement.length) {
-    if (replacement[index] !== '$') {
-      index += 1;
-      continue;
-    }
-    const next = replacement[index + 1];
-    if (next === '$' || next === '&') {
-      index += 2;
-      continue;
-    }
-    if (next === '{') {
-      const close = replacement.indexOf('}', index + 2);
-      if (close !== -1) {
-        const name = replacement.slice(index + 2, close);
-        if (!groupNames.includes(name)) {
-          return { success: false, error: new ValidationError(`Replacement references unknown capture group \${${name}}`) };
-        }
-        index = close + 1;
-        continue;
-      }
-    }
-    if (isDigit(next)) {
-      const twoDigit = replacement.slice(index + 1, index + 3);
-      if (/^\d\d$/.test(twoDigit) && Number.parseInt(twoDigit, 10) > 0 && Number.parseInt(twoDigit, 10) <= groupCount) {
-        index += 3;
-        continue;
-      }
-      const oneNumber = Number.parseInt(next, 10);
-      if (oneNumber > 0 && oneNumber <= groupCount) {
-        index += 2;
-        continue;
-      }
-      return { success: false, error: new ValidationError(`Replacement references absent capture group $${next}`) };
-    }
-    index += 1;
-  }
-  return { success: true, value: undefined };
+  return out;
 }
 
 /**
  * Filters freshly-computed `spans` to the confirmed `selections`, skipping any
- * whose live text no longer equals `expectedText` (stale — FR-017), and returns
+ * whose live text no longer equals `expectedText` (stale), and returns
  * right-to-left positional edits so applying them never invalidates a
- * not-yet-applied offset.
+ * not-yet-applied offset. Selections are de-duplicated by ordinal so a repeated
+ * ordinal cannot produce two overlapping edits on the same span.
  */
 export function selectSpans(
   spans: readonly MatchSpan[],
   selections: readonly ReplaceSelection[],
   replacement: string,
   mode: SearchMode,
-): Result<PositionalEdit[], ValidationError> {
+): PositionalEdit[] {
   const edits: PositionalEdit[] = [];
+  const seen = new Set<number>();
   for (const selection of selections) {
+    if (seen.has(selection.ordinal)) continue;
+    seen.add(selection.ordinal);
     const span = spans[selection.ordinal];
     if (!span) continue;
     if ((span.groups[0] ?? '') !== selection.expectedText) continue;
-    const substituted = substitute(replacement, span, mode);
-    if (!substituted.success) return substituted;
-    edits.push({ from: span.from, to: span.to, replacement: substituted.value });
+    edits.push({ from: span.from, to: span.to, replacement: substitute(replacement, span, mode) });
   }
   edits.sort((a, b) => b.from - a.from);
-  return { success: true, value: edits };
+  return edits;
 }

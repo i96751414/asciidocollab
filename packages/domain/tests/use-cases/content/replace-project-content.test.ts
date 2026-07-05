@@ -21,7 +21,6 @@ import { FileNodeType } from '../../../src/value-objects/files/file-node-type';
 import { FilePath } from '../../../src/value-objects/files/file-path';
 import { PermissionDeniedError } from '../../../src/errors/common/permission-denied';
 import { ValidationError } from '../../../src/errors/common/validation-error';
-import { InvalidReplacementError } from '../../../src/errors/common/invalid-replacement';
 import { AUDIT_PROJECT_CONTENT_REPLACED } from '../../../src/audit-actions';
 import type { ReplaceProjectContentInput } from '../../../src/use-cases/content/replace-project-content';
 import type { SearchQuery } from '../../../src/types/search';
@@ -125,18 +124,18 @@ describe('ReplaceProjectContentUseCase', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ValidationError);
-    expect(result.error).not.toBeInstanceOf(InvalidReplacementError);
   });
 
-  it('rejects a replacement template referencing an absent capture group', async () => {
+  it('emits an absent capture-group reference literally rather than failing', async () => {
+    structured.seed(liveYjs, 'wrap foo here');
     const result = await useCase.execute(editorId, projectId, input({
       query: { text: '(foo)', mode: 'regex', caseSensitive: true, wholeWord: false },
-      replacement: '$2',
-      files: [],
+      replacement: '[$1|$5]',
+      files: [{ fileNodeId: liveFileId, selections: [{ ordinal: 0, expectedText: 'foo' }] }],
     }));
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(InvalidReplacementError);
+    expect(result.success).toBe(true);
+    // $1 → "foo"; $5 (no such group) stays literal.
+    expect(structured.contentOf(liveYjs)).toBe('wrap [foo|$5] here');
   });
 
   it('applies a regex capture-group substitution and records the audit entry', async () => {

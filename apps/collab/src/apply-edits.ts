@@ -153,9 +153,8 @@ export async function applyStructuredReplacementToDocument(
       const matched = computeMatches(content, request.query, engine, budget);
       if (!matched.success) return; // invalid pattern (already rejected upstream) → no-op
       const edits = selectSpans(matched.value, request.selections, request.replacement, request.query.mode);
-      if (!edits.success) return; // invalid template (already rejected upstream) → no-op
       // Edits are right-to-left, so applying each one leaves earlier offsets valid.
-      for (const edit of edits.value) {
+      for (const edit of edits) {
         ytext.delete(edit.from, edit.to - edit.from);
         ytext.insert(edit.from, edit.replacement);
         applied += 1;

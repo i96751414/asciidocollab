@@ -42,14 +42,12 @@ export class InMemoryStructuredCollaborativeEditor implements StructuredCollabor
     if (!matched.success) return { success: false, error: new Error(matched.error.message) };
 
     const edits = selectSpans(matched.value, spec.selections, spec.replacement, spec.query.mode);
-    if (!edits.success) return { success: false, error: new Error(edits.error.message) };
-
     // Edits are right-to-left, so earlier offsets stay valid as we splice.
     let next = content;
-    for (const edit of edits.value) {
+    for (const edit of edits) {
       next = next.slice(0, edit.from) + edit.replacement + next.slice(edit.to);
     }
     this.documents.set(yjsStateId.value, next);
-    return { success: true, value: edits.value.length };
+    return { success: true, value: edits.length };
   }
 }

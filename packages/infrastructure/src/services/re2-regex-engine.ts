@@ -31,13 +31,7 @@ export class Re2RegexEngine implements RegexEngine {
   compile(pattern: string, flags: RegexFlags): Result<CompiledMatcher, ValidationError> {
     const re2Flags = `g${flags.caseSensitive ? '' : 'i'}${flags.multiline ? 'm' : ''}`;
     try {
-      const compiled = new RE2(pattern, re2Flags);
-      // Probe the capture-group shape: making the pattern optional and matching '' forces every
-      // group to participate (as undefined), so the result's length/keys describe the groups.
-      const probe = new RE2(`(?:${pattern})|`, re2Flags).exec('');
-      const groupCount = probe ? probe.length - 1 : 0;
-      const groupNames = probe?.groups ? Object.keys(probe.groups) : [];
-      return { success: true, value: new Re2CompiledMatcher(compiled, groupCount, groupNames) };
+      return { success: true, value: new Re2CompiledMatcher(new RE2(pattern, re2Flags)) };
     } catch (error) {
       return {
         success: false,
@@ -47,12 +41,14 @@ export class Re2RegexEngine implements RegexEngine {
   }
 }
 
+/** Advances past a zero-width match by a full code point, so a surrogate pair is never split. */
+function advancePastZeroWidth(input: string, index: number): number {
+  const codePoint = input.codePointAt(index);
+  return codePoint !== undefined && codePoint > 0xFF_FF ? index + 2 : index + 1;
+}
+
 class Re2CompiledMatcher implements CompiledMatcher {
-  constructor(
-    private readonly regexp: InstanceType<typeof RE2>,
-    readonly groupCount: number,
-    readonly groupNames: readonly string[],
-  ) {}
+  constructor(private readonly regexp: InstanceType<typeof RE2>) {}
 
   /**
    * Returns all matches in `input`, in document order, bounded by `budget`.
@@ -75,8 +71,8 @@ class Re2CompiledMatcher implements CompiledMatcher {
         groups: [...match],
         ...(match.groups ? { named: { ...match.groups } } : {}),
       });
-      // Guarantee forward progress on a zero-width match.
-      if (match[0].length === 0) this.regexp.lastIndex += 1;
+      // Guarantee forward progress on a zero-width match (code-point-aware, never mid-surrogate).
+      if (match[0].length === 0) this.regexp.lastIndex = advancePastZeroWidth(input, this.regexp.lastIndex);
     }
     return spans;
   }

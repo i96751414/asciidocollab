@@ -164,15 +164,14 @@ describe('POST /projects/:projectId/replace', () => {
     await app.close();
   });
 
-  test('400 INVALID_REPLACEMENT — template references an absent capture group', async () => {
+  test('200 — an absent capture-group reference in the replacement is not an error (emitted literally)', async () => {
     const app = await buildServer({ role: 'editor' });
     const response = await replace(app, replaceBody({
       query: { query: '(foo)', mode: 'regex', caseSensitive: true, wholeWord: false },
-      replacement: '$2',
+      replacement: '$1$5',
       files: [],
     }));
-    expect(response.statusCode).toBe(400);
-    expect(response.json().error.code).toBe('INVALID_REPLACEMENT');
+    expect(response.statusCode).toBe(200);
     await app.close();
   });
 

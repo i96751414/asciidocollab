@@ -7,7 +7,6 @@ import {
   FileNodeId,
   PermissionDeniedError,
   ValidationError,
-  InvalidReplacementError,
 } from '@asciidocollab/domain';
 import type {
   SearchQuery,
@@ -240,9 +239,6 @@ export async function projectSearchRoutes(app: FastifyInstance): Promise<void> {
       if (!result.success) {
         if (result.error instanceof PermissionDeniedError) {
           return reply.status(403).send({ error: { code: 'FORBIDDEN', message: result.error.message } });
-        }
-        if (result.error instanceof InvalidReplacementError) {
-          return reply.status(400).send({ error: { code: 'INVALID_REPLACEMENT', message: result.error.message } });
         }
         if (result.error instanceof ValidationError) {
           return reply.status(400).send({ error: { code: 'INVALID_PATTERN', message: result.error.message } });

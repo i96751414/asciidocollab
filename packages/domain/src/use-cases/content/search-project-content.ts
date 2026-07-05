@@ -7,7 +7,7 @@ import { FileNodeRepository } from '../../ports/file-tree/file-node.repository';
 import { DocumentRepository } from '../../ports/file-tree/document.repository';
 import { ProjectFileStore } from '../../ports/storage/project-file-store';
 import { CollaborativeContentReader } from '../../ports/storage/collaborative-content-reader';
-import { RegexEngine, MatchBudget } from '../../ports/text/regex-engine';
+import { RegexEngine, MatchBudget, MatchSpan, CompiledMatcher } from '../../ports/text/regex-engine';
 import { Logger } from '../../ports/observability/logger';
 import { isSearchableTextFile } from '../../value-objects/files/searchable-text-file';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
@@ -125,6 +125,12 @@ function lineIndexAt(starts: number[], offset: number): number {
   return low;
 }
 
+/** Literal-mode spans (no engine needed); a literal query never fails to compute. */
+function literalSpans(content: string, input: SearchProjectContentInput, budget: MatchBudget): MatchSpan[] {
+  const matched = computeMatches(content, input.query, undefined, budget);
+  return matched.success ? matched.value : [];
+}
+
 /** Normalizes a named-group record's `undefined` values to `null` for the wire/DTO. */
 function mapNamed(named: Readonly<Record<string, string | undefined>>): Record<string, string | null> {
   const result: Record<string, string | null> = {};
@@ -179,14 +185,17 @@ export class SearchProjectContentUseCase {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    // Fail fast on an invalid pattern — before any file is read — so an empty
-    // project still yields a clean rejection rather than a false empty result.
+    // Compile a regex ONCE — up front, both to fail fast on an invalid pattern (so an empty project
+    // still yields a clean rejection) and to reuse the one compiled matcher across every file rather
+    // than recompiling per file. Literal mode needs no engine.
+    let matcher: CompiledMatcher | null = null;
     if (input.query.mode === 'regex') {
-      const probe = this.regexEngine.compile(input.query.text, {
+      const compiled = this.regexEngine.compile(input.query.text, {
         caseSensitive: input.query.caseSensitive,
         multiline: true,
       });
-      if (!probe.success) return { success: false, error: probe.error };
+      if (!compiled.success) return { success: false, error: compiled.error };
+      matcher = compiled.value;
     }
 
     const nodes = await this.fileNodeRepo.findByProjectId(projectId);
@@ -198,6 +207,9 @@ export class SearchProjectContentUseCase {
     let totalMatches = 0;
     let returnedMatches = 0;
     let skippedFiles = 0;
+    // Set when a file's match evaluation is cut short by the per-file cap/deadline, so the reported
+    // total is a lower bound; surfaced as `capped` so the client still shows the "refine" affordance.
+    let truncated = false;
 
     for (const node of files) {
       const content = await this.readSearchableContent(projectId, node, input.limits.maxFileBytes);
@@ -211,11 +223,9 @@ export class SearchProjectContentUseCase {
         maxMatches: PER_FILE_MATCH_LIMIT,
         deadline: Date.now() + input.limits.perFileTimeBudgetMs,
       };
-      const matched = computeMatches(content, input.query, this.regexEngine, budget);
-      // A compile error was already rejected above; treat any late failure as no matches.
-      if (!matched.success || matched.value.length === 0) continue;
-
-      const spans = matched.value;
+      const spans = matcher ? matcher.matches(content, budget) : literalSpans(content, input, budget);
+      if (spans.length === 0) continue;
+      if (spans.length >= PER_FILE_MATCH_LIMIT) truncated = true;
       totalMatches += spans.length;
 
       const starts = lineStarts(content);
@@ -253,7 +263,7 @@ export class SearchProjectContentUseCase {
         groups,
         totalMatches,
         returnedMatches,
-        capped: returnedMatches < totalMatches,
+        capped: returnedMatches < totalMatches || truncated,
         skippedFiles,
       },
     };

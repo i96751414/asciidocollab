@@ -56,7 +56,7 @@ export { FindReferencesUseCase } from './content/find-references';
 export type { ReferenceUsage } from './content/find-references';
 export { RenameSymbolUseCase } from './content/rename-symbol';
 export type { RenameSymbolInput, RenameSymbolOutcome, RenamableSymbolKind } from './content/rename-symbol';
-export { computeMatches, substitute, selectSpans, validateReplacementTemplate } from './content/text-match';
+export { computeMatches, substitute, selectSpans } from './content/text-match';
 export type { SearchQuery, SearchMode, ReplaceSelection, PositionalEdit } from './content/text-match';
 export { SearchProjectContentUseCase } from './content/search-project-content';
 export type {

@@ -11,14 +11,13 @@ import { StructuredCollaborativeEditor } from '../../ports/storage/structured-co
 import { RegexEngine, MatchBudget } from '../../ports/text/regex-engine';
 import { Logger } from '../../ports/observability/logger';
 import { PermissionDeniedError } from '../../errors/common/permission-denied';
-import { InvalidReplacementError } from '../../errors/common/invalid-replacement';
 import { DomainError } from '../../errors/domain-error';
 import { Result } from '../../types/result';
 import { SearchQuery, ReplaceSelection } from '../../types/search';
 import { RequestContext } from '../../types/request-context';
 import { recordAuthorizationDenial, recordAuditSuccess } from '../audit-recording';
 import { AUDIT_PROJECT_CONTENT_REPLACED } from '../../audit-actions';
-import { computeMatches, selectSpans, validateReplacementTemplate } from './text-match';
+import { computeMatches, selectSpans } from './text-match';
 
 // Domain-owned contracts, defined beside their producer (no `@asciidocollab/shared` import).
 
@@ -64,10 +63,9 @@ const APPLY_MAX_MATCHES = 1_000_000;
 /**
  * Reviewed project-wide replace. RBAC is enforced here (editor/owner only; a
  * denial is audit-logged). A user-supplied regex is compiled on the injected
- * linear-time engine and rejected up front if invalid (`INVALID_PATTERN`); the
- * replacement template is validated against the pattern's capture groups
- * (`INVALID_REPLACEMENT`). Every edit is applied through the Yjs source of truth
- * via {@link StructuredCollaborativeEditor} — open sessions get it live, dormant
+ * linear-time engine and rejected up front if invalid (`INVALID_PATTERN`). Every
+ * edit is applied through the Yjs source of truth via
+ * {@link StructuredCollaborativeEditor} — open sessions get it live, dormant
  * files are loaded/edited/written back — falling back to a direct file-store
  * write only for a file that has no `Document` record at all. Stale/diverged
  * files are skipped and reported, never force-written. The operation is recorded
@@ -93,8 +91,8 @@ export class ReplaceProjectContentUseCase {
    * @param projectId - The project to replace within.
    * @param input - The query, replacement, scope, and per-file selections.
    * @param context - Request context for the audit record.
-   * @returns The replace outcome, or `PermissionDeniedError` (not authorized),
-   *   `ValidationError` (invalid pattern), or `InvalidReplacementError`.
+   * @returns The replace outcome, or `PermissionDeniedError` (not authorized) or
+   *   `ValidationError` (invalid regex pattern).
    */
   async execute(
     actorId: UserId,
@@ -116,22 +114,13 @@ export class ReplaceProjectContentUseCase {
       return { success: false, error: new PermissionDeniedError() };
     }
 
-    // Compile once to reject an invalid pattern and to learn the capture-group shape for template
-    // validation. Literal mode has no groups and needs no engine.
-    let groupCount = 0;
-    let groupNames: readonly string[] = [];
+    // Reject an invalid pattern up front (before any file is touched). Literal mode needs no engine.
     if (input.query.mode === 'regex') {
       const compiled = this.regexEngine.compile(input.query.text, {
         caseSensitive: input.query.caseSensitive,
         multiline: true,
       });
       if (!compiled.success) return { success: false, error: compiled.error };
-      groupCount = compiled.value.groupCount;
-      groupNames = compiled.value.groupNames;
-    }
-    const template = validateReplacementTemplate(input.replacement, input.query.mode, groupCount, groupNames);
-    if (!template.success) {
-      return { success: false, error: new InvalidReplacementError(template.error.message) };
     }
 
     const nodes = await this.fileNodeRepo.findByProjectId(projectId);
@@ -143,6 +132,15 @@ export class ReplaceProjectContentUseCase {
 
     for (const fileSelection of input.files) {
       if (fileSelection.selections.length === 0) continue;
+
+      // Data isolation: the file MUST belong to this project. Guarding both apply paths (not just the
+      // file-store fallback) stops a caller from targeting another project's document by id.
+      const node = nodeById.get(fileSelection.fileNodeId.value);
+      if (!node) {
+        skipped.push({ fileNodeId: fileSelection.fileNodeId, reason: 'not-editable' });
+        continue;
+      }
+
       const document = await this.documentRepo.findByFileNodeId(fileSelection.fileNodeId);
 
       if (document) {
@@ -166,11 +164,6 @@ export class ReplaceProjectContentUseCase {
       }
 
       // No Document record — a file never opened collaboratively. Apply directly to the file store.
-      const node = nodeById.get(fileSelection.fileNodeId.value);
-      if (!node) {
-        skipped.push({ fileNodeId: fileSelection.fileNodeId, reason: 'not-editable' });
-        continue;
-      }
       const applied = await this.applyToFileStore(projectId, node.path, input, fileSelection.selections);
       if (applied.reason) {
         skipped.push({ fileNodeId: fileSelection.fileNodeId, reason: applied.reason });
@@ -207,14 +200,13 @@ export class ReplaceProjectContentUseCase {
     const matched = computeMatches(content, input.query, this.regexEngine, budget);
     if (!matched.success) return { count: 0, reason: 'not-editable' };
     const edits = selectSpans(matched.value, selections, input.replacement, input.query.mode);
-    if (!edits.success) return { count: 0, reason: 'not-editable' };
-    if (edits.value.length === 0) return { count: 0, reason: 'stale' };
+    if (edits.length === 0) return { count: 0, reason: 'stale' };
 
     let next = content;
-    for (const edit of edits.value) {
+    for (const edit of edits) {
       next = next.slice(0, edit.from) + edit.replacement + next.slice(edit.to);
     }
     await this.fileStore.write(projectId, path, Buffer.from(next, 'utf8'));
-    return { count: edits.value.length };
+    return { count: edits.length };
   }
 }

@@ -196,6 +196,9 @@ export function useProjectSearch(projectId: string): UseProjectSearchResult {
   useEffect(() => {
     // Abort any in-flight request when the query changes or the component unmounts.
     abortReference.current?.abort();
+    // The `fileNodeId:ordinal` exclusion keys are only meaningful for the current result set; a new
+    // query renumbers matches, so clear exclusions to avoid silently skipping unrelated matches.
+    setExcluded(new Set());
 
     if (query.query.length === 0) {
       setStatus('idle');
