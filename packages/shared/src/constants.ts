@@ -24,3 +24,10 @@ export function isPresenceRoom(roomName: string): boolean {
  */
 export const COLLAB_AUTH_DOCUMENT_PATH = '/internal/collab/auth/document';
 export const COLLAB_AUTH_PRESENCE_PATH = '/internal/collab/auth/presence';
+
+/**
+ * Path of the internal content-changed notify endpoint (apps/api internal server). The collab server
+ * POSTs here on a debounced live edit so the API can broadcast a content-changed event to the
+ * project's SSE subscribers. Shared so the collab notifier and the API route reference one source.
+ */
+export const COLLAB_CONTENT_CHANGED_PATH = '/internal/collab/content-changed';

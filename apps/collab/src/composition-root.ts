@@ -13,6 +13,7 @@ import { OpenCollaborationSessionUseCase, CloseCollaborationSessionUseCase } fro
 import { PersistenceExtension } from './extensions/persistence.js';
 import { AuthHookExtension } from './extensions/auth-hook.js';
 import { ConnectionLimitExtension } from './extensions/connection-limit.js';
+import { ChangeNotifierExtension } from './extensions/change-notifier.js';
 import { createMtlsFetch } from './extensions/mtls-fetch.js';
 import { createCollabServer } from './server.js';
 import { createCollabConfig } from './config/collab-config.js';
@@ -75,9 +76,19 @@ export async function compositionRoot() {
     fileNodeRepository,
   );
 
+  // Notifies the API of live edits so open dependents recompute (feature 036). Best-effort, off the
+  // Yjs hot path; reuses the same mTLS transport as the auth hook when configured.
+  const changeNotifierExtension = new ChangeNotifierExtension({
+    apiInternalUrl: config.get('apiInternalUrl'),
+    notifyPath: config.get('contentChangedNotifyPath'),
+    debounceMs: config.get('contentChangedDebounceMs'),
+    logger,
+    ...(mtlsFetch && { fetch: mtlsFetch }),
+  });
+
   const server = await createCollabServer(
     { port: config.get('port'), maxPayloadBytes: config.get('maxPayloadBytes'), logger },
-    [authHookExtension, connectionLimitExtension, persistenceExtension],
+    [authHookExtension, connectionLimitExtension, persistenceExtension, changeNotifierExtension],
     systemSettingRepo,
     {
       onRoomOpen: (projectId, documentId) =>

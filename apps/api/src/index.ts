@@ -206,6 +206,7 @@ async function start() {
     repos: app.repos,
     services: app.services,
     config: appConfig,
+    fileTreeEventBus: app.fileTreeEventBus,
   });
 
   await internalServer.listen({
