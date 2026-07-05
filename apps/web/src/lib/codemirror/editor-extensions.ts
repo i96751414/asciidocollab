@@ -8,6 +8,7 @@ import { linter, lintGutter } from '@codemirror/lint';
 import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
 import { asciidocTheme } from '@/lib/codemirror/asciidoc-theme';
+import { searchPanelTheme } from '@/lib/codemirror/search-panel-theme';
 import { asciidocFold } from '@/lib/codemirror/asciidoc-fold';
 import { asciidocHeadingLevels, inheritedHeadingOffsetFacet, outlineIncludeContextFacet, type IncludeResolutionContext } from '@/lib/codemirror/asciidoc-heading-levels';
 import { asciidocAttributeFold } from '@/lib/codemirror/asciidoc-attribute-fold';
@@ -182,6 +183,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     autoWrapInputHandler,
     keymap.of([...defaultKeymap, ...nativeHistoryKeymap, ...searchKeymap]),
     search({ top: true }),
+    // Style the stock find/replace panel from design tokens (behaviour/keymap unchanged).
+    searchPanelTheme,
     // readOnly blocks user input but not programmatic Yjs-applied updates, so observers
     // still see live remote edits (research D8); editable.of(false) also drops the caret/
     // contenteditable so there is no misleading editable affordance.

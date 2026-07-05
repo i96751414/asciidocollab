@@ -90,8 +90,8 @@ description: "Task list for Project-Wide Find and Replace Panel"
 
 **Independent Test**: Open the in-editor find/replace — inputs/buttons/toggles match the design system in light and dark; switching Files ↔ Outline ↔ Search shows identical tab framing; collapse/restore/remember behaves identically.
 
-- [ ] T024 [P] [US3] Implement a design-token CodeMirror theme for the search panel (`.cm-search`/`.cm-panel` inputs, buttons, toggles; light/dark) in `apps/web/src/lib/codemirror/search-panel-theme.ts`, and attach it in `apps/web/src/lib/codemirror/editor-extensions.ts` while keeping `search({ top: true })` + `searchKeymap` behavior unchanged (FR-014; must not touch the scroll-sync seam — Principle VIII).
-- [ ] T025 [US3] Audit and align the Search tab framing with Files/Outline (rail icon treatment, active-accent bar, header, spacing, collapse/restore) and confirm all `SearchView` colors derive from design tokens in both themes, in `apps/web/src/components/editor/search-view.tsx` / `left-panel-rail.tsx` (FR-001, SC-006).
+- [X] T024 [P] [US3] Implement a design-token CodeMirror theme for the search panel (`.cm-search`/`.cm-panel` inputs, buttons, toggles; light/dark) in `apps/web/src/lib/codemirror/search-panel-theme.ts`, and attach it in `apps/web/src/lib/codemirror/editor-extensions.ts` while keeping `search({ top: true })` + `searchKeymap` behavior unchanged (FR-014; must not touch the scroll-sync seam — Principle VIII).
+- [X] T025 [US3] Audit and align the Search tab framing with Files/Outline (rail icon treatment, active-accent bar, header, spacing, collapse/restore) and confirm all `SearchView` colors derive from design tokens in both themes, in `apps/web/src/components/editor/search-view.tsx` / `left-panel-rail.tsx` (FR-001, SC-006).
 
 **Checkpoint**: All three stories independently functional and visually consistent.
 
