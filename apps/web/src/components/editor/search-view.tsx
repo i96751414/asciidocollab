@@ -1,8 +1,63 @@
 'use client';
 import { useState } from 'react';
 import { CaseSensitive, WholeWord, Regex, Replace, ReplaceAll } from 'lucide-react';
-import type { FileMatchGroupDto, SearchMatchDto } from '@asciidocollab/shared';
+import type { FileMatchGroupDto, SearchMatchDto, SearchMode } from '@asciidocollab/shared';
 import { useProjectSearch } from '@/hooks/use-project-search';
+
+/**
+ * Expands a replacement template for the before/after PREVIEW only, using the capture groups the
+ * search carried back — so `$1`/`${name}`/`$$`/`$&` show their real substitution instead of the raw
+ * template. Literal mode inserts the text verbatim. Mirrors the server's `substitute` rules; the
+ * authoritative replacement still happens server-side against live content.
+ */
+function expandReplacementPreview(replacement: string, match: SearchMatchDto, mode: SearchMode): string {
+  if (mode === 'literal') return replacement;
+  let out = '';
+  let index = 0;
+  while (index < replacement.length) {
+    if (replacement[index] !== '$') {
+      out += replacement[index];
+      index += 1;
+      continue;
+    }
+    const next = replacement[index + 1];
+    if (next === '$') {
+      out += '$';
+      index += 2;
+      continue;
+    }
+    if (next === '&') {
+      out += match.groups[0] ?? '';
+      index += 2;
+      continue;
+    }
+    if (next === '{') {
+      const close = replacement.indexOf('}', index + 2);
+      if (close !== -1) {
+        out += match.named?.[replacement.slice(index + 2, close)] ?? '';
+        index = close + 1;
+        continue;
+      }
+    }
+    if (next !== undefined && next >= '0' && next <= '9') {
+      const twoDigit = replacement.slice(index + 1, index + 3);
+      if (/^\d\d$/.test(twoDigit) && Number(twoDigit) > 0 && Number(twoDigit) < match.groups.length) {
+        out += match.groups[Number(twoDigit)] ?? '';
+        index += 3;
+        continue;
+      }
+      const oneNumber = Number(next);
+      if (oneNumber > 0 && oneNumber < match.groups.length) {
+        out += match.groups[oneNumber] ?? '';
+      }
+      index += 2;
+      continue;
+    }
+    out += '$';
+    index += 1;
+  }
+  return out;
+}
 
 /** Where a chosen result should open. */
 export interface SearchResultTarget {
@@ -27,6 +82,7 @@ interface SearchViewProperties {
 /** Replace controls threaded down to each result row. */
 interface ReplaceControls {
   replacement: string;
+  mode: SearchMode;
   showReplace: boolean;
   isExcluded: (fileNodeId: string, ordinal: number) => boolean;
   toggleExcluded: (fileNodeId: string, ordinal: number) => void;
@@ -53,16 +109,17 @@ function OptionToggle({ label, pressed, onPressedChange, children }: { label: st
 }
 
 /** Renders one line snippet with the matched substring highlighted, and the replacement preview when replacing. */
-function MatchSnippet({ match, replacement, showReplace }: { match: SearchMatchDto; replacement: string; showReplace: boolean }) {
+function MatchSnippet({ match, replacement, mode, showReplace }: { match: SearchMatchDto; replacement: string; mode: SearchMode; showReplace: boolean }) {
   const start = Math.max(0, match.column - 1);
   const end = Math.min(match.lineText.length, start + match.matchText.length);
+  const preview = showReplace ? expandReplacementPreview(replacement, match, mode) : '';
   return (
     <span className="truncate">
       <span className="text-muted-foreground">{match.lineText.slice(0, start)}</span>
       {showReplace ? (
         <>
           <mark className="rounded-sm bg-destructive/15 text-foreground line-through">{match.lineText.slice(start, end)}</mark>
-          <mark className="rounded-sm bg-primary/20 text-foreground">{replacement}</mark>
+          <mark className="rounded-sm bg-primary/20 text-foreground">{preview}</mark>
         </>
       ) : (
         <mark className="rounded-sm bg-primary/20 text-foreground">{match.lineText.slice(start, end)}</mark>
@@ -112,7 +169,7 @@ function ResultGroup({ group, onNavigate, replace }: { group: FileMatchGroupDto;
                 className={`flex flex-1 items-baseline gap-2 py-0.5 text-left text-xs hover:bg-accent ${replace.showReplace ? 'pl-1' : 'pl-5'} ${excluded ? 'opacity-50' : ''}`}
               >
                 <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{match.line}</span>
-                <MatchSnippet match={match} replacement={replace.replacement} showReplace={replace.showReplace && !excluded} />
+                <MatchSnippet match={match} replacement={replace.replacement} mode={replace.mode} showReplace={replace.showReplace && !excluded} />
               </button>
               {replace.showReplace && !excluded && (
                 <button
@@ -151,6 +208,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
   const hasResults = status === 'success' && result !== null && result.totalMatches > 0;
   const replaceControls: ReplaceControls = {
     replacement,
+    mode: query.mode,
     showReplace,
     isExcluded: search.isExcluded,
     toggleExcluded: search.toggleExcluded,
@@ -213,7 +271,7 @@ export function SearchView({ projectId, onNavigate }: SearchViewProperties) {
 
         {query.mode === 'regex' && (
           <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-            Regex mode (RE2): use <code className="rounded bg-muted px-0.5">\b</code> for word boundaries. In{' '}
+            Use <code className="rounded bg-muted px-0.5">\b</code> for word boundaries. In{' '}
             <strong>Replace</strong>, insert capture groups with <code className="rounded bg-muted px-0.5">$1</code>{' '}
             <code className="rounded bg-muted px-0.5">$2</code>, named groups with{' '}
             <code className="rounded bg-muted px-0.5">{'${name}'}</code>, and a literal{' '}

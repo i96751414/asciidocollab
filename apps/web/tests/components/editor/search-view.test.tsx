@@ -24,7 +24,7 @@ const RESULT: SearchResultDto = {
       fileNodeId: 'node-1',
       path: 'chapters/intro.adoc',
       matchCount: 1,
-      matches: [{ ordinal: 0, line: 3, column: 5, from: 20, to: 23, lineText: 'the foo is here', matchText: 'foo' }],
+      matches: [{ ordinal: 0, line: 3, column: 5, from: 20, to: 23, lineText: 'the foo is here', matchText: 'foo', groups: ['foo'] }],
     },
   ],
   totalMatches: 1,
@@ -40,8 +40,8 @@ const TWO_MATCH_RESULT: SearchResultDto = {
       path: 'a.adoc',
       matchCount: 2,
       matches: [
-        { ordinal: 0, line: 1, column: 1, from: 0, to: 3, lineText: 'foo one', matchText: 'foo' },
-        { ordinal: 1, line: 2, column: 1, from: 8, to: 11, lineText: 'foo two', matchText: 'foo' },
+        { ordinal: 0, line: 1, column: 1, from: 0, to: 3, lineText: 'foo one', matchText: 'foo', groups: ['foo'] },
+        { ordinal: 1, line: 2, column: 1, from: 8, to: 11, lineText: 'foo two', matchText: 'foo', groups: ['foo'] },
       ],
     },
   ],
@@ -142,6 +142,34 @@ describe('SearchView', () => {
     await waitFor(() => expect(replaceProjectContent).toHaveBeenCalled());
     const [, request] = replaceProjectContent.mock.calls[0];
     expect(request.files[0].selections).toEqual([{ ordinal: 1, expectedText: 'foo' }]);
+  });
+
+  test('previews a regex capture-group substitution (not the raw template)', async () => {
+    searchProjectContent.mockResolvedValue({
+      groups: [
+        {
+          fileNodeId: 'node-1',
+          path: 'x.adoc',
+          matchCount: 1,
+          matches: [{ ordinal: 0, line: 1, column: 1, from: 0, to: 5, lineText: 'Title here', matchText: 'Title', groups: ['Title', 'e'] }],
+        },
+      ],
+      totalMatches: 1,
+      returnedMatches: 1,
+      capped: false,
+      skippedFiles: 0,
+    });
+    render(<SearchView projectId="p1" onNavigate={jest.fn()} />);
+    // Regex mode, pattern with a capture group, replacement that references it.
+    fireEvent.click(screen.getByRole('button', { name: /regular expression/i }));
+    type('Titl([a-z]+)');
+    await screen.findByText('x.adoc');
+    typeReplacement('$1Title');
+
+    // The preview expands $1 → "e", so it shows "eTitle", never the raw "$1Title".
+    const mark = await screen.findByText('eTitle');
+    expect(mark.tagName).toBe('MARK');
+    expect(screen.queryByText('$1Title')).not.toBeInTheDocument();
   });
 
   test('re-searches after a successful replace so resolved matches disappear', async () => {

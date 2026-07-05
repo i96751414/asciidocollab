@@ -36,6 +36,13 @@ export interface SearchMatchDto {
   lineText: string;
   /** Exact matched substring (the `expectedText` for a replace selection). */
   matchText: string;
+  /**
+   * Capture groups: index 0 is the whole match, index n the nth group (null when a group did not
+   * participate). Lets the client preview a regex `$n` replacement without re-running the engine.
+   */
+  groups: (string | null)[];
+  /** Named capture groups, when the pattern defines any (for a `${name}` preview). */
+  named?: Record<string, string | null>;
 }
 
 /** All matches grouped under one file. */

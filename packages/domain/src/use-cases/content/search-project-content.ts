@@ -38,6 +38,10 @@ export interface SearchMatch {
   readonly lineText: string;
   /** The exact matched substring (the `expectedText` a replace selection confirms). */
   readonly matchText: string;
+  /** Capture groups (index 0 = whole match; null = group absent), for a client-side `$n` preview. */
+  readonly groups: ReadonlyArray<string | null>;
+  /** Named capture groups, when the pattern defines any (for a `${name}` preview). */
+  readonly named?: Readonly<Record<string, string | null>>;
 }
 
 /** All returned matches for one file. */
@@ -119,6 +123,13 @@ function lineIndexAt(starts: number[], offset: number): number {
     else high = mid - 1;
   }
   return low;
+}
+
+/** Normalizes a named-group record's `undefined` values to `null` for the wire/DTO. */
+function mapNamed(named: Readonly<Record<string, string | undefined>>): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(named)) result[key] = value ?? null;
+  return result;
 }
 
 function lineTextAt(content: string, starts: number[], lineIndex: number): string {
@@ -222,6 +233,8 @@ export class SearchProjectContentUseCase {
           to: span.to,
           lineText: lineTextAt(content, starts, lineIndex),
           matchText: span.groups[0] ?? '',
+          groups: span.groups.map((group) => group ?? null),
+          ...(span.named ? { named: mapNamed(span.named) } : {}),
         });
       }
       returnedMatches += take;
