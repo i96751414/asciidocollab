@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view';
 import { refreshHeadingLevelsEffect } from '@/lib/codemirror/asciidoc-heading-levels';
 import { refreshAttributeFoldEffect } from '@/lib/codemirror/asciidoc-attribute-fold';
 import { setInheritedAttributesEffect } from '@/lib/codemirror/inherited-attributes-field';
+import { contentChangedRefreshEffect } from '@/lib/codemirror/rename-suggestion/rename-suggestion-effects';
 import { refreshCrossDocumentAttributesEffect } from '@/lib/codemirror/cross-document-attributes';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '@/lib/asciidoc/render-intrinsics';
@@ -123,6 +124,12 @@ interface UseEditorMountOptions {
    */
   renameSuggestionExtension?: Extension;
   /**
+   * Monotonic counter bumped when a collaborator changes any project file's content. Nudges the
+   * rename-suggestion plugin to re-query its usage/collision counts while an offer is visible
+   * (feature 036, FR-010). Undefined ⇒ no external refresh.
+   */
+  renameRefreshNonce?: number;
+  /**
    * Forces the editor to recreate when it changes, such as the Yjs room id on a file switch, so
    * the collab binding rebinds to the new document. Stays undefined on the legacy path.
    */
@@ -157,6 +164,7 @@ export function useEditorMount({
   revealRequest,
   collabExtension,
   renameSuggestionExtension,
+  renameRefreshNonce,
   remountKey,
 }: UseEditorMountOptions) {
   const collabActive = collabExtension !== undefined;
@@ -415,6 +423,13 @@ export function useEditorMount({
     });
     try { onOutlineChangeReference.current(view.state.field(outlineField)); } catch { /* field not installed */ }
   }, [resolvedScope]);
+
+  // A collaborator changed some project file: nudge the rename-suggestion plugin to re-query its
+  // usage/collision counts for a visible offer (FR-010). Skips the initial mount (nonce 0/undefined).
+  useEffect(() => {
+    if (!renameRefreshNonce) return;
+    viewReference.current?.dispatch({ effects: contentChangedRefreshEffect.of(null) });
+  }, [renameRefreshNonce]);
 
   // Sync external content changes into the live view. Skipped on the collab path —
   // yCollab owns the document content there (seeding from REST would desync, B3).

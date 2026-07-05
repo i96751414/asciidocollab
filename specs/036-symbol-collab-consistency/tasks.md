@@ -133,8 +133,8 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: A shows a rename suggestion with a count; B adds a reference to the old name in another file live; A's count increases to include it before apply.
 
-- [ ] T020 [US4] On a (debounced) `content-changed` for any project file while a rename suggestion widget is visible, re-run `findSymbolUsages` (already live-aware server-side via `/symbol-usages`) and update the reported reference/file count, the collision determination, and the suppression rule in `apps/web/src/lib/codemirror/rename-suggestion/rename-suggestion-state.ts` (FR-010).
-- [ ] T021 [US4] Two-client E2E in `apps/web/tests/e2e/collab-consistency-rename.spec.ts`: with A's suggestion visible, B live-adds a reference (count rises) and a colliding same-kind definition (apply blocked while it persists) and removes the last occurrence (suggestion withdrawn); then A applies → every live+persisted occurrence rewritten, single-step undo (SC-004/SC-005; FR-010/011).
+- [X] T020 [US4] On a (debounced) `content-changed` for any project file while a rename suggestion widget is visible, re-run `findSymbolUsages` (already live-aware server-side via `/symbol-usages`) and update the reported reference/file count, the collision determination, and the suppression rule in `apps/web/src/lib/codemirror/rename-suggestion/rename-suggestion-state.ts` (FR-010).
+- [X] T021 [US4] Two-client E2E in `apps/web/tests/e2e/collab-consistency-rename.spec.ts`: with A's suggestion visible, B live-adds a reference (count rises) and a colliding same-kind definition (apply blocked while it persists) and removes the last occurrence (suggestion withdrawn); then A applies → every live+persisted occurrence rewritten, single-step undo (SC-004/SC-005; FR-010/011).
 
 **Checkpoint**: Rename freshness holds against concurrent live edits; apply reuses the existing collaboration-aware path.
 
@@ -146,8 +146,8 @@ All derived views (preview, editor highlighting, inherited attributes, heading I
 
 **Independent Test**: With no collaborator in a related file, A resolves it from saved content; B starts editing → A switches to live; B's session ends → A reverts to persisted with no stale intermediate.
 
-- [ ] T022 [US7] Subtle, on-demand non-live indicator component in `apps/web/src/components/editor/non-live-indicator.tsx` (design-token styled, correct light/dark, no disruptive warning per Principles V/VI), driven by a per-open-document non-live state set in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx` when a reachable file's current content could not be obtained live (fetch failure / dropped delivery) (FR-021).
-- [ ] T023 [US7] Two-client E2E in `apps/web/tests/e2e/collab-consistency-session-edges.spec.ts`: session start → A switches to live; session end → A reverts to persisted with no intermediate stale flash (SC-008; FR-003); and dropped/restored SSE → A clears cache + rebuilds on reconnect and shows the non-live indicator meanwhile (edge / FR-021).
+- [X] T022 [US7] Subtle, on-demand non-live indicator component in `apps/web/src/components/editor/non-live-indicator.tsx` (design-token styled, correct light/dark, no disruptive warning per Principles V/VI), driven by a per-open-document non-live state set in `apps/web/src/app/(dashboard)/dashboard/projects/[id]/project-editor-layout.tsx` when a reachable file's current content could not be obtained live (fetch failure / dropped delivery) (FR-021).
+- [X] T023 [US7] Two-client E2E in `apps/web/tests/e2e/collab-consistency-session-edges.spec.ts`: session start → A switches to live; session end → A reverts to persisted with no intermediate stale flash (SC-008; FR-003); and dropped/restored SSE → A clears cache + rebuilds on reconnect and shows the non-live indicator meanwhile (edge / FR-021).
 
 **Checkpoint**: Live↔persisted transitions are graceful and observable.
 

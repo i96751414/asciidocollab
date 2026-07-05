@@ -14,6 +14,7 @@ import {
   dismissRequestEffect,
   setSuggestionEffect,
   undoRequestEffect,
+  contentChangedRefreshEffect,
 } from '@/lib/codemirror/rename-suggestion/rename-suggestion-effects';
 
 const u = (fileNodeId: string, kind: string, from: number): SymbolUsage => ({
@@ -383,6 +384,68 @@ describe('rename suggestion state machine', () => {
     await flush();
     expect(renameSymbol).toHaveBeenCalled();
     expect(shown(view)?.status).toBe('visible'); // still offered for retry, not stuck in 'applied'
+    view.destroy();
+  });
+
+  test('a content-changed refresh re-queries usages and updates the visible offer count (FR-010)', async () => {
+    // A collaborator adds a reference to the old name live: the reported count must rise before Apply.
+    let editionUsages: SymbolUsage[] = [u('F', 'definition', 0), u('G', 'xref', 5), u('G', 'xref', 20)];
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === 'edition' ? editionUsages : [],
+    );
+    const { config } = makeConfig({ findSymbolUsages, refreshMs: 100 });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.usageCount).toBe(2); // two xrefs in G (the definition in F is excluded)
+
+    // A collaborator live-adds another reference in a third file; a content-changed frame arrives.
+    editionUsages = [...editionUsages, u('H', 'xref', 3)];
+    const callsBefore = findSymbolUsages.mock.calls.length;
+    view.dispatch({ effects: contentChangedRefreshEffect.of(null) });
+    await jest.advanceTimersByTimeAsync(100);
+    await flush();
+
+    expect(findSymbolUsages.mock.calls.length).toBeGreaterThan(callsBefore); // re-queried
+    expect(shown(view)?.usageCount).toBe(3); // count rose to include the collaborator's new reference
+    view.destroy();
+  });
+
+  test('a content-changed refresh withdraws the offer when the last occurrence is removed (FR-010)', async () => {
+    let editionUsages: SymbolUsage[] = [u('F', 'definition', 0), u('G', 'xref', 5)];
+    const findSymbolUsages = jest.fn(async (_p: string, name: string): Promise<SymbolUsage[]> =>
+      name === 'edition' ? editionUsages : [],
+    );
+    const { config } = makeConfig({ findSymbolUsages, refreshMs: 100 });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(shown(view)?.status).toBe('visible');
+
+    // The only other occurrence is removed live → nothing left to rename → the offer is suppressed.
+    editionUsages = [u('F', 'definition', 0)];
+    view.dispatch({ effects: contentChangedRefreshEffect.of(null) });
+    await jest.advanceTimersByTimeAsync(100);
+    await flush();
+
+    expect(shown(view)).toBeNull();
+    view.destroy();
+  });
+
+  test('a content-changed refresh does not disturb an applied offer', async () => {
+    const { config } = makeConfig({ refreshMs: 100 });
+    const view = mount(':edition:\n', config);
+    beginRename(view);
+    await jest.advanceTimersByTimeAsync(2000);
+    view.dispatch({ effects: applyRequestEffect.of(null) });
+    await flush();
+    expect(shown(view)?.status).toBe('applied');
+
+    view.dispatch({ effects: contentChangedRefreshEffect.of(null) });
+    await jest.advanceTimersByTimeAsync(100);
+    await flush();
+
+    expect(shown(view)?.status).toBe('applied'); // the Undo affordance is preserved
     view.destroy();
   });
 });

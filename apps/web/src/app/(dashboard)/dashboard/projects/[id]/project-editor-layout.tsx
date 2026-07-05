@@ -10,6 +10,7 @@ import { LogoMark } from '@/components/logo';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { AsciiDocEditor } from '@/components/editor/asciidoc-editor';
 import { useProjectSymbolIndex } from '@/hooks/use-project-symbol-index';
+import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import type { ProjectSymbolIndex } from '@/lib/codemirror/asciidoc-symbol-index';
 import { AsciiDocPreview, isAsciiDocFile } from '@/components/asciidoc-preview';
 import { ImagePreview } from '@/components/image-preview';
@@ -21,6 +22,7 @@ import { type ConnectionState } from '@/hooks/use-collab-document';
 
 import { LeftPanel } from '@/components/editor/left-panel';
 import { OutlineView } from '@/components/editor/outline-view';
+import { NonLiveIndicator } from '@/components/editor/non-live-indicator';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { assembleOutline, mapOutlinePresence } from '@/lib/outline';
 import { sameOutlineEntries } from '@/lib/outline/stable-entries';
@@ -56,6 +58,8 @@ interface ContentAreaProperties {
   inheritedAttributes?: ReadonlyMap<string, string>;
   // The open file's resolved cross-document scope (inherited + own), for `{name}` known highlighting.
   resolvedScope?: ReadonlyMap<string, string>;
+  // Bumped when a collaborator changes any project file, so a visible rename offer re-queries (FR-010).
+  renameRefreshNonce?: number;
   // Live request to reveal a line in the open editor (same-file go-to-definition).
   revealRequest?: { line: number; nonce: number } | null;
   // Ctrl+click on a link or URL — opens it in a new tab.
@@ -106,6 +110,7 @@ function ContentArea({
   inheritedOffset,
   inheritedAttributes,
   resolvedScope,
+  renameRefreshNonce,
   revealRequest,
   onOpenUrl,
   onChange,
@@ -165,6 +170,7 @@ function ContentArea({
       inheritedOffset={inheritedOffset}
       inheritedAttributes={inheritedAttributes}
       resolvedScope={resolvedScope}
+      renameRefreshNonce={renameRefreshNonce}
       revealRequest={revealRequest}
       onOpenUrl={onOpenUrl}
       onChange={onChange}
@@ -237,6 +243,24 @@ export function ProjectEditorLayout({
     // (which would drop its headings from the assembled outline and re-add them a frame later).
     liveContent: liveOverlayContent,
   });
+
+  // Rename freshness (036/FR-010): a rename suggestion's project-wide counts/collision must track a
+  // collaborator's edits to ANY project file — including files outside the open document's dependency
+  // graph — so this subscription is intentionally unfiltered (the symbol index's content-changed
+  // handler filters by reachability, which is too narrow for a project-wide rename). The bumped nonce
+  // nudges the editor's rename plugin to re-query while an offer is visible.
+  const [renameRefreshNonce, setRenameRefreshNonce] = useState(0);
+  // Non-live indicator (036/FR-021): a dropped SSE delivery means related content may be resolved from
+  // last-saved rather than a live session, until the connection recovers and the index rebuilds.
+  const [nonLive, setNonLive] = useState(false);
+  useFileTreeEvents(projectId, {
+    onContentChanged: () => setRenameRefreshNonce((nonce) => nonce + 1),
+    onReconnect: () => setNonLive(true),
+  });
+  // A rebuild (reachableDocVersion bump) after the connection recovers clears the non-live state.
+  useLayoutEffect(() => {
+    setNonLive(false);
+  }, [reachableDocVersion]);
 
   // Left-panel Outline view state (028): the live outline lifted from the editor and the cursor line
   // used to mark the current section. Held here so the panel is fed without remounting the editor.
@@ -407,6 +431,7 @@ export function ProjectEditorLayout({
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <NonLiveIndicator active={nonLive} />
           {canManage && (
             <>
               <Button asChild variant="ghost" size="sm">
@@ -509,6 +534,7 @@ export function ProjectEditorLayout({
               inheritedOffset={editorInheritedOffset}
               inheritedAttributes={editorInheritedAttributes}
               resolvedScope={editorResolvedScope}
+              renameRefreshNonce={renameRefreshNonce}
               revealRequest={revealRequest}
               onOpenUrl={handleOpenUrl}
               onChange={handleChange}

@@ -12,6 +12,7 @@ import {
   applyRequestEffect,
   dismissRequestEffect,
   undoRequestEffect,
+  contentChangedRefreshEffect,
 } from './rename-suggestion-effects';
 
 /**
@@ -64,6 +65,8 @@ export interface RenameSuggestionConfig {
   settleMs?: number;
   /** Delay before a suggestion hides after the cursor leaves the definition. Default 5000ms. */
   leaveMs?: number;
+  /** Debounce before a content-changed signal re-queries a visible suggestion's counts. Default 300ms. */
+  refreshMs?: number;
 }
 
 /** The reused endpoints only distinguish anchor vs attribute; a heading rewrites its derived id. */
@@ -168,16 +171,19 @@ interface Session {
 
 const DEFAULT_SETTLE_MS = 1000;
 const DEFAULT_LEAVE_MS = 5000;
+const DEFAULT_REFRESH_MS = 300;
 
 function makePlugin(config: RenameSuggestionConfig) {
   const settleMs = config.settleMs ?? DEFAULT_SETTLE_MS;
   const leaveMs = config.leaveMs ?? DEFAULT_LEAVE_MS;
+  const refreshMs = config.refreshMs ?? DEFAULT_REFRESH_MS;
 
   return ViewPlugin.fromClass(
     class {
       private session: Session | null = null;
       private settleTimer: ReturnType<typeof setTimeout> | null = null;
       private leaveTimer: ReturnType<typeof setTimeout> | null = null;
+      private refreshTimer: ReturnType<typeof setTimeout> | null = null;
       private seq = 0;
       private dismissedName: string | null = null;
       private undo: (() => Promise<RefactorResult>) | null = null;
@@ -196,6 +202,7 @@ function makePlugin(config: RenameSuggestionConfig) {
             if (effect.is(applyRequestEffect)) void Promise.resolve().then(() => this.apply());
             else if (effect.is(dismissRequestEffect)) void Promise.resolve().then(() => this.dismiss());
             else if (effect.is(undoRequestEffect)) void Promise.resolve().then(() => this.runUndo());
+            else if (effect.is(contentChangedRefreshEffect)) this.scheduleRefresh();
           }
         }
         if (update.docChanged || update.selectionSet) this.track(update.state);
@@ -205,6 +212,32 @@ function makePlugin(config: RenameSuggestionConfig) {
         this.destroyed = true;
         this.clearSettle();
         this.clearLeave();
+        this.clearRefresh();
+      }
+
+      /**
+       * A collaborator changed some project file. Debounce, then re-query the project-wide usage and
+       * collision for a VISIBLE (non-applied) offer so its counts, collision, and suppression reflect
+       * peers' live edits before Apply (FR-010). An applied offer keeps its Undo affordance untouched.
+       */
+      private scheduleRefresh() {
+        const shown = this.view.state.field(suggestionField);
+        if (!shown || shown.status === 'applied') return;
+        this.clearRefresh();
+        this.refreshTimer = setTimeout(() => {
+          this.refreshTimer = null;
+          const current = this.view.state.field(suggestionField);
+          if (!current || current.status === 'applied') return;
+          const clampedFrom = Math.min(current.candidate.definitionRange.from, this.view.state.doc.length);
+          const line = this.view.state.doc.lineAt(clampedFrom).number;
+          const session: Session = {
+            kind: current.candidate.kind,
+            oldName: current.candidate.oldName,
+            lastName: current.candidate.newName,
+            line,
+          };
+          void this.evaluate(session, current.candidate.newName, current.candidate.definitionRange);
+        }, refreshMs);
       }
 
       /** Manage the baseline session, the 1s settle timer, and the 5s leave timer. No dispatch here. */
@@ -441,6 +474,13 @@ function makePlugin(config: RenameSuggestionConfig) {
         if (this.leaveTimer) {
           clearTimeout(this.leaveTimer);
           this.leaveTimer = null;
+        }
+      }
+
+      private clearRefresh() {
+        if (this.refreshTimer) {
+          clearTimeout(this.refreshTimer);
+          this.refreshTimer = null;
         }
       }
     },

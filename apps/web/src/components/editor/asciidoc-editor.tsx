@@ -56,6 +56,8 @@ interface AsciiDocEditorProperties {
   inheritedAttributes?: ReadonlyMap<string, string>;
   /** The open file's resolved cross-document attribute scope (inherited + own), for `{name}` known highlighting. */
   resolvedScope?: ReadonlyMap<string, string>;
+  /** Bumped when a collaborator changes any project file, so a visible rename offer re-queries its counts (FR-010). */
+  renameRefreshNonce?: number;
   /** Live request to reveal a line in the open editor (same-file go-to-definition). */
   revealRequest?: { line: number; nonce: number } | null;
   onOpenUrl?: (url: string) => void;
@@ -143,6 +145,7 @@ export function AsciiDocEditor({
   inheritedOffset,
   inheritedAttributes,
   resolvedScope,
+  renameRefreshNonce,
   revealRequest,
   onOpenUrl,
   onLineClick,
@@ -265,6 +268,7 @@ export function AsciiDocEditor({
     getProjectIndex,
     collabExtension,
     renameSuggestionExtension,
+    renameRefreshNonce,
     remountKey: collab?.yjsStateId,
   });
 
