@@ -25,21 +25,21 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-
 
 ## Tech Stack
 
-| Layer                   | Technology                                                  |
-|-------------------------|-------------------------------------------------------------|
-| Frontend                | Next.js 16 (App Router) + TypeScript 6                      |
-| Code editor             | CodeMirror 6 + `y-codemirror.next`                          |
-| HTML preview            | Asciidoctor.js + highlight.js (Web Worker, client-side)     |
-| API server              | Fastify + TypeScript 6                                      |
-| Real-time CRDT          | Yjs                                                         |
-| Collaboration server    | Hocuspocus 4 (standalone native-ESM process, `apps/collab`) |
-| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                    |
-| Database                | PostgreSQL via Prisma ORM                                   |
-| Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID)   |
-| Email                   | Nodemailer (SMTP)                                           |
-| Monorepo                | pnpm workspaces                                             |
-| Tests                   | Jest + Testing Library + Playwright (E2E)                   |
-| Architecture validation | fresh-onion                                                 |
+| Layer                   | Technology                                                                                      |
+|-------------------------|-------------------------------------------------------------------------------------------------|
+| Frontend                | Next.js 16 (App Router) + TypeScript 6                                                          |
+| Code editor             | CodeMirror 6 + `y-codemirror.next`                                                              |
+| HTML preview            | Asciidoctor.js + highlight.js (Web Worker, client-side)                                         |
+| API server              | Fastify + TypeScript 6                                                                          |
+| Real-time CRDT          | Yjs                                                                                             |
+| Collaboration server    | Hocuspocus 4 (standalone native-ESM process, `apps/collab`)                                     |
+| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                                                        |
+| Database                | PostgreSQL via Prisma ORM                                                                       |
+| Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID)                                       |
+| Email                   | Nodemailer (SMTP)                                                                               |
+| Monorepo                | pnpm workspaces                                                                                 |
+| Tests                   | Jest + Testing Library + Playwright (E2E)                                                       |
+| Architecture validation | fresh-onion                                                                                     |
 | Security scanning       | Semgrep · zizmor · gitleaks · OSV-Scanner · knip (CI `security` job / `scripts/ci/security.sh`) |
 
 ## Monorepo Structure

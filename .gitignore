@@ -32,7 +32,6 @@ mutation.json
 
 # Project collaboration state (Yjs CRDT snapshots)
 .collab/
-apps/web/test-results/
 
 # Default local file storage (ASCIIDOCOLLAB_STORAGE_PATH default)
 apps/api/storage/
@@ -57,3 +56,5 @@ apps/web/public/vendor/
 
 /.claude/worktrees/
 /playwright-report/
+
+test-results/
