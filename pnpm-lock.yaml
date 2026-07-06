@@ -489,6 +489,9 @@ importers:
       '@types/node':
         specifier: ^24.12.4
         version: 24.12.4
+      re2:
+        specifier: ^1.25.0
+        version: 1.25.0
 
   packages/infrastructure:
     dependencies:

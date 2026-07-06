@@ -28,7 +28,16 @@ interface SearchRequestBody {
   wholeWord: boolean;
 }
 
-/** Maps the HTTP-boundary DTO to the domain query (whole-word is inert in regex mode). */
+/**
+ * Maps the HTTP-boundary DTO to the domain query (whole-word is inert in regex mode).
+ *
+ * `body.query` is an untrusted, user-supplied pattern. In regex mode it is never compiled with the
+ * backtracking JS `RegExp`; it flows into the {@link SearchProjectContentUseCase}, which delegates
+ * compilation and matching to the injected `RegexEngine` port — wired in production to the RE2
+ * adapter (`Re2RegexEngine`), a linear-time finite-automaton engine. Regex injection / catastrophic
+ * backtracking (ReDoS) is therefore structurally impossible and no escaping is required; matching is
+ * additionally hard-bounded by a per-file match count and time budget.
+ */
 function toDomainQuery(body: SearchRequestBody): SearchQuery {
   return {
     text: body.query,
@@ -131,6 +140,8 @@ export async function projectSearchRoutes(app: FastifyInstance): Promise<void> {
         request.server.repos.projectMember,
         request.server.repos.fileNode,
         request.server.stores.fileStore,
+        // The untrusted regex pattern runs ONLY on this injected engine (RE2 in production —
+        // linear-time, ReDoS-safe); see toDomainQuery for the rationale.
         request.server.stores.regexEngine,
         // Scan live Yjs content for files open in a collab room so unsaved edits are searchable.
         request.server.repos.document,
@@ -223,6 +234,8 @@ export async function projectSearchRoutes(app: FastifyInstance): Promise<void> {
         request.server.repos.fileNode,
         request.server.stores.fileStore,
         request.server.repos.auditLog,
+        // The untrusted regex pattern runs ONLY on this injected engine (RE2 in production —
+        // linear-time, ReDoS-safe); see toDomainQuery for the rationale.
         request.server.stores.regexEngine,
         request.server.stores.structuredCollaborativeEditor,
         request.server.repos.document,

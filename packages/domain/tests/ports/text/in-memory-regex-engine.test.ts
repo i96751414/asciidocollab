@@ -7,7 +7,7 @@ const budget = (over: Partial<MatchBudget> = {}): MatchBudget => ({
   ...over,
 });
 
-describe('InMemoryRegexEngine (domain test fake)', () => {
+describe('InMemoryRegexEngine (RE2-backed domain test engine)', () => {
   const engine = new InMemoryRegexEngine();
 
   it('rejects an invalid pattern with a ValidationError', () => {
