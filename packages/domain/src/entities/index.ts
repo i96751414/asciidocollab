@@ -20,3 +20,5 @@ export { UserInvitation } from './user-invitation';
 export { EmailVerificationToken } from './email-verification-token';
 export type { KeyBinding } from './key-binding';
 export { EditorPreferences } from './editor-preferences';
+export { ReviewComment } from './review-comment';
+export { ReviewReaction } from './review-reaction';

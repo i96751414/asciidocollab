@@ -31,3 +31,7 @@ export { CollabConnectionDeniedError } from './content/collab-connection-denied'
 export type { CollabConnectionDenialReason } from './content/collab-connection-denied';
 export { KeyBindingConflictError } from './editor/key-binding-conflict';
 export { ActiveCollaborationSessionError } from './content/active-collaboration-session';
+export { ReviewItemNotFoundError } from './review/review-item-not-found';
+export { AnchorInvalidError } from './review/anchor-invalid';
+export { ReviewOperationInvalidError } from './review/review-operation-invalid';
+export { ReviewCountConflictError } from './review/review-count-conflict';

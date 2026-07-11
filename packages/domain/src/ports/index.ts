@@ -41,3 +41,11 @@ export { SystemSettingRepository } from './admin/system-setting.repository';
 
 // observability/
 export { Logger } from './observability/logger';
+
+// review/
+export {
+  ReviewCommentRepository,
+  ListByDocumentOptions,
+  ListByProjectFilters,
+} from './review/review-comment.repository';
+export { ReviewReactionRepository } from './review/review-reaction.repository';

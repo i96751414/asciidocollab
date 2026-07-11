@@ -32,5 +32,5 @@ export async function getCollabDocumentInfo(
   }
 
   const data = await response.json();
-  return { yjsStateId: data.yjsStateId, role: data.role };
+  return { yjsStateId: data.yjsStateId, documentId: data.documentId, role: data.role };
 }

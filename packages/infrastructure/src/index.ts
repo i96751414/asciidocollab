@@ -20,6 +20,10 @@ export { PrismaFileNodeRepository } from './persistence/file-tree/prisma-file-no
 export { PrismaDocumentRepository } from './persistence/file-tree/prisma-document.repository';
 export { PrismaAssetRepository } from './persistence/file-tree/prisma-asset.repository';
 
+// review/
+export { PrismaReviewCommentRepository } from './persistence/review/prisma-review-comment.repository';
+export { PrismaReviewReactionRepository } from './persistence/review/prisma-review-reaction.repository';
+
 // storage/
 export { FilesystemProjectFileStore } from './persistence/storage/filesystem-project-file-store';
 export { FilesystemYjsStateStore } from './persistence/storage/filesystem-yjs-state-store';

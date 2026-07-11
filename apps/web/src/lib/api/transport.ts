@@ -49,12 +49,20 @@ export async function apiRequest<T>(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      data.error?.code ?? 'UNKNOWN_ERROR',
-      data.error?.message ?? 'An unexpected error occurred',
-      data.error?.retryAfter,
-    );
+    // Our routes send `{ error: { code, message } }`, but a request rejected before our handler runs
+    // (schema validation, rate limit, an unhandled 500) comes back in Fastify's native
+    // `{ statusCode, error, message }` shape. Read both so the real cause surfaces instead of a
+    // generic fallback — a wrong `op`/body then reads as the actual validation message.
+    // `data.error?.message` is undefined when `data.error` is a string ('foo'.message) or absent, so
+    // it selects the canonical envelope's message and falls through to Fastify's native top-level
+    // `message`, then to a bare string `error`, then the generic fallback.
+    const message =
+      data?.error?.message ??
+      (typeof data?.message === 'string' ? data.message : undefined) ??
+      (typeof data?.error === 'string' ? data.error : undefined) ??
+      'An unexpected error occurred';
+    const code = data?.error?.code ?? (typeof data?.code === 'string' ? data.code : undefined) ?? 'UNKNOWN_ERROR';
+    throw new ApiError(response.status, code, message, data?.error?.retryAfter);
   }
 
   return data;

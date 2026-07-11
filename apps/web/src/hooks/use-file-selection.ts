@@ -8,6 +8,8 @@ import { getCollabDocumentInfo } from '@/lib/api/collab';
 export interface SelectedFileCollab {
   /** Yjs state id forming the room name with the project id. */
   yjsStateId: string;
+  /** The backing Document's id, used as the key for document-scoped APIs such as review items. */
+  documentId: string;
   /** The current user's collaboration role for this document. */
   role: CollabAuthRole;
 }

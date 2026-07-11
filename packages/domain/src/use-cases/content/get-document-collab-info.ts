@@ -13,10 +13,12 @@ import { Result } from '../../types/result';
 
 export type { CollabRole } from './collab-role';
 
-/** Room identifier + role returned to the web editor for a collaborative document. */
+/** Room identifier + document id + role returned to the web editor for a collaborative document. */
 export interface DocumentCollabInfo {
   /** Yjs state id; combined with projectId forms the room name `${projectId}/${yjsStateId}`. */
   yjsStateId: string;
+  /** The backing Document's id, used as the key for document-scoped APIs such as review items. */
+  documentId: string;
   /** Collaboration role of the requesting user for this document. */
   role: CollabRole;
 }
@@ -58,6 +60,6 @@ export class GetDocumentCollabInfoUseCase {
     const member = await this.projectMemberRepo.findByCompositeKey(projectId, actorId);
     const role: CollabRole = toCollabRole(member?.role.value ?? 'editor');
 
-    return { success: true, value: { yjsStateId: document.yjsStateId.value, role } };
+    return { success: true, value: { yjsStateId: document.yjsStateId.value, documentId: document.id.value, role } };
   }
 }

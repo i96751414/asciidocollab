@@ -4,9 +4,17 @@ import React from 'react';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
-import type { CollabAuthRole } from '@asciidocollab/shared';
+import type { CollabAuthRole, CreateAnchorInput } from '@asciidocollab/shared';
+import { EditorView } from '@codemirror/view';
 import type { ConnectionState } from '@/hooks/use-collab-document';
-import { collabExtensions } from './editor-collab-extensions';
+import { collabExtensions, COLLAB_YTEXT_KEY } from './editor-collab-extensions';
+import {
+  setReviewRangesEffect,
+  setActiveReviewEffect,
+  flashReviewEffect,
+  type ReviewAnchorRange,
+} from '@/lib/codemirror/review-decorations';
+import { captureAnchor } from '@/lib/review/anchor';
 import { renameSuggestion } from '@/lib/codemirror/rename-suggestion/rename-suggestion-state';
 import { findSymbolUsages, renameSymbol } from '@/lib/api/projects';
 import { useAutoSave } from '@/hooks/use-auto-save';
@@ -106,6 +114,42 @@ interface AsciiDocEditorProperties {
   onGoToSymbol?: () => void;
   // Opens the refactor dialog from the toolbar, seeded with the symbol under the cursor.
   onRefactor?: (initial: CursorSymbol | null) => void;
+  /**
+   * Review anchor ranges (feature 038) painted as highlights + gutter markers. The layout resolves
+   * them from the shared review hook so the editor and the rail stay in sync. Empty when the file
+   * has no collaborative review document.
+   */
+  reviewRanges?: ReviewAnchorRange[];
+  /**
+   * The emphasised review item id (feature 038): hover ∪ selection. Its highlight is strengthened
+   * but the editor does NOT scroll for it — hover is a transient cue only.
+   */
+  activeReviewId?: string | null;
+  /**
+   * The review item the user just navigated to (clicking a card, prev/next, a marker). Unlike
+   * {@link activeReviewId}, this scrolls the passage into view and flashes it once.
+   */
+  scrollToReviewId?: string | null;
+  /**
+   * Called when a review highlight/gutter marker is clicked (feature 038, FR-005).
+   *
+   * @param id - The clicked review item id.
+   */
+  onReviewMarkerClick?: (id: string) => void;
+  /**
+   * Called as the pointer moves over (or off) a review highlight/gutter marker (feature 038), with the
+   * hovered review item id or null — highlights the matching card in the rail.
+   *
+   * @param id - The hovered review item id, or null when none is under the pointer.
+   */
+  onReviewMarkerHover?: (id: string | null) => void;
+  /**
+   * Called when the user starts a comment from the current selection (feature 038), with the
+   * captured Yjs anchor for the passage.
+   *
+   * @param anchor - The captured anchor describing the selected passage.
+   */
+  onCreateCommentFromSelection?: (anchor: CreateAnchorInput) => void;
 }
 
 /** Live collaboration binding passed to the editor when a file is a collaborative document. */
@@ -120,6 +164,8 @@ export interface CollabBinding {
   role: CollabAuthRole;
   /** Yjs state id — used as the editor remount key on room switch. */
   yjsStateId: string;
+  /** The backing Document's id, used as the key for document-scoped review APIs. */
+  documentId: string;
 }
 
 type EditorCssVariables = { '--editor-font-size': string } & React.CSSProperties;
@@ -158,6 +204,12 @@ export function AsciiDocEditor({
   collabUnavailable = false,
   onGoToSymbol,
   onRefactor,
+  reviewRanges,
+  activeReviewId,
+  scrollToReviewId,
+  onReviewMarkerClick,
+  onReviewMarkerHover,
+  onCreateCommentFromSelection,
 }: AsciiDocEditorProperties) {
   // The file is on the collab path whenever a binding is present OR a connection state is set —
   // the latter covers the offline read-only fallback, where the binding is dropped but the file
@@ -258,6 +310,12 @@ export function AsciiDocEditor({
     onOutlineChange?.(entries);
   }, [onOutlineChange]);
 
+  // Capture a Yjs anchor for the selected passage and hand it up (feature 038). Held in a ref so the
+  // mount hook can invoke it through a stable getter while it closes over the live `viewReference`
+  // (declared by useEditorMount below) and the current `collab`. Only meaningful on the collab path —
+  // the shared Y.Text is where relative positions are pinned.
+  const commentFromSelectionReference = useRef<(from: number, to: number) => void>(() => {});
+
   const { containerReference, viewReference } = useEditorMount({
     content,
     canEdit: effectiveCanEdit,
@@ -286,7 +344,70 @@ export function AsciiDocEditor({
     renameSuggestionExtension,
     renameRefreshNonce,
     remountKey: collab?.yjsStateId,
+    onReviewMarkerClick,
+    onReviewMarkerHover,
+    onCommentFromSelection: (from, to) => commentFromSelectionReference.current(from, to),
   });
+
+  // Populate the selection→anchor capture now that `viewReference` exists. Rebuilds only when the
+  // collab binding or the up-handler change; the mount hook reads it live via its stable getter.
+  useEffect(() => {
+    commentFromSelectionReference.current = (from: number, to: number) => {
+      const view = viewReference.current;
+      if (!collab || !view || !onCreateCommentFromSelection) return;
+      const ytext = collab.doc.getText(COLLAB_YTEXT_KEY);
+      const documentText = view.state.doc.toString();
+      const lineHint = view.state.doc.lineAt(from).number;
+      onCreateCommentFromSelection(captureAnchor(ytext, from, to, documentText, lineHint));
+    };
+  }, [collab, onCreateCommentFromSelection, viewReference]);
+
+  // Push the resolved review ranges into the editor's decoration layer whenever they change
+  // (feature 038). The ranges arrive out-of-band (SSE + Yjs re-resolution), so a dedicated effect
+  // dispatches the replace-all effect rather than relying on a document edit.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: setReviewRangesEffect.of(reviewRanges ?? []) });
+  }, [reviewRanges, viewReference]);
+
+  // Emphasise the active review passage (hover ∪ selection). This is a transient view cue only —
+  // it never scrolls, so hovering a rail card can't yank the editor around.
+  useEffect(() => {
+    viewReference.current?.dispatch({ effects: setActiveReviewEffect.of(activeReviewId ?? null) });
+  }, [activeReviewId, viewReference]);
+
+  // Scroll to a passage and flash it once when the user *navigates* to it (clicking a card, prev/next,
+  // a marker) — distinct from the hover emphasis above. Keyed ONLY on the navigation target: the live
+  // ranges are read through a ref so a range refresh (SSE / collaborator edit) can't re-run this effect
+  // and cancel the pending flash-clear (which would strand the flash class and re-pulse every keystroke).
+  const reviewRangesReference = useRef(reviewRanges);
+  reviewRangesReference.current = reviewRanges;
+  const flashTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const view = viewReference.current;
+    if (!view) return;
+    const target = scrollToReviewId ?? null;
+    if (target === null) return; // Any timer armed by a prior navigation still fires and clears the flash.
+    const range = (reviewRangesReference.current ?? []).find((entry) => entry.id === target);
+    if (!range) return;
+    view.dispatch({
+      effects: [EditorView.scrollIntoView(range.from, { y: 'center' }), flashReviewEffect.of(target)],
+    });
+    // Replace (not cancel-on-rerender) the clear timer, so it survives unrelated re-renders and always
+    // fires ~700ms after the navigation — the flash is a genuine one-shot.
+    if (flashTimerReference.current) clearTimeout(flashTimerReference.current);
+    flashTimerReference.current = setTimeout(() => {
+      viewReference.current?.dispatch({ effects: flashReviewEffect.of(null) });
+      flashTimerReference.current = null;
+    }, 700);
+  }, [scrollToReviewId, viewReference]);
+
+  // Clear any pending flash timer when the editor unmounts (document switch, unmount).
+  useEffect(
+    () => () => {
+      if (flashTimerReference.current) clearTimeout(flashTimerReference.current);
+    },
+    [],
+  );
 
   const tableContext = useTableContext(viewReference.current);
 

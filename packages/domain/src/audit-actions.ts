@@ -23,3 +23,17 @@ export const AUDIT_PROJECT_CONTENT_REPLACED = 'project.content_replaced';
 
 // Authorization events
 export const AUDIT_AUTHZ_DENIED = 'authz.denied';
+
+// Review comment & task events (feature 038)
+export const AUDIT_REVIEW_ITEM_CREATED = 'review.item_created';
+export const AUDIT_REVIEW_EDITED = 'review.edited';
+export const AUDIT_REVIEW_REPLIED = 'review.replied';
+export const AUDIT_REVIEW_RESOLVED = 'review.resolved';
+export const AUDIT_REVIEW_REOPENED = 'review.reopened';
+export const AUDIT_REVIEW_CONVERTED = 'review.converted';
+export const AUDIT_REVIEW_ASSIGNED = 'review.assigned';
+export const AUDIT_REVIEW_STATUS_CHANGED = 'review.status_changed';
+export const AUDIT_REVIEW_REANCHORED = 'review.reanchored';
+export const AUDIT_REVIEW_ITEM_DELETED = 'review.item_deleted';
+export const AUDIT_REVIEW_DOCUMENT_CLEARED = 'review.document_cleared';
+export const AUDIT_REVIEW_PROJECT_CLEARED = 'review.project_cleared';

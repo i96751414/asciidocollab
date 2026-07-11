@@ -42,7 +42,23 @@ jest.mock('@/lib/api/file-content', () => ({
 }));
 
 jest.mock('@/hooks/use-editor-preferences', () => ({
-  useEditorPreferences: () => ({ scrollSyncEnabled: false, setScrollSyncEnabled: jest.fn() }),
+  useEditorPreferences: () => ({
+    scrollSyncEnabled: false, setScrollSyncEnabled: jest.fn(),
+    commentsPanelOpen: false, setCommentsPanelOpen: jest.fn(),
+  }),
+}));
+
+// Review wiring (feature 038): stub the review hook + members API so a bare mock Y.Doc never
+// reaches the real anchor resolution during these collab-focused layout tests.
+jest.mock('@/hooks/use-review-items', () => ({
+  useReviewItems: () => ({
+    threads: [], ranges: [], anchorStates: new Map(),
+    loading: false, error: null, refetch: jest.fn(),
+    includeResolved: false, setIncludeResolved: jest.fn(),
+  }),
+}));
+jest.mock('@/lib/api/members', () => ({
+  membersApi: { list: jest.fn().mockResolvedValue({ data: { members: [] } }) },
 }));
 
 jest.mock('@/hooks/use-last-selection', () => ({

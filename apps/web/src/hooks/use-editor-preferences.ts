@@ -61,17 +61,19 @@ interface EditorPrefs {
   showIncludedFiles: boolean;
   /** 032: whether the outline shows the full document or the open file only. Client-only — kept in localStorage, never PUT to the account. */
   outlineScope: OutlineScope;
+  /** 038: whether the review comments panel is shown. Client-only — kept in localStorage, never PUT to the account. */
+  commentsPanelOpen: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full' };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full', commentsPanelOpen: false };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
 // PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
 // leak to the server by omission. The fetch-merge additionally keeps each such key's local value (it
 // hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
-const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles', 'outlineScope'] as const satisfies readonly (keyof EditorPrefs)[];
+const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles', 'outlineScope', 'commentsPanelOpen'] as const satisfies readonly (keyof EditorPrefs)[];
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown; commentsPanelOpen?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -98,6 +100,7 @@ function loadFromStorage(): EditorPrefs {
           leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
           showIncludedFiles: typeof parsed.showIncludedFiles === 'boolean' ? parsed.showIncludedFiles : DEFAULT_PREFS.showIncludedFiles,
           outlineScope: isOutlineScope(parsed.outlineScope) ? parsed.outlineScope : DEFAULT_PREFS.outlineScope,
+          commentsPanelOpen: typeof parsed.commentsPanelOpen === 'boolean' ? parsed.commentsPanelOpen : DEFAULT_PREFS.commentsPanelOpen,
         };
       }
     }
@@ -117,6 +120,7 @@ interface UseEditorPreferencesResult {
   leftPanelTab: LeftPanelTab;
   showIncludedFiles: boolean;
   outlineScope: OutlineScope;
+  commentsPanelOpen: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setScrollSyncEnabled: (enabled: boolean) => void;
@@ -127,6 +131,7 @@ interface UseEditorPreferencesResult {
   setLeftPanelTab: (tab: LeftPanelTab) => void;
   setShowIncludedFiles: (value: boolean) => void;
   setOutlineScope: (scope: OutlineScope) => void;
+  setCommentsPanelOpen: (value: boolean) => void;
 }
 
 /** Manages editor font size, theme, and scroll sync preference, persisting to localStorage and API. */
@@ -163,6 +168,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         leftPanelTab: previous.leftPanelTab,
         showIncludedFiles: previous.showIncludedFiles,
         outlineScope: previous.outlineScope,
+        commentsPanelOpen: previous.commentsPanelOpen,
       })))
       .catch(() => { /* keep localStorage value on error */ });
   }, []);
@@ -280,5 +286,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope };
+  // Client-only setter (038): persists whether the review comments panel is shown to localStorage
+  // but never schedules a PUT, so the choice stays on this device (Constitution VII).
+  const setCommentsPanelOpen = useCallback((commentsPanelOpen: boolean) => {
+    setPrefs((previous) => {
+      const next = { ...previous, commentsPanelOpen };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, commentsPanelOpen: prefs.commentsPanelOpen, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope, setCommentsPanelOpen };
 }

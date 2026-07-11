@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/037-project-find-replace/plan.md
+Active feature plan: specs/038-review-comments-tasks/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

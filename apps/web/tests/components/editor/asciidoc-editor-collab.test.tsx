@@ -41,6 +41,8 @@ jest.mock('@codemirror/view', () => ({
   ViewPlugin: { fromClass: () => ({}), define: () => ({}) },
   Decoration: { line: () => ({}), replace: () => ({}), none: { update: () => ({}) } },
   WidgetType: class {},
+  GutterMarker: class {},
+  gutter: () => ({}),
   EditorView_lineWrapping: {},
 }));
 

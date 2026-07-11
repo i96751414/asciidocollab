@@ -99,6 +99,66 @@ export const asciidocEditorTheme = EditorView.theme({
   },
   // Inactive conditional branch
   ".cm-ad-conditional-dimmed": { opacity: "0.45" },
+  // ── Review comments (feature 038) ─────────────────────────────────────────
+  // Resting: a subtle dotted underline over an anchored passage. Active: a stronger tinted
+  // background + solid underline for the two-way editor↔rail hover linkage. Both read in light
+  // and dark automatically via the theme-aware `--primary` token.
+  ".cm-review-highlight": {
+    textDecoration: "underline",
+    textDecorationStyle: "dotted",
+    textDecorationColor: c("--primary", 0.6),
+    textUnderlineOffset: "3px",
+  },
+  ".cm-review-highlight-active": {
+    backgroundColor: c("--primary", 0.16),
+    textDecoration: "underline",
+    textDecorationColor: c("--primary"),
+    textUnderlineOffset: "3px",
+  },
+  // One-shot pulse when the user navigates to a passage (scroll-into-view). The keyframes ramp a
+  // stronger primary wash down to the resting state, drawing the eye to where the editor jumped.
+  ".cm-review-flash": {
+    borderRadius: "2px",
+    animation: "cm-review-flash-kf 0.7s ease-out",
+  },
+  "@keyframes cm-review-flash-kf": {
+    "0%": { backgroundColor: c("--primary", 0.45) },
+    "60%": { backgroundColor: c("--primary", 0.3) },
+    "100%": { backgroundColor: c("--primary", 0.16) },
+  },
+  // Honour reduced-motion: skip the pulse animation (the active emphasis still marks the passage).
+  "@media (prefers-reduced-motion: reduce)": {
+    ".cm-review-flash": { animation: "none" },
+  },
+  // Gutter marker: a small dot centred in the review gutter element on a line that starts a range.
+  ".cm-review-gutter": { width: "10px" },
+  ".cm-review-gutter-marker": { position: "relative" },
+  ".cm-review-gutter-marker::before": {
+    content: '""',
+    position: "absolute",
+    left: "3px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    backgroundColor: c("--primary"),
+  },
+  // Floating "Comment" affordance shown over a non-empty selection (feature 038).
+  ".cm-review-comment-button": {
+    position: "absolute",
+    zIndex: "20",
+    padding: "2px 8px",
+    fontSize: "12px",
+    fontWeight: "500",
+    lineHeight: "1.4",
+    borderRadius: "6px",
+    border: `1px solid ${c("--border")}`,
+    backgroundColor: c("--primary"),
+    color: c("--primary-foreground"),
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+  },
   "&.cm-focused": { outline: "none" },
 }, { dark: false });
 

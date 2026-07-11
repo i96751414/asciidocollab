@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import { User, UserId, Email, Project, ProjectId, ProjectName, ProjectMember, Role, FileNode, FileNodeId, FileNodeType, FilePath, Document, DocumentId, ContentId, YjsStateId, MimeType, Asset, Template, TemplateId, TemplateCategory, GitRepository, GitRepositoryId, GitProvider, AuditLog, AuditLogId, Timestamps } from '@asciidocollab/domain';
 import type { RegistrationMethod } from '@asciidocollab/domain';
 
@@ -104,6 +105,52 @@ export function createTestGitRepository(projectId: ProjectId, overrides?: { id?:
     overrides?.lastSyncAt ?? null,
     overrides?.createdAt ?? new Date(),
   );
+}
+
+/** Fields accepted when building a review-comment row directly via Prisma. */
+export type ReviewCommentRowOverrides = {
+  id?: string;
+  projectId: string;
+  documentId: string;
+  authorId?: string | null;
+  parentId?: string | null;
+  kind?: 'COMMENT' | 'TASK';
+  body?: string;
+  status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'WONTFIX' | null;
+  assigneeId?: string | null;
+  dueDate?: Date | null;
+  resolvedAt?: Date | null;
+  resolvedById?: string | null;
+  anchorQuoteExact?: string | null;
+  anchorSectionId?: string | null;
+  anchorState?: 'LOCATED' | 'SECTION' | 'DETACHED';
+};
+
+/**
+ * Inserts a root ReviewComment row (kind COMMENT by default) and returns the
+ * persisted record. Pass `parentId` to insert a reply (its anchor stays null).
+ */
+export async function createTestReviewComment(prisma: PrismaClient, overrides: ReviewCommentRowOverrides) {
+  const isReply = (overrides.parentId ?? null) !== null;
+  return prisma.reviewComment.create({
+    data: {
+      id: overrides.id ?? randomUUID(),
+      projectId: overrides.projectId,
+      documentId: overrides.documentId,
+      parentId: overrides.parentId ?? null,
+      kind: overrides.kind ?? 'COMMENT',
+      body: overrides.body ?? 'A review comment',
+      authorId: 'authorId' in overrides ? overrides.authorId ?? null : null,
+      status: overrides.status ?? null,
+      assigneeId: overrides.assigneeId ?? null,
+      dueDate: overrides.dueDate ?? null,
+      resolvedAt: overrides.resolvedAt ?? null,
+      resolvedById: overrides.resolvedById ?? null,
+      anchorQuoteExact: isReply ? null : overrides.anchorQuoteExact ?? 'the quoted passage',
+      anchorSectionId: isReply ? null : overrides.anchorSectionId ?? null,
+      anchorState: overrides.anchorState ?? 'LOCATED',
+    },
+  });
 }
 
 export function createTestAuditLog(userId: UserId, overrides?: { id?: AuditLogId; projectId?: ProjectId | null; action?: string; resourceType?: string; resourceId?: string; timestamp?: Date; metadata?: Record<string, unknown> }): AuditLog {

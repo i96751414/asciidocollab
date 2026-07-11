@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Avatar as DiceBearAvatar } from '@dicebear/core';
 import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE } from '@/lib/avatars';
 
@@ -40,26 +41,31 @@ function namespaceSvgIds(svg: string, token: string): string {
  * selects the eyes while the seed stays the display name so the initials persist.
  */
 export function Avatar({ avatarKey, displayName, size = 32, className }: AvatarProperties) {
-  const colonIndex = avatarKey ? avatarKey.indexOf(':') : -1;
-  const styleKey = colonIndex === -1 ? (avatarKey ?? DEFAULT_AVATAR_STYLE) : avatarKey!.slice(0, colonIndex);
-  const variantValue = colonIndex === -1 ? null : avatarKey!.slice(colonIndex + 1);
-  const entry = DICEBEAR_STYLES[styleKey] ?? DICEBEAR_STYLES[DEFAULT_AVATAR_STYLE];
+  // Generating the DiceBear SVG (constructor + 5 regex passes + hash) is pure in its inputs, so memoize
+  // it. Avatars render per review card/reply/assignee, and a single rail hover re-renders the whole
+  // list — without this, every avatar's SVG is rebuilt on the main thread on each hover.
+  const svg = useMemo(() => {
+    const colonIndex = avatarKey ? avatarKey.indexOf(':') : -1;
+    const styleKey = colonIndex === -1 ? (avatarKey ?? DEFAULT_AVATAR_STYLE) : avatarKey!.slice(0, colonIndex);
+    const variantValue = colonIndex === -1 ? null : avatarKey!.slice(colonIndex + 1);
+    const entry = DICEBEAR_STYLES[styleKey] ?? DICEBEAR_STYLES[DEFAULT_AVATAR_STYLE];
 
-  const options: Record<string, unknown> = { seed: displayName, ...entry.options };
-  if (variantValue !== null) {
-    // Seed variants override the seed (whole avatar changes); Initial Face variants
-    // override the eyes and background, leaving the name seed so the initials persist.
-    const variant = entry.variants?.find((candidate) => candidate.id === variantValue);
-    if (variant) Object.assign(options, variant.options);
-  }
-  const rawSvg = new DiceBearAvatar(entry.style, options).toString();
-  // Override SVG dimensions so the outer span controls the rendered size regardless
-  // of the natural dimensions each DiceBear style produces.
-  const resized = rawSvg
-    .replace(/\swidth="[^"]*"/, ' width="100%"')
-    .replace(/\sheight="[^"]*"/, ' height="100%"');
-  // Isolate this avatar's ids so multiple same-seed avatars on a page don't collide.
-  const svg = namespaceSvgIds(resized, hashToken(`${styleKey}:${variantValue ?? ''}:${displayName}`));
+    const options: Record<string, unknown> = { seed: displayName, ...entry.options };
+    if (variantValue !== null) {
+      // Seed variants override the seed (whole avatar changes); Initial Face variants
+      // override the eyes and background, leaving the name seed so the initials persist.
+      const variant = entry.variants?.find((candidate) => candidate.id === variantValue);
+      if (variant) Object.assign(options, variant.options);
+    }
+    const rawSvg = new DiceBearAvatar(entry.style, options).toString();
+    // Override SVG dimensions so the outer span controls the rendered size regardless
+    // of the natural dimensions each DiceBear style produces.
+    const resized = rawSvg
+      .replace(/\swidth="[^"]*"/, ' width="100%"')
+      .replace(/\sheight="[^"]*"/, ' height="100%"');
+    // Isolate this avatar's ids so multiple same-seed avatars on a page don't collide.
+    return namespaceSvgIds(resized, hashToken(`${styleKey}:${variantValue ?? ''}:${displayName}`));
+  }, [avatarKey, displayName]);
 
   return (
     <span

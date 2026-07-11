@@ -38,3 +38,7 @@ export { EditorTheme } from './editor/editor-theme';
 export type { EditorThemeValue } from './editor/editor-theme';
 export { PreviewStyle, isPreviewStyleValue } from './editor/preview-style';
 export type { PreviewStyleValue } from './editor/preview-style';
+export { ReviewCommentId } from './ids/review-comment-id';
+export { ReviewReactionId } from './ids/review-reaction-id';
+export { ReviewAnchor } from './review/review-anchor';
+export type { AnchorQuote } from './review/review-anchor';

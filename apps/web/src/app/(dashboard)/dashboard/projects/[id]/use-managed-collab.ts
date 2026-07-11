@@ -90,7 +90,7 @@ export function useManagedCollab({
 
   const collabBinding: CollabBinding | null =
     collabInfo && doc && awareness
-      ? { doc, awareness, connectionState, role: effectiveRole, yjsStateId: collabInfo.yjsStateId }
+      ? { doc, awareness, connectionState, role: effectiveRole, yjsStateId: collabInfo.yjsStateId, documentId: collabInfo.documentId }
       : null;
   // Collaborative file whose provider/Y.Doc has not been created yet — show a placeholder
   // rather than briefly mounting the legacy REST editor.

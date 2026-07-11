@@ -55,6 +55,27 @@ export interface ProjectConfig {
     /** Files larger than this (bytes) are skipped for match evaluation and reported. */
     maxFileBytes: number;
   };
+  /**
+   * Review comments/tasks (feature 038) rate limiting. Mutating routes (create,
+   * reply, react, single delete, and — especially — bulk delete) are abuse-prone
+   * or amplifying, so each is limited; the GET list/thread reads skip the limit
+   * (cheap, tenant-scoped). Bulk delete is sized lowest as it is the most
+   * destructive amplifying write.
+   */
+  review: {
+    /** Maximum create/reply/convert/assign/status/reanchor requests per user/IP per window. */
+    rateLimitMax: number;
+    /** Review write rate limit window in milliseconds. */
+    rateLimitWindow: number;
+    /** Maximum reaction-toggle requests per user/IP per window (sized higher — cheap, high-frequency). */
+    reactionRateLimitMax: number;
+    /** Reaction-toggle rate limit window in milliseconds. */
+    reactionRateLimitWindow: number;
+    /** Maximum bulk-delete requests per user/IP per window (sized lowest — most destructive). */
+    bulkDeleteRateLimitMax: number;
+    /** Bulk-delete rate limit window in milliseconds. */
+    bulkDeleteRateLimitWindow: number;
+  };
 }
 
 /** Convict schema fragment for the project-scoped (main-file, refactoring) domain. */
@@ -161,6 +182,44 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
       format: 'integer',
       default: 2_000_000,
       env: 'ASCIIDOCOLLAB_PROJECT_SEARCH_MAX_FILE_BYTES',
+    },
+  },
+  review: {
+    rateLimitMax: {
+      doc: 'Maximum review write (create/reply/convert/assign/status/reanchor) requests per user/IP per window.',
+      format: 'integer',
+      default: 240,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_RATE_LIMIT_MAX',
+    },
+    rateLimitWindow: {
+      doc: 'Review write rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_RATE_LIMIT_WINDOW',
+    },
+    reactionRateLimitMax: {
+      doc: 'Maximum reaction-toggle requests per user/IP per window.',
+      format: 'integer',
+      default: 600,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_REACTION_RATE_LIMIT_MAX',
+    },
+    reactionRateLimitWindow: {
+      doc: 'Reaction-toggle rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_REACTION_RATE_LIMIT_WINDOW',
+    },
+    bulkDeleteRateLimitMax: {
+      doc: 'Maximum bulk-delete requests per user/IP per window (most destructive amplifying write).',
+      format: 'integer',
+      default: 20,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_BULK_DELETE_RATE_LIMIT_MAX',
+    },
+    bulkDeleteRateLimitWindow: {
+      doc: 'Bulk-delete rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_REVIEW_BULK_DELETE_RATE_LIMIT_WINDOW',
     },
   },
 };

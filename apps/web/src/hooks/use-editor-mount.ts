@@ -14,6 +14,8 @@ import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { buildEditorExtensions } from '@/lib/codemirror/editor-extensions';
 import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linter';
+import { reviewDecorations } from '@/lib/codemirror/review-decorations';
+import { reviewMarkerClickHandler, reviewMarkerHoverHandler, reviewSelectionButton } from '@/lib/codemirror/review-interaction';
 import {
   createLineClickHandler,
   createFileDropHandler,
@@ -134,6 +136,29 @@ interface UseEditorMountOptions {
    * the collab binding rebinds to the new document. Stays undefined on the legacy path.
    */
   remountKey?: string;
+  /**
+   * Called when a review highlight/gutter marker (feature 038) is clicked, with the review item id
+   * carried on its `data-review-id` attribute. Undefined ⇒ marker clicks are ignored.
+   *
+   * @param id - The clicked review item id.
+   */
+  onReviewMarkerClick?: (id: string) => void;
+  /**
+   * Called as the pointer moves over (or off) a review highlight/gutter marker (feature 038), with
+   * the hovered review item id or null when none is under the pointer. Drives the editor→rail hover
+   * emphasis. Undefined ⇒ hover is not reported.
+   *
+   * @param id - The hovered review item id, or null.
+   */
+  onReviewMarkerHover?: (id: string | null) => void;
+  /**
+   * Called from the floating "Comment" affordance over a non-empty selection (feature 038) with the
+   * raw selection offsets; the host captures the Yjs anchor. Undefined ⇒ the affordance is hidden.
+   *
+   * @param from - The selection's start offset.
+   * @param to - The selection's end offset.
+   */
+  onCommentFromSelection?: (from: number, to: number) => void;
 }
 
 /** Manages the full CodeMirror 6 view lifecycle: mount, teardown, content/readOnly sync. */
@@ -166,6 +191,9 @@ export function useEditorMount({
   renameSuggestionExtension,
   renameRefreshNonce,
   remountKey,
+  onReviewMarkerClick,
+  onReviewMarkerHover,
+  onCommentFromSelection,
 }: UseEditorMountOptions) {
   const collabActive = collabExtension !== undefined;
   const containerReference = useRef<HTMLDivElement>(null);
@@ -182,6 +210,14 @@ export function useEditorMount({
   useEffect(() => { onLineClickReference.current = onLineClick; }, [onLineClick]);
   const onScrollLineReference = useRef(onScrollLine);
   useEffect(() => { onScrollLineReference.current = onScrollLine; }, [onScrollLine]);
+  // Review interactivity (feature 038): kept in refs so the marker-click handler and the
+  // selection-affordance plugin stay live without rebinding (they are captured once at mount).
+  const onReviewMarkerClickReference = useRef(onReviewMarkerClick);
+  useEffect(() => { onReviewMarkerClickReference.current = onReviewMarkerClick; }, [onReviewMarkerClick]);
+  const onReviewMarkerHoverReference = useRef(onReviewMarkerHover);
+  useEffect(() => { onReviewMarkerHoverReference.current = onReviewMarkerHover; }, [onReviewMarkerHover]);
+  const onCommentFromSelectionReference = useRef(onCommentFromSelection);
+  useEffect(() => { onCommentFromSelectionReference.current = onCommentFromSelection; }, [onCommentFromSelection]);
   const getProjectIndexReference = useRef(getProjectIndex);
   useEffect(() => { getProjectIndexReference.current = getProjectIndex; }, [getProjectIndex]);
   const projectIndexAccessor = (): ProjectSymbolIndex | null => getProjectIndexReference.current?.() ?? null;
@@ -325,6 +361,13 @@ export function useEditorMount({
           fileDropHandler,
           ctrlClickTooltip,
           ...(renameSuggestionExtension ? [renameSuggestionExtension] : []),
+          // Review comments (feature 038): the highlight/gutter layer plus its click + selection
+          // affordances. The layer is inert (no gutter width, no decorations) until ranges are
+          // pushed in, so it is safe to register on every editor instance.
+          reviewDecorations(() => onReviewMarkerHoverReference.current),
+          reviewMarkerClickHandler(() => onReviewMarkerClickReference.current),
+          reviewMarkerHoverHandler(() => onReviewMarkerHoverReference.current),
+          reviewSelectionButton(() => onCommentFromSelectionReference.current),
         ],
       }),
     });

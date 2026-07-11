@@ -218,7 +218,22 @@ jest.mock('@/hooks/use-editor-preferences', () => ({
     setScrollSyncEnabled: jest.fn(),
     previewStyle: 'default',
     setPreviewStyle: jest.fn(),
+    commentsPanelOpen: false,
+    setCommentsPanelOpen: jest.fn(),
   }),
+}));
+
+// Review wiring (feature 038): the layout consumes the review hook + members API at mount; stub
+// them so a bare mock Y.Doc never reaches the real anchor resolution.
+jest.mock('@/hooks/use-review-items', () => ({
+  useReviewItems: () => ({
+    threads: [], ranges: [], anchorStates: new Map(),
+    loading: false, error: null, refetch: jest.fn(),
+    includeResolved: false, setIncludeResolved: jest.fn(),
+  }),
+}));
+jest.mock('@/lib/api/members', () => ({
+  membersApi: { list: jest.fn().mockResolvedValue({ data: { members: [] } }) },
 }));
 
 let mockStoredSelection: { nodeId: string; nodeName: string; nodeType: 'file' | 'folder'; path: string; line?: number } | null = null;

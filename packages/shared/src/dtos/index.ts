@@ -36,7 +36,7 @@ export type {
   UserRemovalPreviewDto,
 } from './admin.dto';
 export type { FileTreeEventDto } from './file-tree-event.dto';
-export type { ContentChangedEventDto, MainFileChangedEventDto, ProjectEventDto } from './project-event.dto';
+export type { ContentChangedEventDto, MainFileChangedEventDto, ReviewItemsChangedEventDto, ProjectEventDto } from './project-event.dto';
 export type { KeyBindingDto } from './key-binding.dto';
 export type { EditorPreferencesDto, SpellcheckLanguageDto } from './editor-preferences.dto';
 export type { AuditLogDto, AuditLogPageDto } from './audit-log.dto';

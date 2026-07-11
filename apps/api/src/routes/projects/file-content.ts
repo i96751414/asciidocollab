@@ -116,7 +116,11 @@ export async function fileContentRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
       }
 
-      const body: CollabDocumentInfo = { yjsStateId: result.value.yjsStateId, role: result.value.role };
+      const body: CollabDocumentInfo = {
+        yjsStateId: result.value.yjsStateId,
+        documentId: result.value.documentId,
+        role: result.value.role,
+      };
       return reply.status(200).send(body);
     },
   );

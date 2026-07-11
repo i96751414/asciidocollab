@@ -33,3 +33,7 @@ export { InMemoryPasswordResetTokenRepository } from './auth-tokens/in-memory-pa
 // admin/
 export { InMemoryAuditLogRepository } from './admin/in-memory-audit-log.repository';
 export { InMemorySystemSettingRepository } from './admin/in-memory-system-setting.repository';
+
+// review/
+export { InMemoryReviewCommentRepository } from './review/in-memory-review-comment.repository';
+export { InMemoryReviewReactionRepository } from './review/in-memory-review-reaction.repository';

@@ -30,6 +30,8 @@ export interface CollabDocumentInfo {
    * `${projectId}/${yjsStateId}`.
    */
   yjsStateId: string;
+  /** The backing Document's id, used as the key for document-scoped APIs such as review items. */
+  documentId: string;
   /** Collaboration role of the requesting user for this document. */
   role: CollabAuthRole;
 }

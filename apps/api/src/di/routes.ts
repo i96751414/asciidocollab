@@ -38,6 +38,7 @@ import { projectRefactoringRoutes } from '../routes/projects/refactoring';
 import { projectSearchRoutes } from '../routes/projects/search';
 import { assetsRoutes } from '../routes/projects/assets';
 import { eventsRoutes } from '../routes/projects/events';
+import { reviewRoutes } from '../routes/review';
 import { keybindingsRoutes } from '../routes/auth/me/keybindings';
 import { editorPreferencesRoutes } from '../routes/auth/me/editor-preferences';
 
@@ -89,6 +90,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       await innerApp.register(projectSearchRoutes);
       await innerApp.register(assetsRoutes);
       await innerApp.register(eventsRoutes);
+      await innerApp.register(reviewRoutes);
       await innerApp.register(keybindingsRoutes);
       await innerApp.register(editorPreferencesRoutes);
       await innerApp.register(usersSearchRoute);

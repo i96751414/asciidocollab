@@ -1,7 +1,8 @@
 'use client';
-import { useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useLayoutEffect, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Settings, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Users } from 'lucide-react';
+import type { CreateAnchorInput, ReviewItemDto } from '@asciidocollab/shared';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
@@ -30,6 +31,13 @@ import { sameOutlineEntries } from '@/lib/outline/stable-entries';
 import type { OutlinePeer } from '@/lib/outline';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
 import type { CollabBinding } from '@/components/editor/asciidoc-editor';
+import { CommentRail, TaskPanel, ReviewToggle, ReviewViewStateProvider } from '@/components/review';
+import { cn } from '@/lib/utilities';
+import type { TaskMember } from '@/components/review';
+import { useReviewItems } from '@/hooks/use-review-items';
+import { reanchorReviewItem } from '@/lib/api/review';
+import { membersApi } from '@/lib/api/members';
+import type { ReviewAnchorRange } from '@/lib/codemirror/review-decorations';
 import type { XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import type { CursorSymbol } from '@/lib/codemirror/asciidoc-symbol-at-cursor';
 import { EditorGoToSymbol } from '@/components/editor/editor-go-to-symbol';
@@ -96,6 +104,30 @@ interface ContentAreaProperties {
   onGoToSymbol?: () => void;
   // Opens the refactor dialog from the editor toolbar, seeded with the cursor symbol.
   onRefactor?: (initial: CursorSymbol | null) => void;
+  /** Review anchor ranges (feature 038) painted as editor highlights + gutter markers. */
+  reviewRanges?: ReviewAnchorRange[];
+  /** The emphasised review item id (hover ∪ selection); its highlight is strengthened, no scroll. */
+  activeReviewId?: string | null;
+  /** The review item just navigated to; scrolls it into view and flashes it once. */
+  scrollToReviewId?: string | null;
+  /**
+   * Called when a review highlight/gutter marker is clicked (feature 038).
+   *
+   * @param id - The clicked review item id.
+   */
+  onReviewMarkerClick?: (id: string) => void;
+  /**
+   * Called as the pointer moves over (or off) a review marker (feature 038); highlights the rail card.
+   *
+   * @param id - The hovered review item id, or null.
+   */
+  onReviewMarkerHover?: (id: string | null) => void;
+  /**
+   * Called when a comment is started from the editor selection (feature 038).
+   *
+   * @param anchor - The captured anchor for the selected passage.
+   */
+  onCreateCommentFromSelection?: (anchor: CreateAnchorInput) => void;
 }
 
 function ContentArea({
@@ -126,6 +158,12 @@ function ContentArea({
   getProjectIndex,
   onGoToSymbol,
   onRefactor,
+  reviewRanges,
+  activeReviewId,
+  scrollToReviewId,
+  onReviewMarkerClick,
+  onReviewMarkerHover,
+  onCreateCommentFromSelection,
 }: ContentAreaProperties) {
   if (selectedFile === null) {
     return <p className="text-muted-foreground text-sm p-4">Select a file from the tree to view its content.</p>;
@@ -184,6 +222,12 @@ function ContentArea({
       getProjectIndex={getProjectIndex}
       onGoToSymbol={onGoToSymbol}
       onRefactor={onRefactor}
+      reviewRanges={reviewRanges}
+      activeReviewId={activeReviewId}
+      onReviewMarkerHover={onReviewMarkerHover}
+      scrollToReviewId={scrollToReviewId}
+      onReviewMarkerClick={onReviewMarkerClick}
+      onCreateCommentFromSelection={onCreateCommentFromSelection}
     />
   );
 }
@@ -229,7 +273,7 @@ export function ProjectEditorLayout({
   });
 
   // Editor preferences (preview style, outline scope/visibility, included-file display).
-  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope } = useEditorPreferences();
+  const { scrollSyncEnabled, setScrollSyncEnabled, previewStyle, setPreviewStyle, leftPanelTab, setLeftPanelTab, showIncludedFiles, setShowIncludedFiles, outlineScope, setOutlineScope, commentsPanelOpen, setCommentsPanelOpen } = useEditorPreferences();
 
   // Cross-file symbol index: rooted at the configured main file, or the open file when
   // none is set. Powers cross-file diagnostics + completion; refreshes when the main
@@ -283,6 +327,92 @@ export function ProjectEditorLayout({
     editorPending,
   } = useManagedCollab({ projectId, selectedFile, contentState, canEdit, cursorLine: currentLine });
 
+  // ── Review comments & tasks (feature 038) ──────────────────────────────────────────────────
+  // Comments are available only for a collaborative .adoc (a live Y.Doc + document id). The review
+  // hook is consumed HERE so the editor decorations and the rail read one shared, live source.
+  const commentsAvailable = editorCollab != null;
+  const reviewItems = useReviewItems({
+    projectId,
+    documentId: editorCollab?.documentId ?? '',
+    ydoc: editorCollab?.doc ?? null,
+    enabled: commentsAvailable,
+    // Include resolved items so the editor has anchor ranges for them: the rail can navigate to a
+    // resolved thread (via its "All"/"Tasks" filter or the Reopen affordance), and the scroll effect
+    // needs a range to reveal. Open-count/prev-next re-filter resolved out separately.
+    includeResolved: true,
+  });
+
+  // Two-way editor↔rail linkage state, owned here so both the rail (explicit props) and the editor
+  // decorations (activeReviewId prop) read the same active/hovered ids.
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  // A captured selection anchor pinned as the rail's new-comment composer.
+  const [pendingAnchor, setPendingAnchor] = useState<CreateAnchorInput | null>(null);
+  // While set, the next captured selection reattaches this detached item instead of creating one.
+  const [reattachItemId, setReattachItemId] = useState<string | null>(null);
+  // A cross-document jump requested from the project-wide list: the target file + thread to focus once
+  // that document is bound and its threads have loaded (opening a file otherwise clears the focus).
+  const [pendingReviewFocus, setPendingReviewFocus] = useState<{ fileNodeId: string; documentId: string; itemId: string } | null>(null);
+
+  // Which surface the comments panel shows: this document's threads or the project-wide task list.
+  const [commentsView, setCommentsView] = useState<'threads' | 'tasks'>('threads');
+  // Project members for the assignee picker + whether the current user owns the project.
+  const [members, setMembers] = useState<TaskMember[]>([]);
+  const [isProjectOwner, setIsProjectOwner] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void membersApi.list(projectId)
+      .then((response) => {
+        if (cancelled) return;
+        setMembers(response.data.members.map((member) => ({ id: member.userId, displayName: member.displayName })));
+        setIsProjectOwner(response.data.members.some((member) => member.userId === userId && member.role === 'owner'));
+      })
+      .catch(() => { /* the picker still renders "Unassigned" with an empty list */ });
+    return () => { cancelled = true; };
+  }, [projectId, userId]);
+
+  // Open (unresolved) roots in document order, for the count badge + sequential navigation.
+  const openThreadIdsInOrder = useMemo(() => {
+    const fromById = new Map(reviewItems.ranges.map((range) => [range.id, range.from]));
+    return reviewItems.threads
+      .filter((thread) => !thread.root.resolvedAt)
+      .map((thread) => thread.root.id)
+      .toSorted((a, b) => (fromById.get(a) ?? Number.POSITIVE_INFINITY) - (fromById.get(b) ?? Number.POSITIVE_INFINITY));
+  }, [reviewItems.threads, reviewItems.ranges]);
+  const openCount = openThreadIdsInOrder.length;
+
+  // A review marker was clicked in the editor: open the panel, switch to the per-file threads view
+  // (the marker belongs to this file), and focus that thread.
+  const handleReviewMarkerClick = useCallback((id: string) => {
+    setCommentsPanelOpen(true);
+    setCommentsView('threads');
+    setActiveThreadId(id);
+  }, [setCommentsPanelOpen]);
+
+  // A selection was turned into a comment (or a reattach target when one is pending).
+  const handleCreateCommentFromSelection = useCallback((anchor: CreateAnchorInput) => {
+    if (reattachItemId) {
+      void reanchorReviewItem(projectId, reattachItemId, { anchor }).then(() => reviewItems.refetch());
+      setReattachItemId(null);
+      return;
+    }
+    // The new-comment composer lives in the per-file rail, so surface it even if the cross-file
+    // list was showing.
+    setCommentsPanelOpen(true);
+    setCommentsView('threads');
+    setPendingAnchor(anchor);
+  }, [reattachItemId, projectId, reviewItems, setCommentsPanelOpen]);
+
+  // Step the focused thread through the open threads in document order (sequential navigation).
+  const stepActiveThread = useCallback((delta: number) => {
+    if (openThreadIdsInOrder.length === 0) return;
+    const current = activeThreadId ? openThreadIdsInOrder.indexOf(activeThreadId) : -1;
+    const nextIndex = current === -1
+      ? (delta > 0 ? 0 : openThreadIdsInOrder.length - 1)
+      : (current + delta + openThreadIdsInOrder.length) % openThreadIdsInOrder.length;
+    setActiveThreadId(openThreadIdsInOrder[nextIndex]);
+  }, [openThreadIdsInOrder, activeThreadId]);
+
   // File + cross-reference navigation, the go-to-symbol palette, and the refactor dialog.
   const {
     scrollRequest, resetScroll, revealRequest, openPathRequest, pendingXrefLine,
@@ -304,12 +434,56 @@ export function ProjectEditorLayout({
   // concern of useEditorRestoration above.
   useFileHistory({ selectedFile, selectFile: handleSelectFile });
 
+  // Jump from the project-wide list to an item's passage. When it lives in the open document, focus it
+  // in the per-document rail immediately; otherwise open its file and defer focusing until that
+  // document is bound and loaded (see the pending-focus effect below).
+  const handleNavigateToReviewItem = useCallback((item: ReviewItemDto) => {
+    setCommentsPanelOpen(true);
+    if (editorCollab && item.documentId === editorCollab.documentId) {
+      setCommentsView('threads');
+      setActiveThreadId(item.id);
+      return;
+    }
+    const path = item.fileNodeId ? projectIndex?.pathOf(item.fileNodeId) : null;
+    if (!item.fileNodeId || !path) return;
+    setPendingReviewFocus({ fileNodeId: item.fileNodeId, documentId: item.documentId, itemId: item.id });
+    handleNavigateToFile(path);
+  }, [editorCollab, projectIndex, handleNavigateToFile, setCommentsPanelOpen]);
+
+  // Apply a deferred cross-document jump once the target document is bound AND its anchor has resolved
+  // — not merely once the thread list loaded. Focusing on thread-load alone sets scrollToReviewId
+  // before the freshly-bound doc has produced anchor ranges, so the editor's scroll effect (which keys
+  // only on scrollToReviewId) finds no range and never scrolls. Wait for a resolved range (located or
+  // section); a detached item has no passage to scroll to, so focus it as soon as it is known detached.
+  useEffect(() => {
+    if (!pendingReviewFocus || !editorCollab || editorCollab.documentId !== pendingReviewFocus.documentId) return;
+    const { itemId } = pendingReviewFocus;
+    if (!reviewItems.threads.some((thread) => thread.root.id === itemId)) return;
+    const hasRange = reviewItems.ranges.some((range) => range.id === itemId);
+    const detached = reviewItems.anchorStates.get(itemId) === 'detached';
+    if (!hasRange && !detached) return;
+    setCommentsView('threads');
+    setActiveThreadId(itemId);
+    setPendingReviewFocus(null);
+  }, [pendingReviewFocus, editorCollab, reviewItems.threads, reviewItems.ranges, reviewItems.anchorStates]);
+
   // Reset the scroll position AND the current-section marker whenever a different file is opened, so the
   // Outline never highlights a row using the previous file's cursor line before the new editor reports
   // its cursor. useLayoutEffect prevents a one-frame flash of the old scroll position / stale highlight.
   useLayoutEffect(() => {
     resetScroll();
     setCurrentLine(null);
+    // Clear review interaction state tied to the previous document so a pending composer or an armed
+    // reattach never applies to the newly-opened document (which would post an anchor captured against
+    // the old document's Y.Text). The active/hover focus is likewise per-document.
+    setPendingAnchor(null);
+    setReattachItemId(null);
+    setActiveThreadId(null);
+    setHoveredItemId(null);
+    setCommentsView('threads');
+    // Drop a cross-document jump unless this is the file it was targeting (which the effect above then
+    // completes); otherwise a later unrelated open would spuriously focus the stale thread.
+    setPendingReviewFocus((previous) => (previous && previous.fileNodeId === selectedFile?.nodeId ? previous : null));
   }, [selectedFile?.nodeId, resetScroll]);
 
   // Level offset the open file inherits from its include ancestors; 0 until the index
@@ -450,6 +624,37 @@ export function ProjectEditorLayout({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <NonLiveIndicator active={nonLive} />
+          {commentsAvailable && (
+            <div className="flex items-center gap-1">
+              {commentsPanelOpen && openCount > 0 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="Previous comment"
+                    onClick={() => stepActiveThread(-1)}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="Next comment"
+                    onClick={() => stepActiveThread(1)}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <ReviewToggle
+                openCount={openCount}
+                isOpen={commentsPanelOpen}
+                onToggle={() => setCommentsPanelOpen(!commentsPanelOpen)}
+              />
+            </div>
+          )}
           {canManage && (
             <>
               <Button asChild variant="ghost" size="sm">
@@ -468,6 +673,20 @@ export function ProjectEditorLayout({
           )}
         </div>
       </div>
+
+      {/* Reattach hint: while a detached item awaits a new passage, prompt for a selection. */}
+      {reattachItemId && (
+        <div className="flex items-center gap-3 border-b bg-primary/10 px-3 py-1.5 text-xs text-foreground shrink-0" role="status">
+          <span>Select the new passage in the editor, then choose <strong>Comment</strong> to reattach.</span>
+          <button
+            type="button"
+            className="ml-auto rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            onClick={() => setReattachItemId(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Body: sidebar + content + preview */}
       <div className="flex flex-1 overflow-hidden">
@@ -527,10 +746,12 @@ export function ProjectEditorLayout({
           </Button>
         )}
 
-        {/* Editor + Preview panels. The editor's ContentArea stays mounted in ONE
-            stable Panel regardless of previewOpen — only the preview Panel + resize
-            handle mount/unmount — so toggling the preview never remounts CodeMirror
-            and never loses editor content/cursor/scroll. */}
+        {/* Editor + Preview + Comments panels. The editor's ContentArea stays mounted in ONE
+            stable Panel regardless of previewOpen/commentsPanelOpen — only the preview and comments
+            Panels + their resize handles mount/unmount — so toggling either never remounts
+            CodeMirror and never loses editor content/cursor/scroll. The whole region is wrapped in
+            the review view-state provider so the rail and editor share hover/active linkage. */}
+        <ReviewViewStateProvider>
         <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
           <Panel
             id="editor-content"
@@ -568,6 +789,15 @@ export function ProjectEditorLayout({
               getProjectIndex={getProjectIndex}
               onGoToSymbol={() => setGoToSymbolOpen(true)}
               onRefactor={openRefactor}
+              reviewRanges={commentsAvailable ? reviewItems.ranges : undefined}
+              // Hovering a rail card transiently emphasizes its passage; a click-selected thread keeps
+              // the emphasis when nothing is hovered. Emphasis never scrolls.
+              activeReviewId={commentsAvailable ? (hoveredItemId ?? activeThreadId) : null}
+              // Only an explicit navigation (click / prev-next / marker) scrolls to + flashes the passage.
+              scrollToReviewId={commentsAvailable ? activeThreadId : null}
+              onReviewMarkerClick={commentsAvailable ? handleReviewMarkerClick : undefined}
+              onReviewMarkerHover={commentsAvailable ? setHoveredItemId : undefined}
+              onCreateCommentFromSelection={commentsAvailable ? handleCreateCommentFromSelection : undefined}
             />
           </Panel>
           {showPreview && previewOpen && (
@@ -599,7 +829,95 @@ export function ProjectEditorLayout({
               </Panel>
             </>
           )}
+          {commentsAvailable && commentsPanelOpen && editorCollab && (
+            <>
+              <PanelResizeHandle className="group relative z-10 -mx-[3px] flex w-[7px] shrink-0 cursor-col-resize items-stretch justify-center outline-none">
+                <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
+              </PanelResizeHandle>
+              <Panel
+                id="editor-comments"
+                order={3}
+                defaultSize={22}
+                minSize={16}
+                maxSize={32}
+                collapsible
+                className="flex flex-col overflow-hidden"
+                data-testid="comments-panel"
+              >
+                <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1" role="tablist" aria-label="Comments view">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={commentsView === 'threads'}
+                    data-testid="comments-view-threads"
+                    onClick={() => setCommentsView('threads')}
+                    className={cn(
+                      'rounded px-2 py-0.5 text-xs font-medium transition-colors',
+                      commentsView === 'threads' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    This file
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={commentsView === 'tasks'}
+                    data-testid="comments-view-tasks"
+                    onClick={() => setCommentsView('tasks')}
+                    className={cn(
+                      'rounded px-2 py-0.5 text-xs font-medium transition-colors',
+                      commentsView === 'tasks' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    All comments &amp; tasks
+                  </button>
+                  {/* Collapse lives on the shared tab bar (like the left panel's rail) so it stays
+                      available from both the per-file and cross-file views. */}
+                  <button
+                    type="button"
+                    aria-label="collapse comments"
+                    title="Collapse panel"
+                    onClick={() => setCommentsPanelOpen(false)}
+                    className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  {commentsView === 'threads' ? (
+                    <CommentRail
+                      projectId={projectId}
+                      documentId={editorCollab.documentId}
+                      ydoc={editorCollab.doc}
+                      role={editorCollab.role}
+                      currentUserId={userId}
+                      enabled={commentsAvailable}
+                      members={members}
+                      pendingAnchor={pendingAnchor}
+                      onPendingResolved={() => setPendingAnchor(null)}
+                      hoveredItemId={hoveredItemId}
+                      setHoveredItemId={setHoveredItemId}
+                      activeThreadId={activeThreadId}
+                      setActiveThreadId={setActiveThreadId}
+                      onReattach={(itemId) => { setCommentsPanelOpen(true); setReattachItemId(itemId); }}
+                      onMutated={reviewItems.refetch}
+                    />
+                  ) : (
+                    <TaskPanel
+                      projectId={projectId}
+                      currentUserId={userId}
+                      isOwner={isProjectOwner}
+                      readOnly={editorCollab.role === 'observer'}
+                      enabled={commentsAvailable}
+                      onNavigate={handleNavigateToReviewItem}
+                    />
+                  )}
+                </div>
+              </Panel>
+            </>
+          )}
         </PanelGroup>
+        </ReviewViewStateProvider>
         {showPreview && !previewOpen && (
           <Button
             data-testid="preview-panel"

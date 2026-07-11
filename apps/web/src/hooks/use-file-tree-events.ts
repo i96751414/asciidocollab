@@ -5,6 +5,7 @@ import type {
   FileTreeEventDto,
   MainFileChangedEventDto,
   ProjectEventDto,
+  ReviewItemsChangedEventDto,
 } from '@asciidocollab/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -40,6 +41,13 @@ export interface ProjectEventHandlers {
    * @param event - The main-file-changed event.
    */
   onMainFileChanged?: (event: MainFileChangedEventDto) => void;
+  /**
+   * Handles a change to a document's review items (comment/task created, replied,
+   * resolved, reacted, edited, or deleted); the consumer re-fetches that document's items.
+   *
+   * @param event - The review-items-changed event.
+   */
+  onReviewItemsChanged?: (event: ReviewItemsChangedEventDto) => void;
   /** The SSE connection dropped (fires on error and on each failed retry); the consumer should resync. */
   onReconnect?: () => void;
   /** The SSE connection was (re)established; content is live again. */
@@ -83,6 +91,10 @@ export function useFileTreeEvents(projectId: string, handlers: ProjectEventHandl
         }
         case 'main-file-changed': {
           current.onMainFileChanged?.(event);
+          break;
+        }
+        case 'review-items-changed': {
+          current.onReviewItemsChanged?.(event);
           break;
         }
         default: {

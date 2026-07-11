@@ -20,6 +20,14 @@ const sharedTransform = {
   }],
 };
 
+// The @dicebear/* packages ship as pure ESM `.js`, which the commonjs jest runtime cannot parse.
+// Now that `@/components/avatar` is imported transitively by the review rail and the editor layout,
+// their unit tests would fail to load it. Un-ignore the `@dicebear+*` pnpm dirs so ts-jest compiles
+// them (the currently-installed @dicebear packages declare no runtime deps, so this covers the whole
+// graph; if a future bump adds a non-@dicebear ESM dep, widen the negative lookahead). Suites that
+// stub the avatar still `jest.mock('@dicebear/core')` per file, which overrides the real module.
+const transformIgnorePatterns = ['/node_modules/\\.pnpm/(?!@dicebear\\+)'];
+
 const sharedModuleNameMapper = {
   '^@/(.*)$': '<rootDir>/src/$1',
   // Resolve the shared AsciiDoc leaf package from its source so unit tests don't require a prior build.
@@ -63,6 +71,7 @@ const config = {
       testMatch: ['**/tests/**/*.test.ts'],
       testPathIgnorePatterns: ['/node_modules/', '\\.integration\\.test\\.ts$'],
       transform: sharedTransform,
+      transformIgnorePatterns,
       moduleNameMapper: sharedModuleNameMapper,
       // Also loaded for node-project tests so the editor `.test.ts` files that opt
       // into jsdom via a `/* @jest-environment jsdom */` pragma still get jest-dom
@@ -76,6 +85,7 @@ const config = {
       testEnvironment: 'jsdom',
       testMatch: ['**/tests/**/*.test.tsx'],
       transform: sharedTransform,
+      transformIgnorePatterns,
       moduleNameMapper: sharedModuleNameMapper,
       setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
       collectCoverageFrom,
@@ -89,6 +99,7 @@ const config = {
       testEnvironment: 'jsdom',
       testMatch: ['**/tests/**/*.integration.test.ts'],
       transform: sharedTransform,
+      transformIgnorePatterns,
       moduleNameMapper: sharedModuleNameMapper,
       setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
       collectCoverageFrom,

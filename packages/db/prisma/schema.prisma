@@ -28,6 +28,24 @@ enum GitProvider {
   BITBUCKET
 }
 
+enum ReviewItemKind {
+  COMMENT
+  TASK
+}
+
+enum ReviewItemStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  WONTFIX
+}
+
+enum AnchorState {
+  LOCATED
+  SECTION
+  DETACHED
+}
+
 model User {
   id                 String             @id @default(uuid()) @db.Uuid
   email              String             @unique
@@ -53,6 +71,10 @@ model User {
   sentInvitations         UserInvitation[]         @relation("InvitedBy")
   keyBindings             UserKeyBinding[]
   editorPreferences       EditorPreferences?
+  authoredReviewComments  ReviewComment[]          @relation("ReviewAuthor")
+  assignedReviewItems     ReviewComment[]          @relation("ReviewAssignee")
+  resolvedReviewItems     ReviewComment[]          @relation("ReviewResolver")
+  reviewReactions         ReviewReaction[]
 }
 
 model Project {
@@ -66,13 +88,14 @@ model Project {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  members                ProjectMember[]
-  fileNodes              FileNode[]
-  mainFile               FileNode?       @relation("ProjectMainFile", fields: [mainFileNodeId], references: [id], onDelete: SetNull)
-  gitRepository          GitRepository?
-  auditLogs              AuditLog[]
-  templates              Template[]      @relation("TemplateSourceProject")
-  collaborationSessions  CollaborationSession[]
+  members               ProjectMember[]
+  fileNodes             FileNode[]
+  mainFile              FileNode?              @relation("ProjectMainFile", fields: [mainFileNodeId], references: [id], onDelete: SetNull)
+  gitRepository         GitRepository?
+  auditLogs             AuditLog[]
+  templates             Template[]             @relation("TemplateSourceProject")
+  collaborationSessions CollaborationSession[]
+  reviewComments        ReviewComment[]
 }
 
 model ProjectMember {
@@ -97,12 +120,12 @@ model FileNode {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent   FileNode?  @relation("FileNodeHierarchy", fields: [parentId], references: [id])
-  children FileNode[] @relation("FileNodeHierarchy")
-  document Document?
-  asset    Asset?
-  mainFileForProjects Project[] @relation("ProjectMainFile")
+  project             Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent              FileNode?  @relation("FileNodeHierarchy", fields: [parentId], references: [id])
+  children            FileNode[] @relation("FileNodeHierarchy")
+  document            Document?
+  asset               Asset?
+  mainFileForProjects Project[]  @relation("ProjectMainFile")
 
   @@unique([projectId, path])
   @@index([projectId])
@@ -120,6 +143,7 @@ model Document {
 
   fileNode              FileNode               @relation(fields: [fileNodeId], references: [id], onDelete: Cascade)
   collaborationSessions CollaborationSession[]
+  reviewComments        ReviewComment[]
 }
 
 model CollaborationSession {
@@ -319,4 +343,59 @@ model EditorPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("editor_preferences")
+}
+
+model ReviewComment {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @db.Uuid
+  documentId        String            @db.Uuid
+  parentId          String?           @db.Uuid
+  kind              ReviewItemKind
+  body              String
+  authorId          String?           @db.Uuid
+  status            ReviewItemStatus?
+  assigneeId        String?           @db.Uuid
+  dueDate           DateTime?         @db.Date
+  resolvedAt        DateTime?
+  resolvedById      String?           @db.Uuid
+  anchorRelPos      Bytes?
+  anchorQuotePrefix String?
+  anchorQuoteExact  String?
+  anchorQuoteSuffix String?
+  anchorLineHint    Int?
+  anchorSectionId   String?
+  anchorState       AnchorState       @default(LOCATED)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document  Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent    ReviewComment?   @relation("ReviewThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   ReviewComment[]  @relation("ReviewThread")
+  author    User?            @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  assignee  User?            @relation("ReviewAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  resolver  User?            @relation("ReviewResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  reactions ReviewReaction[]
+
+  @@index([projectId])
+  @@index([documentId])
+  @@index([parentId])
+  @@index([assigneeId, status])
+  @@index([documentId, resolvedAt])
+  @@map("review_comments")
+}
+
+model ReviewReaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  reviewCommentId String   @db.Uuid
+  userId          String   @db.Uuid
+  emoji           String
+  createdAt       DateTime @default(now())
+
+  comment ReviewComment @relation(fields: [reviewCommentId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewCommentId, userId, emoji])
+  @@index([reviewCommentId])
+  @@map("review_reactions")
 }

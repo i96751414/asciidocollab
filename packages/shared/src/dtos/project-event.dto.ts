@@ -25,10 +25,32 @@ export interface MainFileChangedEventDto {
 }
 
 /**
+ * Emitted via SSE when a document's review items (comments/tasks) change — an
+ * item was created, replied to, resolved, reacted to, edited, or deleted. A bare
+ * identifier only; the client re-fetches the affected document's items and
+ * re-resolves their anchors against the live Y.Text on receipt.
+ */
+export interface ReviewItemsChangedEventDto {
+  /** Discriminator identifying this as a review-items change signal. */
+  type: 'review-items-changed';
+  /**
+   * The document whose review items changed, or `null` for a project-wide change that touches every
+   * document at once (the owner clearing all review items across the project). A consumer scoped to one
+   * document refetches when the id matches or is null, and the cross-document panel refetches on either.
+   */
+  documentId: string | null;
+}
+
+/**
  * The discriminated union of every event carried by the per-project SSE stream
  * (`GET /projects/:projectId/events`). Consumers discriminate on `type`: existing
  * structural changes ({@link FileTreeEventDto}), content changes
- * ({@link ContentChangedEventDto}), and main-file-setting changes
- * ({@link MainFileChangedEventDto}) share one transport.
+ * ({@link ContentChangedEventDto}), main-file-setting changes
+ * ({@link MainFileChangedEventDto}), and review-item changes
+ * ({@link ReviewItemsChangedEventDto}) share one transport.
  */
-export type ProjectEventDto = FileTreeEventDto | ContentChangedEventDto | MainFileChangedEventDto;
+export type ProjectEventDto =
+  | FileTreeEventDto
+  | ContentChangedEventDto
+  | MainFileChangedEventDto
+  | ReviewItemsChangedEventDto;

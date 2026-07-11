@@ -19,6 +19,8 @@ import {
   PrismaKeyBindingRepository,
   PrismaEditorPreferencesRepository,
   PrismaCollaborationSessionRepository,
+  PrismaReviewCommentRepository,
+  PrismaReviewReactionRepository,
 } from '@asciidocollab/infrastructure';
 import type { AppContainer } from '..';
 
@@ -49,5 +51,7 @@ export function createRepositories(prisma: PrismaClient): AppContainer['repos'] 
     keyBinding: new PrismaKeyBindingRepository(prisma),
     editorPreferences: new PrismaEditorPreferencesRepository(prisma),
     collaborationSession: new PrismaCollaborationSessionRepository(prisma),
+    reviewComment: new PrismaReviewCommentRepository(prisma),
+    reviewReaction: new PrismaReviewReactionRepository(prisma),
   };
 }

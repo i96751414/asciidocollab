@@ -10,6 +10,7 @@ const USER_ID = '550e8400-e29b-41d4-a716-446655440001';
 const PROJECT_ID = '550e8400-e29b-41d4-a716-446655440002';
 const FILE_NODE_ID = '550e8400-e29b-41d4-a716-446655440003';
 const YJS_STATE_ID = '880e8400-e29b-41d4-a716-446655440006';
+const DOCUMENT_ID = '990e8400-e29b-41d4-a716-446655440007';
 
 function buildTestServer(
   options: { memberRole?: string | null; hasDocument?: boolean; fileNodeExists?: boolean } = {},
@@ -30,7 +31,7 @@ function buildTestServer(
     document: {
       findByFileNodeId: jest
         .fn()
-        .mockResolvedValue(hasDocument ? { yjsStateId: { value: YJS_STATE_ID } } : null),
+        .mockResolvedValue(hasDocument ? { id: { value: DOCUMENT_ID }, yjsStateId: { value: YJS_STATE_ID } } : null),
     },
     collaborationSession: { isActive: jest.fn().mockResolvedValue(false) },
   });
@@ -50,7 +51,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/collab`,
     });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ yjsStateId: YJS_STATE_ID, role: 'editor' });
+    expect(JSON.parse(response.body)).toEqual({ yjsStateId: YJS_STATE_ID, documentId: DOCUMENT_ID, role: 'editor' });
   });
 
   it('maps a viewer member to role "observer"', async () => {
@@ -60,7 +61,7 @@ describe('GET /projects/:projectId/files/:fileNodeId/collab', () => {
       url: `/projects/${PROJECT_ID}/files/${FILE_NODE_ID}/collab`,
     });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ yjsStateId: YJS_STATE_ID, role: 'observer' });
+    expect(JSON.parse(response.body)).toEqual({ yjsStateId: YJS_STATE_ID, documentId: DOCUMENT_ID, role: 'observer' });
   });
 
   it('returns 403 FORBIDDEN for a non-member and leaks no document details', async () => {

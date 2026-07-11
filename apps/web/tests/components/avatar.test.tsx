@@ -30,7 +30,7 @@ jest.mock('@/lib/avatars', () => ({
     },
   },
   DEFAULT_AVATAR_STYLE: 'initials',
-}), { virtual: true });
+}));
 
 describe('Avatar', () => {
   beforeEach(() => {

@@ -1,0 +1,68 @@
+/* @jest-environment jsdom */
+/**
+ * Persistence tests for the feature 038 `commentsPanelOpen` client-only preference: it round-trips
+ * through localStorage, defaults to false, and never leaks into an account PUT (Constitution VII).
+ * Mirrors the infrastructure of use-editor-preferences.persistence.test.ts.
+ */
+import { renderHook, act } from '@testing-library/react';
+import { useEditorPreferences } from '@/hooks/use-editor-preferences';
+
+const mockFetch = jest.fn();
+globalThis.fetch = mockFetch;
+
+const mockLocalStorage = {
+  store: {} as Record<string, string>,
+  getItem: jest.fn((key: string) => mockLocalStorage.store[key] ?? null),
+  setItem: jest.fn((key: string, value: string) => { mockLocalStorage.store[key] = value; }),
+  removeItem: jest.fn((key: string) => { delete mockLocalStorage.store[key]; }),
+  clear: jest.fn(() => { mockLocalStorage.store = {}; }),
+};
+Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, writable: true });
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  mockFetch.mockReset();
+  mockLocalStorage.clear();
+  mockFetch.mockReturnValue(new Promise(() => {}));
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+test('defaults to false on fresh storage', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.commentsPanelOpen).toBe(false);
+});
+
+test('persistence round-trip: setCommentsPanelOpen(true) is read back by a new hook instance', () => {
+  const { result: first } = renderHook(() => useEditorPreferences());
+  act(() => first.current.setCommentsPanelOpen(true));
+  expect(first.current.commentsPanelOpen).toBe(true);
+
+  const { result: second } = renderHook(() => useEditorPreferences());
+  expect(second.current.commentsPanelOpen).toBe(true);
+});
+
+test('no account PUT ever carries commentsPanelOpen (client-only guarantee)', async () => {
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+  const { result } = renderHook(() => useEditorPreferences());
+  act(() => result.current.setCommentsPanelOpen(true));
+  // Trigger a PUT by changing a server-synced preference.
+  act(() => result.current.setFontSize(16));
+
+  await act(async () => {
+    jest.advanceTimersByTime(600);
+    await Promise.resolve();
+  });
+
+  const putCalls = mockFetch.mock.calls.filter(
+    (c: unknown[]) => (c[1] as { method?: string })?.method === 'PUT',
+  );
+  expect(putCalls.length).toBeGreaterThan(0);
+  for (const putCall of putCalls) {
+    const body = JSON.parse((putCall[1] as { body: string }).body) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('commentsPanelOpen');
+  }
+});

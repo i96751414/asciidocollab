@@ -43,6 +43,8 @@ jest.mock('@codemirror/view', () => ({
   ViewPlugin: { fromClass: () => ({}), define: () => ({}) },
   Decoration: { line: () => ({}), replace: () => ({}), mark: () => ({}), set: () => ({}), none: { update: () => ({}) } },
   WidgetType: class {},
+  GutterMarker: class {},
+  gutter: () => ({}),
 }));
 
 jest.mock('@codemirror/language-data', () => ({ languages: [] }));
