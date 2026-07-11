@@ -49,6 +49,19 @@ export interface EditorCompartments {
   lineWrap: Compartment;
   /** Spell-check lint compartment, reconfigured when the language/enabled/ignore prefs change. */
   spellcheck: Compartment;
+  /** Minimap (document text-preview) compartment, reconfigured when the minimap preference toggles. */
+  minimap: Compartment;
+}
+
+/**
+ * The document text-preview (minimap) extension — a scaled-down overview of the whole document down
+ * the right edge. Gated behind the {@link EditorCompartments.minimap} compartment so it can be
+ * toggled live, and off by default (see the `minimapEnabled` preference).
+ *
+ * @returns A `showMinimap` facet configured with an empty container the library renders into.
+ */
+export function minimapExtension(): Extension {
+  return showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } });
 }
 
 /** Inputs for {@link buildEditorExtensions}: compartments, live accessors, and per-mount flags. */
@@ -59,6 +72,8 @@ export interface BuildEditorExtensionsOptions {
   canEdit: boolean;
   /** Whether soft-wrap is enabled at mount (drives the lineWrap compartment's initial value). */
   softWrap: boolean;
+  /** Whether the minimap (text-preview) is enabled at mount (drives the minimap compartment). */
+  minimapEnabled: boolean;
   /** Persistence key for per-file fold state; null ⇒ folds not persisted. */
   foldStorageKey: string | null;
   /** Returns the current spell-check ignore list. */
@@ -132,6 +147,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     compartments,
     canEdit,
     softWrap,
+    minimapEnabled,
     foldStorageKey,
     getSpellIgnore,
     spellcheckLanguage,
@@ -250,7 +266,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     outlineIncludeContextFacet.of(getIncludeContext ?? (() => null)),
     outlineField,
     tableContextField,
-    showMinimap.of({ create: () => { const dom = document.createElement('div'); return { dom }; } }),
+    // Text-preview (minimap), gated behind its compartment and off unless the user opts in.
+    compartments.minimap.of(minimapEnabled ? minimapExtension() : []),
     autocompletion({
       override: [
         createAttributeCompletionSource(projectIndexAccessor),

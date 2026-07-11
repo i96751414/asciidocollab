@@ -18,9 +18,11 @@ interface EditorChromeProperties {
   fontSize: number;
   theme: EditorThemeValue;
   softWrap: boolean;
+  minimapEnabled: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setSoftWrap: (enabled: boolean) => void;
+  setMinimapEnabled: (enabled: boolean) => void;
   /** Active table context, or null when the cursor is not in a table. */
   tableContext: TableContext | null;
   /** Awareness for the collab presence bar; null/undefined on the non-collab path. */
@@ -43,9 +45,11 @@ export function EditorChrome({
   fontSize,
   theme,
   softWrap,
+  minimapEnabled,
   setFontSize,
   setTheme,
   setSoftWrap,
+  setMinimapEnabled,
   tableContext,
   awareness,
   onGoToSymbol,
@@ -61,9 +65,11 @@ export function EditorChrome({
           fontSize={fontSize}
           theme={theme}
           softWrap={softWrap}
+          minimapEnabled={minimapEnabled}
           setFontSize={setFontSize}
           setTheme={setTheme}
           setSoftWrap={setSoftWrap}
+          setMinimapEnabled={setMinimapEnabled}
           onGoToSymbol={onGoToSymbol}
           onRefactor={onRefactor}
         />

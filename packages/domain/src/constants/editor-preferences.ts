@@ -5,6 +5,9 @@ export const DEFAULT_THEME = 'default' as const;
 export const DEFAULT_SCROLL_SYNC_ENABLED = false;
 export const DEFAULT_PREVIEW_STYLE = 'asciidocollab' as const;
 
+/** The document text-preview (minimap) is off by default — it is an opt-in aid, not a baseline. */
+export const DEFAULT_MINIMAP_ENABLED = false;
+
 /**
  * Selectable editor spellcheck languages (ISO 639-1 codes). The list is limited to languages with a
  * bundled Hunspell dictionary that actually spell-check — offering a language that produces no

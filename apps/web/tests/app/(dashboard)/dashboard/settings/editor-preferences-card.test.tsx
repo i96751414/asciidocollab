@@ -8,6 +8,7 @@ const setScrollSyncEnabled = jest.fn();
 const setSoftWrap = jest.fn();
 const setPreviewStyle = jest.fn();
 const setSpellcheckEnabled = jest.fn();
+const setMinimapEnabled = jest.fn();
 
 const preferences = {
   fontSize: 14,
@@ -17,6 +18,7 @@ const preferences = {
   previewStyle: 'asciidocollab',
   spellIgnore: [],
   spellcheckEnabled: true,
+  minimapEnabled: false,
   setFontSize,
   setTheme,
   setScrollSyncEnabled,
@@ -24,6 +26,7 @@ const preferences = {
   setPreviewStyle,
   addSpellIgnore: jest.fn(),
   setSpellcheckEnabled,
+  setMinimapEnabled,
 };
 
 jest.mock('@/hooks/use-editor-preferences', () => ({
@@ -53,6 +56,7 @@ describe('EditorPreferencesCard', () => {
     preferences.theme = 'default';
     preferences.scrollSyncEnabled = false;
     preferences.softWrap = true;
+    preferences.minimapEnabled = false;
   });
 
   test('renders the font-size select with the current value', () => {
@@ -112,5 +116,13 @@ describe('EditorPreferencesCard', () => {
   test('no longer offers a spell-check language selector (now a project setting)', () => {
     render(<EditorPreferencesCard />);
     expect(screen.queryByLabelText('Spell Check Language')).not.toBeInTheDocument();
+  });
+
+  test('text preview is off by default and toggling it on calls setMinimapEnabled', () => {
+    render(<EditorPreferencesCard />);
+    const toggle = screen.getByLabelText('Text Preview');
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(setMinimapEnabled).toHaveBeenCalledWith(true);
   });
 });

@@ -184,3 +184,46 @@ describe('add-comment gutter affordance', () => {
     parent.remove();
   });
 });
+
+function mountWithThread(
+  getOnComment: () => ((from: number, to: number) => void) | null,
+  getOnActivate: () => ((id: string) => void) | null,
+) {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const view = new EditorView({
+    state: EditorState.create({
+      doc: 'hello world\nsecond line',
+      extensions: [reviewDecorations(() => null, getOnComment, getOnActivate)],
+    }),
+    parent,
+  });
+  // A resolved review range on line 1 so a dot renders and reviewIdAtLine resolves to its id.
+  view.dispatch({ effects: setReviewRangesEffect.of([{ id: 'thread-1', from: 0, to: 5 }]) });
+  return { view, parent };
+}
+
+describe('existing-thread dot activation', () => {
+  test("clicking a line's existing-thread dot opens its thread and does not start a comment", () => {
+    const onComment = jest.fn();
+    const onActivate = jest.fn();
+    const { view, parent } = mountWithThread(() => onComment, () => onActivate);
+    const dot = view.dom.querySelector('.cm-review-gutter-marker');
+    expect(dot).not.toBeNull();
+    dot!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(onActivate).toHaveBeenCalledWith('thread-1');
+    expect(onComment).not.toHaveBeenCalled();
+    view.destroy();
+    parent.remove();
+  });
+
+  test('a dot click is inert (no throw, no comment) when no activate handler is wired', () => {
+    const onComment = jest.fn();
+    const { view, parent } = mountWithThread(() => onComment, () => null);
+    const dot = view.dom.querySelector('.cm-review-gutter-marker');
+    expect(() => dot!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))).not.toThrow();
+    expect(onComment).not.toHaveBeenCalled();
+    view.destroy();
+    parent.remove();
+  });
+});

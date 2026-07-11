@@ -14,7 +14,7 @@ import {
   type Extension,
   type RangeSet,
 } from '@codemirror/state';
-import type { CommentFromSelectionAccessor } from '@/lib/codemirror/review-interaction';
+import type { CommentFromSelectionAccessor, ReviewMarkerClickAccessor } from '@/lib/codemirror/review-interaction';
 
 /**
  * Review highlight + gutter-marker layer for feature 038. Every located review item paints a
@@ -297,11 +297,14 @@ function buildReviewGutterMarkers(state: EditorState): RangeSet<GutterMarker> {
  *   its line's review id on hover (the text-highlight hover is handled by `reviewMarkerHoverHandler`).
  * @param getOnComment - Live accessor for the comment-from-selection handler; when it yields a handler
  *   the "add comment" affordance renders and clicking it starts a thread. Null hides the affordance.
+ * @param getOnActivate - Live accessor for the thread-open handler; clicking a line's existing-thread
+ *   dot opens its first thread via this handler (same one the text-highlight click uses).
  * @returns The review decoration + gutter extension (register once).
  */
 export function reviewDecorations(
   getOnHover?: ReviewHoverAccessor,
   getOnComment?: CommentFromSelectionAccessor,
+  getOnActivate?: ReviewMarkerClickAccessor,
 ): Extension {
   return [
     reviewStateField,
@@ -328,18 +331,29 @@ export function reviewDecorations(
         ),
       domEventHandlers: {
         mousedown(view, line, event) {
-          const onComment = getOnComment?.();
-          if (!onComment) return false;
-          // Only the "+" affordance starts a comment; other gutter clicks are left alone.
           const target = event.target;
-          if (!(target instanceof Element) || !target.closest(`.${REVIEW_ADD_COMMENT_CLASS}`)) return false;
-          event.preventDefault(); // Keep the selection — don't let the click move the caret.
-          const useSelection = selectionOverlapsLine(view.state, line.from, line.to);
-          const selection = view.state.selection.main;
-          const from = useSelection ? selection.from : line.from;
-          const to = useSelection ? selection.to : line.to;
-          onComment(from, to);
-          return true;
+          const onComment = getOnComment?.();
+          // The revealed "+" affordance starts a comment. It only intercepts clicks while shown (CSS
+          // pointer-events), so a click that lands on it is a genuine add-comment request.
+          if (onComment && target instanceof Element && target.closest(`.${REVIEW_ADD_COMMENT_CLASS}`)) {
+            event.preventDefault(); // Keep the selection — don't let the click move the caret.
+            const useSelection = selectionOverlapsLine(view.state, line.from, line.to);
+            const selection = view.state.selection.main;
+            const from = useSelection ? selection.from : line.from;
+            const to = useSelection ? selection.to : line.to;
+            onComment(from, to);
+            return true;
+          }
+          // Otherwise, clicking a line that starts a review range opens its (first) thread — the dot is
+          // an "open the comment" affordance, not an "add a comment" one.
+          const onActivate = getOnActivate?.();
+          const id = reviewIdAtLine(view.state, line.from);
+          if (onActivate && id) {
+            event.preventDefault();
+            onActivate(id);
+            return true;
+          }
+          return false;
         },
         mousemove(view, line) {
           getOnHover?.()?.(reviewIdAtLine(view.state, line.from));

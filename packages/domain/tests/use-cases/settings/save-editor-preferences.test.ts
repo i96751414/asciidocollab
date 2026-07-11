@@ -153,4 +153,30 @@ describe('SaveEditorPreferencesUseCase', () => {
     const getResult = await getUseCase.execute(userId);
     if (getResult.success) expect(getResult.value.spellcheckEnabled).toBe(false);
   });
+
+  test('persists the minimap (text preview) enabled flag', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', minimapEnabled: true });
+
+    const getResult = await getUseCase.execute(userId);
+    expect(getResult.success).toBe(true);
+    if (getResult.success) {
+      expect(getResult.value.minimapEnabled).toBe(true);
+    }
+  });
+
+  test('an omitted minimap enabled flag preserves the previously saved value', async () => {
+    const repo = new InMemoryEditorPreferencesRepository();
+    const saveUseCase = new SaveEditorPreferencesUseCase(repo);
+    const getUseCase = new GetEditorPreferencesUseCase(repo);
+
+    await saveUseCase.execute(userId, { fontSize: 14, theme: 'default', minimapEnabled: true });
+    await saveUseCase.execute(userId, { fontSize: 16, theme: 'default' });
+
+    const getResult = await getUseCase.execute(userId);
+    if (getResult.success) expect(getResult.value.minimapEnabled).toBe(true);
+  });
 });

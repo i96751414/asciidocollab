@@ -195,6 +195,10 @@ export const asciidocEditorTheme = EditorView.theme({
     justifyContent: "center",
     cursor: "pointer",
     opacity: "0",
+    // Resting (hidden) affordance must not intercept clicks — otherwise clicking an existing-thread
+    // dot lands on this invisible cell-filling element and starts a new comment. Re-enabled only when
+    // it is actually revealed (the line overlaps a selection), below.
+    pointerEvents: "none",
   },
   // Filled chip: a solid rounded square in the identity colour with a light icon, so the affordance
   // reads as a deliberate button rather than a thin floating outline.
@@ -211,7 +215,7 @@ export const asciidocEditorTheme = EditorView.theme({
   ".cm-review-add-comment svg": { width: "8px", height: "8px" },
   // The add-comment "+" reveals only while the line overlaps a non-empty selection — not on hover — so
   // it appears exactly when there is selected text to comment on.
-  ".cm-review-gutter-selected .cm-review-add-comment": { opacity: "1" },
+  ".cm-review-gutter-selected .cm-review-add-comment": { opacity: "1", pointerEvents: "auto" },
   // Hide the resting existing-thread dot while the "+" is showing so the two don't overlap in one cell.
   ".cm-review-gutter-selected .cm-review-gutter-marker::before": { opacity: "0" },
   "&.cm-focused": { outline: "none" },

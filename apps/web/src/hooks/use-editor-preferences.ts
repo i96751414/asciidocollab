@@ -55,6 +55,8 @@ interface EditorPrefs {
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
   spellcheckEnabled: boolean;
+  /** Whether the editor shows the document text-preview (minimap). Synced to the account; defaults off. */
+  minimapEnabled: boolean;
   /** 028: the active left-panel view. Client-only — kept in localStorage, never PUT to the account. */
   leftPanelTab: LeftPanelTab;
   /** 029: whether to show included files inline in the editor. Client-only — kept in localStorage, never PUT to the account. */
@@ -65,7 +67,7 @@ interface EditorPrefs {
   commentsPanelOpen: boolean;
 }
 
-const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full', commentsPanelOpen: false };
+const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncEnabled: false, softWrap: true, previewStyle: 'asciidocollab', spellIgnore: [], spellcheckEnabled: true, minimapEnabled: false, leftPanelTab: 'files', showIncludedFiles: false, outlineScope: 'full', commentsPanelOpen: false };
 
 // Preference keys kept on THIS device only — never sent to (or read back from) the account API. The
 // PUT-payload strip in schedulePut() is driven by this list, so a new client-only preference can never
@@ -73,7 +75,7 @@ const DEFAULT_PREFS: EditorPrefs = { fontSize: 14, theme: 'default', scrollSyncE
 // hardcodes `leftPanelTab` below — extend that too when adding a key here) (028).
 const CLIENT_ONLY_KEYS = ['leftPanelTab', 'showIncludedFiles', 'outlineScope', 'commentsPanelOpen'] as const satisfies readonly (keyof EditorPrefs)[];
 
-function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown; commentsPanelOpen?: unknown } {
+function isStoredPrefs(value: unknown): value is { fontSize?: number; theme?: string; scrollSyncEnabled?: boolean; softWrap?: boolean; previewStyle?: string; spellIgnore?: unknown; spellcheckEnabled?: boolean; minimapEnabled?: boolean; leftPanelTab?: unknown; showIncludedFiles?: unknown; outlineScope?: unknown; commentsPanelOpen?: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -97,6 +99,7 @@ function loadFromStorage(): EditorPrefs {
           previewStyle: typeof rawPreviewStyle === 'string' && isPreviewStyleValue(rawPreviewStyle) ? rawPreviewStyle : DEFAULT_PREFS.previewStyle,
           spellIgnore: toStringArray(parsed.spellIgnore),
           spellcheckEnabled: typeof parsed.spellcheckEnabled === 'boolean' ? parsed.spellcheckEnabled : DEFAULT_PREFS.spellcheckEnabled,
+          minimapEnabled: typeof parsed.minimapEnabled === 'boolean' ? parsed.minimapEnabled : DEFAULT_PREFS.minimapEnabled,
           leftPanelTab: isLeftPanelTab(parsed.leftPanelTab) ? parsed.leftPanelTab : DEFAULT_PREFS.leftPanelTab,
           showIncludedFiles: typeof parsed.showIncludedFiles === 'boolean' ? parsed.showIncludedFiles : DEFAULT_PREFS.showIncludedFiles,
           outlineScope: isOutlineScope(parsed.outlineScope) ? parsed.outlineScope : DEFAULT_PREFS.outlineScope,
@@ -117,6 +120,7 @@ interface UseEditorPreferencesResult {
   previewStyle: PreviewStyleValue;
   spellIgnore: string[];
   spellcheckEnabled: boolean;
+  minimapEnabled: boolean;
   leftPanelTab: LeftPanelTab;
   showIncludedFiles: boolean;
   outlineScope: OutlineScope;
@@ -128,6 +132,7 @@ interface UseEditorPreferencesResult {
   setPreviewStyle: (style: PreviewStyleValue) => void;
   addSpellIgnore: (word: string) => void;
   setSpellcheckEnabled: (enabled: boolean) => void;
+  setMinimapEnabled: (enabled: boolean) => void;
   setLeftPanelTab: (tab: LeftPanelTab) => void;
   setShowIncludedFiles: (value: boolean) => void;
   setOutlineScope: (scope: OutlineScope) => void;
@@ -163,6 +168,7 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
         previewStyle: typeof data.previewStyle === 'string' && isPreviewStyleValue(data.previewStyle) ? data.previewStyle : previous.previewStyle,
         spellIgnore: Array.isArray(data.spellIgnore) ? toStringArray(data.spellIgnore) : previous.spellIgnore,
         spellcheckEnabled: typeof data.spellcheckEnabled === 'boolean' ? data.spellcheckEnabled : previous.spellcheckEnabled,
+        minimapEnabled: typeof data.minimapEnabled === 'boolean' ? data.minimapEnabled : previous.minimapEnabled,
         // Client-only keys (see CLIENT_ONLY_KEYS) are never returned by the account API, so always keep
         // the local value — the server response can never overwrite the chosen view or scope.
         leftPanelTab: previous.leftPanelTab,
@@ -256,6 +262,15 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
+  const setMinimapEnabled = useCallback((minimapEnabled: boolean) => {
+    setPrefs((previous) => {
+      const next = { ...previous, minimapEnabled };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      schedulePut(next);
+      return next;
+    });
+  }, []);
+
   // Client-only setter (028): persists the chosen view to localStorage but never schedules a PUT, so
   // the value stays on this device and is excluded from the account preferences.
   const setLeftPanelTab = useCallback((leftPanelTab: LeftPanelTab) => {
@@ -296,5 +311,5 @@ export function useEditorPreferences(): UseEditorPreferencesResult {
     });
   }, []);
 
-  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, commentsPanelOpen: prefs.commentsPanelOpen, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope, setCommentsPanelOpen };
+  return { fontSize: prefs.fontSize, theme: prefs.theme, scrollSyncEnabled: prefs.scrollSyncEnabled, softWrap: prefs.softWrap, previewStyle: prefs.previewStyle, spellIgnore: prefs.spellIgnore, spellcheckEnabled: prefs.spellcheckEnabled, minimapEnabled: prefs.minimapEnabled, leftPanelTab: prefs.leftPanelTab, showIncludedFiles: prefs.showIncludedFiles, outlineScope: prefs.outlineScope, commentsPanelOpen: prefs.commentsPanelOpen, setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, addSpellIgnore, setSpellcheckEnabled, setMinimapEnabled, setLeftPanelTab, setShowIncludedFiles, setOutlineScope, setCommentsPanelOpen };
 }

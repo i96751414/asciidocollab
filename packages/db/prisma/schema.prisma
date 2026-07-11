@@ -337,6 +337,7 @@ model EditorPreferences {
   softWrap          Boolean  @default(true)
   previewStyle      String   @default("asciidocollab")
   spellcheckEnabled Boolean  @default(true)
+  minimapEnabled    Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

@@ -8,9 +8,10 @@ import {
   FONT_SIZE_MIN,
   FONT_SIZE_MAX,
   DEFAULT_SPELLCHECK_ENABLED,
+  DEFAULT_MINIMAP_ENABLED,
 } from '../constants/editor-preferences';
 
-/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style, spellcheck toggle). */
+/** Stores a user's editor display preferences (font size, theme, scroll sync, soft wrap, preview style, spellcheck toggle, minimap toggle). */
 export class EditorPreferences {
   public readonly timestamps: Timestamps;
 
@@ -25,6 +26,8 @@ export class EditorPreferences {
    * @param previewStyle - Selected preview rendering style; defaults to the brand look.
    * @param spellcheckEnabled - When false, spellcheck produces no diagnostics. The
    *  spellcheck language is a project-level setting, not a user preference.
+   * @param minimapEnabled - When true, the editor shows the document text-preview (minimap).
+   *  Defaults to off.
    */
   constructor(
     public readonly id: EditorPreferencesId,
@@ -36,6 +39,7 @@ export class EditorPreferences {
     public readonly softWrap: boolean = true,
     public readonly previewStyle: PreviewStyle = PreviewStyle.default(),
     public readonly spellcheckEnabled: boolean = DEFAULT_SPELLCHECK_ENABLED,
+    public readonly minimapEnabled: boolean = DEFAULT_MINIMAP_ENABLED,
   ) {
     if (fontSize < FONT_SIZE_MIN || fontSize > FONT_SIZE_MAX) {
       throw new ValidationError(

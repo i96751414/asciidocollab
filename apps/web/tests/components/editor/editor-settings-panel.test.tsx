@@ -180,4 +180,41 @@ describe('EditorSettingsPanel', () => {
     fireEvent.click(screen.getByLabelText(/soft wrap/i));
     expect(mockSetSoftWrap).toHaveBeenCalledWith(false);
   });
+
+  // Text-preview (minimap) toggle
+  test('text-preview toggle reflects the current value and is absent without a setter', () => {
+    const { rerender } = render(
+      <EditorSettingsPanel fontSize={14} theme="default" setFontSize={mockSetFontSize} setTheme={mockSetTheme} />
+    );
+    // No setter → no toggle rendered.
+    expect(screen.queryByLabelText(/text preview/i)).not.toBeInTheDocument();
+
+    rerender(
+      <EditorSettingsPanel
+        fontSize={14}
+        theme="default"
+        setFontSize={mockSetFontSize}
+        setTheme={mockSetTheme}
+        minimapEnabled
+        setMinimapEnabled={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText(/text preview/i)).toBeChecked();
+  });
+
+  test('clicking the text-preview toggle fires setMinimapEnabled with the negated value', () => {
+    const mockSetMinimapEnabled = jest.fn();
+    render(
+      <EditorSettingsPanel
+        fontSize={14}
+        theme="default"
+        setFontSize={mockSetFontSize}
+        setTheme={mockSetTheme}
+        minimapEnabled={false}
+        setMinimapEnabled={mockSetMinimapEnabled}
+      />
+    );
+    fireEvent.click(screen.getByLabelText(/text preview/i));
+    expect(mockSetMinimapEnabled).toHaveBeenCalledWith(true);
+  });
 });

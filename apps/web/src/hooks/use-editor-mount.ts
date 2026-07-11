@@ -12,7 +12,7 @@ import { RENDER_INTRINSIC_ATTRIBUTES } from '@/lib/asciidoc/render-intrinsics';
 import { createLinkHandler, type XrefTarget } from '@/lib/codemirror/asciidoc-link-handler';
 import { outlineField } from '@/lib/codemirror/asciidoc-outline';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
-import { buildEditorExtensions } from '@/lib/codemirror/editor-extensions';
+import { buildEditorExtensions, minimapExtension } from '@/lib/codemirror/editor-extensions';
 import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linter';
 import { reviewDecorations } from '@/lib/codemirror/review-decorations';
 import { reviewMarkerClickHandler, reviewMarkerHoverHandler, reviewCommentKeymap } from '@/lib/codemirror/review-interaction';
@@ -49,6 +49,8 @@ interface UseEditorMountOptions {
   content: string;
   canEdit: boolean;
   softWrap?: boolean;
+  /** When true, shows the document text-preview (minimap). Defaults to false. */
+  minimapEnabled?: boolean;
   /** Persistence key for per-file fold state; omitted ⇒ folds not persisted. */
   foldStorageKey?: string;
   /** Per-user spell-check ignore list. */
@@ -166,6 +168,7 @@ export function useEditorMount({
   content,
   canEdit,
   softWrap = true,
+  minimapEnabled = false,
   foldStorageKey,
   spellIgnore,
   spellcheckLanguage = 'en',
@@ -202,6 +205,7 @@ export function useEditorMount({
   const languageCompartment = useRef(new Compartment());
   const lineWrapCompartment = useRef(new Compartment());
   const spellcheckCompartment = useRef(new Compartment());
+  const minimapCompartment = useRef(new Compartment());
   const includePathsReference = useRef<string[]>(includePaths);
   useEffect(() => { includePathsReference.current = includePaths; }, [includePaths]);
   const imagePathsReference = useRef<string[]>(imagePaths);
@@ -319,9 +323,11 @@ export function useEditorMount({
           language: languageCompartment.current,
           lineWrap: lineWrapCompartment.current,
           spellcheck: spellcheckCompartment.current,
+          minimap: minimapCompartment.current,
         },
         canEdit,
         softWrap,
+        minimapEnabled,
         foldStorageKey: foldStorageKey ?? null,
         getSpellIgnore: () => spellIgnore ?? [],
         spellcheckLanguage,
@@ -369,6 +375,7 @@ export function useEditorMount({
           reviewDecorations(
             () => onReviewMarkerHoverReference.current,
             () => onCommentFromSelectionReference.current,
+            () => onReviewMarkerClickReference.current,
           ),
           reviewMarkerClickHandler(() => onReviewMarkerClickReference.current),
           reviewMarkerHoverHandler(() => onReviewMarkerHoverReference.current),
@@ -508,6 +515,19 @@ export function useEditorMount({
       effects: lineWrapCompartment.current.reconfigure(softWrap ? [EditorView.lineWrapping] : []),
     });
   }, [softWrap]);
+
+  // Sync the minimap (text-preview) preference live via its Compartment.
+  useEffect(() => {
+    const view = viewReference.current;
+    if (!view) return;
+    view.dispatch({
+      effects: minimapCompartment.current.reconfigure(minimapEnabled ? minimapExtension() : []),
+    });
+    // @replit/codemirror-minimap builds its DOM when the facet turns on but paints the canvas only on
+    // a *later* view update, so a freshly-enabled minimap stays blank until the next transaction (e.g.
+    // a scroll). Dispatch one empty transaction to drive that first paint immediately.
+    if (minimapEnabled) view.dispatch({});
+  }, [minimapEnabled]);
 
   // Sync the spell-check language / enabled preference live via its Compartment —
   // a fresh lint source bound to the new language+enabled, so changes apply without a remount.

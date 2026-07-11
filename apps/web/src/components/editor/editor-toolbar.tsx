@@ -22,9 +22,11 @@ interface EditorToolbarProperties {
   fontSize?: number;
   theme?: EditorThemeValue;
   softWrap?: boolean;
+  minimapEnabled?: boolean;
   setFontSize?: (size: number) => void;
   setTheme?: (theme: EditorThemeValue) => void;
   setSoftWrap?: (enabled: boolean) => void;
+  setMinimapEnabled?: (enabled: boolean) => void;
   /** Opens the Go to Symbol palette; omitted hides the button. */
   onGoToSymbol?: () => void;
   // Opens the refactor dialog, seeded with the symbol under the cursor (or null when the
@@ -191,9 +193,11 @@ export function EditorToolbar({
   fontSize = 14,
   theme = 'default',
   softWrap,
+  minimapEnabled,
   setFontSize = () => {},
   setTheme = () => {},
   setSoftWrap,
+  setMinimapEnabled,
   onGoToSymbol,
   onRefactor,
 }: EditorToolbarProperties) {
@@ -245,9 +249,11 @@ export function EditorToolbar({
             fontSize={fontSize}
             theme={theme}
             softWrap={softWrap}
+            minimapEnabled={minimapEnabled}
             setFontSize={setFontSize}
             setTheme={setTheme}
             setSoftWrap={setSoftWrap}
+            setMinimapEnabled={setMinimapEnabled}
           />
         </div>
       )}

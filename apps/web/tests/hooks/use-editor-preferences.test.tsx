@@ -324,6 +324,42 @@ test('setSoftWrap updates state and includes softWrap in PUT payload', async () 
   }
 });
 
+// ── minimapEnabled (text preview) ───────────────────────────────────────────
+
+test('minimapEnabled defaults to false', () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  expect(result.current.minimapEnabled).toBe(false);
+});
+
+test('minimapEnabled included in initial GET response', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ fontSize: 14, theme: 'default', minimapEnabled: true }),
+  });
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(result.current.minimapEnabled).toBe(true));
+});
+
+test('setMinimapEnabled updates state and includes minimapEnabled in PUT payload', async () => {
+  const { result } = renderHook(() => useEditorPreferences());
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+  await act(async () => {
+    result.current.setMinimapEnabled(true);
+    jest.advanceTimersByTime(600);
+  });
+  await waitFor(() => expect(result.current.minimapEnabled).toBe(true));
+  const putCall = mockFetch.mock.calls.find((c: unknown[]) => {
+    const options = c[1] as { method?: string };
+    return options?.method === 'PUT';
+  });
+  expect(putCall).toBeDefined();
+  if (putCall) {
+    const body = JSON.parse((putCall[1] as { body: string }).body);
+    expect(body).toHaveProperty('minimapEnabled', true);
+  }
+});
+
 test('localStorage cache updated when softWrap changes', async () => {
   const { result } = renderHook(() => useEditorPreferences());
   await waitFor(() => expect(mockFetch).toHaveBeenCalled());

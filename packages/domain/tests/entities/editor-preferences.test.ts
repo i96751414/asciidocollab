@@ -64,4 +64,14 @@ describe('EditorPreferences entity', () => {
     const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), false);
     expect(prefs.spellcheckEnabled).toBe(false);
   });
+
+  test('minimap (text preview) defaults to disabled', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme);
+    expect(prefs.minimapEnabled).toBe(false);
+  });
+
+  test('reflects the provided minimap enabled flag', () => {
+    const prefs = new EditorPreferences(validId, validUserId, 14, defaultTheme, false, undefined, true, PreviewStyle.default(), true, true);
+    expect(prefs.minimapEnabled).toBe(true);
+  });
 });

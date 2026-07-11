@@ -18,8 +18,8 @@ const EDITOR_THEMES: { value: EditorThemeValue; label: string }[] = [
 /** Card exposing editor font size, theme, scroll sync, and soft wrap preferences. */
 export function EditorPreferencesCard() {
   const {
-    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle, spellcheckEnabled,
-    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, setSpellcheckEnabled,
+    fontSize, theme, scrollSyncEnabled, softWrap, previewStyle, spellcheckEnabled, minimapEnabled,
+    setFontSize, setTheme, setScrollSyncEnabled, setSoftWrap, setPreviewStyle, setSpellcheckEnabled, setMinimapEnabled,
   } = useEditorPreferences();
 
   return (
@@ -101,6 +101,19 @@ export function EditorPreferencesCard() {
           </div>
           <CardDescription>
             The spell-check language is configured per project in its settings.
+          </CardDescription>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="minimapEnabled"
+              checked={minimapEnabled}
+              onChange={(event) => setMinimapEnabled(event.target.checked)}
+              className="h-4 w-4 rounded border"
+            />
+            <Label htmlFor="minimapEnabled">Text Preview</Label>
+          </div>
+          <CardDescription>
+            Shows a scaled-down overview of the whole document down the editor&rsquo;s right edge.
           </CardDescription>
         </div>
       </CardContent>

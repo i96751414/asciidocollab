@@ -1,4 +1,5 @@
 import * as Select from '@radix-ui/react-select';
+import { ALargeSmall, Palette, WrapText, Map as MapIcon } from 'lucide-react';
 import type { EditorThemeValue } from '@/hooks/use-editor-preferences';
 import { isEditorThemeValue } from '@/hooks/use-editor-preferences';
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/editor-config';
@@ -7,9 +8,11 @@ interface EditorSettingsPanelProperties {
   fontSize: number;
   theme: EditorThemeValue;
   softWrap?: boolean;
+  minimapEnabled?: boolean;
   setFontSize: (size: number) => void;
   setTheme: (theme: EditorThemeValue) => void;
   setSoftWrap?: (enabled: boolean) => void;
+  setMinimapEnabled?: (enabled: boolean) => void;
 }
 
 const THEME_OPTIONS: { value: EditorThemeValue; label: string }[] = [
@@ -20,17 +23,32 @@ const THEME_OPTIONS: { value: EditorThemeValue; label: string }[] = [
   { value: 'high-contrast', label: 'High Contrast' },
 ];
 
-/** Font size stepper and theme selector for the AsciiDoc editor. */
-export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontSize, setTheme, setSoftWrap }: EditorSettingsPanelProperties) {
+/**
+ * Compact editor-settings popover for the toolbar. Each option is marked with a leading icon and laid
+ * out as a single icon→control row; the boolean toggles share one row. Kept short so opening it
+ * doesn't push the editor canvas down.
+ */
+export function EditorSettingsPanel({
+  fontSize,
+  theme,
+  softWrap = true,
+  minimapEnabled = false,
+  setFontSize,
+  setTheme,
+  setSoftWrap,
+  setMinimapEnabled,
+}: EditorSettingsPanelProperties) {
   return (
-    <div className="flex flex-col gap-3 p-3">
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1">Font Size</label>
+    <div className="flex flex-col gap-2 p-2.5">
+      <div className="flex items-center gap-2">
+        <ALargeSmall className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true">
+          <title>Font size</title>
+        </ALargeSmall>
         <div className="flex items-center gap-1">
           <button
             type="button"
             aria-label="Decrease font size"
-            className="h-7 w-7 rounded border flex items-center justify-center hover:bg-muted"
+            className="h-6 w-6 rounded border flex items-center justify-center hover:bg-muted"
             onClick={() => setFontSize(Math.max(FONT_SIZE_MIN, fontSize - 1))}
             disabled={fontSize <= FONT_SIZE_MIN}
           >
@@ -42,7 +60,7 @@ export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontS
             min={FONT_SIZE_MIN}
             max={FONT_SIZE_MAX}
             aria-label="Font size"
-            className="h-7 w-12 text-center text-sm border rounded"
+            className="h-6 w-11 text-center text-sm border rounded"
             onChange={(event) => {
               const value = Number(event.target.value);
               if (value >= FONT_SIZE_MIN && value <= FONT_SIZE_MAX) setFontSize(value);
@@ -51,7 +69,7 @@ export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontS
           <button
             type="button"
             aria-label="Increase font size"
-            className="h-7 w-7 rounded border flex items-center justify-center hover:bg-muted"
+            className="h-6 w-6 rounded border flex items-center justify-center hover:bg-muted"
             onClick={() => setFontSize(Math.min(FONT_SIZE_MAX, fontSize + 1))}
             disabled={fontSize >= FONT_SIZE_MAX}
           >
@@ -60,15 +78,17 @@ export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontS
         </div>
       </div>
 
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1">Theme</label>
+      <div className="flex items-center gap-2">
+        <Palette className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true">
+          <title>Theme</title>
+        </Palette>
         <Select.Root
           value={theme}
           onValueChange={(value) => {
             if (isEditorThemeValue(value)) setTheme(value);
           }}
         >
-          <Select.Trigger className="flex h-8 w-full items-center justify-between rounded border px-2 text-sm">
+          <Select.Trigger aria-label="Theme" className="flex h-7 w-40 items-center justify-between rounded border px-2 text-sm">
             <Select.Value />
             <Select.Icon>▾</Select.Icon>
           </Select.Trigger>
@@ -90,18 +110,33 @@ export function EditorSettingsPanel({ fontSize, theme, softWrap = true, setFontS
           </Select.Portal>
         </Select.Root>
       </div>
-      {setSoftWrap !== undefined && (
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="soft-wrap-toggle"
-            checked={softWrap}
-            onChange={(event) => setSoftWrap(event.target.checked)}
-            className="h-4 w-4 rounded border"
-          />
-          <label htmlFor="soft-wrap-toggle" className="text-xs text-muted-foreground cursor-pointer">
-            Soft Wrap
-          </label>
+
+      {(setSoftWrap !== undefined || setMinimapEnabled !== undefined) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          {setSoftWrap !== undefined && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={softWrap}
+                onChange={(event) => setSoftWrap(event.target.checked)}
+                className="h-4 w-4 rounded border"
+              />
+              <WrapText className="h-3.5 w-3.5" aria-hidden="true" />
+              Soft Wrap
+            </label>
+          )}
+          {setMinimapEnabled !== undefined && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={minimapEnabled}
+                onChange={(event) => setMinimapEnabled(event.target.checked)}
+                className="h-4 w-4 rounded border"
+              />
+              <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              Text preview
+            </label>
+          )}
         </div>
       )}
     </div>

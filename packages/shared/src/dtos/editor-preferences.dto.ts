@@ -12,6 +12,8 @@ export interface EditorPreferencesDto {
   previewStyle?: 'asciidocollab' | 'asciidoctor';
   /** When false, spellcheck is disabled. The language is a project-level setting. Defaults to true. */
   spellcheckEnabled?: boolean;
+  /** When true, the editor shows the document text-preview (minimap). Defaults to false. */
+  minimapEnabled?: boolean;
 }
 
 /**

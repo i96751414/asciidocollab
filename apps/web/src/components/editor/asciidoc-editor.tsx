@@ -46,6 +46,8 @@ interface AsciiDocEditorProperties {
   isAsciiDoc?: boolean;
   /** When true (default), enables line wrapping in the editor. */
   softWrap?: boolean;
+  /** When true, shows the document text-preview (minimap). Defaults to the user preference (off). */
+  minimapEnabled?: boolean;
   /**
    * Project document language (ISO 639-1) driving the spellchecker, or null when the project has
    * none configured (the editor then falls back to its default). Spellcheck language is a
@@ -183,6 +185,7 @@ export function AsciiDocEditor({
   initialEtag,
   isAsciiDoc = true,
   softWrap: softWrapProperty,
+  minimapEnabled: minimapEnabledProperty,
   spellcheckLanguage,
   getProjectIndex,
   onChange,
@@ -225,8 +228,9 @@ export function AsciiDocEditor({
   const [externalChangeBanner, setExternalChangeBanner] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
 
-  const { fontSize, theme, softWrap: prefsSoftWrap, spellIgnore, spellcheckEnabled, setFontSize, setTheme, setSoftWrap } = useEditorPreferences();
+  const { fontSize, theme, softWrap: prefsSoftWrap, minimapEnabled: prefsMinimapEnabled, spellIgnore, spellcheckEnabled, setFontSize, setTheme, setSoftWrap, setMinimapEnabled } = useEditorPreferences();
   const softWrap = softWrapProperty === undefined ? prefsSoftWrap : softWrapProperty;
+  const minimapEnabled = minimapEnabledProperty === undefined ? prefsMinimapEnabled : minimapEnabledProperty;
   // Spellcheck language comes from the project; fall back to English when the project leaves it unset.
   const effectiveSpellcheckLanguage = spellcheckLanguage ?? 'en';
   const includePaths = useIncludeCompletions(projectId ?? '');
@@ -320,6 +324,7 @@ export function AsciiDocEditor({
     content,
     canEdit: effectiveCanEdit,
     softWrap,
+    minimapEnabled,
     foldStorageKey: projectId && fileNodeId ? `asciidocollab:folds:${projectId}:${fileNodeId}` : undefined,
     spellIgnore,
     spellcheckLanguage: effectiveSpellcheckLanguage,
@@ -448,9 +453,11 @@ export function AsciiDocEditor({
         fontSize={fontSize}
         theme={theme}
         softWrap={softWrap}
+        minimapEnabled={minimapEnabled}
         setFontSize={setFontSize}
         setTheme={setTheme}
         setSoftWrap={setSoftWrap}
+        setMinimapEnabled={setMinimapEnabled}
         tableContext={tableContext}
         awareness={collab?.awareness}
         onGoToSymbol={onGoToSymbol}
