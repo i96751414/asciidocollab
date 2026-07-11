@@ -8,7 +8,9 @@ const security = require('eslint-plugin-security');
 const globals = require('globals');
 
 module.exports = tseslint.config(
-  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/*.cjs', '**/*.d.ts', '**/specs/**', '**/.next/**', '**/next-env.d.ts', '**/prisma.config.ts', '**/scripts/**', '.claude/**'] },
+  // Design-sync working artifacts (also .gitignored): generated .jsx/CSS not part of any tsconfig
+  // project, so linting them errors out. Keep in sync with the design-sync entries in .gitignore.
+  { ignores: ['**/dist/**', 'node_modules/**', '**/coverage/**', '**/*.js', '**/*.cjs', '**/*.d.ts', '**/specs/**', '**/.next/**', '**/next-env.d.ts', '**/prisma.config.ts', '**/scripts/**', '.claude/**', 'ds-bundle/**', '.ds-sync/**', '.design-sync/**'] },
 
   eslint.configs.recommended,
 
