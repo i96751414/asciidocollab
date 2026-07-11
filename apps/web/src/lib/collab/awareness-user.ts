@@ -14,8 +14,8 @@ export interface AwarenessUser {
   color: string;
   /** Lighter tint of `color` used for the selection-highlight background. */
   colorLight: string;
-  /** Avatar image URL; omitted when the user has no URL avatar (falls back to a coloured initial). */
-  avatarUrl?: string;
+  /** DiceBear avatar key ("style" or "style:variant"); null for the default style, absent from older clients. */
+  avatarKey?: string | null;
 }
 
 /** Identity inputs for the local user, sourced from the auth/profile context. */
@@ -24,8 +24,8 @@ export interface AwarenessUserIdentity {
   userId: string;
   /** Display name. */
   name: string;
-  /** Optional avatar image URL. */
-  avatarUrl?: string;
+  /** DiceBear avatar key ("style" or "style:variant"), or null for the default style. */
+  avatarKey?: string | null;
 }
 
 /**
@@ -40,6 +40,6 @@ export function buildAwarenessUser(identity: AwarenessUserIdentity): AwarenessUs
     name: identity.name,
     color,
     colorLight,
-    ...(identity.avatarUrl ? { avatarUrl: identity.avatarUrl } : {}),
+    avatarKey: identity.avatarKey ?? null,
   };
 }

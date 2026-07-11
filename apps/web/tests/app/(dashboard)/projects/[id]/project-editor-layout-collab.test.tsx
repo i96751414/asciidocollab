@@ -13,7 +13,7 @@ let mockConnectionState: ConnectionState = 'synced';
 let mockCollabRole: CollabAuthRole = 'editor';
 
 jest.mock('@/contexts/current-user-context', () => ({
-  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com', avatarKey: null }),
 }));
 
 jest.mock('@/hooks/use-file-selection', () => ({

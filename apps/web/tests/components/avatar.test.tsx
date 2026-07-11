@@ -97,4 +97,23 @@ describe('Avatar', () => {
     expect(a.querySelector('use')!.getAttribute('href')).toBe(`#${idA}`);
     expect(b.querySelector('use')!.getAttribute('href')).toBe(`#${idB}`);
   });
+
+  test('the identical avatar rendered twice in one tree still gets distinct ids', () => {
+    // The same user appears in the file tree, outline, and presence bar at once. Without a per-instance
+    // id these share element ids, so the browser resolves every url(#id)/href to the first match and the
+    // later copies render with the wrong mask/fill (e.g. hollow sunglasses lenses).
+    const { container } = render(
+      <div>
+        <Avatar avatarKey="bottts:2" displayName="Jane" />
+        <Avatar avatarKey="bottts:2" displayName="Jane" />
+      </div>,
+    );
+    const ids = [...container.querySelectorAll('g[id]')].map((node) => node.getAttribute('id'));
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+    // Each copy's internal reference resolves to its own namespaced id, not its sibling's.
+    const uses = [...container.querySelectorAll('use')].map((node) => node.getAttribute('href'));
+    expect(uses[0]).toBe(`#${ids[0]}`);
+    expect(uses[1]).toBe(`#${ids[1]}`);
+  });
 });

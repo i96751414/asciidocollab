@@ -3,8 +3,19 @@ import { CollabPresenceBar } from '@/components/editor/collab-presence-bar';
 import type { AwarenessLike } from '@/hooks/use-collab-presence';
 import type { AwarenessUser } from '@/lib/collab/awareness-user';
 
-function user(userId: string, name: string): { user: AwarenessUser } {
-  return { user: { userId, name, color: '#30bced', colorLight: '#30bced33' } };
+// Render the shared DiceBear avatar as a lightweight stub so the participant's avatar key is queryable
+// without generating SVG in jsdom — the presence bar's job is to pass that key through.
+jest.mock('@/components/avatar', () => ({
+  Avatar: ({ displayName, avatarKey }: { displayName: string; avatarKey: string | null }) =>
+    require('react').createElement('span', {
+      'data-testid': 'participant-avatar',
+      'data-avatar-key': avatarKey ?? '',
+      'data-display-name': displayName,
+    }),
+}));
+
+function user(userId: string, name: string, avatarKey: string | null = null): { user: AwarenessUser } {
+  return { user: { userId, name, color: '#30bced', colorLight: '#30bced33', avatarKey } };
 }
 
 function fakeAwareness(localClientId: number, states: Map<number, { user?: AwarenessUser }>): AwarenessLike {
@@ -52,15 +63,16 @@ describe('CollabPresenceBar', () => {
     expect(screen.getByTestId('collab-presence-count')).toHaveTextContent('2');
   });
 
-  test('renders a coloured initial when the participant has no avatar', () => {
+  test("renders each participant's DiceBear avatar, driven by their configured avatar key", () => {
     const states = new Map([
       [1, user('u-local', 'Me')],
-      [2, user('u-bea', 'Bea')],
+      [2, user('u-bea', 'Bea', 'bottts:3')],
     ]);
     render(<CollabPresenceBar awareness={fakeAwareness(1, states)} />);
 
-    // Falls back to the first letter of the display name.
-    expect(screen.getByText('B')).toBeInTheDocument();
+    const avatar = screen.getByTestId('participant-avatar');
+    expect(avatar).toHaveAttribute('data-avatar-key', 'bottts:3');
+    expect(avatar).toHaveAttribute('data-display-name', 'Bea');
   });
 
   test('renders nothing when there are no other participants', () => {

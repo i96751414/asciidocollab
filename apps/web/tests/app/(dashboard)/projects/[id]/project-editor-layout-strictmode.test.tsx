@@ -17,7 +17,7 @@ jest.mock('@/lib/api/collab', () => ({
 }));
 
 jest.mock('@/contexts/current-user-context', () => ({
-  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com', avatarKey: null }),
 }));
 
 // Stub the file tree so it doesn't fetch on its own.

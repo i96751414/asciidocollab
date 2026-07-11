@@ -15,8 +15,8 @@ export interface ParticipantPresence {
   color: string;
   /** Lighter selection-highlight tint. */
   colorLight: string;
-  /** Avatar image URL, if any. */
-  avatarUrl?: string;
+  /** DiceBear avatar key ("style" or "style:variant"); null/absent selects the default style. */
+  avatarKey?: string | null;
   /**
    * 1-based cursor line published by the peer via the project-presence channel.
    * Absent for older clients that don't publish it; skip those in outline attribution.
@@ -70,7 +70,7 @@ function collectParticipants(awareness: AwarenessLike): ParticipantPresence[] {
       name: user.name,
       color: user.color,
       colorLight: user.colorLight,
-      ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+      avatarKey: user.avatarKey ?? null,
     });
   }
   return participants;

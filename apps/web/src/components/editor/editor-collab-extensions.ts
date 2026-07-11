@@ -4,6 +4,7 @@ import type { Awareness } from 'y-protocols/awareness';
 import { keymap } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { COLLAB_YTEXT_KEY as SHARED_COLLAB_YTEXT_KEY } from '@/lib/editor-config';
+import { remoteCursorAvatars } from '@/lib/codemirror/remote-cursor-avatars';
 
 /**
  * Key of the shared `Y.Text` the editor binds to. Sourced from the dependency-free editor-config
@@ -15,8 +16,9 @@ export const COLLAB_YTEXT_KEY = SHARED_COLLAB_YTEXT_KEY;
 /**
  * Builds the CodeMirror extension that binds the editor to the collaborative
  * document: `yCollab` reconciles the editor doc to `Y.Text('codemirror')`,
- * renders remote cursors/selections from awareness, and omits the local client's
- * own overlay.
+ * syncs the local cursor, and paints remote selection bands from awareness. Its
+ * stock name-only caret is replaced by `remoteCursorAvatars`, which draws each
+ * peer's caret in their identity colour with a hover flag carrying their avatar.
  *
  * Per-user undo: a `Y.UndoManager` with empty `trackedOrigins` — the
  * y-codemirror undo plugin adds the local sync origin automatically, so undo
@@ -31,5 +33,5 @@ export const COLLAB_YTEXT_KEY = SHARED_COLLAB_YTEXT_KEY;
 export function collabExtensions(ydoc: Y.Doc, awareness: Awareness): Extension {
   const ytext = ydoc.getText(COLLAB_YTEXT_KEY);
   const undoManager = new Y.UndoManager(ytext, { trackedOrigins: new Set() });
-  return [yCollab(ytext, awareness, { undoManager }), keymap.of(yUndoManagerKeymap)];
+  return [yCollab(ytext, awareness, { undoManager }), remoteCursorAvatars(), keymap.of(yUndoManagerKeymap)];
 }

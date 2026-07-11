@@ -3,8 +3,8 @@ import { renderHook, act } from '@testing-library/react';
 import { useCollabPresence, type AwarenessLike } from '@/hooks/use-collab-presence';
 import type { AwarenessUser } from '@/lib/collab/awareness-user';
 
-function fakeUser(userId: string, name: string, avatarUrl?: string): AwarenessUser {
-  return { userId, name, color: '#30bced', colorLight: '#30bced33', ...(avatarUrl ? { avatarUrl } : {}) };
+function fakeUser(userId: string, name: string, avatarKey?: string | null): AwarenessUser {
+  return { userId, name, color: '#30bced', colorLight: '#30bced33', avatarKey: avatarKey ?? null };
 }
 
 function fakeAwareness(localClientId: number, states: Map<number, { user?: AwarenessUser }>): AwarenessLike & { emit: () => void } {
@@ -34,15 +34,15 @@ describe('useCollabPresence', () => {
     expect(result.current[0].name).toBe('Bea');
   });
 
-  test('includes avatarUrl in the participant when the user has one', () => {
+  test('carries the peer avatar key through to the participant', () => {
     const states = new Map([
       [1, { user: fakeUser('u-local', 'Me') }],
-      [2, { user: fakeUser('u-bea', 'Bea', 'https://example.com/bea.png') }],
+      [2, { user: fakeUser('u-bea', 'Bea', 'bottts:3') }],
     ]);
     const awareness = fakeAwareness(1, states);
     const { result } = renderHook(() => useCollabPresence(awareness));
 
-    expect(result.current[0].avatarUrl).toBe('https://example.com/bea.png');
+    expect(result.current[0].avatarKey).toBe('bottts:3');
   });
 
   test('skips awareness entries that have no user field', () => {

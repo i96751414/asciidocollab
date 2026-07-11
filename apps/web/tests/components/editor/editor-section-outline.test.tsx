@@ -4,6 +4,13 @@ import { EditorSectionOutline } from '@/components/editor/editor-section-outline
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 
+// Presence markers render the shared DiceBear avatar; stub it so the outline tests don't generate SVG
+// in jsdom (the marker/attribution behaviour under test is independent of the avatar image).
+jest.mock('@/components/avatar', () => ({
+  Avatar: ({ displayName }: { displayName: string }) =>
+    require('react').createElement('span', { 'data-testid': 'participant-avatar', 'data-display-name': displayName }),
+}));
+
 const sampleEntries: SectionOutlineEntry[] = [
   { level: 1, title: 'Introduction', line: 3, from: 0 },
   { level: 2, title: 'Background',   line: 10, from: 50 },

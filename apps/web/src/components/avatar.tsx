@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Avatar as DiceBearAvatar } from '@dicebear/core';
-import { DICEBEAR_STYLES, DEFAULT_AVATAR_STYLE } from '@/lib/avatars';
+import { useId, useMemo } from 'react';
+import { cn } from '@/lib/utilities';
+import { buildAvatarSvg } from '@/lib/avatar-svg';
 
 interface AvatarProperties {
   avatarKey: string | null;
@@ -11,66 +11,33 @@ interface AvatarProperties {
   className?: string;
 }
 
-/** Small deterministic hash (djb2) used to namespace SVG element ids. */
-function hashToken(input: string): string {
-  let hash = 5381;
-  for (const character of input) {
-    hash = (Math.imul(hash, 33) + (character.codePointAt(0) ?? 0)) >>> 0;
-  }
-  return hash.toString(36);
-}
-
-/**
- * DiceBear derives SVG element ids from the seed, so two avatars sharing a seed
- * emit colliding ids — every Initial Face tile in the picker uses the same name,
- * for example. On one page the browser then resolves every `url(#id)` and
- * `href="#id"` to the first match, making all such avatars render identically.
- * Suffix every id and reference with a token unique to this avatar's inputs to
- * keep them isolated. The token is deterministic, so server and client markup stay in sync.
- */
-function namespaceSvgIds(svg: string, token: string): string {
-  return svg
-    .replaceAll(/ id="([^"]+)"/g, ` id="$1-${token}"`)
-    .replaceAll(/href="#([^"]+)"/g, `href="#$1-${token}"`)
-    .replaceAll(/url\(#([^"()]+)\)/g, `url(#$1-${token})`);
-}
-
 /**
  * Renders a DiceBear avatar SVG. The avatarKey may be "style" or "style:variant".
  * For seed-varied styles the variant is the seed; for "Initial Face" the variant
  * selects the eyes while the seed stays the display name so the initials persist.
+ *
+ * The SVG element ids are namespaced per instance (via {@link buildAvatarSvg}) so the *same* user's
+ * avatar — which shows up in the file tree, outline, presence bar, editor caret, and their review
+ * comments all at once — never collides ids with its other copies. A collision makes the browser
+ * resolve every `url(#id)` to the first match, so later copies render with the wrong or missing mask
+ * (a robot's sunglasses lenses coming out hollow, for example).
  */
 export function Avatar({ avatarKey, displayName, size = 32, className }: AvatarProperties) {
+  // Stable per-instance id (identical across a server render and its hydration) so two renders of the
+  // same avatar on one page get distinct SVG element ids instead of colliding.
+  const instanceId = useId();
   // Generating the DiceBear SVG (constructor + 5 regex passes + hash) is pure in its inputs, so memoize
   // it. Avatars render per review card/reply/assignee, and a single rail hover re-renders the whole
   // list — without this, every avatar's SVG is rebuilt on the main thread on each hover.
-  const svg = useMemo(() => {
-    const colonIndex = avatarKey ? avatarKey.indexOf(':') : -1;
-    const styleKey = colonIndex === -1 ? (avatarKey ?? DEFAULT_AVATAR_STYLE) : avatarKey!.slice(0, colonIndex);
-    const variantValue = colonIndex === -1 ? null : avatarKey!.slice(colonIndex + 1);
-    const entry = DICEBEAR_STYLES[styleKey] ?? DICEBEAR_STYLES[DEFAULT_AVATAR_STYLE];
+  const svg = useMemo(() => buildAvatarSvg(avatarKey, displayName, instanceId), [avatarKey, displayName, instanceId]);
 
-    const options: Record<string, unknown> = { seed: displayName, ...entry.options };
-    if (variantValue !== null) {
-      // Seed variants override the seed (whole avatar changes); Initial Face variants
-      // override the eyes and background, leaving the name seed so the initials persist.
-      const variant = entry.variants?.find((candidate) => candidate.id === variantValue);
-      if (variant) Object.assign(options, variant.options);
-    }
-    const rawSvg = new DiceBearAvatar(entry.style, options).toString();
-    // Override SVG dimensions so the outer span controls the rendered size regardless
-    // of the natural dimensions each DiceBear style produces.
-    const resized = rawSvg
-      .replace(/\swidth="[^"]*"/, ' width="100%"')
-      .replace(/\sheight="[^"]*"/, ' height="100%"');
-    // Isolate this avatar's ids so multiple same-seed avatars on a page don't collide.
-    return namespaceSvgIds(resized, hashToken(`${styleKey}:${variantValue ?? ''}:${displayName}`));
-  }, [avatarKey, displayName]);
-
+  // The circular crop lives here — not at each call site — so every avatar (review comments, presence
+  // bar, file-tree/outline markers, account menu) renders as the same clipped circle. Callers pass
+  // only context-specific extras via `className`, such as an overlap ring.
   return (
     <span
-      className={className}
-      style={{ display: 'inline-block', width: size, height: size, flexShrink: 0 }}
+      className={cn('inline-block shrink-0 overflow-hidden rounded-full', className)}
+      style={{ width: size, height: size }}
       dangerouslySetInnerHTML={/* nosemgrep: react-dangerouslysetinnerhtml -- SVG is DiceBear-generated from a fixed first-party style registry, not user HTML */ { __html: svg }}
     />
   );

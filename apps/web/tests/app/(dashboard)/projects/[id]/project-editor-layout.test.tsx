@@ -4,7 +4,7 @@ import { ProjectEditorLayout } from '@/app/(dashboard)/dashboard/projects/[id]/p
 import type { FileTreeEventDto } from '@asciidocollab/shared';
 
 jest.mock('@/contexts/current-user-context', () => ({
-  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
+  useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com', avatarKey: null }),
 }));
 
 // Mock the AsciiDocEditor so tests don't depend on CodeMirror/Lezer.

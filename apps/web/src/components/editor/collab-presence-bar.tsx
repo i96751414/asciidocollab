@@ -8,7 +8,7 @@ interface CollabPresenceBarProperties {
   awareness: AwarenessLike | null;
 }
 
-/** A single participant chip: avatar (or coloured initial) plus name. */
+/** A single participant chip: the collaborator's DiceBear avatar plus name. */
 function ParticipantChip({ participant }: { participant: ParticipantPresence }) {
   return (
     <span
@@ -24,7 +24,7 @@ function ParticipantChip({ participant }: { participant: ParticipantPresence }) 
 
 /**
  * Shows the other collaborators currently in the document: one chip per
- * distinct user with an avatar or coloured initial, plus a count. Renders nothing
+ * distinct user with their DiceBear avatar, plus a count. Renders nothing
  * when alone or off the collab path.
  */
 export function CollabPresenceBar({ awareness }: CollabPresenceBarProperties) {

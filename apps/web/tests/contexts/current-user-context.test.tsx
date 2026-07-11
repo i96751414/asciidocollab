@@ -11,6 +11,7 @@ const sampleUser: CurrentUser = {
   userId: 'user-123',
   displayName: 'Ada Lovelace',
   email: 'ada@example.com',
+  avatarKey: null,
 };
 
 /** Wraps children in the provider with {@link sampleUser} for hook-render tests. */
@@ -61,6 +62,7 @@ describe('useCurrentUser', () => {
       userId: 'user-456',
       displayName: 'Grace Hopper',
       email: 'grace@example.com',
+      avatarKey: null,
     };
     let activeUser = sampleUser;
     function DynamicWrapper({ children }: { children: React.ReactNode }) {

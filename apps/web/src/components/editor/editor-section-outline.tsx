@@ -37,7 +37,14 @@ export const EditorSectionOutline = React.memo(function EditorSectionOutline({ e
               : null;
           const participants = presenceKey ? (outlinePresence?.get(presenceKey) ?? []) : [];
           return (
-            <li key={`${entry.line}-${index}`} data-level={entry.level} className="flex items-center">
+            <li
+              key={`${entry.line}-${index}`}
+              data-level={entry.level}
+              // gap + right padding so the presence avatar's identity-colour ring clears the heading text
+              // on the left and the scroll container's clipping edge on the right (the ring is drawn with
+              // box-shadow, which adds no layout box of its own).
+              className="flex items-center gap-1.5 pr-2"
+            >
               <button
                 type="button"
                 aria-current={isCurrent ? 'true' : undefined}

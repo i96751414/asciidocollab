@@ -1,43 +1,29 @@
-import Image from 'next/image';
+import { cn } from '@/lib/utilities';
 import type { ParticipantPresence } from '@/hooks/use-collab-presence';
-
-/** First letter of a display name, used as the avatar fallback. */
-export function initialOf(name: string): string {
-  return (name.trim()[0] ?? '?').toUpperCase();
-}
+import { Avatar } from '@/components/avatar';
 
 /**
- * A collaborator's avatar: their image when available, otherwise a colour-coded initial. Decorative
- * (`aria-hidden`) — the surrounding control (presence chip, file-tree marker) supplies the accessible
- * name. Shared by the in-editor presence bar and the file-tree open-by-others marker so they render
- * the same user identically.
+ * A collaborator's avatar, rendered from their configured DiceBear key so presence surfaces match
+ * the avatar shown on their review comments, wearing a ring in the collaborator's identity colour so
+ * the avatar and their editor caret read as the same person. Decorative (the shared Avatar emits no
+ * accessible name); the surrounding control (presence chip, file-tree marker) supplies it. Shared by
+ * the in-editor presence bar and the file-tree/outline open-by-others marker so they render the same
+ * user identically.
  *
  * @param participant - The collaborator to render.
  * @param size - Edge length in pixels.
- * @param className - Extra classes (such as an overlap ring) merged onto the avatar element.
+ * @param className - Extra classes merged onto the wrapper (such as the cluster overlap offset).
  */
 export function ParticipantAvatar({ participant, size, className = '' }: { participant: ParticipantPresence; size: number; className?: string }) {
-  if (participant.avatarUrl) {
-    // `unoptimized`: avatar URLs are arbitrary external hosts (not enumerable in next.config
-    // `images.remotePatterns`), so bypass the optimizer — same convention as image-preview.tsx.
-    return (
-      <Image
-        src={participant.avatarUrl}
-        alt=""
-        width={size}
-        height={size}
-        unoptimized
-        className={`rounded-full ${className}`}
-      />
-    );
-  }
   return (
     <span
       aria-hidden="true"
-      className={`flex items-center justify-center rounded-full font-semibold text-white ${className}`}
-      style={{ backgroundColor: participant.color, width: size, height: size, fontSize: Math.round(size * 0.5) }}
+      className={cn('inline-flex rounded-full', className)}
+      // The identity-colour ring hugs the avatar; the outer background ring separates overlapping
+      // avatars in the cluster. Inline because the colour is per-user and only known at runtime.
+      style={{ boxShadow: `0 0 0 2px ${participant.color}, 0 0 0 3.5px hsl(var(--background))` }}
     >
-      {initialOf(participant.name)}
+      <Avatar avatarKey={participant.avatarKey ?? null} displayName={participant.name} size={size} />
     </span>
   );
 }

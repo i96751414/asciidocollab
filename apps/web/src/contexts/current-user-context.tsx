@@ -10,6 +10,8 @@ export interface CurrentUser {
   displayName: string;
   /** The email address of the authenticated user. */
   email: string;
+  /** DiceBear avatar key ("style" or "style:variant"), or null for the default style. */
+  avatarKey: string | null;
 }
 
 export const CurrentUserContext = createContext<CurrentUser | null>(null);

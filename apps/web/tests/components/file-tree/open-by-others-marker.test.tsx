@@ -2,8 +2,19 @@ import { render, screen } from '@testing-library/react';
 import { OpenByOthersMarker } from '@/components/file-tree/open-by-others-marker';
 import type { ParticipantPresence } from '@/hooks/use-collab-presence';
 
-function participant(userId: string, name: string, avatarUrl?: string): ParticipantPresence {
-  return { clientId: Number(userId.length), userId, name, color: '#30bced', colorLight: '#30bced33', ...(avatarUrl ? { avatarUrl } : {}) };
+// Stub the shared DiceBear avatar so each rendered participant is queryable by its avatar key without
+// generating SVG in jsdom — the marker's job is to render one avatar per participant.
+jest.mock('@/components/avatar', () => ({
+  Avatar: ({ displayName, avatarKey }: { displayName: string; avatarKey: string | null }) =>
+    require('react').createElement('span', {
+      'data-testid': 'participant-avatar',
+      'data-avatar-key': avatarKey ?? '',
+      'data-display-name': displayName,
+    }),
+}));
+
+function participant(userId: string, name: string, avatarKey: string | null = null): ParticipantPresence {
+  return { clientId: Number(userId.length), userId, name, color: '#30bced', colorLight: '#30bced33', avatarKey };
 }
 
 describe('OpenByOthersMarker', () => {
@@ -40,13 +51,13 @@ describe('OpenByOthersMarker', () => {
     expect(screen.getByTestId('open-by-others-marker').getAttribute('aria-label')).toContain('Fin');
   });
 
-  test('falls back to "?" for a participant with an empty name', () => {
+  test('still renders an avatar for a participant with an empty name', () => {
     render(<OpenByOthersMarker participants={[participant('u-x', '')]} />);
-    expect(screen.getByText('?')).toBeInTheDocument();
+    expect(screen.getByTestId('participant-avatar')).toHaveAttribute('data-display-name', '');
   });
 
-  test('renders an avatar image when the participant has one', () => {
-    render(<OpenByOthersMarker participants={[participant('u-bea', 'Bea', 'https://example.com/bea.png')]} />);
-    expect(screen.getByRole('img', { name: 'Open by Bea' })).toBeInTheDocument();
+  test("renders the participant's DiceBear avatar, driven by their configured avatar key", () => {
+    render(<OpenByOthersMarker participants={[participant('u-bea', 'Bea', 'bottts:3')]} />);
+    expect(screen.getByTestId('participant-avatar')).toHaveAttribute('data-avatar-key', 'bottts:3');
   });
 });

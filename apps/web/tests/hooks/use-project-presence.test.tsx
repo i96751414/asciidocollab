@@ -8,8 +8,8 @@ import {
 } from '@/hooks/use-project-presence';
 import type { AwarenessUser } from '@/lib/collab/awareness-user';
 
-function fakeUser(userId: string, name: string): AwarenessUser {
-  return { userId, name, color: '#30bced', colorLight: '#30bced33' };
+function fakeUser(userId: string, name: string, avatarKey: string | null = null): AwarenessUser {
+  return { userId, name, color: '#30bced', colorLight: '#30bced33', avatarKey };
 }
 
 interface FakeState {
@@ -191,6 +191,18 @@ describe('useProjectPresence', () => {
     const { result, awareness } = render({ states, localClientId: 1, openFileNodeId: null });
     act(() => { states.set(2, { user: fakeUser('u-bea', 'Beatrice'), openFileNodeId: 'file-a' }); awareness.emit(); });
     expect(result.current.get('file-a')?.[0].name).toBe('Beatrice');
+  });
+
+  test('updates when a peer changes only their avatar', () => {
+    const states = new Map<number, FakeState>([
+      [1, { user: fakeUser('u-local', 'Me'), openFileNodeId: null }],
+      [2, { user: fakeUser('u-bea', 'Bea', 'initials'), openFileNodeId: 'file-a' }],
+    ]);
+    const { result, awareness } = render({ states, localClientId: 1, openFileNodeId: null });
+    expect(result.current.get('file-a')?.[0].avatarKey).toBe('initials');
+    // Only the avatar changes — same user, name, file, cursor — and the marker must still refresh.
+    act(() => { states.set(2, { user: fakeUser('u-bea', 'Bea', 'bottts:3'), openFileNodeId: 'file-a' }); awareness.emit(); });
+    expect(result.current.get('file-a')?.[0].avatarKey).toBe('bottts:3');
   });
 
   test('excludes the local user\'s own other tabs (same userId, different client)', () => {

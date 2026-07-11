@@ -55,7 +55,7 @@ export function useManagedCollab({
     projectId,
     yjsStateId: collabInfo?.yjsStateId ?? '',
     enabled: collabInfo != null,
-    user: { userId: currentUser.userId, name: currentUser.displayName },
+    user: { userId: currentUser.userId, name: currentUser.displayName, avatarKey: currentUser.avatarKey },
   });
 
   // Feature 024: project-wide open-file presence for the file tree. Joins a lightweight presence
@@ -63,7 +63,7 @@ export function useManagedCollab({
   const presenceByFile = useProjectPresence({
     projectId,
     enabled: true,
-    user: { userId: currentUser.userId, name: currentUser.displayName },
+    user: { userId: currentUser.userId, name: currentUser.displayName, avatarKey: currentUser.avatarKey },
     // "Open" means a collaborative document is open in the editor — gate on collabInfo so a selected
     // folder (or a legacy/non-collab file) is never advertised as the viewer's open file.
     openFileNodeId: collabInfo ? (selectedFile?.nodeId ?? null) : null,

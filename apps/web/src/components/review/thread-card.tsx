@@ -78,7 +78,7 @@ export function ReviewAvatar({
       avatarKey={user.avatarKey}
       displayName={user.displayName}
       size={size}
-      className={cn('shrink-0 overflow-hidden rounded-full', className)}
+      className={className}
     />
   );
 }

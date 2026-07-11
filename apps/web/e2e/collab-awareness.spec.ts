@@ -70,12 +70,14 @@ test.describe('Presence and awareness', () => {
       await page.keyboard.press('Shift+End');
 
       // B's presence bar lists the other participant (A), and B renders A's remote caret.
+      // The stock name-only caret (.cm-ySelectionCaret) is hidden and replaced by our
+      // avatar-bearing .cm-remoteCaret; assert on that.
       await expect(pageB.getByTestId('collab-presence-bar')).toBeVisible({ timeout: 5000 });
-      await expect(pageB.locator('.cm-ySelectionCaret')).toBeVisible({ timeout: 5000 });
+      await expect(pageB.locator('.cm-remoteCaret')).toBeVisible({ timeout: 5000 });
 
       // A must NOT see their own overlay: no remote caret in A's own editor, and A's
       // presence bar excludes A. (The bar only renders other participants.)
-      await expect(page.locator('.cm-ySelectionCaret')).toHaveCount(0);
+      await expect(page.locator('.cm-remoteCaret')).toHaveCount(0);
     } finally {
       await contextB.close();
     }

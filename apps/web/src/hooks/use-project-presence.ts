@@ -127,14 +127,13 @@ function collectByFile(awareness: PresenceAwareness, localUserId: string): Map<s
       name: user.name,
       color: user.color,
       colorLight: user.colorLight,
-      ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+      avatarKey: user.avatarKey ?? null,
       ...(typeof state.cursorLine === 'number' ? { cursorLine: state.cursorLine } : {}),
     });
     byFile.set(openFileNodeId, list);
   }
   return byFile;
 }
-
 /** True when two file→participants maps are equivalent (same files, same users+names per file). */
 function byFileEqual(a: Map<string, ParticipantPresence[]>, b: Map<string, ParticipantPresence[]>): boolean {
   if (a.size !== b.size) return false;
@@ -143,6 +142,10 @@ function byFileEqual(a: Map<string, ParticipantPresence[]>, b: Map<string, Parti
     if (!listB || listB.length !== listA.length) return false;
     for (const [index, participant] of listA.entries()) {
       if (participant.userId !== listB[index].userId || participant.name !== listB[index].name) return false;
+      // Compare avatarKey: a peer swapping their avatar changes only this field, and the marker renders
+      // it. Without this the change is suppressed as a no-op and the marker keeps the stale avatar until
+      // an unrelated change (cursor move / file switch) forces a refresh.
+      if (participant.avatarKey !== listB[index].avatarKey) return false;
       // Compare cursorLine too: a peer moving their cursor changes only this field, and the outline
       // attributes presence markers by it. Without this, a cursor move is suppressed as a
       // no-op and the marker never appears / never moves.
@@ -163,7 +166,7 @@ export function useProjectPresence(options: UseProjectPresenceOptions): Readonly
   const { projectId, enabled, user, openFileNodeId, cursorLine, createProvider } = options;
   const userId = user?.userId;
   const name = user?.name;
-  const avatarUrl = user?.avatarUrl;
+  const avatarKey = user?.avatarKey ?? null;
 
   const [byFile, setByFile] = useState<Map<string, ParticipantPresence[]>>(() => new Map());
   // Updated every render (mirrors use-collab-document) so a factory swapped after mount is honoured.
@@ -193,7 +196,7 @@ export function useProjectPresence(options: UseProjectPresenceOptions): Readonly
       };
     }
 
-    const identity: AwarenessUserIdentity = { userId, name, ...(avatarUrl ? { avatarUrl } : {}) };
+    const identity: AwarenessUserIdentity = { userId, name, avatarKey };
     awareness.setLocalStateField('user', buildAwarenessUser(identity));
     // Republish the current open file on (re)connect so a fresh awareness advertises it immediately.
     awareness.setLocalStateField('openFileNodeId', openFileNodeIdReference.current);
@@ -212,7 +215,7 @@ export function useProjectPresence(options: UseProjectPresenceOptions): Readonly
       provider.destroy();
       document.destroy();
     };
-  }, [enabled, projectId, userId, name, avatarUrl]);
+  }, [enabled, projectId, userId, name, avatarKey]);
 
   // Publish the file the viewer currently has open whenever it changes. The local change only
   // affects what OTHERS see (the viewer's own entry is excluded from `byFile`), so the awareness

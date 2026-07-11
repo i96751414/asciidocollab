@@ -182,7 +182,7 @@ export function useCollabDocument(options: UseCollabDocumentOptions): UseCollabD
   useEffect(() => {
     if (!user) return;
     awareness?.setLocalStateField('user', buildAwarenessUser(user));
-  }, [awareness, user?.userId, user?.name, user?.avatarUrl]);
+  }, [awareness, user?.userId, user?.name, user?.avatarKey]);
 
   return { doc: ydoc, provider, awareness, connectionState };
 }

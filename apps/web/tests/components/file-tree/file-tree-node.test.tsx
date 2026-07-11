@@ -2,6 +2,13 @@ import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { FileTreeNode } from '@/components/file-tree/file-tree-node';
 
+// The open-by-others marker renders the shared DiceBear avatar; stub it so the tree tests don't
+// generate SVG in jsdom (they assert on the marker, not the avatar image).
+jest.mock('@/components/avatar', () => ({
+  Avatar: ({ displayName }: { displayName: string }) =>
+    require('react').createElement('span', { 'data-testid': 'participant-avatar', 'data-display-name': displayName }),
+}));
+
 jest.mock('@/components/file-tree/drag-drop-zone', () => ({
   DragDropZone: ({ children, targetFolderId }: { children: React.ReactNode; targetFolderId: string }) => (
     <div data-testid={`drop-zone-${targetFolderId}`}>{children}</div>
