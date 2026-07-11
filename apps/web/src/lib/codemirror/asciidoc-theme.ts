@@ -37,7 +37,6 @@ export const asciidocEditorTheme = EditorView.theme({
   },
   ".cm-activeLine": { backgroundColor: c("--accent", 0.45) },
   ".cm-activeLineGutter": { backgroundColor: c("--accent", 0.55), color: c("--foreground") },
-  ".cm-lineNumbers .cm-gutterElement": { padding: "0 12px 0 8px" },
   ".cm-foldPlaceholder": {
     backgroundColor: c("--muted"),
     color: c("--muted-foreground"),
@@ -45,6 +44,43 @@ export const asciidocEditorTheme = EditorView.theme({
     padding: "0 6px",
     borderRadius: "4px",
   },
+  // Combined line-number + fold gutter: a right-aligned line number with a reserved fold slot to its
+  // right. The fold chevron is always shown on foldable/folded lines (so folding stays discoverable),
+  // and the slot is empty on other lines — folding needs no separate gutter column.
+  ".cm-lnfold-gutter .cm-gutterElement": { padding: "0" },
+  ".cm-lnfold": {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    width: "100%",
+    padding: "0 15px 0 6px",
+  },
+  ".cm-fold-marker": { display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
+  ".cm-fold-marker svg": { width: "10px", height: "10px" },
+  ".cm-lnfold-chev": {
+    position: "absolute",
+    right: "2px",
+    top: "0",
+    bottom: "0",
+    width: "12px",
+    color: c("--markup"),
+  },
+  // Spellcheck / diagnostics gutter: replace the library's triangle with a slim severity dot and
+  // tighten the column to 12px (was 1.4em). Warnings keep their own column, always visible and
+  // independent of the comment mark. Scoped under .cm-gutter-lint so these win over the library's
+  // default marker theme regardless of extension order.
+  ".cm-gutter-lint": { width: "12px" },
+  ".cm-gutter-lint .cm-gutterElement": {
+    padding: "0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ".cm-gutter-lint .cm-lint-marker": { width: "6px", height: "6px", borderRadius: "50%" },
+  ".cm-gutter-lint .cm-lint-marker-warning": { content: "normal", backgroundColor: c("--warning") },
+  ".cm-gutter-lint .cm-lint-marker-error": { content: "normal", backgroundColor: c("--destructive") },
+  ".cm-gutter-lint .cm-lint-marker-info": { content: "normal", backgroundColor: c("--muted-foreground") },
   ".cm-tooltip": {
     backgroundColor: c("--popover"),
     color: c("--popover-foreground"),
@@ -133,8 +169,8 @@ export const asciidocEditorTheme = EditorView.theme({
   // Review gutter: collapses to zero width until it carries content (an existing-thread dot or the
   // per-line "add comment" affordance), so it stays inert on documents without review commenting.
   ".cm-review-gutter": { width: "0", position: "relative" },
-  ".cm-review-gutter:has(.cm-review-gutter-marker)": { width: "18px" },
-  ".cm-review-gutter:has(.cm-review-add-comment)": { width: "18px" },
+  ".cm-review-gutter:has(.cm-review-gutter-marker)": { width: "12px" },
+  ".cm-review-gutter:has(.cm-review-add-comment)": { width: "12px" },
   ".cm-review-gutter .cm-gutterElement": { position: "relative" },
   // Existing-thread dot, centred in the gutter cell.
   ".cm-review-gutter-marker::before": {
@@ -143,8 +179,8 @@ export const asciidocEditorTheme = EditorView.theme({
     left: "50%",
     top: "50%",
     transform: "translate(-50%, -50%)",
-    width: "6px",
-    height: "6px",
+    width: "5px",
+    height: "5px",
     borderRadius: "50%",
     backgroundColor: c("--primary"),
   },
@@ -166,18 +202,17 @@ export const asciidocEditorTheme = EditorView.theme({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "16px",
-    height: "16px",
-    borderRadius: "5px",
+    width: "11px",
+    height: "11px",
+    borderRadius: "3px",
     backgroundColor: c("--primary"),
     color: c("--primary-foreground"),
   },
-  ".cm-review-add-comment svg": { width: "11px", height: "11px" },
-  // Reveal on gutter hover (any line) or while the line overlaps a selection.
-  ".cm-review-gutter .cm-gutterElement:hover .cm-review-add-comment": { opacity: "1" },
+  ".cm-review-add-comment svg": { width: "8px", height: "8px" },
+  // The add-comment "+" reveals only while the line overlaps a non-empty selection — not on hover — so
+  // it appears exactly when there is selected text to comment on.
   ".cm-review-gutter-selected .cm-review-add-comment": { opacity: "1" },
-  // Hide the resting dot while the "+" is showing so the two don't overlap in one cell.
-  ".cm-review-gutter .cm-gutterElement:hover .cm-review-gutter-marker::before": { opacity: "0" },
+  // Hide the resting existing-thread dot while the "+" is showing so the two don't overlap in one cell.
   ".cm-review-gutter-selected .cm-review-gutter-marker::before": { opacity: "0" },
   "&.cm-focused": { outline: "none" },
 }, { dark: false });

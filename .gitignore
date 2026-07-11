@@ -55,6 +55,12 @@ apps/web/public/dictionaries/
 apps/web/public/vendor/
 
 /.claude/worktrees/
+# Local design-sync working artifacts (not part of the app build)
+/.design-sync/
+/.ds-sync/
+/ds-bundle/
+apps/web/ds-compiled.css
+apps/web/ds-tailwind-input.css
 playwright-report/
 
 test-results/

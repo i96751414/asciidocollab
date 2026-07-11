@@ -1,9 +1,10 @@
 import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorView, keymap, highlightActiveLine } from '@codemirror/view';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
 import { autocompletion } from '@codemirror/autocomplete';
-import { syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { lineNumbersWithFold } from '@/lib/codemirror/line-fold-gutter';
 import { linter, lintGutter } from '@codemirror/lint';
 import { showMinimap } from '@replit/codemirror-minimap';
 import { asciidoc } from '@/lib/codemirror/asciidoc-language';
@@ -192,10 +193,11 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
       EditorState.readOnly.of(!canEdit),
       EditorView.editable.of(canEdit),
     ]),
-    lineNumbers(),
+    // One gutter for line numbers + section folding: a fold chevron sits beside the number on every
+    // foldable line, so folding needs no separate column (it also carries codeFolding(), the fold state).
+    lineNumbersWithFold(),
     highlightActiveLine(),
     asciidocFold,
-    foldGutter(),
     // Whole-document fold controls (fold-all/unfold-all/to-level) + per-file
     // fold persistence.
     foldControlsKeymap,

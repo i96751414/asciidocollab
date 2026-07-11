@@ -60,7 +60,7 @@ jest.mock('@codemirror/state', () => ({
   Prec: { highest: (extension: unknown) => extension, high: (extension: unknown) => extension, default: (extension: unknown) => extension, low: (extension: unknown) => extension, lowest: (extension: unknown) => extension },
 }));
 jest.mock('@codemirror/commands', () => ({ history: () => ({}), defaultKeymap: [], historyKeymap: [] }));
-jest.mock('@codemirror/language', () => ({ foldGutter: () => ({}), syntaxHighlighting: () => ({}), defaultHighlightStyle: {} }));
+jest.mock('@codemirror/language', () => ({ codeFolding: () => ({}), foldGutter: () => ({}), syntaxHighlighting: () => ({}), defaultHighlightStyle: {} }));
 jest.mock('@codemirror/search', () => ({ search: () => ({}), searchKeymap: [] }));
 jest.mock('@codemirror/autocomplete', () => ({ autocompletion: () => ({}), completionKeymap: [] }));
 jest.mock('@/lib/codemirror/asciidoc-language', () => ({ asciidoc: () => ({}) }));

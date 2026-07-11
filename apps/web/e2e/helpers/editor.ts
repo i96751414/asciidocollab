@@ -208,7 +208,7 @@ export function lintMarkers(page: Page): Locator {
  * CM's gutter delegates the fold click to the line, so clicking the cell folds it.
  */
 export function foldGutterMarkers(page: Page): Locator {
-  return page.locator('.cm-foldGutter .cm-gutterElement:has(span[title="Fold line"])');
+  return page.locator('.cm-lnfold-gutter .cm-gutterElement:has(span[title="Fold line"])');
 }
 
 /** Click the first foldable gutter cell. */

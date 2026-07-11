@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CommentComposer } from './composer';
 import { ReviewThreadCard } from './thread-card';
-import { ReviewTaskControls, type TaskMember } from './task-controls';
+import { ReviewStatusControl, ReviewTaskControls, RevertTaskAction, type TaskMember } from './task-controls';
 import { DetachedTray, type DetachedTrayEntry } from './detached-tray';
 import { BulkDeleteDocumentAction, DeleteItemAction } from './delete-controls';
 import { useReviewViewStateOptional } from './view-state';
@@ -295,6 +295,14 @@ export function CommentRail({
               setHoveredItemId={effectiveSetHovered}
               setActiveThreadId={effectiveSetActive}
               anchorState={anchorStates.get(thread.root.id)}
+              statusControl={
+                <ReviewStatusControl
+                  projectId={projectId}
+                  item={thread.root}
+                  readOnly={readOnly}
+                  onChanged={handleRefetch}
+                />
+              }
               taskControls={
                 <ReviewTaskControls
                   projectId={projectId}
@@ -305,7 +313,15 @@ export function CommentRail({
                 />
               }
               itemMenuExtra={
-                <DeleteItemAction projectId={projectId} itemId={thread.root.id} onDeleted={handleRefetch} />
+                <>
+                  <RevertTaskAction
+                    projectId={projectId}
+                    item={thread.root}
+                    readOnly={readOnly}
+                    onChanged={handleRefetch}
+                  />
+                  <DeleteItemAction projectId={projectId} itemId={thread.root.id} onDeleted={handleRefetch} />
+                </>
               }
             />
           ))}

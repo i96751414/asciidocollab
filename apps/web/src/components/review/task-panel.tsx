@@ -5,6 +5,7 @@ import { CalendarClock, ListChecks, MessagesSquare, MoreHorizontal } from 'lucid
 import type { ReviewItemDto, ReviewItemKind, ReviewItemStatus } from '@asciidocollab/shared';
 import { listProjectReviewItems } from '@/lib/api/review';
 import { classifyDueDate, dueDateTextClass, formatDueDate } from '@/lib/review/due-date';
+import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/review/status';
 import { useFileTreeEvents } from '@/hooks/use-file-tree-events';
 import { cn } from '@/lib/utilities';
 import { Badge } from '@/components/ui/badge';
@@ -15,22 +16,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ReviewAvatar } from './thread-card';
 import { ProjectBulkDeleteButton } from './delete-controls';
-
-/** Human labels for each task status, keyed by the {@link ReviewItemStatus} union. */
-const STATUS_LABELS: Record<ReviewItemStatus, string> = {
-  open: 'Open',
-  in_progress: 'In progress',
-  resolved: 'Resolved',
-  wontfix: "Won't fix",
-};
-
-/** Badge variant per task status, so open/active tasks read louder than closed ones. */
-const STATUS_VARIANTS: Record<ReviewItemStatus, 'default' | 'secondary' | 'outline'> = {
-  open: 'secondary',
-  in_progress: 'default',
-  resolved: 'outline',
-  wontfix: 'outline',
-};
 
 /** The status filter options, including an "All" sentinel. */
 type StatusFilter = ReviewItemStatus | 'all';

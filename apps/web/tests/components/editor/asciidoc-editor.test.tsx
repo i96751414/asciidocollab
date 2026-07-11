@@ -178,6 +178,7 @@ jest.mock('@codemirror/commands', () => ({
 }));
 
 jest.mock('@codemirror/language', () => ({
+  codeFolding: () => ({}),
   foldGutter: () => ({}),
   syntaxHighlighting: () => ({}),
   defaultHighlightStyle: {},

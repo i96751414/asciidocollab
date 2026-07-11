@@ -5,11 +5,11 @@ import { CheckCircle2, Link2, MoreHorizontal, Pencil, Reply, RotateCcw } from 'l
 import type {
   AnchorState,
   ReviewItemDto,
-  ReviewItemStatus,
   ReviewUserDto,
   ThreadDto,
 } from '@asciidocollab/shared';
 import { resolveReviewItem } from '@/lib/api/review';
+import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/review/status';
 import { Avatar } from '@/components/avatar';
 import { cn } from '@/lib/utilities';
 import { formatRelativeTime } from '@/lib/format-relative-time';
@@ -25,22 +25,6 @@ import { ReactionBar } from './reaction-bar';
 
 /** The display name shown for an item whose author/resolver was deleted. */
 const DELETED_USER_LABEL = 'Deleted user';
-
-/** Human labels for each task status, keyed by the {@link ReviewItemStatus} union. */
-const STATUS_LABELS: Record<ReviewItemStatus, string> = {
-  open: 'Open',
-  in_progress: 'In progress',
-  resolved: 'Resolved',
-  wontfix: "Won't fix",
-};
-
-/** Badge variant per task status, so open/active tasks read louder than closed ones. */
-const STATUS_VARIANTS: Record<ReviewItemStatus, 'default' | 'secondary' | 'outline'> = {
-  open: 'secondary',
-  in_progress: 'default',
-  resolved: 'outline',
-  wontfix: 'outline',
-};
 
 /**
  * The avatar for a review user, rendering the DiceBear avatar they configured for
@@ -130,10 +114,16 @@ export interface ReviewThreadCardProperties {
    */
   setActiveThreadId?: (id: string | null) => void;
   /**
-   * Extension slot for US2 task affordances (assign/status/convert). Rendered in
-   * the card's action row; left empty here so US2 can fill it without a rewrite.
+   * Extension slot for the task affordances (assignee / due date). Rendered in the card's action row;
+   * left empty here so the owner can fill it without a rewrite.
    */
   taskControls?: ReactNode;
+  /**
+   * Extension slot for the task status control, rendered in the header where the status badge sits so
+   * the status reads (and edits) in one place. When omitted, a static status badge is shown instead —
+   * so a card rendered without wiring still displays a task's status.
+   */
+  statusControl?: ReactNode;
   /**
    * Extension slot for the per-item overflow menu (US5 delete lands here). Rendered
    * inside the `⋯` dropdown; the placeholder menu is otherwise empty.
@@ -168,6 +158,7 @@ export function ReviewThreadCard({
   setHoveredItemId,
   setActiveThreadId,
   taskControls,
+  statusControl,
   itemMenuExtra,
   anchorState,
 }: ReviewThreadCardProperties) {
@@ -276,11 +267,13 @@ export function ReviewThreadCard({
             <ItemHeader item={root} />
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {isTask && root.status && (
-              <Badge variant={STATUS_VARIANTS[root.status]} className="text-[10px]">
-                {STATUS_LABELS[root.status]}
-              </Badge>
-            )}
+            {isTask &&
+              root.status &&
+              (statusControl ?? (
+                <Badge variant={STATUS_VARIANTS[root.status]} className="text-[10px]">
+                  {STATUS_LABELS[root.status]}
+                </Badge>
+              ))}
             {!readOnly && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
