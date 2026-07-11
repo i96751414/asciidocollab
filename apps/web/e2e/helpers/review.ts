@@ -61,7 +61,7 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
 
 /**
  * Places the caret on the editor line that renders `passage` and selects that whole line, leaving a
- * non-empty selection so the floating "Comment" affordance appears.
+ * non-empty selection so the selected line's gutter "add comment" affordance is revealed.
  */
 export async function selectLineWithText(page: Page, passage: string): Promise<void> {
   await page.locator('.cm-editor .cm-content').getByText(passage, { exact: false }).first().click();
@@ -82,13 +82,16 @@ export async function ensureCommentsPanelOpen(page: Page): Promise<void> {
 }
 
 /**
- * Selects `passage`, clicks the floating "Comment" button, fills the pinned new-comment composer with
- * `body`, and submits it. Leaves the rail open with the created thread.
+ * Selects `passage`, clicks the gutter "add comment" affordance revealed on the selected line, fills
+ * the pinned new-comment composer with `body`, and submits it. Leaves the rail open with the created
+ * thread.
  */
 export async function commentOnPassage(page: Page, passage: string, body: string): Promise<void> {
   await selectLineWithText(page, passage);
-  await expect(page.getByTestId('review-comment-button')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('review-comment-button').click();
+  // Selecting the line marks its gutter cell selected, revealing the "+" without needing a hover.
+  const addComment = page.locator('.cm-review-gutter-selected .cm-review-add-comment').first();
+  await expect(addComment).toBeVisible({ timeout: 10_000 });
+  await addComment.click();
   const composer = page.getByTestId('comment-rail').getByTestId('comment-composer');
   await expect(composer).toBeVisible({ timeout: 10_000 });
   await composer.locator('textarea').fill(body);

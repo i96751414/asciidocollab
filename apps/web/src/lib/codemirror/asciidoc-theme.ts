@@ -130,35 +130,55 @@ export const asciidocEditorTheme = EditorView.theme({
   "@media (prefers-reduced-motion: reduce)": {
     ".cm-review-flash": { animation: "none" },
   },
-  // Gutter marker: a small dot centred in the review gutter element on a line that starts a range.
-  ".cm-review-gutter": { width: "10px" },
-  ".cm-review-gutter-marker": { position: "relative" },
+  // Review gutter: collapses to zero width until it carries content (an existing-thread dot or the
+  // per-line "add comment" affordance), so it stays inert on documents without review commenting.
+  ".cm-review-gutter": { width: "0", position: "relative" },
+  ".cm-review-gutter:has(.cm-review-gutter-marker)": { width: "18px" },
+  ".cm-review-gutter:has(.cm-review-add-comment)": { width: "18px" },
+  ".cm-review-gutter .cm-gutterElement": { position: "relative" },
+  // Existing-thread dot, centred in the gutter cell.
   ".cm-review-gutter-marker::before": {
     content: '""',
     position: "absolute",
-    left: "3px",
+    left: "50%",
     top: "50%",
-    transform: "translateY(-50%)",
+    transform: "translate(-50%, -50%)",
     width: "6px",
     height: "6px",
     borderRadius: "50%",
     backgroundColor: c("--primary"),
   },
-  // Floating "Comment" affordance shown over a non-empty selection (feature 038).
-  ".cm-review-comment-button": {
+  // "Add comment" affordance: fills the gutter cell as the click target; the "+" glyph is hidden until
+  // the line's gutter is hovered or the line overlaps a selection. Replaces the old floating over-text
+  // "Comment" button (feature 038) so ordinary selections no longer summon a button over the text.
+  ".cm-review-add-comment": {
     position: "absolute",
-    zIndex: "20",
-    padding: "2px 8px",
-    fontSize: "12px",
-    fontWeight: "500",
-    lineHeight: "1.4",
-    borderRadius: "6px",
-    border: `1px solid ${c("--border")}`,
+    inset: "0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    opacity: "0",
+  },
+  // Filled chip: a solid rounded square in the identity colour with a light icon, so the affordance
+  // reads as a deliberate button rather than a thin floating outline.
+  ".cm-review-add-comment-chip": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "16px",
+    height: "16px",
+    borderRadius: "5px",
     backgroundColor: c("--primary"),
     color: c("--primary-foreground"),
-    cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
   },
+  ".cm-review-add-comment svg": { width: "11px", height: "11px" },
+  // Reveal on gutter hover (any line) or while the line overlaps a selection.
+  ".cm-review-gutter .cm-gutterElement:hover .cm-review-add-comment": { opacity: "1" },
+  ".cm-review-gutter-selected .cm-review-add-comment": { opacity: "1" },
+  // Hide the resting dot while the "+" is showing so the two don't overlap in one cell.
+  ".cm-review-gutter .cm-gutterElement:hover .cm-review-gutter-marker::before": { opacity: "0" },
+  ".cm-review-gutter-selected .cm-review-gutter-marker::before": { opacity: "0" },
   "&.cm-focused": { outline: "none" },
 }, { dark: false });
 

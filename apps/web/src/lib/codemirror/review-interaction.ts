@@ -1,21 +1,23 @@
-import { EditorView, ViewPlugin, type ViewUpdate, type PluginValue } from '@codemirror/view';
-import type { Extension } from '@codemirror/state';
+import { EditorView, keymap, type Command, type KeyBinding } from '@codemirror/view';
+import type { EditorState, Extension } from '@codemirror/state';
 
 /**
- * Editor-side review interactivity for feature 038: clicking a review highlight/gutter marker to
- * focus its thread (FR-005), and a floating "Comment" affordance over a non-empty selection to
- * start a new thread. Both are presentational CM6 wiring driven by live getter callbacks, so the
- * host component can swap handlers without recreating the editor.
+ * Editor-side review interactivity for feature 038: clicking a review highlight/gutter marker focuses
+ * its thread, and a keyboard shortcut starts a new thread on the current selection (or the current
+ * line when the selection is collapsed). The gutter "add comment" affordance lives with the gutter
+ * itself in `review-decorations.ts`; this module owns the click/hover handlers and the shortcut. All
+ * of it is presentational CM6 wiring driven by live getter callbacks, so the host component can swap
+ * handlers without recreating the editor.
  *
- * The affordance reports raw `[from, to)` offsets; capturing the Yjs anchor (which needs the shared
- * `Y.Text`) is left to the host so this module stays free of collaboration concerns.
+ * The comment affordance reports raw `[from, to)` offsets; capturing the Yjs anchor (which needs the
+ * shared `Y.Text`) is left to the host so this module stays free of collaboration concerns.
  */
 
 /** Reads the current review-marker click handler, or null when clicks should be ignored. */
 export type ReviewMarkerClickAccessor = () => ((id: string) => void) | null | undefined;
 /** Reads the current review-marker hover handler, or null when hover reporting is off. */
 export type ReviewMarkerHoverAccessor = () => ((id: string | null) => void) | null | undefined;
-/** Reads the current comment-from-selection handler, or null to hide the affordance. */
+/** Reads the current comment-from-selection handler, or null to disable the comment affordances. */
 export type CommentFromSelectionAccessor = () => ((from: number, to: number) => void) | null | undefined;
 
 /**
@@ -74,89 +76,50 @@ export function reviewMarkerHoverHandler(getOnHover: ReviewMarkerHoverAccessor):
   });
 }
 
-/** The class applied to the floating "Comment" affordance button. */
-export const REVIEW_COMMENT_BUTTON_CLASS = 'cm-review-comment-button';
+/** The default keybinding that starts a comment on the current selection or line. */
+export const REVIEW_COMMENT_KEY = 'Mod-Shift-m';
 
 /**
- * A ViewPlugin rendering a small floating "Comment" button anchored to the end of a non-empty
- * selection. Clicking it invokes `getOnComment()(from, to)` with the current selection offsets.
- * The button is hidden whenever the selection is empty or no handler is supplied.
+ * The document range a keyboard-triggered comment targets: the selection when it is non-empty,
+ * otherwise the whole line the cursor sits on. Pure so it unit-tests without a live view.
+ *
+ * @param state - The current editor state.
+ * @returns The `[from, to)` offsets to anchor the new comment to.
+ */
+export function commentTargetRange(state: EditorState): { from: number; to: number } {
+  const selection = state.selection.main;
+  if (!selection.empty) return { from: selection.from, to: selection.to };
+  const line = state.doc.lineAt(selection.head);
+  return { from: line.from, to: line.to };
+}
+
+/**
+ * The editor command run by {@link REVIEW_COMMENT_KEY}: hands the {@link commentTargetRange} to the
+ * live comment handler. Falls through (returns false) when no handler is available, so the key isn't
+ * swallowed on documents where commenting is off.
  *
  * @param getOnComment - Live accessor for the current comment-from-selection handler.
- * @returns The selection-affordance view plugin extension.
+ * @returns A CodeMirror command.
  */
-export function reviewSelectionButton(getOnComment: CommentFromSelectionAccessor): Extension {
-  return ViewPlugin.fromClass(
-    class implements PluginValue {
-      private readonly button: HTMLButtonElement;
-      /** Pending layout-read frame, or null when none is scheduled. */
-      private frame: number | null = null;
-      /** Set once destroyed so a queued frame becomes a no-op. */
-      private destroyed = false;
+export function reviewCommentCommand(getOnComment: CommentFromSelectionAccessor): Command {
+  return (view) => {
+    const onComment = getOnComment();
+    if (!onComment) return false;
+    const { from, to } = commentTargetRange(view.state);
+    onComment(from, to);
+    return true;
+  };
+}
 
-      constructor(private readonly view: EditorView) {
-        this.button = document.createElement('button');
-        this.button.type = 'button';
-        this.button.className = REVIEW_COMMENT_BUTTON_CLASS;
-        this.button.textContent = 'Comment';
-        this.button.setAttribute('aria-label', 'Comment on selection');
-        this.button.dataset.testid = 'review-comment-button';
-        this.button.style.display = 'none';
-        // mousedown (not click) so the editor selection isn't cleared before we read it.
-        this.button.addEventListener('mousedown', (event) => {
-          event.preventDefault();
-          const handler = getOnComment();
-          const range = this.view.state.selection.main;
-          if (!handler || range.empty) return;
-          handler(range.from, range.to);
-        });
-        this.view.dom.append(this.button);
-        this.scheduleReposition();
-      }
-
-      update(update: ViewUpdate) {
-        if (update.selectionSet || update.geometryChanged || update.docChanged) this.scheduleReposition();
-      }
-
-      /**
-       * Defers the layout read out of the CM update cycle. `coordsAtPos` throws
-       * ("Reading the editor layout isn't allowed during an update") if called
-       * synchronously from `update()`, which would make CM6 disable this plugin
-       * and drop the only affordance for creating a comment.
-       */
-      private scheduleReposition() {
-        if (this.frame !== null) return;
-        this.frame = requestAnimationFrame(() => {
-          this.frame = null;
-          if (!this.destroyed) this.reposition();
-        });
-      }
-
-      private reposition() {
-        const range = this.view.state.selection.main;
-        if (range.empty || !getOnComment()) {
-          this.button.style.display = 'none';
-          return;
-        }
-        const coords = this.view.coordsAtPos(range.to);
-        if (!coords) {
-          this.button.style.display = 'none';
-          return;
-        }
-        // `coordsAtPos` returns viewport coordinates (already reflecting scroll), and `box.top` is
-        // the editor's viewport top, so `coords.bottom - box.top` is the on-screen offset within the
-        // non-scrolling `.cm-editor`. Adding scrollTop here would double-count the scroll.
-        const box = this.view.dom.getBoundingClientRect();
-        this.button.style.display = 'block';
-        this.button.style.top = `${coords.bottom - box.top + 4}px`;
-        this.button.style.left = `${coords.left - box.left}px`;
-      }
-
-      destroy() {
-        this.destroyed = true;
-        if (this.frame !== null) cancelAnimationFrame(this.frame);
-        this.button.remove();
-      }
-    },
-  );
+/**
+ * Keymap that starts a review comment from the keyboard, replacing the old always-on floating button:
+ * {@link REVIEW_COMMENT_KEY} comments the current selection, or the current line when the selection is
+ * collapsed. This is also the accessible path to the gutter "add comment" affordance.
+ *
+ * @param getOnComment - Live accessor for the current comment-from-selection handler.
+ * @returns The comment-shortcut keymap extension.
+ */
+export function reviewCommentKeymap(getOnComment: CommentFromSelectionAccessor): Extension {
+  const binding: KeyBinding = { key: REVIEW_COMMENT_KEY, preventDefault: true, run: reviewCommentCommand(getOnComment) };
+  return keymap.of([binding]);
 }

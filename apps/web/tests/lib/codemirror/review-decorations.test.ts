@@ -1,4 +1,6 @@
+/* @jest-environment jsdom */
 import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import {
   computeReviewDecorationRanges,
   reviewDecorations,
@@ -7,6 +9,8 @@ import {
   REVIEW_HIGHLIGHT_CLASS,
   REVIEW_HIGHLIGHT_ACTIVE_CLASS,
   REVIEW_HIGHLIGHT_FLASH_CLASS,
+  REVIEW_ADD_COMMENT_CLASS,
+  REVIEW_GUTTER_SELECTED_CLASS,
   type ReviewAnchorRange,
 } from '@/lib/codemirror/review-decorations';
 
@@ -92,5 +96,91 @@ describe('reviewIdAtLine', () => {
   test('ignores a collapsed (deleted-passage) range', () => {
     const state = stateWith([{ id: 'gone', from: 10, to: 10 }]);
     expect(reviewIdAtLine(state, 12)).toBeNull();
+  });
+});
+
+function mountAddCommentEditor(getOnComment: () => ((from: number, to: number) => void) | null) {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const view = new EditorView({
+    state: EditorState.create({
+      doc: 'hello world\nsecond line',
+      extensions: [reviewDecorations(() => null, getOnComment)],
+    }),
+    parent,
+  });
+  return { view, parent };
+}
+
+describe('add-comment gutter affordance', () => {
+  const mount = mountAddCommentEditor;
+
+  test('renders the add-comment icon on each line while a comment handler is available', () => {
+    const { view, parent } = mount(() => jest.fn());
+    const affordances = view.dom.querySelectorAll(`.${REVIEW_ADD_COMMENT_CLASS}`);
+    expect(affordances.length).toBeGreaterThan(0);
+    // The glyph is an SVG (lucide message-square-plus), not a bare "+".
+    expect(affordances[0].querySelector('svg')).not.toBeNull();
+    view.destroy();
+    parent.remove();
+  });
+
+  test('renders no affordance when no comment handler is available', () => {
+    const { view, parent } = mount(() => null);
+    expect(view.dom.querySelectorAll(`.${REVIEW_ADD_COMMENT_CLASS}`).length).toBe(0);
+    view.destroy();
+    parent.remove();
+  });
+
+  test('marks the gutter of a line the selection overlaps as selected', () => {
+    const { view, parent } = mount(() => jest.fn());
+    // Select within line 1 ("hello world" is offsets 0–11).
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    expect(view.dom.querySelector(`.${REVIEW_GUTTER_SELECTED_CLASS}`)).not.toBeNull();
+    view.destroy();
+    parent.remove();
+  });
+
+  test('clicking the "+" comments the selection when the line overlaps it', () => {
+    const onComment = jest.fn();
+    const { view, parent } = mount(() => onComment);
+    view.dispatch({ selection: { anchor: 0, head: 5 } }); // line 1
+    // jsdom maps a synthetic gutter event to line 1, so target line 1's affordance.
+    const plus = view.dom.querySelector<HTMLElement>(`.${REVIEW_ADD_COMMENT_CLASS}`);
+    expect(plus).not.toBeNull();
+    plus!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(onComment).toHaveBeenCalledWith(0, 5);
+    view.destroy();
+    parent.remove();
+  });
+
+  test('clicking the "+" comments the whole line when the selection is collapsed', () => {
+    const onComment = jest.fn();
+    const { view, parent } = mount(() => onComment);
+    view.dispatch({ selection: { anchor: 3, head: 3 } }); // collapsed caret on line 1
+    const plus = view.dom.querySelector<HTMLElement>(`.${REVIEW_ADD_COMMENT_CLASS}`);
+    plus!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    // Line 1 "hello world" spans offsets 0–11.
+    expect(onComment).toHaveBeenCalledWith(0, 11);
+    view.destroy();
+    parent.remove();
+  });
+
+  test('a gutter mousedown that is not on the "+" does not start a comment', () => {
+    const onComment = jest.fn();
+    const { view, parent } = mount(() => onComment);
+    view.dom.querySelector('.cm-review-gutter')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(onComment).not.toHaveBeenCalled();
+    view.destroy();
+    parent.remove();
+  });
+
+  test('a gutter mousedown is inert (no throw) when no comment handler is available', () => {
+    const { view, parent } = mount(() => null);
+    expect(() =>
+      view.dom.querySelector('.cm-review-gutter')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
+    ).not.toThrow();
+    view.destroy();
+    parent.remove();
   });
 });

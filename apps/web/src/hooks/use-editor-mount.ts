@@ -15,7 +15,7 @@ import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { buildEditorExtensions } from '@/lib/codemirror/editor-extensions';
 import { createSpellcheckLinter } from '@/lib/codemirror/editor-spellcheck-linter';
 import { reviewDecorations } from '@/lib/codemirror/review-decorations';
-import { reviewMarkerClickHandler, reviewMarkerHoverHandler, reviewSelectionButton } from '@/lib/codemirror/review-interaction';
+import { reviewMarkerClickHandler, reviewMarkerHoverHandler, reviewCommentKeymap } from '@/lib/codemirror/review-interaction';
 import {
   createLineClickHandler,
   createFileDropHandler,
@@ -361,13 +361,18 @@ export function useEditorMount({
           fileDropHandler,
           ctrlClickTooltip,
           ...(renameSuggestionExtension ? [renameSuggestionExtension] : []),
-          // Review comments (feature 038): the highlight/gutter layer plus its click + selection
-          // affordances. The layer is inert (no gutter width, no decorations) until ranges are
-          // pushed in, so it is safe to register on every editor instance.
-          reviewDecorations(() => onReviewMarkerHoverReference.current),
+          // Review comments (feature 038): the highlight/gutter layer plus its click, hover, and
+          // add-comment affordances. The gutter renders a per-line "add comment" "+" (hover/selection
+          // reveal) when a comment handler is available, and the shortcut comments the current
+          // selection or line. The layer is inert (zero gutter width, no decorations) until ranges or a
+          // comment handler are present, so it is safe to register on every editor instance.
+          reviewDecorations(
+            () => onReviewMarkerHoverReference.current,
+            () => onCommentFromSelectionReference.current,
+          ),
           reviewMarkerClickHandler(() => onReviewMarkerClickReference.current),
           reviewMarkerHoverHandler(() => onReviewMarkerHoverReference.current),
-          reviewSelectionButton(() => onCommentFromSelectionReference.current),
+          reviewCommentKeymap(() => onCommentFromSelectionReference.current),
         ],
       }),
     });

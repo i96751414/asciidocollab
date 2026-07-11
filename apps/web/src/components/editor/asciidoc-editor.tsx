@@ -346,7 +346,12 @@ export function AsciiDocEditor({
     remountKey: collab?.yjsStateId,
     onReviewMarkerClick,
     onReviewMarkerHover,
-    onCommentFromSelection: (from, to) => commentFromSelectionReference.current(from, to),
+    // Only wire the comment affordances when review commenting is available for this document
+    // (the parent passes onCreateCommentFromSelection only then). This keeps the gutter "add
+    // comment" affordance and its shortcut inert — and the review gutter zero-width — elsewhere.
+    onCommentFromSelection: onCreateCommentFromSelection
+      ? (from, to) => commentFromSelectionReference.current(from, to)
+      : undefined,
   });
 
   // Populate the selection→anchor capture now that `viewReference` exists. Rebuilds only when the

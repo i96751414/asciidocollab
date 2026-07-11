@@ -3,6 +3,7 @@ import {
   EditorView,
   GutterMarker,
   gutter,
+  type BlockInfo,
   type DecorationSet,
 } from '@codemirror/view';
 import {
@@ -13,6 +14,7 @@ import {
   type Extension,
   type RangeSet,
 } from '@codemirror/state';
+import type { CommentFromSelectionAccessor } from '@/lib/codemirror/review-interaction';
 
 /**
  * Review highlight + gutter-marker layer for feature 038. Every located review item paints a
@@ -34,6 +36,12 @@ export const REVIEW_HIGHLIGHT_ACTIVE_CLASS = 'cm-review-highlight-active';
 export const REVIEW_HIGHLIGHT_FLASH_CLASS = 'cm-review-flash';
 /** Class placed on the gutter element of a line that starts a review range. */
 export const REVIEW_GUTTER_MARKER_CLASS = 'cm-review-gutter-marker';
+/** Class on the "add comment" affordance rendered in the gutter of every line (hover/selection reveal). */
+export const REVIEW_ADD_COMMENT_CLASS = 'cm-review-add-comment';
+/** Class on the filled chip inside the affordance that holds the icon. */
+const REVIEW_ADD_COMMENT_CHIP_CLASS = 'cm-review-add-comment-chip';
+/** Class placed on the gutter element of a line the current (non-empty) selection overlaps. */
+export const REVIEW_GUTTER_SELECTED_CLASS = 'cm-review-gutter-selected';
 
 /** One review item's resolved passage in the live document. */
 export interface ReviewAnchorRange {
@@ -177,6 +185,86 @@ class ReviewGutterMarker extends GutterMarker {
 
 const REVIEW_GUTTER_MARKER = new ReviewGutterMarker();
 
+/** SVG namespace for building the add-comment icon without `innerHTML`. */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+/**
+ * Path data for lucide's `MessageSquarePlus` (v1.17.0) — a speech bubble with a plus, reading as
+ * "add a comment". Kept in sync by matching the lucide icon the rest of the review UI uses
+ * (`review-toggle`, `comment-rail`), so the gutter affordance stays in the same visual family.
+ */
+const ADD_COMMENT_ICON_PATHS = [
+  'M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z',
+  'M12 8v6',
+  'M9 11h6',
+];
+
+/** True when the main selection is non-empty and overlaps the line spanning `[lineFrom, lineTo]`. */
+export function selectionOverlapsLine(state: EditorState, lineFrom: number, lineTo: number): boolean {
+  const selection = state.selection.main;
+  return !selection.empty && selection.from <= lineTo && selection.to >= lineFrom;
+}
+
+/**
+ * The per-line "add comment" affordance rendered in the review gutter: an element that fills the
+ * gutter cell and reveals a "+" on hover (any line) or while the line overlaps a selection. Clicking
+ * it starts a thread on the selection (or the line when there is none). The `selected` flag drives the
+ * always-visible state on selected lines; the client id / position are irrelevant to appearance.
+ */
+class AddCommentGutterMarker extends GutterMarker {
+  /** Marks the wrapping gutter element as selected so CSS can keep the "+" visible without a hover. */
+  readonly elementClass: string;
+
+  constructor(private readonly selected: boolean) {
+    super();
+    this.elementClass = selected ? REVIEW_GUTTER_SELECTED_CLASS : '';
+  }
+
+  /**
+   * @param other - The marker CodeMirror is comparing against for reuse.
+   * @returns True when the rendered affordance would be identical (same selected state).
+   */
+  eq(other: AddCommentGutterMarker): boolean {
+    return other.selected === this.selected;
+  }
+
+  /**
+   * Builds the affordance element: a lucide "message-square-plus" icon that fills the gutter cell as
+   * the click target. Reveal-on-hover is pure CSS. Built with the DOM API (no `innerHTML`) from a
+   * fixed first-party path set.
+   *
+   * @returns The affordance DOM node.
+   */
+  toDOM(): HTMLElement {
+    const element = document.createElement('span');
+    element.className = REVIEW_ADD_COMMENT_CLASS;
+    element.title = 'Comment';
+    // The keyboard shortcut (reviewCommentKeymap) is the accessible path; this glyph is mouse-only.
+    element.setAttribute('aria-hidden', 'true');
+    // A filled rounded chip holds the icon so it reads as a solid affordance, not a floating outline;
+    // the span itself stays a transparent, cell-filling hit target around it.
+    const chip = document.createElement('span');
+    chip.className = REVIEW_ADD_COMMENT_CHIP_CLASS;
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    for (const definition of ADD_COMMENT_ICON_PATHS) {
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', definition);
+      svg.append(path);
+    }
+    chip.append(svg);
+    element.append(chip);
+    return element;
+  }
+}
+
+const ADD_COMMENT_MARKER = new AddCommentGutterMarker(false);
+const ADD_COMMENT_MARKER_SELECTED = new AddCommentGutterMarker(true);
+
 /**
  * Builds the gutter marker set: one marker at the start of each DISTINCT line that begins a review
  * range. Line-start offsets are collected, de-duplicated, and sorted so the {@link RangeSetBuilder}
@@ -198,29 +286,61 @@ function buildReviewGutterMarkers(state: EditorState): RangeSet<GutterMarker> {
 }
 
 /**
- * CM6 extension that highlights every located review passage and marks its starting line in a
- * dedicated left gutter, refreshing on the out-of-band {@link setReviewRangesEffect} /
- * {@link setActiveReviewEffect} as well as on document edits.
+ * CM6 extension that highlights every located review passage, marks its starting line with a dot in a
+ * dedicated left gutter, and — when commenting is available — renders a per-line "add comment"
+ * affordance in that same gutter (revealed on hover or while a line overlaps the selection). Clicking
+ * the affordance, or the {@link reviewCommentKeymap} shortcut, starts a new thread. Refreshes on the
+ * out-of-band {@link setReviewRangesEffect} / {@link setActiveReviewEffect}, on selection moves (so the
+ * affordance follows the selected lines), and on document edits.
  *
  * @param getOnHover - Live accessor for the marker-hover handler; wires the gutter marker to report
  *   its line's review id on hover (the text-highlight hover is handled by `reviewMarkerHoverHandler`).
+ * @param getOnComment - Live accessor for the comment-from-selection handler; when it yields a handler
+ *   the "add comment" affordance renders and clicking it starts a thread. Null hides the affordance.
  * @returns The review decoration + gutter extension (register once).
  */
-export function reviewDecorations(getOnHover?: ReviewHoverAccessor): Extension {
+export function reviewDecorations(
+  getOnHover?: ReviewHoverAccessor,
+  getOnComment?: CommentFromSelectionAccessor,
+): Extension {
   return [
     reviewStateField,
     gutter({
       class: 'cm-review-gutter',
       markers: (view) => buildReviewGutterMarkers(view.state),
-      // The markers derive from out-of-band range/active effects, so tell the gutter to rebuild
-      // when either fires (a doc edit already triggers a rebuild on its own).
+      // The "add comment" affordance renders on every line while a handler is available, marked
+      // selected on the lines the current selection overlaps. Null handler → no affordance (the
+      // gutter then only carries the existing-thread dots).
+      lineMarker: (view, line: BlockInfo) => {
+        if (!getOnComment?.()) return null;
+        return selectionOverlapsLine(view.state, line.from, line.to)
+          ? ADD_COMMENT_MARKER_SELECTED
+          : ADD_COMMENT_MARKER;
+      },
+      // Markers derive from out-of-band range/active effects; the selected affordance derives from the
+      // selection. Rebuild when either changes (a doc edit already triggers a rebuild on its own).
       lineMarkerChange: (update) =>
+        update.selectionSet ||
         update.transactions.some((tr) =>
           tr.effects.some(
             (effect) => effect.is(setReviewRangesEffect) || effect.is(setActiveReviewEffect),
           ),
         ),
       domEventHandlers: {
+        mousedown(view, line, event) {
+          const onComment = getOnComment?.();
+          if (!onComment) return false;
+          // Only the "+" affordance starts a comment; other gutter clicks are left alone.
+          const target = event.target;
+          if (!(target instanceof Element) || !target.closest(`.${REVIEW_ADD_COMMENT_CLASS}`)) return false;
+          event.preventDefault(); // Keep the selection — don't let the click move the caret.
+          const useSelection = selectionOverlapsLine(view.state, line.from, line.to);
+          const selection = view.state.selection.main;
+          const from = useSelection ? selection.from : line.from;
+          const to = useSelection ? selection.to : line.to;
+          onComment(from, to);
+          return true;
+        },
         mousemove(view, line) {
           getOnHover?.()?.(reviewIdAtLine(view.state, line.from));
           return false;
