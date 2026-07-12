@@ -10,8 +10,8 @@
 
 > **⚠ Pre-MVP — not ready for production use.**
 > The editor, file management, and real-time co-editing are built and working — co-editing is under active
-> hardening. Git integration and PDF export are not yet built. See [Project status](#project-status) for the
-> honest picture.
+> hardening. In-browser PDF export has landed and is being finalized; Git integration is not yet built. See
+> [Project status](#project-status) for the honest picture.
 
 **Collaborative AsciiDoc editing for teams — self-hosted, secure, and built for real work.**
 
@@ -43,11 +43,14 @@ self-hosted web application.
 - AsciiDoc code editor — CodeMirror 6 with AsciiDoc syntax highlighting, auto-save, table editing, autocomplete
   for images and includes, block title captions, and multiple editor themes
 - Live HTML preview — Asciidoctor.js renders AsciiDoc to HTML in the browser
+- In-browser PDF export & live PDF preview — renders the project to a print-ready PDF entirely client-side via
+  the real Asciidoctor-PDF engine compiled to WebAssembly (no server round-trip, no upload); project images,
+  custom fonts (including WOFF2), and PDF themes are embedded. Diagram, math, and citation rendering in the
+  exported PDF is still being wired.
 
 **Not yet built (MVP blockers)**
 
 - Git integration — push, pull, branch, and create pull requests from the UI
-- PDF export via Asciidoctor-PDF
 
 **Planned after MVP**
 
@@ -61,8 +64,8 @@ self-hosted web application.
 **This project has not reached MVP.**
 
 The authentication, file management, editor, and real-time collaboration layers are built and have been through
-multiple rounds of code review and hardening. Git integration and PDF export — the remaining MVP features — are not
-yet started.
+multiple rounds of code review and hardening. In-browser PDF export and live preview have landed and are being
+finalized; Git integration — the remaining MVP feature — is not yet started.
 
 | Layer                               | Status            |
 |-------------------------------------|-------------------|
@@ -74,8 +77,8 @@ yet started.
 | AsciiDoc editor                     | ✅ Built           |
 | Live HTML preview                   | ✅ Built           |
 | Real-time collaboration             | ✅ Built           |
+| PDF export & live preview           | 🚧 In progress    |
 | Git integration                     | ❌ Not started     |
-| PDF export                          | ❌ Not started     |
 
 Do not deploy this to production or rely on it for real work yet. The API and data model may change before MVP.
 

@@ -33,7 +33,7 @@ AsciiDoCollab is a browser-based collaborative AsciiDoc editor: real-time multi-
 | API server              | Fastify + TypeScript 6                                                                          |
 | Real-time CRDT          | Yjs                                                                                             |
 | Collaboration server    | Hocuspocus 4 (standalone native-ESM process, `apps/collab`)                                     |
-| PDF generation          | Asciidoctor-PDF (Ruby sidecar container)                                                        |
+| PDF generation          | Asciidoctor-PDF via ruby.wasm — in-browser Web Worker, no server (`packages/asciidoc-pdf`)      |
 | Database                | PostgreSQL via Prisma ORM                                                                       |
 | Auth                    | Passport.js + passport-saml (local + SAML 2.0 + Entra ID)                                       |
 | Email                   | Nodemailer (SMTP)                                                                               |
@@ -110,6 +110,11 @@ asciidocollab/
 │   │                               # connection/rate caps, Origin allowlist, max-payload
 │   ├── shared/                     # Result<T,E> type, DTOs (FileTreeEventDto, CollabAuth*, etc.),
 │   │                               # presenceRoomName()/isPresenceRoom() room-name convention
+│   ├── asciidoc-core/              # Zero-dep AsciiDoc structural engine (conditional regions, {ref} subst,
+│   │                               # attribute authority) — shared leaf, imported inward by domain + web
+│   ├── asciidoc-pdf/               # Browser-only leaf: renders a project to PDF entirely client-side via
+│   │                               # Asciidoctor-PDF compiled to WebAssembly (ruby.wasm) in a Web Worker.
+│   │                               # Depends inward on asciidoc-core only; never imported by server code
 │   ├── db/                         # Prisma schema, migrations
 │   └── testing/                    # Testcontainers helper, factories, shared test setup
 ├── specs/
@@ -438,7 +443,13 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 | `packages/infrastructure`  | ~185  |
 | `apps/collab` (unit)       | ~122  |
 | `packages/shared`          | ~37   |
+| `packages/asciidoc-pdf`    | ~186  |
 | `apps/web` (e2e)           | ~120  |
+
+> `packages/asciidoc-pdf` (browser leaf) has its own jest suite that neither
+> `scripts/ci/unit.sh` nor `.github/workflows/ci.yml` runs (CI's unit job covers
+> asciidoc-core/shared/domain/api/collab/web only) — **run it manually** after
+> touching the package: `pnpm --filter @asciidocollab/asciidoc-pdf test`.
 
 > Known pre-existing gaps (not a regression of any single feature): `apps/web`
 > jest coverage sits just under the configured 90/93/90 thresholds, and
@@ -449,13 +460,13 @@ The active plan is always referenced in the SPECKIT block at the top of this fil
 
 ## Pending Phases
 
-> Phases 8 (collaboration server) and 9 (real-time co-editing, presence) have shipped — see features 018, 020, 023 (Hocuspocus 4 upgrade), and 024 (file-tree open-file presence).
+> Phases 8 (collaboration server) and 9 (real-time co-editing, presence) have shipped — see features 018, 020, 023 (Hocuspocus 4 upgrade), and 024 (file-tree open-file presence). Phase 10 (PDF generation) is landing as **feature 039** — in-browser export + live preview (see below).
 
-| Phase | Scope                                                                                  |
-|-------|----------------------------------------------------------------------------------------|
-| 10    | PDF generation (Ruby sidecar, Asciidoctor-PDF, theme + extension selection)            |
-| 11    | Templates + asset management (built-in templates, custom templates, image upload)      |
-| 12    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)   |
-| 13    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                 |
-| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                   |
-| 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)      |
+| Phase | Scope                                                                                                                                                                            |
+|-------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 10    | 🚧 PDF generation (feature 039) — **in-browser** Asciidoctor-PDF (ruby.wasm) export + live preview; images/custom-fonts/themes done, diagram/math/citation rendering being wired |
+| 11    | Templates + asset management (built-in templates, custom templates, image upload)                                                                                                |
+| 12    | Git sandbox + core operations (Docker sandbox, clone/pull/push/commit/branch switch)                                                                                             |
+| 13    | Merge/pull requests (GitHub, GitLab, Bitbucket provider REST adapters)                                                                                                           |
+| 14    | SAML authentication (passport-saml, Entra ID SSO, user provisioning)                                                                                                             |
+| 15    | Enterprise security (MFA/TOTP, IP restrictions, audit log, performance hardening)                                                                                                |
