@@ -94,10 +94,15 @@ const PHASE_READ_OUTPUT: RenderErrorPhase = 'read-output';
 const CONVERT_DIAGNOSTIC_CODES = {
   MISSING_GLYPH: 'missing-glyph',
   FONT_UNAVAILABLE: 'font-unavailable',
+  UNSUPPORTED_IMAGE: 'unsupported-image',
 } as const satisfies Record<string, DiagnosticCode>;
 
 const GLYPH_PATTERN = /glyph/i;
 const FONT_PATTERN = /font/i;
+// Asciidoctor-PDF/prawn emits these when it cannot embed a referenced image — "image to embed not
+// found or not readable: <path>" and "could not embed image: <path>; <reason>". Surfacing them (never
+// silently dropping) lets the UI tell the user which picture failed and why (FR-012).
+const IMAGE_EMBED_PATTERN = /image to embed|embed image/i;
 const ERROR_SEVERITIES: ReadonlySet<string> = new Set(['ERROR', 'FATAL']);
 
 // ---------------------------------------------------------------------------
@@ -467,7 +472,14 @@ function buildConvertCode(
     '  logger = Asciidoctor::MemoryLogger.new',
     '  Asciidoctor::LoggerManager.logger = logger',
     `  ${SOURCEMAP_GLOBAL} = []`,
+    // `base_dir` is pinned to the project mount root, NOT left to default to the root document's own
+    // directory. Image (and `imagesdir`) targets are project-root-relative throughout the app — that is
+    // how the snapshot mounts them into the VFS, how `collectReferencedAssetPaths` keys them, and how
+    // the HTML preview resolves them. Without this, a root document that lives in a SUBFOLDER (e.g.
+    // `New Folder/doc.adoc`) makes Asciidoctor resolve `image::New Folder/pic.png[]` against that
+    // subfolder — doubling it to `/project/New Folder/New Folder/pic.png` — so every image fails to embed.
     `  Asciidoctor.convert_file(${rubyString(sourcePath)}, backend: 'pdf', safe: :unsafe, ` +
+      `base_dir: ${rubyString(PROJECT_MOUNT)}, ` +
       `sourcemap: true, to_file: ${rubyString(outputPath)}, mkdirs: true, attributes: ${rubyHash(attributes)})`,
     SOURCEMAP_WRITE,
     "  warnings = logger.messages.map { |m| { 'severity' => m[:severity].to_s, " +
@@ -633,6 +645,9 @@ function classifyConvertWarning(
 }
 
 function codeForWarning(message: string): DiagnosticCode | null {
+  if (IMAGE_EMBED_PATTERN.test(message)) {
+    return CONVERT_DIAGNOSTIC_CODES.UNSUPPORTED_IMAGE;
+  }
   if (GLYPH_PATTERN.test(message)) {
     return CONVERT_DIAGNOSTIC_CODES.MISSING_GLYPH;
   }

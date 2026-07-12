@@ -248,6 +248,9 @@ describe('invokeConvert — invocation shape', () => {
     expect(code).toContain("backend: 'pdf'");
     expect(code).toContain('safe: :unsafe');
     expect(code).toContain("to_file: '/out/book.pdf'");
+    // base_dir is pinned to the project root so project-root-relative image/imagesdir targets resolve
+    // the same way the app mounts them — even when the root document lives in a subfolder.
+    expect(code).toContain("base_dir: '/project'");
     expect(code).toContain('mkdirs: true');
     expect(code).toContain("'source-highlighter' => 'rouge'");
     expect(code).toContain("'doctype' => 'book'");
@@ -448,6 +451,8 @@ describe('invokeConvert — per-block diagnostics', () => {
       warnings: [
         { severity: 'WARN', message: 'Could not find glyph U+1F600 in the font' },
         { severity: 'ERROR', message: 'font Brand not found; falling back' },
+        { severity: 'WARN', message: 'image to embed not found or not readable: /project/logo.png' },
+        { severity: 'WARN', message: 'could not embed image: /project/shot.png; bignum too big to convert into `long\'' },
         { severity: 'INFO', message: 'section title out of sequence' },
       ],
     });
@@ -458,10 +463,13 @@ describe('invokeConvert — per-block diagnostics', () => {
     if (!result.ok) {
       throw new Error('expected success');
     }
-    expect(result.diagnostics).toHaveLength(2);
-    expect(result.diagnostics[0]?.code).toBe('missing-glyph');
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      'missing-glyph',
+      'font-unavailable',
+      'unsupported-image',
+      'unsupported-image',
+    ]);
     expect(result.diagnostics[0]?.severity).toBe('warning');
-    expect(result.diagnostics[1]?.code).toBe('font-unavailable');
     expect(result.diagnostics[1]?.severity).toBe('error');
   });
 });

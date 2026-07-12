@@ -96,4 +96,34 @@ describe('PdfDiagnostics', () => {
     expect(container).toBeEmptyDOMElement();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
+
+  test('shows an errors/warnings summary in the header and starts expanded', () => {
+    render(<PdfDiagnostics diagnostics={[warning, errorWithLocation]} />);
+
+    const header = screen.getByRole('button', { name: /pdf diagnostics/i });
+    expect(header).toHaveTextContent('1 error, 1 warning');
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('list')).toBeInTheDocument();
+  });
+
+  test('collapses and re-expands the body when the header is toggled', () => {
+    render(<PdfDiagnostics diagnostics={[warning, errorWithLocation]} />);
+    const header = screen.getByRole('button', { name: /pdf diagnostics/i });
+
+    fireEvent.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByText(/remote image was skipped/i)).not.toBeInTheDocument();
+
+    fireEvent.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/remote image was skipped/i)).toBeInTheDocument();
+  });
+
+  test('caps the body height and scrolls a long list', () => {
+    render(<PdfDiagnostics diagnostics={[warning, errorWithLocation]} />);
+    const list = screen.getByRole('list');
+    expect(list.className).toContain('max-h-64');
+    expect(list.className).toContain('overflow-y-auto');
+  });
 });

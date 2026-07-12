@@ -84,10 +84,11 @@ function makeContext(snapshot: ProjectSnapshot, vfs: PipelineVfs): StageContext 
   };
 }
 
-const CONVERTED_TTF = new Uint8Array([0x00, 0x01, 0x00, 0x00, 0x74]);
+/** The sfnt bytes the fake decoder returns for a WOFF2 font (a stand-in for a real decoded TTF). */
+const DECODED_SFNT = new Uint8Array([0x00, 0x01, 0x00, 0x00, 0x74]);
 
 function makeFontConverter(): FontConverter & { readonly woff2ToTtf: jest.Mock } {
-  const woff2ToTtf: jest.Mock = jest.fn((): Uint8Array => CONVERTED_TTF);
+  const woff2ToTtf: jest.Mock = jest.fn(async (): Promise<Uint8Array> => DECODED_SFNT);
   return { woff2ToTtf };
 }
 
@@ -96,36 +97,29 @@ describe('createMountAssetsStage', () => {
     expect(createMountAssetsStage({ fontConverter: makeFontConverter() }).kind).toBe('mount-assets');
   });
 
-  it('mounts the project pdf-theme YAML at its declared path', async () => {
-    const themeYaml = 'extends: default\nbase:\n  font_color: 333333\n';
-    const snapshot = makeSnapshot({ themePath: 'theme/brand-theme.yml', files: { 'theme/brand-theme.yml': themeYaml } });
-    const vfs = makeVfs();
-
-    const result = await createMountAssetsStage({ fontConverter: makeFontConverter() }).run(makeContext(snapshot, vfs));
-
-    expect(vfs.readText('/project/theme/brand-theme.yml')).toBe(themeYaml);
-    expect(result.diagnostics ?? []).toEqual([]);
-  });
-
-  it('passes through custom TTF and OTF fonts unchanged', async () => {
-    const ttf = new Uint8Array([1, 2, 3, 4]);
-    const otf = new Uint8Array([5, 6, 7, 8]);
+  it('leaves TTF and OTF fonts to populate — writes nothing and never invokes the decoder', async () => {
+    // Prawn embeds TTF/OTF directly, and populateProject already mounted them byte-for-byte, so this
+    // stage must not touch them (no `.fonts` copy, no re-mount) and must not call the WOFF2 decoder.
     const snapshot = makeSnapshot({
       fontPaths: ['fonts/Brand-Regular.ttf', 'fonts/Brand-Bold.otf'],
-      binaryAssets: { 'fonts/Brand-Regular.ttf': ttf, 'fonts/Brand-Bold.otf': otf },
+      binaryAssets: {
+        'fonts/Brand-Regular.ttf': new Uint8Array([1, 2, 3, 4]),
+        'fonts/Brand-Bold.otf': new Uint8Array([5, 6, 7, 8]),
+      },
     });
     const vfs = makeVfs();
     const converter = makeFontConverter();
 
     const result = await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
 
-    expect(vfs.readFile('/project/.fonts/Brand-Regular.ttf')).toEqual(ttf);
-    expect(vfs.readFile('/project/.fonts/Brand-Bold.otf')).toEqual(otf);
+    expect(vfs.writtenPaths()).toEqual([]);
     expect(converter.woff2ToTtf).not.toHaveBeenCalled();
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('routes a WOFF2 font through the injected converter and mounts the resulting TTF', async () => {
+  it('decodes a WOFF2 font in place to its embeddable sfnt at the same /project path', async () => {
+    // The theme catalog references the font by its `.woff2` filename; prawn/ttfunk identifies a font by
+    // its sfnt signature, not its extension, so overwriting the SAME path with decoded bytes is correct.
     const woff2 = new Uint8Array([0x77, 0x4F, 0x46, 0x32]);
     const snapshot = makeSnapshot({
       fontPaths: ['fonts/Brand-Regular.woff2'],
@@ -134,28 +128,28 @@ describe('createMountAssetsStage', () => {
     const vfs = makeVfs();
     const converter = makeFontConverter();
 
-    await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
+    const result = await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
 
     expect(converter.woff2ToTtf).toHaveBeenCalledTimes(1);
     expect(converter.woff2ToTtf).toHaveBeenCalledWith(woff2);
-    expect(vfs.readFile('/project/.fonts/Brand-Regular.ttf')).toEqual(CONVERTED_TTF);
-    expect(vfs.exists('/project/.fonts/Brand-Regular.woff2')).toBe(false);
+    expect(vfs.readFile('/project/fonts/Brand-Regular.woff2')).toEqual(DECODED_SFNT);
+    expect(vfs.writtenPaths()).toEqual(['/project/fonts/Brand-Regular.woff2']);
+    expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('never re-mounts baked default fonts — nothing is written under /usr', async () => {
+  it('writes nothing under /usr — the baked default fonts are never touched', async () => {
     const snapshot = makeSnapshot({
-      fontPaths: ['fonts/Brand-Regular.ttf'],
-      binaryAssets: { 'fonts/Brand-Regular.ttf': new Uint8Array([9]) },
+      fontPaths: ['fonts/Brand-Regular.woff2'],
+      binaryAssets: { 'fonts/Brand-Regular.woff2': new Uint8Array([0x77]) },
     });
     const vfs = makeVfs();
 
     await createMountAssetsStage({ fontConverter: makeFontConverter() }).run(makeContext(snapshot, vfs));
 
     expect(vfs.writtenPaths().some((path) => path.startsWith('/usr'))).toBe(false);
-    expect(vfs.writtenPaths()).toEqual(['/project/.fonts/Brand-Regular.ttf']);
   });
 
-  it('writes nothing when there is no theme and no custom fonts', async () => {
+  it('writes nothing when there are no custom fonts', async () => {
     const vfs = makeVfs();
 
     const result = await createMountAssetsStage({ fontConverter: makeFontConverter() }).run(makeContext(makeSnapshot(), vfs));
@@ -164,31 +158,61 @@ describe('createMountAssetsStage', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('warns with font-unavailable when a declared custom font has no captured bytes', async () => {
-    const snapshot = makeSnapshot({ fontPaths: ['fonts/Missing.ttf'] });
+  it('warns with font-unavailable when a declared WOFF2 font has no captured bytes', async () => {
+    const snapshot = makeSnapshot({ fontPaths: ['fonts/Missing.woff2'] });
     const vfs = makeVfs();
+    const converter = makeFontConverter();
 
-    const result = await createMountAssetsStage({ fontConverter: makeFontConverter() }).run(makeContext(snapshot, vfs));
+    const result = await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
 
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics?.[0]?.code).toBe('font-unavailable');
     expect(result.diagnostics?.[0]?.severity).toBe('warning');
-    expect(result.diagnostics?.[0]?.resource).toBe('fonts/Missing.ttf');
+    expect(result.diagnostics?.[0]?.resource).toBe('fonts/Missing.woff2');
+    expect(converter.woff2ToTtf).not.toHaveBeenCalled();
     expect(vfs.writtenPaths()).toEqual([]);
   });
 
-  it('warns with font-unavailable for an unsupported font format and does not call the converter', async () => {
+  it('warns with font-unavailable for unsupported (incl. extensionless) font formats and skips the decoder', async () => {
     const snapshot = makeSnapshot({
-      fontPaths: ['fonts/Legacy.woff', 'fonts/Old.eot'],
-      binaryAssets: { 'fonts/Legacy.woff': new Uint8Array([1]), 'fonts/Old.eot': new Uint8Array([2]) },
+      fontPaths: ['fonts/Legacy.woff', 'fonts/Old.eot', 'fonts/Extensionless'],
+      binaryAssets: {
+        'fonts/Legacy.woff': new Uint8Array([1]),
+        'fonts/Old.eot': new Uint8Array([2]),
+        'fonts/Extensionless': new Uint8Array([3]),
+      },
     });
     const vfs = makeVfs();
     const converter = makeFontConverter();
 
     const result = await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
 
-    expect(result.diagnostics?.map((d) => d.code)).toEqual(['font-unavailable', 'font-unavailable']);
+    expect(result.diagnostics?.map((diagnostic) => diagnostic.code)).toEqual([
+      'font-unavailable',
+      'font-unavailable',
+      'font-unavailable',
+    ]);
     expect(converter.woff2ToTtf).not.toHaveBeenCalled();
+    expect(vfs.writtenPaths()).toEqual([]);
+  });
+
+  it('warns with font-unavailable when the decoder fails, and never aborts the render', async () => {
+    const snapshot = makeSnapshot({
+      fontPaths: ['fonts/Broken.woff2'],
+      binaryAssets: { 'fonts/Broken.woff2': new Uint8Array([0x77]) },
+    });
+    const vfs = makeVfs();
+    const converter: FontConverter = {
+      woff2ToTtf: jest.fn(async () => {
+        throw new Error('corrupt WOFF2 stream');
+      }),
+    };
+
+    const result = await createMountAssetsStage({ fontConverter: converter }).run(makeContext(snapshot, vfs));
+
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics?.[0]?.code).toBe('font-unavailable');
+    expect(result.diagnostics?.[0]?.resource).toBe('fonts/Broken.woff2');
     expect(vfs.writtenPaths()).toEqual([]);
   });
 });

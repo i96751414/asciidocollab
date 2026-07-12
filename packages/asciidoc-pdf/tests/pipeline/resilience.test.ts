@@ -172,7 +172,7 @@ function allStages(): PipelineStage[] {
     createCitationsStage(),
     createDiagramsMathStage(),
     createImageGuardStage(),
-    createMountAssetsStage({ fontConverter: { woff2ToTtf: (bytes) => bytes } }),
+    createMountAssetsStage({ fontConverter: { woff2ToTtf: async (bytes) => bytes } }),
   ];
 }
 

@@ -43,7 +43,8 @@ const ROOT_PATH = 'main.adoc';
 const CHAPTER_PATH = 'chapter.adoc';
 const BIB_PATH = 'refs.bib';
 const THEME_PATH = 'themes/brand-theme.yml';
-const FONT_PATH = 'fonts/Brand.ttf';
+// A WOFF2 font, so the asset-mount stage acts on it (decoding it in place); TTF/OTF are left to populate.
+const FONT_PATH = 'fonts/Brand.woff2';
 const LOGO_PATH = 'logo.png';
 
 const INCLUDE_DIRECTIVE = 'include::chapter.adoc[]';
@@ -53,8 +54,7 @@ const REFERENCE_MARKER = '== References';
 const PROJECT = '/project';
 const ROOT_VFS_PATH = `${PROJECT}/${ROOT_PATH}`;
 const GEN_PREFIX = `${PROJECT}/.gen/`;
-const FONT_VFS_PATH = `${PROJECT}/.fonts/Brand.ttf`;
-const THEME_VFS_PATH = `${PROJECT}/${THEME_PATH}`;
+const FONT_VFS_PATH = `${PROJECT}/${FONT_PATH}`;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -195,7 +195,7 @@ function allStages(): PipelineStage[] {
     createCitationsStage(),
     createDiagramsMathStage(),
     createImageGuardStage(),
-    createMountAssetsStage({ fontConverter: { woff2ToTtf: (bytes) => bytes } }),
+    createMountAssetsStage({ fontConverter: { woff2ToTtf: async (bytes) => bytes } }),
   ];
 }
 
@@ -247,8 +247,9 @@ describe('pipeline shared-content immutability', () => {
 
     const genAssets = vfs.list(GEN_PREFIX);
     expect(genAssets.length).toBeGreaterThanOrEqual(1); // .gen assets written to the VFS
-    expect(vfs.exists(FONT_VFS_PATH)).toBe(true); // custom font mounted into the VFS
-    expect(vfs.exists(THEME_VFS_PATH)).toBe(true); // theme mounted into the VFS
+    // The asset-mount stage decoded the custom WOFF2 font in place, into the VFS (not the snapshot).
+    // (Theme + TTF/OTF fonts are mounted by populateProject, which runs before the pipeline.)
+    expect(vfs.exists(FONT_VFS_PATH)).toBe(true);
   });
 
   it('re-runs against the same snapshot produce byte-identical VFS writes, so no mutation accumulates', async () => {

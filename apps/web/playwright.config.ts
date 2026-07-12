@@ -78,6 +78,7 @@ export default defineConfig({
         // thrashes the box and the large same-origin blob fetch aborts. It stays against the live stack,
         // just serialized — NOT excluded from the run.
         '**/pdf-preview-responsive.spec.ts',
+        '**/pdf-image-embed.spec.ts',
       ],
       dependencies: ['setup'],
     },
@@ -90,7 +91,7 @@ export default defineConfig({
     {
       name: 'chromium-pdf',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: ['**/pdf-preview-responsive.spec.ts'],
+      testMatch: ['**/pdf-preview-responsive.spec.ts', '**/pdf-image-embed.spec.ts'],
       workers: 1,
       fullyParallel: false,
       dependencies: ['setup'],

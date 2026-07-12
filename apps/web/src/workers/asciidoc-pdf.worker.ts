@@ -14,7 +14,9 @@
  */
 
 import {
+  createImageGuardStage,
   createIncludeResolveStage,
+  createMountAssetsStage,
   createRubyPdfVm,
   createShimRegistry,
   createWasiBridge,
@@ -34,6 +36,7 @@ import {
   type ToWorker,
 } from '@asciidocollab/asciidoc-pdf';
 import { assembleIncludes } from './assemble-includes';
+import { createWoff2FontConverter } from './woff2-font-converter';
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 import {
   PdfRenderController,
@@ -145,12 +148,16 @@ function buildController(module: WebAssembly.Module): PdfRenderController {
 
   const runConvert = (request: RenderRequest): Promise<ConvertOutcome> => invokeConvert({ vm, request });
 
+  // One WOFF2 codec, initialized on first use and reused across renders (fonts embed rarely).
+  const fontConverter = createWoff2FontConverter();
+
   const buildPipeline = (arguments_: BuildPipelineArguments): BuiltPipeline => {
-    // Ordered stage list. `include-resolve` is wired now; the remaining stages slot in HERE, in
-    // pipeline order, as they land (the orchestrator re-sorts to the fixed order regardless):
-    //   citations, diagrams-math, image-guard, mount-assets.
+    // Ordered stage list; the orchestrator re-sorts to the fixed pipeline order regardless. The
+    // remaining stages slot in HERE as they land: citations, diagrams-math.
     const stages: PipelineStage[] = [
       createIncludeResolveStage({ resolveSandboxedPath: arguments_.resolveSandboxedPath }),
+      createImageGuardStage(),
+      createMountAssetsStage({ fontConverter }),
     ];
     const context: StageContext = {
       request: arguments_.request,
