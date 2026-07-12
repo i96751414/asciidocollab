@@ -239,6 +239,7 @@ export function EditorToolbar({
             icon={<Settings className="h-4 w-4" />}
             label="Editor settings"
             shortcut=""
+            active={settingsOpen}
             onClick={() => setSettingsOpen((previous) => !previous)}
           />
         </div>

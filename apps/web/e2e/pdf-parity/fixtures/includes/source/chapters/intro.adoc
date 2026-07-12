@@ -1,0 +1,7 @@
+= Introduction
+
+This introduction file has a level-0 document title of its own. It is included with `leveloffset=+1`,
+so that title is shifted down one level and becomes a chapter of the assembled manual rather than a
+competing document title.
+
+A second paragraph of introduction body text, so the chapter has real content under its heading.

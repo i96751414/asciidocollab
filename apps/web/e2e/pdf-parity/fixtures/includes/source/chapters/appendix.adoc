@@ -1,0 +1,10 @@
+This appendix line one is above the selected range and must be excluded.
+This appendix line two is above the selected range and must be excluded.
+This appendix line three is above the selected range and must be excluded.
+== Appendix Data
+
+The appendix section heading and this paragraph are selected by an explicit four-to-eight line range,
+so the three lines above the heading are dropped from the assembled document.
+
+This appendix paragraph sits just below the selected range and must be excluded.
+This appendix final line is below the selected range and must be excluded.

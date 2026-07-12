@@ -1,11 +1,47 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.4.0 → 2.5.0 (MINOR — End-of-Feature Verification's full quality-gate sweep now
-includes a security scan step: the `security` gate (scripts/ci/security.sh — Semgrep SAST, zizmor,
-gitleaks, OSV-Scanner gated at High+, plus a non-gating knip report), mirroring the CI `security`
-job. See the aligned security_constitution.md 1.2.0 which adds the SAST and secret/workflow-scanning
-patterns. No principle removed or redefined.)
+Version change: 2.5.0 → 2.6.0 (MINOR — six new principles added (X–XV) governing the in-browser
+rendering & export capability introduced by feature 039, plus a Governance addition making the two
+new NON-NEGOTIABLE principles (X client-side/no-egress, XI reference-build parity) non-waivable by a
+plan. No existing principle removed or redefined. Principle X (outbound egress) and Principle XIV
+(sandbox-safe dependency runtime) cross-reference the existing Principle IX (Untrusted Input Boundary,
+which governs inbound content) rather than duplicating it; Principles XI/XII/XV extend the existing
+verification discipline (Principle II + End-of-Feature Verification) with reference-parity comparison
+testing.)
+
+Added principles (2.6.0):
+- X. Client-Side by Default — No Source Egress Without Consent (NON-NEGOTIABLE)
+- XI. Reference-Build Parity — The Fidelity Oracle (NON-NEGOTIABLE)
+- XII. Deterministic, Reproducible Output
+- XIII. Non-Blocking Responsiveness
+- XIV. Sandbox-Safe Dependencies Only
+- XV. Fidelity Verified Before Done
+
+Added sections (2.6.0):
+- Governance › Non-Waivable Principles (new subsection)
+
+Removed / redefined principles (2.6.0): none.
+
+Templates requiring updates (2.6.0):
+- ✅ .specify/templates/plan-template.md — Constitution Check is generic ("[Gates determined based on
+  constitution file]"); it auto-reflects X–XV. No change required.
+- ✅ .specify/templates/tasks-template.md — task categorization is constitution-generic; no
+  principle-driven task type added or removed. No change required.
+- ✅ .specify/templates/spec-template.md — no constitution-coupled mandatory section changed. No
+  change required.
+- ✅ .specify/memory/architecture_constitution.md — no conflict with new principles.
+- ✅ .specify/memory/security_constitution.md — no conflict; Principles X/XIV align with its
+  sandbox/allow-list posture.
+
+Follow-up TODOs (2.6.0): none. Ratification date retained from original adoption.
+
+--- prior change (2.4.0 → 2.5.0) retained for context ---
+MINOR — End-of-Feature Verification's full quality-gate sweep now includes a security scan step: the
+`security` gate (scripts/ci/security.sh — Semgrep SAST, zizmor, gitleaks, OSV-Scanner gated at High+,
+plus a non-gating knip report), mirroring the CI `security` job. See the aligned
+security_constitution.md 1.2.0 which adds the SAST and secret/workflow-scanning patterns. No principle
+removed or redefined.
 
 --- prior change (2.3.0 → 2.4.0) retained for context ---
 MINOR — two new subsections added to Development Workflow:
@@ -231,6 +267,112 @@ sandbox-confined, and sanitized before it is inserted into a document or rendere
 
 ---
 
+### X. Client-Side by Default — No Source Egress Without Consent (NON-NEGOTIABLE)
+
+Project files and document content MUST be processed in the browser; content leaving the client is
+the exception, never the default.
+
+- Rendering, export, include resolution, and asset processing MUST run client-side. The document
+  source and included files MUST NOT be transmitted to a server for rendering.
+- No document content MAY leave the client EXCEPT a resource the user explicitly referenced (e.g. a
+  remote `include::` or image URL the author wrote), and even then ONLY after **explicit user
+  consent**, via an **allowlisted** path. A silent or implicit outbound fetch of referenced content
+  is a violation.
+- Absence of consent MUST fail closed: the referenced remote resource is skipped with a clear,
+  localized warning, and the rest of the document still renders/exports.
+- This principle governs **outbound** content (what leaves the client). It is the egress counterpart
+  to Principle IX (Untrusted Input Boundary), which governs **inbound** content; the "explicit,
+  reviewed allow-list decision" required for a remote fetch in Principle IX is the SAME gate this
+  principle requires for egress — they MUST NOT be satisfied by two divergent mechanisms.
+- Rationale: content is frequently confidential (e.g. GB smart-metering specifications); privacy is
+  the default, not a setting a user must discover and enable.
+
+---
+
+### XI. Reference-Build Parity — The Fidelity Oracle (NON-NEGOTIABLE)
+
+In-app rendering/export output MUST match the canonical Asciidoctor PDF toolchain (the project's
+CLI / Maven build) for the same inputs.
+
+- The reference build is the single source of truth for appearance. Where in-app output and the
+  reference build diverge for the same inputs, **the reference build is correct** and the divergence
+  is a defect to be fixed — not a new baseline to adopt.
+- Parity MUST be **verified against reference output**, never assumed from code inspection or from
+  the in-app result looking plausible.
+- The fidelity bar is **element-level style parity** (fonts, spacing, colors, and layout of each
+  rendered block match the reference), unless a feature spec states a stricter bar.
+- Rationale: the same documents are also produced by a server/Maven pipeline; there can be only one
+  source of truth for appearance, and teams already rely on the reference formatting.
+
+---
+
+### XII. Deterministic, Reproducible Output
+
+Identical inputs MUST produce identical output.
+
+- Output MUST be **byte-stable**, or where byte-stability is impractical, **visually stable within a
+  defined, documented tolerance** used consistently by parity tests.
+- Generated/derived assets (rasterized diagrams, subsetted fonts, cached intermediates) MUST be
+  **content-addressed** so identical inputs resolve to the same asset.
+- Output MUST NOT depend on wall-clock time, network timing, ambient machine state, locale, or
+  iteration/order nondeterminism. Any unavoidable non-determinism MUST be normalized before it
+  reaches the output.
+- Rationale: reproducibility is the precondition for both parity testing (Principle XI) and safe
+  caching; non-deterministic output makes "does it match the reference?" unanswerable.
+
+---
+
+### XIII. Non-Blocking Responsiveness
+
+Rendering and export MUST NOT freeze the editor.
+
+- Heavy work (parsing, rendering, export, rasterization) MUST run **off the main thread**. The main
+  thread MUST remain free to service user input at all times.
+- Live preview MUST remain interactive **during** rendering; updates MAY be coalesced/debounced but
+  MUST NOT block typing, selection, or navigation.
+- This complements Principle VIII (Editor Pipeline Integrity): the scroll-sync and sanitization seams
+  MUST continue to hold while rendering runs concurrently.
+- Rationale: this is a live editing surface, not a batch tool; a render that stalls the editor breaks
+  the core interaction the product exists to provide.
+
+---
+
+### XIV. Sandbox-Safe Dependencies Only
+
+Runtime rendering dependencies MUST run inside the browser sandbox.
+
+- Runtime rendering code MUST NOT spawn subprocesses, open sockets, or load native OS extensions
+  (including native extensions in any embedded Ruby/Asciidoctor layer).
+- Capabilities that would otherwise require a host OS (filesystem, fonts, time, environment) MUST be
+  provided by **explicit browser-side shims** with defined, auditable behavior — never by assuming a
+  host OS is present or reachable.
+- This is the runtime-dependency counterpart to Principle IX's sandbox confinement: IX confines
+  resolved *paths/content*; this principle confines the *execution environment* of the rendering
+  dependencies themselves. Neither may be relaxed to accommodate a dependency's convenience.
+- Rationale: the browser/WASI sandbox is the security and portability boundary; a dependency that
+  escapes it forfeits both guarantees and cannot ship.
+
+---
+
+### XV. Fidelity Verified Before Done
+
+Fidelity-critical behavior MUST be covered by comparison tests against reference output before it is
+considered complete.
+
+- Fidelity-critical behavior includes, at minimum: theme application, fonts (embedding, subsetting,
+  fallback), diagrams, mathematical notation, citations/bibliography, and include resolution
+  (including tag/line/leveloffset filters).
+- "Comparison test" means an automated check of in-app output against the reference-build output
+  (Principle XI) at the defined tolerance (Principle XII) — not a snapshot of the in-app output
+  against itself.
+- A fidelity-critical deliverable with no passing comparison test against reference output is **not
+  done**, and MUST NOT be marked complete or merged. This extends the End-of-Feature Verification
+  gate for rendering/export features.
+- Rationale: parity claims (Principle XI) require evidence; without a comparison test, "it matches"
+  is an assertion, not a fact.
+
+---
+
 ## Architecture & Security References
 
 - Architecture enforcement rules are defined in `.specify/memory/architecture_constitution.md`
@@ -325,6 +467,20 @@ This Constitution supersedes all other development practices, guidelines, and co
 referenced in the repository. In case of conflict between this Constitution and any other
 document (including CLAUDE.md, AGENTS.md, or template files), this Constitution prevails.
 
+### Non-Waivable Principles
+
+The NON-NEGOTIABLE principles — II (TDD), IX (Untrusted Input Boundary), X (Client-Side by Default —
+No Source Egress Without Consent), and XI (Reference-Build Parity) — CANNOT be waived by a plan,
+task, or PR. In particular:
+
+- A plan MUST NOT trade away Principle X or XI to simplify implementation. Any tension with them
+  (e.g. a document referencing a remote resource the browser cannot fetch directly) MUST be resolved
+  **in favor of the principle** — via explicit user consent plus an allowlisted path (Principle X) or
+  by treating the reference build as correct (Principle XI) — NOT by carving out an exception.
+- The Complexity Tracking / justification mechanism (used elsewhere to document intentional
+  deviations) does NOT apply to these principles: they admit no justified violation, only a compliant
+  design.
+
 ### Amendment Procedure
 
 1. **Proposal:** An amendment is proposed as a PR that modifies this document.
@@ -354,4 +510,4 @@ document (including CLAUDE.md, AGENTS.md, or template files), this Constitution 
   intentional and justified, it MUST be documented in the PR description and the plan's
   complexity tracking section.
 
-**Version**: 2.5.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-05
+**Version**: 2.6.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-11

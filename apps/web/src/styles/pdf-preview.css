@@ -1,0 +1,106 @@
+/*
+ * pdf.js text-layer and annotation-layer styles for the in-browser PDF preview.
+ *
+ * These rules are extracted from pdfjs-dist/web/pdf_viewer.css (v4.10.38) — only the pieces the
+ * three-layer page stack (canvas + text layer + annotation layer) needs to make rendered text
+ * selectable and link annotations clickable. The full viewer stylesheet is intentionally NOT imported
+ * because it styles an entire embedded viewer application; importing it wholesale would leak viewer
+ * chrome into the app. Selectors are the pdf.js class contract (`.textLayer`, `.annotationLayer`), so
+ * they must stay global rather than being hashed by a CSS module.
+ */
+
+/* The positioned page container: the canvas paints underneath, the two overlays stack exactly on top. */
+.pdfPageLayers {
+  position: relative;
+  direction: ltr;
+}
+
+/*
+ * Text layer: transparent, absolutely-positioned glyph spans laid over the canvas so the browser's
+ * native selection lands on the real text. `--scale-factor` (set on the element in the component) tells
+ * pdf.js how to size and place each span; the layer fills the page container so selection aligns with
+ * the painted glyphs.
+ */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 1;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer ::selection {
+  background: rgba(0 0 255 / 0.25);
+}
+
+.textLayer br::selection {
+  background: transparent;
+}
+
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.textLayer.selecting .endOfContent {
+  top: 0;
+}
+
+/*
+ * Annotation layer: only link annotations are rendered. The layer itself ignores pointer events so it
+ * never steals clicks or selection from the canvas/text beneath it; each rendered link `<section>` opts
+ * back into pointer events so its anchor is clickable.
+ */
+.annotationLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  z-index: 2;
+}
+
+.annotationLayer section {
+  position: absolute;
+  text-align: initial;
+  pointer-events: auto;
+  box-sizing: border-box;
+  transform-origin: 0 0;
+}
+
+.annotationLayer .linkAnnotation > a {
+  position: absolute;
+  font-size: 1em;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.annotationLayer .linkAnnotation > a:hover {
+  opacity: 0.2;
+  background-color: rgb(255 255 0);
+  box-shadow: 0 2px 10px rgb(255 255 0);
+}

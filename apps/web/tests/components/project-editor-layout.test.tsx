@@ -7,6 +7,19 @@ jest.mock('@/contexts/current-user-context', () => ({
   useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
 }));
 
+// Stub the PDF export + live-preview hooks and the preview panel: the hooks pull in the PDF worker
+// factory (`create-pdf-worker`) and the panel imports pdf.js, both of which use `import.meta.url` —
+// unloadable under the commonjs jest transform, so the real modules can never be imported here.
+jest.mock('@/hooks/use-pdf-export', () => ({
+  usePdfExport: () => ({ exportPdf: jest.fn(), isExporting: false, diagnostics: [] }),
+}));
+jest.mock('@/hooks/use-pdf-preview', () => ({
+  usePdfPreview: () => ({ pdf: undefined, isRendering: false, diagnostics: [] }),
+}));
+jest.mock('@/components/pdf-preview-panel', () => ({
+  PdfPreviewPanel: () => <div data-testid="pdf-preview-panel-mock" />,
+}));
+
 jest.mock('@/components/file-tree/file-tree', () => ({
   FileTree: ({
     onSelectFile,

@@ -1,0 +1,33 @@
+= Highlighted Source Code
+:doctype: article
+:source-highlighter: rouge
+
+A short paragraph precedes the code so the render has body text on the page.
+
+== Ruby
+
+[source,ruby]
+----
+def fibonacci(count)
+  seq = [0, 1]
+  (2...count).each { |i| seq << seq[i - 1] + seq[i - 2] }
+  seq.first(count)
+end
+
+puts fibonacci(10).inspect
+----
+
+== JavaScript
+
+[source,js]
+----
+const fibonacci = (count) => {
+  const seq = [0, 1];
+  for (let i = 2; i < count; i += 1) {
+    seq.push(seq[i - 1] + seq[i - 2]);
+  }
+  return seq.slice(0, count);
+};
+
+console.log(fibonacci(10));
+----

@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: specs/038-review-comments-tasks/plan.md
+Active feature plan: specs/039-export-pdf-client/plan.md
 <!-- SPECKIT END -->
 
 ## Hard Constraints (MUST NOT)

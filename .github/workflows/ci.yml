@@ -329,6 +329,41 @@ jobs:
           # `if: always()` the upload still runs, so don't warn when there is genuinely nothing.
           if-no-files-found: ignore
 
+  # ── Build the client-side Asciidoctor-PDF WebAssembly engine ───────────────
+  pdf-wasm:
+    name: PDF wasm engine build
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Compiles CRuby + the pinned pure-Ruby gem closure to wasm32-wasip1 and bakes stdlib + gems
+      # under /usr. The script fails closed if any native extension enters the closure.
+      - name: Build asciidoctor-pdf.wasm
+        run: pnpm --filter @asciidocollab/asciidoc-pdf build:wasm
+
+      - name: Upload wasm engine artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: asciidoctor-pdf-wasm
+          path: packages/asciidoc-pdf/ruby/asciidoctor-pdf.wasm
+          retention-days: 7
+
   # ── Security scanning: SAST · secrets · dependency CVEs · workflow hardening ─
   security:
     name: Security scan (SAST · secrets · deps · workflows)

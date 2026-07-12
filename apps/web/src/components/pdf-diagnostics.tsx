@@ -1,0 +1,125 @@
+"use client";
+
+import type {
+  RenderDiagnostic,
+  DiagnosticSeverity,
+} from "@asciidocollab/asciidoc-pdf";
+import { cn } from "@/lib/utilities";
+
+/** A source location the editor can jump to when a diagnostic carries one. */
+type DiagnosticLocation = NonNullable<RenderDiagnostic["location"]>;
+
+/** Bindings for the per-resource PDF export diagnostics surface. */
+export interface PdfDiagnosticsProperties {
+  /** Non-fatal warnings and per-resource errors gathered while producing the PDF. */
+  diagnostics: readonly RenderDiagnostic[];
+  /**
+   * Invoked with a diagnostic's source location so the editor can reveal it.
+   *
+   * @param location - The diagnostic's source location to reveal in the editor.
+   */
+  onSelectLocation?: (location: DiagnosticLocation) => void;
+}
+
+/**
+ * The severities in display order: errors first, then warnings. Anchored to the
+ * {@link DiagnosticSeverity} type so it cannot drift from the protocol.
+ */
+const SEVERITY_ORDER: readonly DiagnosticSeverity[] = ["error", "warning"];
+
+/** Design-token classes per severity — destructive for errors, warning tokens for warnings. */
+const SEVERITY_STYLES: Record<
+  DiagnosticSeverity,
+  { readonly row: string; readonly label: string }
+> = {
+  error: {
+    row: "border-destructive/40 bg-destructive/10",
+    label: "text-destructive",
+  },
+  warning: {
+    row: "border-[hsl(var(--warning-border))] bg-[hsl(var(--warning-bg))]",
+    label: "text-[hsl(var(--warning))]",
+  },
+};
+
+const SEVERITY_LABEL: Record<DiagnosticSeverity, string> = {
+  error: "Error",
+  warning: "Warning",
+};
+
+function severityRank(severity: DiagnosticSeverity): number {
+  return SEVERITY_ORDER.indexOf(severity);
+}
+
+function locationSummary(location: DiagnosticLocation): string {
+  return location.line === undefined
+    ? location.path
+    : `${location.path}:${location.line}`;
+}
+
+/**
+ * A presentational surface for the non-fatal diagnostics that ride alongside a produced PDF.
+ * The export always succeeds; the items listed here were skipped or adjusted. Errors are shown
+ * before warnings, and a diagnostic with a known source location offers a click-to-locate control.
+ * Renders nothing when there are no diagnostics.
+ */
+export function PdfDiagnostics({
+  diagnostics,
+  onSelectLocation,
+}: PdfDiagnosticsProperties) {
+  if (diagnostics.length === 0) return null;
+
+  const ordered = diagnostics.toSorted(
+    (a, b) => severityRank(a.severity) - severityRank(b.severity)
+  );
+
+  return (
+    <section
+      aria-label="PDF export diagnostics"
+      className="rounded-md border border-border bg-card text-sm"
+    >
+      <p className="px-3 pt-3 text-muted-foreground">
+        The PDF was produced. The following items were skipped or adjusted.
+      </p>
+      <ul role="list" className="flex flex-col gap-2 p-3">
+        {ordered.map((diagnostic, index) => {
+          const styles = SEVERITY_STYLES[diagnostic.severity];
+          const { location } = diagnostic;
+          return (
+            <li
+              key={`${diagnostic.code}-${diagnostic.resource}-${index}`}
+              className={cn(
+                "flex flex-col gap-1 rounded-md border p-2",
+                styles.row
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-wide",
+                    styles.label
+                  )}
+                >
+                  {SEVERITY_LABEL[diagnostic.severity]}
+                </span>
+                <span className="text-foreground">{diagnostic.message}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-mono">{diagnostic.resource}</span>
+                {location !== undefined && onSelectLocation !== undefined ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectLocation(location)}
+                    className="rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {`Go to ${locationSummary(location)}`}
+                  </button>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

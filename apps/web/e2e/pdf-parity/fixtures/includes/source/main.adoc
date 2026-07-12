@@ -1,0 +1,14 @@
+= Assembled Manual
+Doc Writer
+:doctype: book
+:sectids:
+
+This preamble sits in the root document, before any include, so the assembled output begins with the
+root's own prose. The sections that follow are pulled in from separate files with three different
+include filters.
+
+include::chapters/intro.adoc[leveloffset=+1]
+
+include::chapters/features.adoc[tag=stable]
+
+include::chapters/appendix.adoc[lines=4..8]

@@ -1,0 +1,10 @@
+= Example Parity Fixture
+:doctype: book
+
+This is a placeholder AsciiDoc project for the reference-parity harness. Replace it with a real
+project and commit a `reference.pdf` produced by the external Asciidoctor-PDF build to activate the
+comparison.
+
+== A section
+
+Some body text so the exported PDF has a page to rasterize and diff.

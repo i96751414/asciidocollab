@@ -1,0 +1,8 @@
+{
+  "name": "example",
+  "description": "Template fixture showing the manifest + source layout. Add a reference.pdf produced by the external Asciidoctor-PDF build to activate it.",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.005 },
+  "referencePdf": "reference.pdf"
+}

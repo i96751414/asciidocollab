@@ -1,0 +1,11 @@
+{
+  "name": "includes",
+  "description": "Nested include:: resolution exercising a leveloffset shift, a tag= region selection, and a lines= line-range selection. Verifies the client-side include assembly places and orders content identically to the reference build and resolves every directive (no unresolved includes). Text-only, so the tolerance is tight.",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.005 },
+  "referencePdf": "reference.pdf",
+  "render": {
+    "attributes": {}
+  }
+}

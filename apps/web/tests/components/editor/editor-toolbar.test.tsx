@@ -203,6 +203,31 @@ describe('EditorToolbar', () => {
       expect(screen.queryByTestId('settings-panel')).toBeNull();
     });
 
+    test('the gear reflects the panel state via aria-expanded and the active affordance', () => {
+      const view = createMockView('');
+      render(
+        <EditorToolbar
+          view={view}
+          fontSize={16}
+          theme="default"
+          setFontSize={jest.fn()}
+          setTheme={jest.fn()}
+        />
+      );
+      const gear = screen.getByRole('button', { name: /editor settings/i });
+      // Closed: no expanded state, no active styling.
+      expect(gear).toHaveAttribute('aria-expanded', 'false');
+      expect(gear.className).not.toMatch(/bg-accent/);
+      // Open: expanded + active styling.
+      fireEvent.click(gear);
+      expect(gear).toHaveAttribute('aria-expanded', 'true');
+      expect(gear.className).toMatch(/bg-accent/);
+      // Closed again: reverts.
+      fireEvent.click(gear);
+      expect(gear).toHaveAttribute('aria-expanded', 'false');
+      expect(gear.className).not.toMatch(/bg-accent/);
+    });
+
     test('passes softWrap + setSoftWrap to the settings panel so the Soft Wrap control renders', () => {
       const view = createMockView('');
       render(

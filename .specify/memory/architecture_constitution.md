@@ -1,5 +1,21 @@
 # AsciiDoCollab Architecture Constitution
 
+<!--
+AMENDMENT NOTE (2.4.0 → 2.5.0, 2026-07-11)
+MINOR — driven by governance constitution v2.6.0 Principle X (Client-Side by Default — No Source
+Egress, NON-NEGOTIABLE) and feature 039 (in-browser PDF export). Backward-compatible mandate
+evolution; nothing removed:
+- Technology Mandate "PDF generation" now permits the REAL Asciidoctor-PDF Ruby gem compiled to
+  WebAssembly (ruby.wasm) running client-side, in addition to the server sidecar. Confidential
+  source MUST NOT be sent to a server to render (Principle X), so client-side wasm is the mandated
+  path for that case. The "no JS-based PDF fallback" constraint is UNCHANGED — the engine must be
+  the real Asciidoctor-PDF gem, never a hand-rolled JS reimplementation.
+- Async & Integration Rules updated to match.
+- Module Boundaries: recorded the accepted deviation for browser-only capability packages
+  (e.g. packages/asciidoc-pdf) — inward-only, never imported by domain/application/infrastructure.
+- Blocking Architecture Violations: added rule 9 (a package MUST NOT import from an app).
+-->
+
 ## Architecture Style
 
 **Modular Monolith** with Clean Architecture layering.
@@ -79,7 +95,10 @@ Domain ← Application ← Infrastructure ← Delivery
 - Docker sandbox containers MUST be used for all git operations (FR-011). No git
   commands execute on the host machine.
 - Real-time collaborative editing via Yjs `Y.Text` with Hocuspocus server.
-- PDF generation via Asciidoctor-PDF Ruby sidecar (spawned per-render).
+- PDF generation via the real Asciidoctor-PDF Ruby gem. Two mandated modes: (a) server sidecar
+  (spawned per-render) for non-confidential/server-driven builds; (b) **client-side ruby.wasm** (the
+  same gem compiled to WebAssembly, run in a browser Web Worker) when source must not leave the
+  client (governance Principle X). No JS-based PDF reimplementation in either mode.
 
 ---
 
@@ -92,6 +111,13 @@ Domain ← Application ← Infrastructure ← Delivery
 - `packages/domain` is the application dependency root — apart from `asciidoc-core`, no
   other package may inject dependencies into it.
 - Feature modules in `apps/` wire everything together at the composition root.
+- **Browser-only capability packages** (e.g. `packages/asciidoc-pdf`, the client-side ruby.wasm PDF
+  engine) are an accepted deviation from the domain-ring taxonomy: they carry browser/runtime
+  dependencies, MAY depend inward only on `asciidoc-core`, are consumed **only** by `apps/web` at a
+  worker/composition root, and MUST NEVER be imported by `domain`, `application`, or
+  `infrastructure`. Such a package MUST NOT import from any `apps/*` module (see Blocking rule 9);
+  app-provided capabilities (I/O, sandbox-path policy, DOM-bound shims, include assembly) are passed
+  in via injected ports, not imported.
 
 ---
 
@@ -157,6 +183,8 @@ The following violations MUST block merge:
 6. `as` casts in production code.
 7. Test files placed in `__tests__/` directories or co-located with source files.
 8. Prisma migration files committed without the user first being asked and confirming.
+9. A package (`packages/*`) imports from an app (`apps/*`). Dependencies flow inward; apps are the
+   outermost delivery layer. App-provided capabilities MUST be injected via ports, never imported.
 
 ---
 
@@ -187,7 +215,7 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Monorepo tooling       | pnpm workspaces                           | `pnpm-workspace.yaml` defines the workspace                            |
 | Code editor            | CodeMirror 6                              | Only CodeMirror 6 + y-codemirror.next for collaborative editing        |
 | Real-time CRDT         | Yjs                                       | All collaborative text editing via Yjs `Y.Text`; Hocuspocus for server |
-| PDF generation         | Asciidoctor-PDF (Ruby sidecar)            | Ruby container spawned per-render; no JS-based PDF fallback            |
+| PDF generation         | Real Asciidoctor-PDF Ruby gem — server sidecar OR client-side ruby.wasm | Sidecar container per-render for server builds; ruby.wasm in a Web Worker when source must stay on the client (Principle X); no JS-based PDF reimplementation in either mode |
 | API framework          | Fastify                                   | Schema-first validation for all routes                                 |
 | Frontend framework     | Next.js 16 (App Router)                   | Dashboard/auth via SSR; editor as client component                     |
 | Component library      | shadcn/ui + Radix UI + Tailwind CSS       | Design tokens as CSS custom properties; light/dark themes              |
@@ -195,4 +223,4 @@ Architecture rules may evolve over time. When repeated drift is detected:
 | Domain testing         | In-memory fakes                           | Every domain repository has an in-memory fake in the test suite        |
 | Infrastructure testing | testcontainers                            | Integration tests spin up real PostgreSQL/Docker containers            |
 
-**Version**: 2.4.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-03
+**Version**: 2.5.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-11

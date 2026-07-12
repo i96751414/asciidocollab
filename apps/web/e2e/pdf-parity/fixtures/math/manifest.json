@@ -1,0 +1,15 @@
+{
+  "name": "math",
+  "description": "A displayed LaTeX equation (latexmath) + an AsciiMath summation, each rendered by the MathJax shim to a self-contained SVG the engine embeds. asciidoctor-mathematical does not build on this platform, so the reference is the external Asciidoctor-PDF gem embedding the SAME shim-produced SVG assets (see reference-build/); the parity under test is therefore the wasm engine's SVG placement vs the reference gem's. MathJax emits glyph paths (no text layer), so parity is measured by a rasterized ink-map: same page count, math ink present, and the inked region's footprint + position within element-level tolerance (the tolerance absorbs the two engines' rasterizer antialiasing).",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.02 },
+  "referencePdf": "reference.pdf",
+  "kind": "math",
+  "ink": {
+    "dpi": 100,
+    "minDarkFraction": 0.001,
+    "maxDarkFractionRatioDelta": 0.35,
+    "maxBboxEdgeDelta": 0.08
+  }
+}

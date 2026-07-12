@@ -1,0 +1,17 @@
+= Math Parity
+:doctype: article
+:stem: latexmath
+
+The quadratic formula, as a displayed LaTeX equation:
+
+[latexmath]
+++++
+x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+++++
+
+A summation, expressed in AsciiMath:
+
+[asciimath]
+++++
+sum_(i=1)^n i = (n(n+1))/2
+++++

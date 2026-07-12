@@ -30,8 +30,9 @@ const transformIgnorePatterns = ['/node_modules/\\.pnpm/(?!@dicebear\\+)'];
 
 const sharedModuleNameMapper = {
   '^@/(.*)$': '<rootDir>/src/$1',
-  // Resolve the shared AsciiDoc leaf package from its source so unit tests don't require a prior build.
+  // Resolve the shared AsciiDoc leaf packages from source so unit tests don't require a prior build.
   '^@asciidocollab/asciidoc-core$': '<rootDir>/../../packages/asciidoc-core/src/index.ts',
+  '^@asciidocollab/asciidoc-pdf$': '<rootDir>/../../packages/asciidoc-pdf/src/index.ts',
   '\\.css$': '<rootDir>/tests/__mocks__/fileMock.cjs',
 };
 
@@ -56,6 +57,9 @@ const collectCoverageFrom = [
   // it exists precisely so consumers MOCK it). Everything else is unit-tested.
   '!src/**/*.worker.ts',
   '!src/lib/create-render-worker.ts',
+  '!src/lib/create-pdf-worker.ts',
+  // Ambient type declarations carry no runtime code — they are not loadable modules.
+  '!src/**/*.d.ts',
 ];
 
 const config = {

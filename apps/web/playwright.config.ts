@@ -68,7 +68,31 @@ export default defineConfig({
         '**/auth-first-run.spec.ts',
         '**/email-verification-gate.spec.ts',
         '**/open-registration-toggle.spec.ts',
+        // Run under their own stack-free config (playwright.pdf-parity.config.ts): they drive the wasm
+        // engine + shims directly and must not depend on the `setup` project or a live web server. The
+        // emit spec additionally shells out to Docker (PARITY_EMIT-gated) and is a dev tool, not a check.
+        '**/pdf-parity-render.spec.ts',
+        '**/emit-reference-inputs.spec.ts',
+        // The heavy in-browser PDF preview spec runs in its own single-worker project (below): it spins
+        // up a tens-of-MiB wasm engine, so running it alongside the rest under the shared worker cap
+        // thrashes the box and the large same-origin blob fetch aborts. It stays against the live stack,
+        // just serialized — NOT excluded from the run.
+        '**/pdf-preview-responsive.spec.ts',
       ],
+      dependencies: ['setup'],
+    },
+
+    // Phase 2d: The heavy in-browser PDF preview spec, run one-at-a-time. It boots a fresh wasm engine
+    // (tens of MiB compiled + a warm Ruby VM), so this project pins `workers: 1` / `fullyParallel:
+    // false` to keep only ONE engine alive at a time — concurrent engines starve each other and abort
+    // the engine-blob fetch. It still exercises the real app stack (it depends on `setup`); only the
+    // concurrency is capped for this project, not for the whole suite.
+    {
+      name: 'chromium-pdf',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: ['**/pdf-preview-responsive.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
       dependencies: ['setup'],
     },
   ],

@@ -1,0 +1,10 @@
+This leading prose is OUTSIDE the tagged region and must never appear in the assembled document.
+
+// tag::stable[]
+== Stable Features
+
+The stable-features section is selected by tag, so only this tagged region is inlined while the
+untagged prose surrounding it in the source file is excluded from the assembled document.
+// end::stable[]
+
+This trailing prose is also OUTSIDE the tagged region and must likewise be excluded.

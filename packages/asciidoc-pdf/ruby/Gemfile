@@ -1,0 +1,55 @@
+# frozen_string_literal: true
+
+# Pinned gem closure for the client-side Asciidoctor-PDF WebAssembly build.
+#
+# Every gem here MUST be pure Ruby (or ship no C extension that survives the wasm32-wasip1
+# closure): the engine runs inside the WASI sandbox with no subprocess, no socket, and no native
+# extension loading. The wasm build fails closed if any native extension enters the tree.
+#
+# Native transitive gems (for example bigdecimal, which ships as a compiled default gem) are held
+# back below. Prawn's number handling must stay on the pure-Ruby paths; if a code path ever reaches
+# a native default gem, prefer a pure-Ruby shim over relaxing this exclusion.
+
+source "https://rubygems.org"
+
+# Core rendering engine and its pure-Ruby companions.
+gem "asciidoctor", "~> 2.0"
+gem "asciidoctor-pdf", "~> 2.3"
+
+# PDF drawing stack. prawn/ttfunk/pdf-core come in transitively via asciidoctor-pdf; prawn-svg and
+# prawn-templates are pulled in explicitly for inline SVG and branded page backgrounds. prawn-svg is
+# left unpinned so its version tracks whatever asciidoctor-pdf's own constraint resolves to.
+gem "prawn-svg"
+gem "prawn-templates", "~> 0.1"
+
+# Source-code syntax highlighting (pure Ruby).
+gem "rouge", "~> 4.5"
+
+# Hyphenation dictionaries (pure Ruby, bundled data).
+gem "text-hyphen", "~> 1.5"
+
+# Host bridge exposing JavaScript to Ruby inside ruby.wasm.
+gem "js", "~> 2.7"
+
+# Inert offline stdlib shims baked into the engine. The rendering closure transitively requires
+# net/http (via prawn-svg -> css_parser), which needs the native `socket` and `io/wait` extensions —
+# neither exists in the WASI sandbox and neither is in the wasm Ruby build. This local pure-Ruby gem
+# provides do-nothing stand-ins so `require 'asciidoctor-pdf'` loads. The pipeline is fully offline, so
+# net/http is never actually used; the shims never perform real I/O. Pure Ruby, so it passes the
+# no-native-extension gate.
+gem "asciidoctor-pdf-wasm-shims", path: "shims/asciidoctor-pdf-wasm-shims"
+
+# ── Intentionally NOT baked into the wasm engine ──────────────────────────────────────────────────
+#
+# Post-convert PDF optimization (the "hexapdf" gem) is deliberately left OUT of this closure. hexapdf
+# hard-depends on compiled extensions (an SSL library and a native string scanner) that cannot be
+# built for, or loaded inside, the no-compiler WASI sandbox — pulling it in makes the whole engine
+# fail to build. PDF optimization is an OPTIONAL capability: the convert pipeline detects that the
+# optimizer is absent and simply skips the optimize pass, still emitting a valid PDF. If a pure-Ruby
+# optimizer ever becomes viable, re-add it here.
+#
+# Likewise the native default gem "bigdecimal" is held back — a compiled default gem with no
+# pure-Ruby wasm path. Prawn's number handling must stay on its pure-Ruby code paths; prefer a
+# pure-Ruby shim over relaxing this exclusion if a path ever reaches it.
+# gem "hexapdf", "~> 1.0"   # dropped: drags native openssl + strscan; PDF-optimize left unbaked
+# gem "bigdecimal"          # dropped: native compiled default gem

@@ -20,6 +20,22 @@ jest.mock('@/contexts/current-user-context', () => ({
   useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com', avatarKey: null }),
 }));
 
+// Stub the PDF export hook: its worker factory uses `import.meta.url`, which is unloadable under the
+// commonjs jest transform, so the real module can never be imported here (mocked by design).
+jest.mock('@/hooks/use-pdf-export', () => ({
+  usePdfExport: () => ({ exportPdf: jest.fn(), isExporting: false, diagnostics: [] }),
+}));
+
+// Stub the live PDF preview hook AND its panel: both pull in the PDF worker/pdf.js, whose
+// `import.meta.url` is unloadable under the commonjs jest transform, so the real modules can never
+// be imported here (mocked by design).
+jest.mock('@/hooks/use-pdf-preview', () => ({
+  usePdfPreview: () => ({ pdf: undefined, isRendering: false, diagnostics: [] }),
+}));
+jest.mock('@/components/pdf-preview-panel', () => ({
+  PdfPreviewPanel: () => <div data-testid="pdf-preview-panel-mock" />,
+}));
+
 // Stub the file tree so it doesn't fetch on its own.
 jest.mock('@/components/file-tree/file-tree', () => ({
   FileTree: () => <div data-testid="file-tree-stub" />,

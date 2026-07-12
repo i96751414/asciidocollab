@@ -30,3 +30,6 @@ export {
 } from './conditional-regions';
 // The reference/symbol/include-graph extraction engine (its own barrel + concern sub-modules).
 export * from './extraction';
+// The environment-agnostic include-assembly primitive (I/O + sandbox path policy injected) shared by
+// every rendering path so include semantics never drift between them.
+export * from './assembly';

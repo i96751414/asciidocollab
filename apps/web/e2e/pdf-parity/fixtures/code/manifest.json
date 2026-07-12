@@ -1,0 +1,14 @@
+{
+  "name": "code",
+  "description": "Highlighted [source,ruby] + [source,js] blocks with source-highlighter: rouge. Rouge runs inside the wasm engine, so this is the lowest-risk fixture: it asserts the highlighted code text survives into the PDF text layer and is placed on the page. Pixel tolerance is loose because token colours are compared structurally, not per-pixel, against the reference build.",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.02 },
+  "referencePdf": "reference.pdf",
+  "kind": "code",
+  "attributes": {},
+  "structural": {
+    "requiredFragments": ["fibonacci", "console.log", "def ", "const ", "puts", "return"],
+    "note": "Highlighting wraps tokens in colour but the literal characters remain in the text layer; parity is 'same code text, present and placed', not per-pixel token colour."
+  }
+}

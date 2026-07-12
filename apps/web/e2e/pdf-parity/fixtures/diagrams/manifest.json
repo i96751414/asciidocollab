@@ -1,0 +1,16 @@
+{
+  "name": "diagrams",
+  "description": "Mermaid flowchart + Graphviz digraph + Vega bar chart, each rendered by its shim (mermaid/MathJax in a headless browser; Graphviz/Vega headless in Node) to an SVG the engine embeds. An exact-version offline mermaid/Vega reference toolchain is impractical, so the reference is the external Asciidoctor-PDF gem embedding the SAME shim-produced SVG assets (see reference-build/); parity under test is the wasm engine's SVG placement vs the reference gem's. Both engines share prawn-svg, so both degrade identically on any prawn-svg-unsupported SVG construct (e.g. a Vega rect sizing), keeping the comparison fair. Parity is measured structurally: same page count, diagram ink present with footprint + position within element-level tolerance, and the Mermaid flowchart's text labels present in both renders. Pixel-exactness against a DIFFERENT diagram engine is deliberately NOT the bar (element-level tolerance).",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.05 },
+  "referencePdf": "reference.pdf",
+  "kind": "diagrams",
+  "ink": {
+    "dpi": 100,
+    "minDarkFraction": 0.002,
+    "maxDarkFractionRatioDelta": 0.35,
+    "maxBboxEdgeDelta": 0.08
+  },
+  "labels": ["Start", "Choice", "Do", "Skip"]
+}

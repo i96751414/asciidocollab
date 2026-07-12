@@ -13,6 +13,23 @@ jest.mock('@/contexts/current-user-context', () => ({
   useCurrentUser: () => ({ userId: 'u-test', displayName: 'Test User', email: 't@example.com' }),
 }));
 
+// Stub the PDF export hook: its worker factory uses `import.meta.url`, which is unloadable under the
+// commonjs jest transform, so the real module can never be imported here (mocked by design).
+const mockExportPdf = jest.fn();
+jest.mock('@/hooks/use-pdf-export', () => ({
+  usePdfExport: () => ({ exportPdf: mockExportPdf, isExporting: false, diagnostics: [] }),
+}));
+
+// Stub the live PDF preview hook AND its panel: both pull in the PDF worker/pdf.js, whose
+// `import.meta.url` is unloadable under the commonjs jest transform, so the real modules can never
+// be imported here (mocked by design).
+jest.mock('@/hooks/use-pdf-preview', () => ({
+  usePdfPreview: () => ({ pdf: undefined, isRendering: false, diagnostics: [] }),
+}));
+jest.mock('@/components/pdf-preview-panel', () => ({
+  PdfPreviewPanel: () => <div data-testid="pdf-preview-panel-mock" />,
+}));
+
 // Editor stub that surfaces the navigation callbacks so tests can drive Ctrl+click flows. The
 // Go to Symbol / Refactor buttons now live in the editor toolbar, so the stub renders them and
 // seeds the refactor callback with a sample cursor symbol (real detection is unit-tested separately).
@@ -282,6 +299,7 @@ beforeEach(() => {
   mockCollabDoc = { doc: null, awareness: null, connectionState: 'synced' };
   mockSelectFile.mockReset();
   mockRefreshIndex.mockReset();
+  mockExportPdf.mockReset();
   mockGetCollabInfo.mockReset();
   mockGetDocumentContent.mockReset();
   mockLineOf.mockClear();
@@ -345,6 +363,19 @@ describe('ProjectEditorLayout — preview toggle & scroll sync', () => {
     fireEvent.click(screen.getByRole('button', { name: /set style/i }));
     // No throw — handlers are wired through to the preference setters.
     expect(screen.getByTestId('asciidoc-preview')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectEditorLayout — PDF export', () => {
+  test('the Export to PDF action builds a snapshot (fetching referenced assets) and renders it', async () => {
+    render(<ProjectEditorLayout {...defaultProps} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /export to pdf/i }));
+    });
+    // The open file resolves to a render-root path (mockPathOf), so the export path awaits the (empty)
+    // asset fetch and hands the resulting snapshot to the render hook.
+    await waitFor(() => expect(mockExportPdf).toHaveBeenCalledTimes(1));
+    expect(mockExportPdf.mock.calls[0][0]).toEqual(expect.objectContaining({ rootPath: expect.any(String) }));
   });
 });
 

@@ -1,0 +1,11 @@
+= Math Parity
+:doctype: article
+:stem: latexmath
+
+The quadratic formula, as a displayed LaTeX equation:
+
+image::.gen/1087f6478a440397.svg[]
+
+A summation, expressed in AsciiMath:
+
+image::.gen/d2dce427889c5ba9.svg[]

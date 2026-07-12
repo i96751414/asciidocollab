@@ -1,0 +1,12 @@
+= Citations Parity
+:doctype: article
+
+Structured programming was advanced by cite:dijkstra1968[], while typesetting
+practice was shaped by cite:lamport1994[] and cite:knuth1997[].
+
+As citenp:lamport1994[] observed, document preparation benefits from a declarative
+model, an idea that also runs through cite:knuth1997[].
+
+== References
+
+bibliography::[]

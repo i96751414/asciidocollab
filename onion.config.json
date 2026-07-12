@@ -1,6 +1,7 @@
 {
   "layers": {
     "asciidoc-core": "./packages/asciidoc-core/src",
+    "asciidoc-pdf": "./packages/asciidoc-pdf/src",
     "domain": "./packages/domain/src",
     "shared": "./packages/shared/src",
     "infrastructure": "./packages/infrastructure/src",
@@ -10,6 +11,7 @@
   },
   "rules": [
     { "from": "asciidoc-core", "allowedImports": [] },
+    { "from": "asciidoc-pdf", "allowedImports": ["asciidoc-core"] },
     { "from": "domain", "allowedImports": ["asciidoc-core"] },
     { "from": "shared", "allowedImports": [] },
     { "from": "infrastructure", "allowedImports": ["domain", "shared"] },

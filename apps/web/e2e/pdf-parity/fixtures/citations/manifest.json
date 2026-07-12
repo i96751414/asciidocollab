@@ -1,0 +1,17 @@
+{
+  "name": "citations",
+  "description": "The highest-fidelity-risk fixture: cite/citenp inline macros + a bibliography over a shared .bib, verified across the full matrix of a numeric CSL (vancouver) and an author-date CSL (apa), each under appearance and alphabetical ordering. Our output is the citation-js shim rewriting the document (Node-native) then the wasm engine converting; the reference is the external Asciidoctor-PDF gem + asciidoctor-bibtex over the same .bib (reference-src/main.adoc in asciidoctor-bibtex macro syntax, one PDF per variant). Parity is asserted structurally and rigorously: the reference-list entries, their order, and — for numeric styles — the number assigned to each work and used at every in-text citation must match the reference; visible label punctuation ([1] vs 1.) is intentionally not required to match. Author-date bibliographies sort alphabetically regardless of ordering, so appearance and alphabetical coincide in the reference and our output must too (this drove a minimal fix to the shim's reference-list ordering).",
+  "mainFile": "main.adoc",
+  "scale": 2,
+  "tolerance": { "pixelThreshold": 0.1, "maxMismatchRatio": 0.01 },
+  "referencePdf": "reference-numeric-appearance.pdf",
+  "kind": "citations",
+  "bibPath": "refs.bib",
+  "referenceSource": "reference-src/main.adoc",
+  "variants": [
+    { "id": "numeric-appearance", "style": "vancouver", "order": "appearance", "family": "numeric", "referencePdf": "reference-numeric-appearance.pdf" },
+    { "id": "numeric-alphabetical", "style": "vancouver", "order": "alphabetical", "family": "numeric", "referencePdf": "reference-numeric-alphabetical.pdf" },
+    { "id": "author-date-appearance", "style": "apa", "order": "appearance", "family": "author-date", "referencePdf": "reference-author-date-appearance.pdf" },
+    { "id": "author-date-alphabetical", "style": "apa", "order": "alphabetical", "family": "author-date", "referencePdf": "reference-author-date-alphabetical.pdf" }
+  ]
+}

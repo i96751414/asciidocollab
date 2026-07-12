@@ -10,6 +10,7 @@ import { cn } from '@/lib/utilities';
 import type { PreviewState, ScrollRequest } from '@/hooks/use-asciidoc-preview';
 import { useAsciidocPreview } from '@/hooks/use-asciidoc-preview';
 import { PreviewStyleControl, type PreviewStyleValue } from '@/components/preview-style-control';
+import { PreviewModeToggle, type PreviewMode } from '@/components/preview-mode-toggle';
 import { ShowIncludesControl } from '@/components/show-includes-control';
 import {
   INCLUDE_PLACEHOLDER_CLASS,
@@ -90,6 +91,14 @@ interface AsciiDocPreviewProperties {
    * @param value - The new value (true = show bodies inline, false = hide behind placeholders).
    */
   onShowIncludedFilesChange?: (value: boolean) => void;
+  /** The active preview mode; rendered in the header's shared HTML/PDF switch. */
+  previewMode?: PreviewMode;
+  /**
+   * Called when the user switches the preview mode from the header.
+   *
+   * @param mode - The newly selected preview mode.
+   */
+  onPreviewModeChange?: (mode: PreviewMode) => void;
 }
 
 /** Live preview panel that renders AsciiDoc source as styled HTML via a Web Worker. */
@@ -111,6 +120,8 @@ export function AsciiDocPreview({
   showIncludedFiles = false,
   onOpenInclude,
   onShowIncludedFilesChange,
+  previewMode = 'html',
+  onPreviewModeChange,
 }: AsciiDocPreviewProperties) {
   // Default image base path: AsciiDoc image macros reference files by path, so point Asciidoctor's
   // `imagesdir` at the project's image endpoint (see GET /projects/:id/images/*).
@@ -209,7 +220,14 @@ export function AsciiDocPreview({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
+        {/* Left anchor: the HTML/PDF switch sits in the SAME position in both preview modes so the
+            header stays stable when the mode changes. Falls back to a static label when this preview
+            is used without a mode switch. */}
+        {onPreviewModeChange ? (
+          <PreviewModeToggle mode={previewMode} onModeChange={onPreviewModeChange} />
+        ) : (
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
+        )}
         <div className="flex items-center gap-1">
           {onPreviewStyleChange && (
             <PreviewStyleControl value={previewStyle} onChange={onPreviewStyleChange} compact />

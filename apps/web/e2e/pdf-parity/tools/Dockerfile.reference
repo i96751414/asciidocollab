@@ -1,0 +1,16 @@
+# Reference-build toolchain for PDF parity fixtures. This is the canonical, external Asciidoctor-PDF
+# reference engine (never the in-app wasm export): the real gem plus the citation and diagram
+# extensions the fixtures exercise. Built once into an image so each fixture's reference render is
+# fast and reproducible. See tools/build-references.mjs for how it is driven.
+FROM ruby:3.3
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends graphviz \
+  && rm -rf /var/lib/apt/lists/*
+
+# Pinned so the committed reference PDFs are reproducible. Bump deliberately, regenerate the corpus.
+RUN gem install --no-document \
+  asciidoctor-pdf:2.3.24 \
+  rouge:5.0.0 \
+  asciidoctor-bibtex:0.9.0 \
+  asciidoctor-diagram:3.2.1

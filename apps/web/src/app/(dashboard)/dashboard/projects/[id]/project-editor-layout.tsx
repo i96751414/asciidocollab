@@ -27,6 +27,7 @@ import { SearchView, type SearchResultTarget } from '@/components/editor/search-
 import { NonLiveIndicator } from '@/components/editor/non-live-indicator';
 import type { SectionOutlineEntry } from '@/lib/codemirror/asciidoc-outline';
 import { assembleOutline, mapOutlinePresence } from '@/lib/outline';
+import { buildAssembledLineToSource, openLineToAssembledLine } from '@/lib/pdf/scroll-sync-map';
 import { sameOutlineEntries } from '@/lib/outline/stable-entries';
 import type { OutlinePeer } from '@/lib/outline';
 import type { SelectedFile, FileContentState } from '@/hooks/use-file-selection';
@@ -47,6 +48,24 @@ import { useProjectEditorState } from '@/app/(dashboard)/dashboard/projects/[id]
 import { useManagedCollab } from '@/app/(dashboard)/dashboard/projects/[id]/use-managed-collab';
 import { useEditorNavigation } from '@/app/(dashboard)/dashboard/projects/[id]/use-editor-navigation';
 import { useEditorRestoration } from '@/app/(dashboard)/dashboard/projects/[id]/use-editor-restoration';
+import { PdfExportButton } from '@/components/pdf-export-button';
+import { PdfDiagnostics } from '@/components/pdf-diagnostics';
+import { PdfPreviewPanel } from '@/components/pdf-preview-panel';
+import { usePdfExport } from '@/hooks/use-pdf-export';
+import { usePdfPreview } from '@/hooks/use-pdf-preview';
+import { buildProjectSnapshot, type SnapshotFile } from '@/lib/pdf/build-project-snapshot';
+import { collectReferencedAssetPaths } from '@/lib/pdf/collect-referenced-assets';
+import { useProjectAssetCache } from '@/hooks/use-project-asset-cache';
+import type { ProjectSnapshot, RenderDiagnostic } from '@asciidocollab/asciidoc-pdf';
+
+/** A diagnostic source location the editor can reveal. */
+type DiagnosticLocation = NonNullable<RenderDiagnostic['location']>;
+
+/** Stable empty attribute seed used when no render root is resolved yet (keeps identity stable). */
+const NO_EXPORT_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
+
+/** Stable empty asset-path list used while the PDF preview is inactive (keeps memo identity stable). */
+const NO_ASSET_PATHS: readonly string[] = [];
 
 interface ContentAreaProperties {
   selectedFile: SelectedFile | null;
@@ -515,6 +534,140 @@ export function ProjectEditorLayout({
   const previewOpenPath =
     selectedFile && projectIndex ? (projectIndex.pathOf(selectedFile.nodeId) ?? undefined) : undefined;
 
+  // ── Export to PDF ──────────────────────────────────────────────────────────────────────────
+  // Fully client-side one-click export. The render root mirrors the symbol-index root: the
+  // configured main file, else the open file. Both are resolved to project-relative paths; the
+  // control is disabled until a root path is known.
+  const { exportPdf, isExporting: isExportingPdf, phase: exportPhase, error: exportError, diagnostics: exportDiagnostics } = usePdfExport();
+  const exportRootFileId = mainFile ?? selectedFile?.nodeId ?? null;
+  const exportMainPath = mainFile && projectIndex ? projectIndex.pathOf(mainFile) : null;
+  const exportOpenPath =
+    (selectedFile && projectIndex ? projectIndex.pathOf(selectedFile.nodeId) : null) ?? exportMainPath;
+  // Attributes resolved at the render root (its own definitions; the root inherits none), matching
+  // what the preview resolves so the exported PDF and the on-screen preview share one attribute seed.
+  const exportAttributes =
+    exportRootFileId && projectIndex ? resolvedScopeOf(exportRootFileId) : NO_EXPORT_ATTRIBUTES;
+
+  // Per-project cache of fetched binary asset (image / custom-font) bytes. Images and fonts live
+  // server-side and are reached over the authenticated image endpoint; their bytes are not in the
+  // editor's text cache. The cache fetches them once each and feeds them into the render snapshot as
+  // `kind: 'binary'` files so the engine embeds the picture instead of its not-found placeholder.
+  const { getAssets, ensureAssets, loadAssets, assetVersion } = useProjectAssetCache(projectId);
+
+  // Shared snapshot builder: the single seam that captures the editor's project state into an
+  // immutable render snapshot. Both the one-click export and the live preview build from it so the
+  // exported PDF and the on-screen preview render exactly the same document, given the same binary
+  // records. Returns null until a render root path is known. This is light main-thread work (a map
+  // over the text cache plus the sandbox guard); all heavy rendering happens off-thread in the worker.
+  const buildSnapshot = useCallback(
+    (binaryFiles: readonly SnapshotFile[]): ProjectSnapshot | null => {
+      if (exportOpenPath === null) return null;
+      // Text project files (AsciiDoc, YAML theme, .bib) from the symbol index's content cache, plus the
+      // fetched binary assets keyed by the SAME project-relative path the engine resolves them to (so
+      // `image::` targets — including paths with spaces, e.g. `New Folder/x.png` — find their bytes).
+      const textFiles: SnapshotFile[] = Object.entries(getProjectFiles()).map(
+        ([path, content]): SnapshotFile => ({ path, kind: 'text', content }),
+      );
+      const { snapshot } = buildProjectSnapshot({
+        files: [...textFiles, ...binaryFiles],
+        mainPath: exportMainPath,
+        openPath: exportOpenPath,
+        attributes: exportAttributes,
+      });
+      return snapshot;
+    },
+    [exportOpenPath, exportMainPath, exportAttributes, getProjectFiles],
+  );
+
+  // One-click export: enumerate the referenced assets, AWAIT their bytes (so nothing renders as a
+  // placeholder in the downloaded file), then build the snapshot with them and render.
+  const handleExportPdf = useCallback(async () => {
+    if (exportOpenPath === null) return;
+    const assetPaths = collectReferencedAssetPaths({ files: getProjectFiles(), attributes: exportAttributes });
+    const binaryFiles = await loadAssets(assetPaths);
+    const snapshot = buildSnapshot(binaryFiles);
+    if (snapshot === null) return;
+    exportPdf(snapshot);
+  }, [exportOpenPath, getProjectFiles, exportAttributes, loadAssets, buildSnapshot, exportPdf]);
+
+  // ── Live PDF preview ─────────────────────────────────────────────────────────────────────────
+  // The single preview panel switches between its HTML and PDF renderings via the header's segmented
+  // control; the PDF is fed by the SAME snapshot builder as the export. Building the snapshot is gated
+  // on the panel being open AND in PDF mode so no work is done otherwise, and recomputes on the same
+  // signals that drive the outline: the open file's live edits (`liveOverlayContent`) and reachable-doc
+  // changes (`reachableDocVersion`). A fresh snapshot identity is the hook's sole render trigger, and
+  // the hook debounces + renders entirely in a worker, so the editor thread is never blocked.
+  // `changedPaths` is intentionally omitted — the layout tracks no per-render path delta — so each
+  // render repopulates the whole VFS.
+  const [previewMode, setPreviewMode] = useState<'html' | 'pdf'>('html');
+  const pdfPreviewActive = previewOpen && previewMode === 'pdf';
+  // The binary assets the live PDF preview references. Enumerated only while the preview is active
+  // (a cheap macro scan), and recomputed on the same content signals as the snapshot so a
+  // newly-referenced image is discovered as soon as it is typed.
+  const previewAssetPaths = useMemo<readonly string[]>(
+    () => (pdfPreviewActive ? collectReferencedAssetPaths({ files: getProjectFiles(), attributes: exportAttributes }) : NO_ASSET_PATHS),
+    [pdfPreviewActive, getProjectFiles, exportAttributes, liveOverlayContent, reachableDocVersion],
+  );
+  // Warm the cache for the referenced assets off the render path; each arriving image bumps
+  // assetVersion, which rebuilds the snapshot below so the picture appears on the next render.
+  useEffect(() => {
+    if (pdfPreviewActive) ensureAssets(previewAssetPaths);
+  }, [pdfPreviewActive, previewAssetPaths, ensureAssets]);
+  const previewSnapshot = useMemo<ProjectSnapshot | null>(
+    () => (pdfPreviewActive ? buildSnapshot(getAssets()) : null),
+    // liveOverlayContent + reachableDocVersion are edit/content signals, and assetVersion is the
+    // binary-arrival signal, that must refresh the snapshot identity even though buildSnapshot/getAssets
+    // are referentially stable across them (see the outline memo for the same repopulate pattern).
+    [pdfPreviewActive, buildSnapshot, getAssets, liveOverlayContent, reachableDocVersion, assetVersion],
+  );
+  const {
+    pdf: previewPdf,
+    isRendering: isPreviewRendering,
+    phase: previewPhase,
+    diagnostics: previewDiagnostics,
+    sourceMap: previewSourceMap,
+  } = usePdfPreview({ snapshot: previewSnapshot, isEnabled: pdfPreviewActive });
+
+  // Source-line count of the live buffer, driving the PDF preview's proportional scroll-sync fallback
+  // (used whenever the engine emitted no source map — the editor's line maps onto the same fraction of
+  // the page stack).
+  const liveContentLineCount = useMemo(() => liveContent.split('\n').length, [liveContent]);
+
+  // Accurate scroll-sync bridge: the engine's source map is keyed to the ASSEMBLED (include-expanded)
+  // document the worker converts, but the editor's cursor line is in the OPEN file. Build the same
+  // provenance map the include-resolve stage would (via the shared helper), gated on the PDF preview
+  // being active with scroll-sync on and a source map present so no assembly cost is paid otherwise.
+  // Recomputes on the snapshot identity that drives the render, so it tracks the current source map.
+  const assembledLineToSource = useMemo(() => {
+    if (!pdfPreviewActive || !scrollSyncEnabled || previewSnapshot === null) return null;
+    if (previewSourceMap === undefined || previewSourceMap.length === 0) return null;
+    return buildAssembledLineToSource(previewSnapshot);
+  }, [pdfPreviewActive, scrollSyncEnabled, previewSnapshot, previewSourceMap]);
+
+  // Translate the editor's current scroll request (an open-file line) into the assembled-document line
+  // the source map is keyed in. A fresh scrollRequest object recomputes this so the panel scrolls to the
+  // exact rendered block; undefined when no mapping is available (the panel falls back to proportional).
+  const assembledScrollLine = useMemo<number | undefined>(() => {
+    if (assembledLineToSource === null || scrollRequest === null || previewOpenPath === undefined) {
+      return undefined;
+    }
+    return openLineToAssembledLine(assembledLineToSource, previewOpenPath, scrollRequest.line);
+  }, [assembledLineToSource, scrollRequest, previewOpenPath]);
+
+  // Reveal a diagnostic's source location, reusing the file/line navigation seam: in-place when it
+  // is the open file, otherwise switch to its file and reveal the line once the new editor mounts.
+  const handleDiagnosticLocation = useCallback(
+    (location: DiagnosticLocation) => {
+      if (previewOpenPath === location.path) {
+        revealLine(location.line ?? 1);
+        return;
+      }
+      pendingXrefLine.current = location.line ?? null;
+      handleNavigateToFile(location.path);
+    },
+    [previewOpenPath, revealLine, handleNavigateToFile, pendingXrefLine],
+  );
+
   // Full-document outline (feature 032): assemble across include directives when a main file is
   // configured and the open file is reachable. `getProjectFiles()` overlays the open file's live
   // content (once its editor has produced it — see `liveOverlayContent`) so in-progress edits are
@@ -624,6 +777,12 @@ export function ProjectEditorLayout({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <NonLiveIndicator active={nonLive} />
+          <PdfExportButton
+            onExport={handleExportPdf}
+            isExporting={isExportingPdf}
+            phase={exportPhase}
+            disabled={exportOpenPath === null}
+          />
           {commentsAvailable && (
             <div className="flex items-center gap-1">
               {commentsPanelOpen && openCount > 0 && (
@@ -685,6 +844,19 @@ export function ProjectEditorLayout({
           >
             Cancel
           </button>
+        </div>
+      )}
+
+      {/* PDF export outcome: a fatal failure alert and/or the non-fatal per-resource diagnostics
+          (the export still succeeded). Both surface below the header and clear on the next export. */}
+      {exportError && (
+        <div role="alert" className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {`Export to PDF failed: ${exportError.message}`}
+        </div>
+      )}
+      {exportDiagnostics.length > 0 && (
+        <div className="shrink-0 border-b px-3 py-2">
+          <PdfDiagnostics diagnostics={exportDiagnostics} onSelectLocation={handleDiagnosticLocation} />
         </div>
       )}
 
@@ -806,26 +978,48 @@ export function ProjectEditorLayout({
                 <span className="w-px bg-border transition-colors group-hover:bg-primary/60 group-data-[resize-handle-state=drag]:bg-primary" />
               </PanelResizeHandle>
               <Panel id="editor-preview" order={2} defaultSize={50} minSize={20} className="overflow-hidden" data-testid="preview-panel">
-                <AsciiDocPreview
-                  key={selectedFile?.nodeId}
-                  content={liveContent}
-                  isEnabled={previewOpen}
-                  projectId={projectId}
-                  mainPath={previewMainPath}
-                  getFiles={getProjectFiles}
-                  filesVersion={reachableDocVersion}
-                  rootFilePath={previewRootPath}
-                  openFilePath={previewOpenPath}
-                  scrollToLine={scrollRequest}
-                  onCollapse={togglePreview}
-                  scrollSyncEnabled={scrollSyncEnabled}
-                  onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
-                  previewStyle={previewStyle}
-                  onPreviewStyleChange={setPreviewStyle}
-                  showIncludedFiles={showIncludedFiles}
-                  onOpenInclude={handleNavigateToFile}
-                  onShowIncludedFilesChange={setShowIncludedFiles}
-                />
+                {previewMode === 'html' ? (
+                  <AsciiDocPreview
+                    key={selectedFile?.nodeId}
+                    content={liveContent}
+                    isEnabled={previewOpen}
+                    projectId={projectId}
+                    mainPath={previewMainPath}
+                    getFiles={getProjectFiles}
+                    filesVersion={reachableDocVersion}
+                    rootFilePath={previewRootPath}
+                    openFilePath={previewOpenPath}
+                    scrollToLine={scrollRequest}
+                    onCollapse={togglePreview}
+                    scrollSyncEnabled={scrollSyncEnabled}
+                    onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
+                    previewStyle={previewStyle}
+                    onPreviewStyleChange={setPreviewStyle}
+                    showIncludedFiles={showIncludedFiles}
+                    onOpenInclude={handleNavigateToFile}
+                    onShowIncludedFilesChange={setShowIncludedFiles}
+                    previewMode={previewMode}
+                    onPreviewModeChange={setPreviewMode}
+                  />
+                ) : (
+                  <PdfPreviewPanel
+                    pdf={previewPdf ?? null}
+                    isRendering={isPreviewRendering}
+                    phase={previewPhase}
+                    diagnostics={previewDiagnostics}
+                    onSelectLocation={handleDiagnosticLocation}
+                    previewMode={previewMode}
+                    onPreviewModeChange={setPreviewMode}
+                    scrollToLine={scrollRequest}
+                    sourceMap={previewSourceMap}
+                    assembledLine={assembledScrollLine}
+                    totalLines={liveContentLineCount}
+                    scrollSyncEnabled={scrollSyncEnabled}
+                    onToggleScrollSync={() => setScrollSyncEnabled(!scrollSyncEnabled)}
+                    onCollapse={togglePreview}
+                    className="h-full rounded-none border-0"
+                  />
+                )}
               </Panel>
             </>
           )}

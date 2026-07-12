@@ -172,7 +172,13 @@ ok "Web is ready."
 # command avoids changing the behaviour of the earlier build steps. (To see raw, un-retried results
 # when hunting a genuine failure, run the spec directly with `npx playwright test` and CI unset.)
 step "Running Playwright E2E tests …"
+# Prefer IPv4 when resolving `localhost`. The stack's API/web/collab ports are published by Docker on
+# IPv4 only, but on a dual-stack host `localhost` can resolve to `::1` first — Playwright's
+# apiRequestContext then hits `::1:${API_PORT}` and gets ECONNREFUSED (no IPv4 fallback), which
+# cascades to every spec's API setup once it happens. `--dns-result-order=ipv4first` pins resolution
+# to the published family (matches the `127.0.0.1` internal URLs above).
 CI=1 \
+NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first" \
 NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" \
 NEXT_PUBLIC_WEB_URL="http://localhost:${WEB_PORT}" \
 NEXT_PUBLIC_COLLAB_URL="ws://localhost:${COLLAB_PORT}" \

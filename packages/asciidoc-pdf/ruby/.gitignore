@@ -1,0 +1,9 @@
+# Generated wasm engine (large binary, produced by build-wasm.sh via the Docker toolchain).
+# Re-syncable from the pinned Gemfile.lock + toolchain — never commit or hand-edit it.
+asciidoctor-pdf.wasm
+
+# rbwasm / bundler build scratch. The real caches live in named Docker volumes; these are only
+# transient mount points / local vendor trees when running build-wasm.sh outside the container.
+/build/
+/rubies/
+/.wasm-build/

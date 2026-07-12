@@ -8,11 +8,16 @@ interface EditorToolbarButtonProperties {
   shortcut: string;
   onClick: () => void;
   disabled?: boolean;
+  /**
+   * When set, marks the button as a disclosure trigger: reflects the open state via
+   * `aria-expanded` and applies the active (pressed) affordance while true.
+   */
+  active?: boolean;
 }
 
 /** Icon button with keyboard-accessible tooltip showing label and shortcut. */
 export function EditorToolbarButton({
-  icon, label, shortcut, onClick, disabled = false,
+  icon, label, shortcut, onClick, disabled = false, active,
 }: EditorToolbarButtonProperties) {
   return (
     <Tooltip.Root>
@@ -20,6 +25,7 @@ export function EditorToolbarButton({
         <button
           type="button"
           aria-label={label}
+          aria-expanded={active}
           // Use aria-disabled (not the native `disabled` attribute) so the control
           // stays hoverable/focusable and its tooltip — which carries the reason it
           // is unavailable — can still be shown. The click is guarded below.
@@ -27,6 +33,7 @@ export function EditorToolbarButton({
           onClick={disabled ? undefined : onClick}
           className={cn(
             'h-7 w-7 flex items-center justify-center rounded text-sm hover:bg-muted',
+            active && 'bg-accent text-foreground',
             disabled && 'opacity-40 cursor-default hover:bg-transparent',
           )}
         >
