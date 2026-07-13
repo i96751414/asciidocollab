@@ -13,6 +13,7 @@ export { ProjectMemberRepository } from './project/project-member.repository';
 export { TemplateRepository } from './project/template.repository';
 export { GitRepositoryRepository } from './project/git-repository.repository';
 export { CollaborationSessionRepository } from './project/collaboration-session.repository';
+export { ProjectRenderConfigRepository } from './project/project-render-config.repository';
 
 // file-tree/
 export { FileNodeRepository } from './file-tree/file-node.repository';

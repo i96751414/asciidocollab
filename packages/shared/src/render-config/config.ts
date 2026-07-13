@@ -1,0 +1,155 @@
+/**
+ * @file The project-level render-configuration model: the set of AsciiDoc / Asciidoctor-PDF options a
+ * project may define ONCE and have applied to every document it renders — in both the live HTML preview
+ * and the in-browser PDF export. This is the single source of truth for which options exist, how each
+ * maps to an Asciidoctor attribute, and which attribute names may NEVER be set from here because the
+ * render engines pin them (`base_dir`, `pdf-fontsdir`, …) or they are security-sensitive.
+ *
+ * The resolver in `./resolve` turns a validated {@link RenderConfig} into the attribute map both engines
+ * consume; this module only defines and validates the config.
+ */
+
+import { z } from 'zod';
+
+/** Upper bound on a single free-form custom-attribute name/value, and on the number of them. */
+const CUSTOM_ATTR_MAX_LEN = 200;
+const CUSTOM_ATTR_MAX_COUNT = 100;
+/** Upper bound on a single string-valued option and on the count/length of custom font directories. */
+const STRING_OPTION_MAX_LEN = 200;
+const FONT_DIR_MAX_COUNT = 20;
+
+/** Asciidoctor-PDF named page sizes exposed in the UI (passed through verbatim as `pdf-page-size`). */
+export const PDF_PAGE_SIZES = ['A3', 'A4', 'A5', 'LETTER', 'LEGAL', 'LEDGER', 'TABLOID'] as const;
+
+/**
+ * Attribute names a project-level config MUST NOT set — either the render engines pin them (setting
+ * them breaks include/image resolution or asset mounting) or they are security-sensitive. Custom
+ * attributes are filtered against this set, and no curated option maps to any of these. Compared
+ * case-insensitively; see `resolveRenderAttributes`.
+ */
+export const PINNED_ATTRIBUTE_KEYS: ReadonlySet<string> = new Set([
+  // Engine-pinned path/resolution roots (hardcoded to /project or derived from mounted assets).
+  'base_dir',
+  'basedir',
+  'docdir',
+  'docfile',
+  'docname',
+  'outdir',
+  'to_dir',
+  'to-dir',
+  'imagesoutdir',
+  'pdf-themesdir',
+  'pdf-fontsdir',
+  // Divergent between the HTML and PDF engines — cannot be honoured identically.
+  'source-highlighter',
+  // HTML asset control owned by the app's scoped stylesheet.
+  'stylesheet',
+  'stylesdir',
+  'linkcss',
+  'copycss',
+  // Security-sensitive: the sandbox boundary and remote-fetch policy are not user-configurable.
+  'safe',
+  'safe-mode-level',
+  'allow-uri-read',
+  'max-include-depth',
+  // Raw-HTML injection vector: docinfo files are embedded verbatim by the HTML engine below the
+  // SECURE safe mode the preview worker runs at, so they must never be enabled from project config.
+  'docinfo',
+  'docinfo1',
+  'docinfo2',
+  'docinfodir',
+]);
+
+/**
+ * The project-level render configuration. Every field is optional: an absent field means "leave the
+ * engine default", a present field becomes an overridable soft-default a document header may still win
+ * over. Stored as JSON and validated with {@link renderConfigSchema}.
+ */
+export const renderConfigSchema = z
+  .object({
+    // --- Core document behaviour ---
+    /** `article` (default) or `book`; changes page/chapter model. */
+    doctype: z.enum(['article', 'book']).optional(),
+    /** Render a table of contents. */
+    toc: z.boolean().optional(),
+    /** Depth of the table of contents. */
+    toclevels: z.number().int().min(1).max(5).optional(),
+    /** Number sections. */
+    sectnums: z.boolean().optional(),
+    /** Depth to which sections are numbered. */
+    sectnumlevels: z.number().int().min(0).max(5).optional(),
+    /** Admonition icon style: font glyphs or the default image set. */
+    icons: z.enum(['font', 'image']).optional(),
+    /** Enable experimental macros (kbd:, btn:, menu:). */
+    experimental: z.boolean().optional(),
+    /** Treat every newline as a hard line break. */
+    hardbreaks: z.boolean().optional(),
+
+    // --- Paths / resolution ---
+    /** Base directory (prefix) for image macro targets. */
+    imagesdir: z.string().trim().max(STRING_OPTION_MAX_LEN).optional(),
+    /**
+     * Extra project-relative directories to APPEND to the font search path (never replace it). Each is
+     * sandbox-resolved in the web layer before it reaches the engine; short relative paths are expected.
+     */
+    extraFontDirs: z
+      .array(z.string().trim().min(1).max(STRING_OPTION_MAX_LEN))
+      .max(FONT_DIR_MAX_COUNT)
+      .optional(),
+    /** Bibliography source file (project-relative); else the first `.bib` is auto-discovered. */
+    bibtexFile: z.string().trim().max(STRING_OPTION_MAX_LEN).optional(),
+    /** CSL style the citations are formatted with (e.g. `apa`, `ieee`). */
+    bibtexStyle: z.string().trim().max(STRING_OPTION_MAX_LEN).optional(),
+    /** Reference-list ordering. */
+    bibtexOrder: z.enum(['appearance', 'alphabetical']).optional(),
+
+    // --- Asciidoctor-PDF layout (ignored by the HTML engine) ---
+    /** Selects a project theme by name (`<name>-theme.yml`, discovered anywhere in the tree). */
+    pdfTheme: z.string().trim().max(STRING_OPTION_MAX_LEN).optional(),
+    /** Output target: on-screen, print, or prepress (crop marks + recto/verso). */
+    media: z.enum(['screen', 'print', 'prepress']).optional(),
+    /** Named page size. */
+    pdfPageSize: z.enum(PDF_PAGE_SIZES).optional(),
+    /** Page orientation. */
+    pdfPageLayout: z.enum(['portrait', 'landscape']).optional(),
+    /** Enable hyphenation (uses `lang` for the hyphenation dictionary). */
+    hyphens: z.boolean().optional(),
+    /** Shrink oversized verbatim blocks to fit the content width. */
+    autofit: z.boolean().optional(),
+    /** Folio (page-side) placement strategy, meaningful with `media: prepress`. */
+    pdfFolioPlacement: z.enum(['virtual', 'physical', 'physical-inverted']).optional(),
+
+    // --- Free-form custom attributes (filtered against PINNED_ATTRIBUTE_KEYS) ---
+    /** Arbitrary shared attributes ({company}, {version}, …), injected as overridable soft-defaults. */
+    customAttributes: z
+      .record(
+        z.string().trim().min(1).max(CUSTOM_ATTR_MAX_LEN),
+        z.string().max(CUSTOM_ATTR_MAX_LEN),
+      )
+      .refine((map) => Object.keys(map).length <= CUSTOM_ATTR_MAX_COUNT, {
+        message: `At most ${CUSTOM_ATTR_MAX_COUNT} custom attributes are allowed.`,
+      })
+      .optional(),
+  })
+  .strict();
+
+/** A validated project-level render configuration. */
+export type RenderConfig = z.infer<typeof renderConfigSchema>;
+
+/**
+ * Validate and normalize an untrusted config value (drops unknown keys via `.strict` failing, coerces
+ * types). Throws a {@link z.ZodError} on invalid input.
+ */
+export function normalizeRenderConfig(raw: unknown): RenderConfig {
+  return renderConfigSchema.parse(raw);
+}
+
+/** Like {@link normalizeRenderConfig} but returns a discriminated result instead of throwing. */
+export function safeNormalizeRenderConfig(
+  raw: unknown,
+): ReturnType<typeof renderConfigSchema.safeParse> {
+  return renderConfigSchema.safeParse(raw);
+}
+
+/** The empty configuration — every option left at the engine default. */
+export const EMPTY_RENDER_CONFIG: RenderConfig = Object.freeze({});

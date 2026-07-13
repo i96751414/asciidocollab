@@ -14,6 +14,7 @@ export { PrismaProjectMemberRepository } from './persistence/project/prisma-proj
 export { PrismaTemplateRepository } from './persistence/project/prisma-template.repository';
 export { PrismaGitRepositoryRepository } from './persistence/project/prisma-git-repository.repository';
 export { PrismaCollaborationSessionRepository } from './persistence/project/prisma-collaboration-session-repository';
+export { PrismaProjectRenderConfigRepository } from './persistence/project/prisma-project-render-config.repository';
 
 // file-tree/
 export { PrismaFileNodeRepository } from './persistence/file-tree/prisma-file-node.repository';

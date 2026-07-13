@@ -1,0 +1,104 @@
+import {
+  normalizeRenderConfig,
+  safeNormalizeRenderConfig,
+  renderConfigSchema,
+  PINNED_ATTRIBUTE_KEYS,
+  PDF_PAGE_SIZES,
+  EMPTY_RENDER_CONFIG,
+} from '../../src/render-config';
+
+describe('renderConfigSchema / normalizeRenderConfig', () => {
+  it('accepts an empty config', () => {
+    expect(normalizeRenderConfig({})).toEqual({});
+    expect(EMPTY_RENDER_CONFIG).toEqual({});
+  });
+
+  it('accepts a fully populated config', () => {
+    const config = {
+      doctype: 'book',
+      toc: true,
+      toclevels: 3,
+      sectnums: true,
+      sectnumlevels: 2,
+      icons: 'font',
+      experimental: true,
+      hardbreaks: false,
+      imagesdir: 'images',
+      extraFontDirs: ['assets/fonts', 'branding/fonts'],
+      bibtexFile: 'refs.bib',
+      bibtexStyle: 'ieee',
+      bibtexOrder: 'alphabetical',
+      pdfTheme: 'acme',
+      media: 'prepress',
+      pdfPageSize: 'A4',
+      pdfPageLayout: 'landscape',
+      hyphens: true,
+      autofit: true,
+      pdfFolioPlacement: 'physical',
+      customAttributes: { company: 'Acme', version: '1.0' },
+    } as const;
+    expect(normalizeRenderConfig(config)).toEqual(config);
+  });
+
+  it('rejects unknown top-level keys (strict)', () => {
+    const result = safeNormalizeRenderConfig({ notAnOption: true });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an out-of-range toclevels', () => {
+    expect(safeNormalizeRenderConfig({ toclevels: 6 }).success).toBe(false);
+    expect(safeNormalizeRenderConfig({ toclevels: 0 }).success).toBe(false);
+  });
+
+  it('allows sectnumlevels of 0 but rejects 6', () => {
+    expect(safeNormalizeRenderConfig({ sectnumlevels: 0 }).success).toBe(true);
+    expect(safeNormalizeRenderConfig({ sectnumlevels: 6 }).success).toBe(false);
+  });
+
+  it('rejects an unknown enum value', () => {
+    expect(safeNormalizeRenderConfig({ doctype: 'manpage' }).success).toBe(false);
+    expect(safeNormalizeRenderConfig({ media: 'web' }).success).toBe(false);
+    expect(safeNormalizeRenderConfig({ pdfPageSize: 'B5' }).success).toBe(false);
+  });
+
+  it('accepts every advertised page size', () => {
+    for (const size of PDF_PAGE_SIZES) {
+      expect(safeNormalizeRenderConfig({ pdfPageSize: size }).success).toBe(true);
+    }
+  });
+
+  it('caps the number of custom attributes', () => {
+    const many: Record<string, string> = {};
+    for (let index = 0; index < 101; index += 1) {
+      many[`attr${index}`] = 'value';
+    }
+    expect(safeNormalizeRenderConfig({ customAttributes: many }).success).toBe(false);
+  });
+
+  it('caps the number of extra font dirs', () => {
+    const directories = Array.from({ length: 21 }, (_unused, index) => `fonts/${index}`);
+    expect(safeNormalizeRenderConfig({ extraFontDirs: directories }).success).toBe(false);
+  });
+
+  it('rejects an empty font-dir entry', () => {
+    expect(safeNormalizeRenderConfig({ extraFontDirs: [''] }).success).toBe(false);
+  });
+
+  it('trims string option values', () => {
+    expect(normalizeRenderConfig({ imagesdir: '  images  ' }).imagesdir).toBe('images');
+  });
+
+  it('throws on invalid input via the throwing entry point', () => {
+    expect(() => normalizeRenderConfig({ toclevels: 99 })).toThrow();
+  });
+
+  it('exposes the pinned attribute blocklist including engine-pinned + security keys', () => {
+    for (const key of ['base_dir', 'pdf-fontsdir', 'pdf-themesdir', 'source-highlighter', 'safe', 'allow-uri-read']) {
+      expect(PINNED_ATTRIBUTE_KEYS.has(key)).toBe(true);
+    }
+  });
+
+  it('is the same schema object exported for the API to reuse', () => {
+    expect(renderConfigSchema.safeParse({}).success).toBe(true);
+  });
+});

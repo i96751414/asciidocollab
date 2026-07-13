@@ -11,6 +11,7 @@ import { updateProjectSchema, type UpdateProjectInput } from "@asciidocollab/sha
 import { ArchiveButton } from "@/components/archive-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { EditorMainFilePicker } from "@/components/editor/editor-main-file-picker";
+import { RenderConfigSettings } from "@/components/render-config-settings";
 import { SPELLCHECK_LANGUAGE_OPTIONS } from "@/lib/codemirror/spellcheck-languages";
 
 interface SettingsClientProperties {
@@ -172,6 +173,15 @@ export function SettingsClient({ project, currentUserRole }: SettingsClientPrope
           />
         </div>
       )}
+
+      <div className="space-y-2 pt-4 border-t">
+        <h2 className="text-lg font-semibold">Render options</h2>
+        <p className="text-sm text-muted-foreground">
+          AsciiDoc &amp; PDF options applied to every document in this project — in the live preview and
+          the exported PDF. A document header still overrides any option set here.
+        </p>
+        <RenderConfigSettings projectId={project.id} canEdit={!isArchived} />
+      </div>
 
       {isOwner && (
         <div className="space-y-4 pt-4 border-t">

@@ -53,7 +53,7 @@ test.describe('Project settings page', () => {
   test('owner can update project name', async ({ page }) => {
     await page.goto(`/dashboard/projects/${projectId}/settings`);
 
-    const nameInput = page.getByLabel(/name/i);
+    const nameInput = page.getByLabel(/project name/i);
     await nameInput.clear();
     await nameInput.fill('Updated Project Name');
 
@@ -73,7 +73,7 @@ test.describe('Project settings page', () => {
     await expect(page.getByText(/this project is archived/i)).toBeVisible();
 
     // Name input must be disabled
-    const nameInput = page.getByLabel(/name/i);
+    const nameInput = page.getByLabel(/project name/i);
     await expect(nameInput).toBeDisabled();
   });
 });

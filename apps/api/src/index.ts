@@ -26,6 +26,7 @@ import type {
   KeyBindingRepository,
   EditorPreferencesRepository,
   CollaborationSessionRepository,
+  ProjectRenderConfigRepository,
   ReviewCommentRepository,
   ReviewReactionRepository,
   ProjectFileStore,
@@ -96,6 +97,8 @@ export interface AppContainer {
     editorPreferences: EditorPreferencesRepository;
     /** Repository for active collaboration sessions. */
     collaborationSession: CollaborationSessionRepository;
+    /** Repository for project render-config persistence. */
+    projectRenderConfig: ProjectRenderConfigRepository;
     /** Repository for review comments/tasks persistence. */
     reviewComment: ReviewCommentRepository;
     /** Repository for review reactions persistence. */
@@ -267,6 +270,7 @@ declare module 'fastify' {
       collaborationSession: CollaborationSessionRepository;
       reviewComment: ReviewCommentRepository;
       reviewReaction: ReviewReactionRepository;
+      projectRenderConfig: ProjectRenderConfigRepository;
     };
     stores: {
       fileStore: ProjectFileStore;

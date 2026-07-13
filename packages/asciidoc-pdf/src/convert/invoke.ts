@@ -202,7 +202,7 @@ export function buildConvertAttributes(snapshot: ProjectSnapshot): ConvertAttrib
 
   // Wiring layer (overridable by the project's own attributes).
 
-  const fontsDirectory = buildFontsDirectory(snapshot.fontPaths);
+  const fontsDirectory = buildFontsDirectory(snapshot.fontPaths, snapshot.extraFontDirs ?? []);
   if (fontsDirectory !== null) {
     attributes[CONVERT_ATTRIBUTE_KEYS.PDF_FONTSDIR] = fontsDirectory;
   }
@@ -225,13 +225,22 @@ export function buildConvertAttributes(snapshot: ProjectSnapshot): ConvertAttrib
 }
 
 /** Build the `pdf-fontsdir` (custom project font dirs + the baked default), or `null` if none. */
-function buildFontsDirectory(fontPaths: readonly string[]): string | null {
-  if (fontPaths.length === 0) {
+function buildFontsDirectory(
+  fontPaths: readonly string[],
+  extraFontDirectories: readonly string[],
+): string | null {
+  if (fontPaths.length === 0 && extraFontDirectories.length === 0) {
     return null;
   }
   const directories = new Set<string>();
+  // Each font file contributes its own mounted directory...
   for (const path of fontPaths) {
     directories.add(mountedDirectory(path));
+  }
+  // ...and each project-relative extra dir is mounted under the project root and APPENDED (the baked
+  // default stays last as a fallback, so a custom dir never replaces the built-in fonts).
+  for (const directory of extraFontDirectories) {
+    directories.add(join(PROJECT_MOUNT, directory));
   }
   return [...directories, BAKED_FONTS_DIR].join(FONTS_DIR_SEPARATOR);
 }

@@ -11,6 +11,7 @@
  */
 
 import type { ProjectSnapshot } from '@asciidocollab/asciidoc-pdf';
+import { stripSoftDefault } from '@asciidocollab/shared';
 import { imagesDirectory } from '@/lib/asciidoc/include-path';
 import { RENDER_INTRINSIC_ATTRIBUTES } from '@/lib/asciidoc/render-intrinsics';
 import { resolveSandboxedPath, type SandboxedPathResult } from '@/lib/asciidoc/sandbox-path';
@@ -45,6 +46,11 @@ export interface BuildProjectSnapshotInput {
   readonly openPath: string;
   /** The project attribute seed (lowercase name → value) inherited at the render root. */
   readonly attributes: ReadonlyMap<string, string>;
+  /**
+   * Extra project-relative font directories from the project render config, to APPEND to the PDF font
+   * search path. Each is sandbox-validated here; escaping entries are dropped into `excluded`.
+   */
+  readonly extraFontDirs?: readonly string[];
 }
 
 /** The captured snapshot plus every path the sandbox refused. */
@@ -140,16 +146,40 @@ export function buildProjectSnapshot(input: BuildProjectSnapshotInput): BuildPro
 
   const rootPath = input.mainPath ?? input.openPath;
 
+  // Project-config values may carry the overridable soft-default `@` marker (kept in `attributes` for
+  // the engine). Path DISCOVERY must read the raw value, so strip a trailing marker here.
+  const rawAttribute = (name: string): string | undefined => {
+    const value = merged.get(name);
+    return value === undefined ? undefined : stripSoftDefault(value);
+  };
+
   let imagesDirectoryPath: string | undefined;
-  const rawImagesDirectory = imagesDirectory(merged);
+  const rawImagesDirectory = stripSoftDefault(imagesDirectory(merged));
   if (rawImagesDirectory !== '') {
     const safeDirectory = sandbox(rawImagesDirectory);
     if (safeDirectory !== null) imagesDirectoryPath = safeDirectory;
   }
 
-  const themePath = discoverThemePath(merged.get(THEME_ATTRIBUTE), textPaths, sandbox);
-  const bibPath = discoverBibPath(merged.get(BIBTEX_ATTRIBUTE), textPaths, sandbox);
+  const themePath = discoverThemePath(rawAttribute(THEME_ATTRIBUTE), textPaths, sandbox);
+  const bibPath = discoverBibPath(rawAttribute(BIBTEX_ATTRIBUTE), textPaths, sandbox);
   const fontPaths = binaryPaths.filter((path) => FONT_EXTENSIONS.has(extensionOf(path))).toSorted();
+
+  // Sandbox-validate each configured extra font directory; escaping entries are dropped into `excluded`.
+  const extraFontDirectories: string[] = [];
+  for (const directory of input.extraFontDirs ?? []) {
+    const safe = sandbox(directory);
+    if (safe !== null) extraFontDirectories.push(safe);
+  }
+
+  // Defence in depth: a configured path attribute the sandbox REJECTED must not reach the engine
+  // either. Drop it from the attribute map so the converter falls back to its own default (the
+  // intrinsic set never defines these three, so nothing masks the removal). The `/project`+`/out` VFS
+  // already confines a stray value, but a rejected path should never be handed to the converter at all.
+  if (rawImagesDirectory !== '' && imagesDirectoryPath === undefined) delete attributes.imagesdir;
+  const rawTheme = rawAttribute(THEME_ATTRIBUTE)?.trim();
+  if (rawTheme !== undefined && rawTheme !== '' && themePath === undefined) delete attributes[THEME_ATTRIBUTE];
+  const rawBib = rawAttribute(BIBTEX_ATTRIBUTE)?.trim();
+  if (rawBib !== undefined && rawBib !== '' && bibPath === undefined) delete attributes[BIBTEX_ATTRIBUTE];
 
   const snapshot: ProjectSnapshot = {
     files,
@@ -158,6 +188,7 @@ export function buildProjectSnapshot(input: BuildProjectSnapshotInput): BuildPro
     openPath: input.openPath,
     ...(themePath === undefined ? {} : { themePath }),
     fontPaths,
+    ...(extraFontDirectories.length === 0 ? {} : { extraFontDirs: extraFontDirectories }),
     ...(imagesDirectoryPath === undefined ? {} : { imagesDir: imagesDirectoryPath }),
     ...(bibPath === undefined ? {} : { bibPath }),
     attributes,

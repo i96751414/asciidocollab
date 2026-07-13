@@ -23,11 +23,11 @@ test.describe('Project deletion', () => {
     await expect(confirmButton).toBeDisabled();
 
     // Type the wrong name — confirm button should remain disabled
-    await page.getByLabel(/type/i).fill('wrong name');
+    await page.getByLabel(/^type /i).fill('wrong name');
     await expect(confirmButton).toBeDisabled();
 
     // Type the exact project name — confirm button should become enabled
-    await page.getByLabel(/type/i).fill(PROJECT_NAME);
+    await page.getByLabel(/^type /i).fill(PROJECT_NAME);
     await expect(confirmButton).toBeEnabled();
 
     // Cleanup: close the dialog then delete the project via API
@@ -45,7 +45,7 @@ test.describe('Project deletion', () => {
     await page.getByRole('button', { name: /delete project/i }).first().click();
 
     // Type the exact project name to enable the confirm button
-    await page.getByLabel(/type/i).fill(PROJECT_NAME);
+    await page.getByLabel(/^type /i).fill(PROJECT_NAME);
 
     // Click the confirm button inside the dialog
     const confirmButton = page.getByRole('button', { name: /delete project/i }).last();

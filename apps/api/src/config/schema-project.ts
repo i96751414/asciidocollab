@@ -9,6 +9,13 @@ export interface ProjectConfig {
     /** Set-main-file rate limit window in milliseconds. */
     rateLimitWindow: number;
   };
+  /** Project render-config (get/save) rate limiting configuration. */
+  renderConfig: {
+    /** Maximum render-config requests per user/IP per window. */
+    rateLimitMax: number;
+    /** Render-config rate limit window in milliseconds. */
+    rateLimitWindow: number;
+  };
   /** Cross-file refactoring (find-usages/rename-symbol) rate limiting configuration. */
   refactoring: {
     /** Maximum refactoring requests per user/IP per window. */
@@ -92,6 +99,20 @@ export const projectSchema: convict.Schema<ProjectConfig> = {
       format: 'integer',
       default: 3_600_000,
       env: 'ASCIIDOCOLLAB_PROJECT_MAIN_FILE_RATE_LIMIT_WINDOW',
+    },
+  },
+  renderConfig: {
+    rateLimitMax: {
+      doc: 'Maximum render-config (get/save) requests per user/IP per window.',
+      format: 'integer',
+      default: 120,
+      env: 'ASCIIDOCOLLAB_PROJECT_RENDER_CONFIG_RATE_LIMIT_MAX',
+    },
+    rateLimitWindow: {
+      doc: 'Render-config rate limit window in milliseconds.',
+      format: 'integer',
+      default: 3_600_000,
+      env: 'ASCIIDOCOLLAB_PROJECT_RENDER_CONFIG_RATE_LIMIT_WINDOW',
     },
   },
   refactoring: {

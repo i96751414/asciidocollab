@@ -20,5 +20,6 @@ export { UserInvitation } from './user-invitation';
 export { EmailVerificationToken } from './email-verification-token';
 export type { KeyBinding } from './key-binding';
 export { EditorPreferences } from './editor-preferences';
+export { ProjectRenderConfig, type RenderConfigData } from './project-render-config';
 export { ReviewComment } from './review-comment';
 export { ReviewReaction } from './review-reaction';

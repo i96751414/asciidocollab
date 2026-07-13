@@ -21,6 +21,7 @@ import {
   PrismaCollaborationSessionRepository,
   PrismaReviewCommentRepository,
   PrismaReviewReactionRepository,
+  PrismaProjectRenderConfigRepository,
 } from '@asciidocollab/infrastructure';
 import type { AppContainer } from '..';
 
@@ -53,5 +54,6 @@ export function createRepositories(prisma: PrismaClient): AppContainer['repos'] 
     collaborationSession: new PrismaCollaborationSessionRepository(prisma),
     reviewComment: new PrismaReviewCommentRepository(prisma),
     reviewReaction: new PrismaReviewReactionRepository(prisma),
+    projectRenderConfig: new PrismaProjectRenderConfigRepository(prisma),
   };
 }

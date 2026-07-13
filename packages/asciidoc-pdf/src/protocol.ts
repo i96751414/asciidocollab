@@ -45,6 +45,12 @@ export interface ProjectSnapshot {
   readonly themePath?: string;
   /** Custom font files to mount into the VFS. */
   readonly fontPaths: readonly string[];
+  /**
+   * Extra project-relative directories to APPEND to the PDF font search path (never replacing the
+   * per-font dirs or the baked default). Sourced from the project render config; sandbox-validated by
+   * the snapshot builder. Each is mounted under `/project/<dir>` in the resolved `pdf-fontsdir`.
+   */
+  readonly extraFontDirs?: readonly string[];
   /** Project `:imagesdir:` value, if set. */
   readonly imagesDir?: string;
   /** BibTeX source path, if citations are used. */

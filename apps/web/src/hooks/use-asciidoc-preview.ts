@@ -17,6 +17,8 @@ interface RenderRequest {
   openFileId?: string;
   /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
+  /** Project-level render-config attributes (soft-defaulted), seeded beneath the document's own. */
+  projectAttributes?: Record<string, string>;
 }
 
 interface RenderResult {
@@ -75,6 +77,11 @@ export interface UseAsciidocPreviewOptions {
    * outline recomputing on the same signal. Leave unset when the preview has no include dependencies.
    */
   filesVersion?: number;
+  /**
+   * Project-level render-config attributes (soft-defaulted with a trailing `@`) applied beneath the
+   * document's inherited scope and its own header. A stable (memoized) reference; changing it re-posts.
+   */
+  projectAttributes?: Record<string, string>;
 }
 
 /** Return value of the `useAsciidocPreview` hook. */
@@ -109,6 +116,7 @@ export function useAsciidocPreview({
   openFileId,
   showIncludes,
   filesVersion,
+  projectAttributes,
 }: UseAsciidocPreviewOptions): UseAsciidocPreviewResult {
   const [state, setState] = useState<PreviewState>('idle');
   const [html, setHtml] = useState<string | null>(null);
@@ -132,6 +140,8 @@ export function useAsciidocPreview({
   openFileIdReference.current = openFileId;
   const showIncludesReference = useRef(showIncludes);
   showIncludesReference.current = showIncludes;
+  const projectAttributesReference = useRef(projectAttributes);
+  projectAttributesReference.current = projectAttributes;
 
   const workerReference = useRef<Worker | null>(null);
   const requestIdReference = useRef(0);
@@ -197,6 +207,7 @@ export function useAsciidocPreview({
         content: currentContent,
         imagesDir: imagesDirectoryReference.current,
         showIncludes: showIncludesReference.current,
+        ...(projectAttributesReference.current ? { projectAttributes: projectAttributesReference.current } : {}),
         ...(canAssemble ? { files, openFileId: openId } : {}),
         ...(canResolveScope ? { rootFileId: rootId, openFileId: openId, files } : {}),
       } satisfies RenderRequest);
@@ -243,7 +254,7 @@ export function useAsciidocPreview({
   useEffect(() => {
     if (!isEnabled || !content) return;
     scheduleRender(content);
-  }, [mainPath, rootFileId, showIncludes, filesVersion]);
+  }, [mainPath, rootFileId, showIncludes, filesVersion, projectAttributes]);
 
   // Scroll to line when scrollToLine changes.
   useEffect(() => {

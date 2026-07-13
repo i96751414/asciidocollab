@@ -54,6 +54,8 @@ interface AsciiDocPreviewProperties {
    * fresh {@link getFiles} snapshot — keeping the preview consistent with the outline on the same signal.
    */
   filesVersion?: number;
+  /** Project-level render-config attributes (soft-defaulted), applied beneath the document's own. */
+  projectAttributes?: Record<string, string>;
   /**
    * Project main-file path (root) for cross-document attribute resolution. When set
    * with {@link openFilePath} and {@link getFiles}, the open file's `{name}` references resolve to the
@@ -109,6 +111,7 @@ export function AsciiDocPreview({
   mainPath,
   getFiles,
   filesVersion,
+  projectAttributes,
   rootFilePath,
   openFilePath,
   scrollToLine = null,
@@ -134,6 +137,7 @@ export function AsciiDocPreview({
     mainPath,
     getFiles,
     filesVersion,
+    projectAttributes,
     rootFileId: rootFilePath,
     openFileId: openFilePath,
     showIncludes: showIncludedFiles,

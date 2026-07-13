@@ -21,6 +21,9 @@ jest.mock('@/contexts/current-user-context', () => ({
 jest.mock('@/hooks/use-pdf-export', () => ({
   usePdfExport: () => ({ exportPdf: jest.fn(), isExporting: false, diagnostics: [] }),
 }));
+jest.mock('@/hooks/use-project-render-config', () => ({
+  useProjectRenderConfig: () => ({ config: {}, loading: false, saving: false, error: null, save: jest.fn() }),
+}));
 
 // Stub the live PDF preview hook AND its panel: both pull in the PDF worker/pdf.js, whose
 // `import.meta.url` is unloadable under the commonjs jest transform, so the real modules can never

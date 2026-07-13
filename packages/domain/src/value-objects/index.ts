@@ -15,6 +15,7 @@ export { TemplateId } from './ids/template-id';
 export { AuditLogId } from './ids/audit-log-id';
 export { AuthAttemptTelemetryId } from './ids/auth-attempt-telemetry-id';
 export { ContentId } from './ids/content-id';
+export { ProjectRenderConfigId } from './ids/project-render-config-id';
 export { YjsStateId } from './ids/yjs-state-id';
 export { Email } from './identity/email';
 export { FilePath } from './files/file-path';

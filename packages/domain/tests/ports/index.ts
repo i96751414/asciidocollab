@@ -37,3 +37,6 @@ export { InMemorySystemSettingRepository } from './admin/in-memory-system-settin
 // review/
 export { InMemoryReviewCommentRepository } from './review/in-memory-review-comment.repository';
 export { InMemoryReviewReactionRepository } from './review/in-memory-review-reaction.repository';
+
+// project/
+export { InMemoryProjectRenderConfigRepository } from './project/in-memory-project-render-config.repository';

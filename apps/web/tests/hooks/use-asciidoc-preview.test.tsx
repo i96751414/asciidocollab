@@ -211,6 +211,26 @@ describe('useAsciidocPreview', () => {
     expect(message.files).toMatchObject({ 'main.adoc': expect.any(String) });
   });
 
+  it('forwards project render-config attributes to the worker when provided', () => {
+    renderHook(() =>
+      useAsciidocPreview({
+        content: '= Doc',
+        isEnabled: true,
+        scrollToLine: null,
+        projectAttributes: { doctype: 'book@', company: 'Acme@' },
+      }),
+    );
+    act(() => jest.advanceTimersByTime(200));
+    const message = lastWorker().postMessage.mock.calls[0][0];
+    expect(message.projectAttributes).toEqual({ doctype: 'book@', company: 'Acme@' });
+  });
+
+  it('omits projectAttributes from the message when none are provided', () => {
+    renderHook(() => useAsciidocPreview({ content: '= Doc', isEnabled: true, scrollToLine: null }));
+    act(() => jest.advanceTimersByTime(200));
+    expect(lastWorker().postMessage.mock.calls[0][0]).not.toHaveProperty('projectAttributes');
+  });
+
   // (d3) guard: when getFiles lacks the root path (tree not loaded yet), assembly is skipped so the
   // preview renders the open file's content instead of blanking.
   it('skips assembly (no mainPath/files in the message) when the root content is not yet available', () => {

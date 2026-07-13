@@ -128,6 +128,8 @@ describe('buildProjectSnapshot', () => {
       );
       expect(snapshot.imagesDir).toBeUndefined();
       expect(excluded).toContainEqual({ path: 'https://cdn.example.com/img', reason: 'remote' });
+      // The rejected value is also stripped from the engine attribute map (defence in depth).
+      expect(snapshot.attributes.imagesdir).toBeUndefined();
     });
   });
 
@@ -160,6 +162,7 @@ describe('buildProjectSnapshot', () => {
       );
       expect(snapshot.themePath).toBeUndefined();
       expect(excluded).toContainEqual({ path: '../../etc/theme.yml', reason: 'traversal' });
+      expect(snapshot.attributes['pdf-theme']).toBeUndefined();
     });
   });
 
@@ -212,6 +215,55 @@ describe('buildProjectSnapshot', () => {
     it('omits bibPath when there is no bibliography', () => {
       const { snapshot } = buildProjectSnapshot(baseInput({ files: [text('main.adoc', '= T')] }));
       expect(snapshot.bibPath).toBeUndefined();
+    });
+
+    it('excludes an escaping :bibtex-file: and strips it from the attribute map', () => {
+      const { snapshot, excluded } = buildProjectSnapshot(
+        baseInput({ attributes: attributes({ 'bibtex-file': '../../etc/refs.bib' }) }),
+      );
+      expect(snapshot.bibPath).toBeUndefined();
+      expect(excluded).toContainEqual({ path: '../../etc/refs.bib', reason: 'traversal' });
+      expect(snapshot.attributes['bibtex-file']).toBeUndefined();
+    });
+  });
+
+  describe('extra font directories', () => {
+    it('captures sandbox-valid project-relative dirs', () => {
+      const { snapshot } = buildProjectSnapshot(
+        baseInput({ extraFontDirs: ['assets/fonts', 'branding/fonts'] }),
+      );
+      expect(snapshot.extraFontDirs).toEqual(['assets/fonts', 'branding/fonts']);
+    });
+
+    it('drops an escaping dir into excluded and omits extraFontDirs when all are dropped', () => {
+      const { snapshot, excluded } = buildProjectSnapshot(baseInput({ extraFontDirs: ['../escape'] }));
+      expect(snapshot.extraFontDirs).toBeUndefined();
+      expect(excluded.some((entry) => entry.path === '../escape')).toBe(true);
+    });
+
+    it('omits extraFontDirs when none are configured', () => {
+      const { snapshot } = buildProjectSnapshot(baseInput());
+      expect(snapshot.extraFontDirs).toBeUndefined();
+    });
+  });
+
+  describe('soft-default (@) handling', () => {
+    it('strips the marker for path discovery but keeps it in the engine attributes', () => {
+      const { snapshot } = buildProjectSnapshot(
+        baseInput({
+          files: [text('main.adoc', '= T'), text('themes/brand-theme.yml', 'x'), text('refs.bib', '@book{z}')],
+          attributes: attributes({
+            imagesdir: 'images@',
+            'pdf-theme': 'themes/brand-theme.yml@',
+            'bibtex-file': 'refs.bib@',
+          }),
+        }),
+      );
+      expect(snapshot.imagesDir).toBe('images');
+      expect(snapshot.themePath).toBe('themes/brand-theme.yml');
+      expect(snapshot.bibPath).toBe('refs.bib');
+      // The engine still receives the overridable soft-default value.
+      expect(snapshot.attributes.imagesdir).toBe('images@');
     });
   });
 

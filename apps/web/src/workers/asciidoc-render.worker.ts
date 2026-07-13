@@ -28,6 +28,12 @@ interface RenderRequest {
   openFileId?: string;
   /** When false (default), the assembler hides included bodies and emits placeholders. */
   showIncludes?: boolean;
+  /**
+   * Project-level render-config attributes (already soft-defaulted with a trailing `@`). Seeded FIRST
+   * so the document's inherited scope and its own header both override them, and so the host render
+   * controls (`imagesdir`) still win.
+   */
+  projectAttributes?: Record<string, string>;
 }
 
 // Asciidoctor convention: a value ending in `@` is an overridable "soft" default — an in-document
@@ -144,6 +150,44 @@ function unescapeHtml(value: string): string {
 const SOURCE_BLOCK_RE =
   /<pre class="highlight"><code class="language-([\w+#-]+)"([^>]*)>([^<]*)<\/code><\/pre>/g;
 
+// Matches a whole <img …> / <object …> tag greedily up to its closing `>`. Attribute values never
+// contain a literal `<` or `>` (Asciidoctor escapes them as &lt;/&gt;), so `[^<>]*` bounds the match to
+// one tag and — by excluding `<` — cannot overlap a following tag, keeping the global scan linear.
+const IMG_TAG_RE = /<img\b[^<>]*>/gi;
+const OBJECT_TAG_RE = /<object\b[^<>]*>/gi;
+
+// Matches the `src="…"` / `data="…"` target attribute WITHIN a single already-isolated tag (linear: a
+// fixed attribute anchor then a `[^"]` run bounded by the closing quote). Asciidoctor emits `<img src>`
+// for a raster/normal image and `<object … data>` for an interactive SVG (`opts=interactive`).
+const IMG_SRC_ATTRIBUTE_RE = /(\ssrc=")([^"]*)(")/i;
+const OBJECT_DATA_ATTRIBUTE_RE = /(\sdata=")([^"]*)(")/i;
+
+// A target carrying a URI scheme (`https:`, `data:`), a protocol-relative `//`, a root-absolute `/`, or
+// a fragment `#` is already fully qualified; only a document-relative target is mapped to the endpoint.
+const ABSOLUTE_SRC_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/|#)/i;
+
+/** Prefix a single relative target attribute with the endpoint base; pass absolute targets through. */
+function prefixTargetAttribute(tag: string, attributePattern: RegExp, endpointBase: string): string {
+  return tag.replace(attributePattern, (whole, prefix: string, source: string, suffix: string) => {
+    if (source === '' || ABSOLUTE_SRC_RE.test(source)) return whole;
+    return `${prefix}${endpointBase}/${source.replace(/^\.\//, '')}${suffix}`;
+  });
+}
+
+/**
+ * Prefix every project-relative image target (`<img src>` and interactive-SVG `<object data>`) with the
+ * authenticated image endpoint base. The preview resolves `imagesdir` exactly as the PDF engine does (a
+ * project render-config soft-default, overridden by a document `:imagesdir:`), so Asciidoctor emits
+ * project-root-relative image paths; this maps each onto the endpoint that serves project files by path
+ * — giving both engines one image base. Absolute, protocol-relative, root-absolute, `data:`, and
+ * fragment targets pass through unchanged.
+ */
+function rewriteImageSources(html: string, endpointBase: string): string {
+  return html
+    .replaceAll(IMG_TAG_RE, (tag) => prefixTargetAttribute(tag, IMG_SRC_ATTRIBUTE_RE, endpointBase))
+    .replaceAll(OBJECT_TAG_RE, (tag) => prefixTargetAttribute(tag, OBJECT_DATA_ATTRIBUTE_RE, endpointBase));
+}
+
 // Asciidoctor renders checklist items as a leading unicode glyph in the paragraph text
 // (&#10003; "✓" when checked, &#10063; "❏" otherwise) — emitted only as these numeric
 // entities, so matching them is precise and never touches ordinary prose. We swap each for
@@ -233,7 +277,8 @@ function getProcessor(): ReturnType<typeof Asciidoctor> {
 }
 
 onmessage = function (event: MessageEvent<RenderRequest>) {
-  const { requestId, content, imagesDir, mainPath, files, rootFileId, openFileId, showIncludes } = event.data;
+  const { requestId, content, imagesDir, mainPath, files, rootFileId, openFileId, showIncludes, projectAttributes } =
+    event.data;
   try {
     const proc = getProcessor();
     // `showtitle` renders the document title in embedded output. `imagesdir` is the base path
@@ -252,15 +297,20 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     // first include-point under the project main file (including a resolved `:leveloffset:`), so a
     // `{name}` defined only in a parent resolves here — is seeded FIRST as overridable soft-defaults.
     // Host render controls are applied AFTER it so they win: `showtitle` renders the title in embedded
-    // output, and `imagesdir` is the asset base the preview host already resolved for the open file (an
-    // ancestor's `:imagesdir:` in the inherited scope must not clobber it). Empty seed ⇒ current
-    // standalone/root behavior preserved.
+    // output. NOTE: `imagesdir` is intentionally NOT forced here — it resolves exactly as the PDF
+    // engine resolves it (a project render-config soft-default, overridden by a document `:imagesdir:`
+    // or the inherited scope), so both engines share one image base. The resulting project-relative
+    // `<img src>` targets are mapped onto the authenticated image endpoint after conversion (see
+    // `rewriteImageSources`). Empty seed ⇒ current standalone/root behavior preserved.
     // The open file's inherited scope, plus the include-point offset (`baseOffset`) that its content is
     // rendered at when previewed on its own — seeded globally as `:leveloffset:` for the file's own
     // sections AND passed to the assembler so its absolute `:leveloffset:` set/restore lines compose
     // with it. 0 / empty for a root or standalone document (current behavior preserved).
     const { attributes: scopeSeed, baseOffset } = seedAttributesFromScope(rootFileId, openFileId, files);
     const attributes: Record<string, string> = {
+      // Project render-config defaults (soft-defaulted) sit at the BASE so the inherited document scope
+      // and the in-document header both override them; the host controls below (imagesdir) still win.
+      ...projectAttributes,
       // Enable STEM by default so an author who writes `stem:[…]`/`[stem]` sees rendered math in the
       // preview WITHOUT having to remember the `:stem:` header. The value `'@'` is an empty
       // value carrying the overridable soft-default marker, so it resolves to the AsciiMath default
@@ -271,7 +321,6 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
       stem: SOFT_DEFAULT_SUFFIX,
       ...scopeSeed,
       showtitle: '',
-      ...(imagesDir ? { imagesdir: imagesDir } : {}),
     };
     // When a main file + its tree's contents are supplied, assemble the include tree (sandbox-
     // confined) and render that; otherwise render the open file's content unchanged so the
@@ -344,6 +393,11 @@ onmessage = function (event: MessageEvent<RenderRequest>) {
     const stemAttribute =
       typeof asciidocDocument.getAttribute === 'function' ? asciidocDocument.getAttribute('stem') : undefined;
     const mathPresent = detectMathPresent(stemAttribute, source, html);
+
+    // Map project-relative image targets onto the authenticated image endpoint. Asciidoctor has
+    // already applied the resolved `imagesdir` (identical to the PDF engine), so each `<img src>` is a
+    // project-root-relative path the endpoint serves; only the URL base differs between the two engines.
+    if (imagesDir) html = rewriteImageSources(html, imagesDir);
 
     // Syntax-highlight source blocks before the source-line pass below; this
     // only rewrites the <code> bodies and never touches id="..." attributes.

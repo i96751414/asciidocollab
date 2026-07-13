@@ -189,6 +189,27 @@ describe('buildConvertAttributes', () => {
     expect(attributes[CONVERT_ATTRIBUTE_KEYS.IMAGESDIR]).toBeUndefined();
   });
 
+  it('appends extra font dirs after the per-font dirs and keeps the baked default last', () => {
+    const attributes = buildConvertAttributes(
+      snapshot({ fontPaths: ['fonts/Brand.ttf'], extraFontDirs: ['assets/fonts', 'branding'] }),
+    );
+
+    const fontsDirectory = attributes[CONVERT_ATTRIBUTE_KEYS.PDF_FONTSDIR];
+    expect(fontsDirectory).toBe(`/project/fonts;/project/assets/fonts;/project/branding;${BAKED_FONTS_DIR}`);
+  });
+
+  it('sets pdf-fontsdir from extra dirs even when the project ships no font files', () => {
+    const attributes = buildConvertAttributes(snapshot({ fontPaths: [], extraFontDirs: ['assets/fonts'] }));
+
+    expect(attributes[CONVERT_ATTRIBUTE_KEYS.PDF_FONTSDIR]).toBe(`/project/assets/fonts;${BAKED_FONTS_DIR}`);
+  });
+
+  it('leaves pdf-fontsdir unset when there are no fonts and no extra dirs', () => {
+    const attributes = buildConvertAttributes(snapshot({ fontPaths: [], extraFontDirs: [] }));
+
+    expect(attributes[CONVERT_ATTRIBUTE_KEYS.PDF_FONTSDIR]).toBeUndefined();
+  });
+
   it('joins the project font dirs WITH the baked default so both resolve', () => {
     const attributes = buildConvertAttributes(
       snapshot({ fontPaths: ['fonts/Brand.ttf', 'fonts/Brand-Bold.ttf'] }),

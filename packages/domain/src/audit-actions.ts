@@ -20,6 +20,7 @@ export const AUDIT_FILE_MOVED = 'file.moved';
 export const AUDIT_FILE_RENAMED = 'file.renamed';
 export const AUDIT_SYMBOL_RENAMED = 'symbol.renamed';
 export const AUDIT_PROJECT_CONTENT_REPLACED = 'project.content_replaced';
+export const AUDIT_PROJECT_RENDER_CONFIG_UPDATED = 'project.render_config_updated';
 
 // Authorization events
 export const AUDIT_AUTHZ_DENIED = 'authz.denied';

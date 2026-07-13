@@ -156,14 +156,53 @@ describe('asciidoc-render.worker', () => {
     expect(postMessageMock.mock.calls[1][0].requestId).toBe(20);
   });
 
-  // (e0) imagesDir is forwarded to Asciidoctor as the `imagesdir` attribute (image base path)
-  it('passes imagesDir to Asciidoctor as the imagesdir attribute', () => {
+  // (e0) imagesDir is NOT forced as the `imagesdir` attribute; it is the endpoint base used to rewrite
+  // the project-relative `<img src>` targets Asciidoctor emits — so the preview and the PDF engine
+  // resolve `imagesdir` identically and differ only in the URL the resolved path is served from.
+  it('rewrites project-relative <img src> onto the image endpoint without forcing imagesdir', () => {
+    mockConvert.mockReturnValueOnce('<p><span class="image"><img src="logo.png" alt="logo"></span></p>');
+    mockFindBy.mockReturnValueOnce([]);
     require('@/workers/asciidoc-render.worker');
     sendMessage({ requestId: 50, content: '= Doc', imagesDir: 'https://api/projects/p1/images' });
-    expect(mockLoad).toHaveBeenCalledWith(
-      '= Doc',
-      expect.objectContaining({ attributes: expect.objectContaining({ imagesdir: 'https://api/projects/p1/images' }) }),
-    );
+    const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
+    expect(options.attributes.imagesdir).toBeUndefined();
+    const { html } = postMessageMock.mock.calls[0][0];
+    expect(html).toContain('src="https://api/projects/p1/images/logo.png"');
+  });
+
+  it('honours a project-config imagesdir (soft default) and endpoint-prefixes the resolved src', () => {
+    mockConvert.mockReturnValueOnce('<img src="images/logo.png">');
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({
+      requestId: 53,
+      content: '= Doc',
+      imagesDir: 'https://api/projects/p1/images',
+      projectAttributes: { imagesdir: 'images@' },
+    });
+    // The project imagesdir reaches the engine exactly as the PDF snapshot passes it (soft-defaulted).
+    const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
+    expect(options.attributes.imagesdir).toBe('images@');
+    const { html } = postMessageMock.mock.calls[0][0];
+    expect(html).toContain('src="https://api/projects/p1/images/images/logo.png"');
+  });
+
+  it('leaves an absolute image URL untouched', () => {
+    mockConvert.mockReturnValueOnce('<img src="https://cdn.example.com/x.png">');
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 54, content: '= Doc', imagesDir: 'https://api/projects/p1/images' });
+    const { html } = postMessageMock.mock.calls[0][0];
+    expect(html).toContain('src="https://cdn.example.com/x.png"');
+  });
+
+  it('endpoint-prefixes an interactive-SVG <object data> target', () => {
+    mockConvert.mockReturnValueOnce('<object type="image/svg+xml" data="diagram.svg">SVG</object>');
+    mockFindBy.mockReturnValueOnce([]);
+    require('@/workers/asciidoc-render.worker');
+    sendMessage({ requestId: 55, content: '= Doc', imagesDir: 'https://api/projects/p1/images' });
+    const { html } = postMessageMock.mock.calls[0][0];
+    expect(html).toContain('data="https://api/projects/p1/images/diagram.svg"');
   });
 
   it('omits the imagesdir attribute when no imagesDir is provided', () => {
@@ -173,10 +212,10 @@ describe('asciidoc-render.worker', () => {
     expect(options.attributes.imagesdir).toBeUndefined();
   });
 
-  // (e1) The host-computed imagesDir (the resolved asset base for the open file) must win over an
-  // `imagesdir` inherited from an ancestor's cross-document scope — otherwise images in the open file
-  // resolve against the parent's relative dir instead of the preview's asset endpoint.
-  it('keeps the host imagesDir even when an ancestor defines :imagesdir: in the inherited scope', () => {
+  // (e1) An `imagesdir` inherited from an ancestor's cross-document scope now flows through to the
+  // engine (the host endpoint no longer clobbers it), so the open file resolves images against the same
+  // dir the PDF engine would; the endpoint is applied afterwards by the src rewrite, not as an attribute.
+  it('preserves an inherited-scope :imagesdir: instead of overwriting it with the endpoint', () => {
     require('@/workers/asciidoc-render.worker');
     const files = {
       'main.adoc': ':imagesdir: media\n\ninclude::child.adoc[]\n',
@@ -191,7 +230,8 @@ describe('asciidoc-render.worker', () => {
       openFileId: 'child.adoc',
     });
     const options = mockLoad.mock.calls[0][1] as { attributes: Record<string, string> };
-    expect(options.attributes.imagesdir).toBe('https://api/projects/p1/images');
+    expect(options.attributes.imagesdir).not.toBe('https://api/projects/p1/images');
+    expect(options.attributes.imagesdir).toContain('media');
   });
 
   // (e2) checklist unicode glyphs are swapped for stateful <span class="checklist-box">

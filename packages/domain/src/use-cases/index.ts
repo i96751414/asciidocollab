@@ -83,6 +83,14 @@ export { UpdateKeyBindingUseCase } from './settings/update-key-binding';
 export { ResetKeyBindingUseCase } from './settings/reset-key-binding';
 export { GetEditorPreferencesUseCase } from './settings/get-editor-preferences';
 export { SaveEditorPreferencesUseCase } from './settings/save-editor-preferences';
+export { GetProjectRenderConfigUseCase } from './settings/get-project-render-config';
+export { SaveProjectRenderConfigUseCase } from './settings/save-project-render-config';
+export {
+  requireRenderConfigEditor,
+  requireRenderConfigMember,
+  RENDER_CONFIG_RESOURCE_TYPE,
+  type RenderConfigAuthzContext,
+} from './settings/render-config-authorization';
 export { UpdateProfileUseCase } from './auth/update-profile';
 export type { UpdateProfileInput, UpdateProfileResult } from './auth/update-profile';
 export { ListAuditLogsUseCase } from './admin/list-audit-logs';

@@ -56,6 +56,8 @@ import { usePdfPreview } from '@/hooks/use-pdf-preview';
 import { buildProjectSnapshot, type SnapshotFile } from '@/lib/pdf/build-project-snapshot';
 import { collectReferencedAssetPaths } from '@/lib/pdf/collect-referenced-assets';
 import { useProjectAssetCache } from '@/hooks/use-project-asset-cache';
+import { useProjectRenderConfig } from '@/hooks/use-project-render-config';
+import { resolveRenderAttributes, SOFT_DEFAULT_SUFFIX } from '@asciidocollab/shared';
 import type { ProjectSnapshot, RenderDiagnostic } from '@asciidocollab/asciidoc-pdf';
 
 /** A diagnostic source location the editor can reveal. */
@@ -543,10 +545,34 @@ export function ProjectEditorLayout({
   const exportMainPath = mainFile && projectIndex ? projectIndex.pathOf(mainFile) : null;
   const exportOpenPath =
     (selectedFile && projectIndex ? projectIndex.pathOf(selectedFile.nodeId) : null) ?? exportMainPath;
-  // Attributes resolved at the render root (its own definitions; the root inherits none), matching
-  // what the preview resolves so the exported PDF and the on-screen preview share one attribute seed.
-  const exportAttributes =
+  // Project-level render configuration: the options a project applies to every render. Resolved to an
+  // attribute map (soft-defaults, so a document header still wins) plus the extra project-relative font
+  // directories to append to the PDF font search path.
+  const { config: renderConfig } = useProjectRenderConfig(projectId);
+  const projectRenderAttributes = useMemo(() => {
+    const resolved = resolveRenderAttributes(renderConfig);
+    // The project's own "Language" setting (which drives the editor spell checker) is ALSO the render
+    // `lang` here, so the PDF/HTML output localizes to it — one language control, not two. Soft-
+    // defaulted (`@`) and seeded first so a document `:lang:` header still overrides it.
+    if (projectLanguage === null || projectLanguage === '') return resolved;
+    return {
+      ...resolved,
+      attributes: { lang: `${projectLanguage}${SOFT_DEFAULT_SUFFIX}`, ...resolved.attributes },
+    };
+  }, [renderConfig, projectLanguage]);
+
+  // The render root's own resolved attributes (it inherits none), layered OVER the project render-config
+  // defaults so the exported PDF and the on-screen preview share one seed and a document header still
+  // overrides a project default. An empty project config preserves the base map identity (no churn).
+  const baseExportAttributes =
     exportRootFileId && projectIndex ? resolvedScopeOf(exportRootFileId) : NO_EXPORT_ATTRIBUTES;
+  const exportAttributes = useMemo<ReadonlyMap<string, string>>(() => {
+    const projectAttributes = projectRenderAttributes.attributes;
+    if (Object.keys(projectAttributes).length === 0) return baseExportAttributes;
+    const merged = new Map<string, string>(Object.entries(projectAttributes));
+    for (const [name, value] of baseExportAttributes) merged.set(name, value);
+    return merged;
+  }, [projectRenderAttributes, baseExportAttributes]);
 
   // Per-project cache of fetched binary asset (image / custom-font) bytes. Images and fonts live
   // server-side and are reached over the authenticated image endpoint; their bytes are not in the
@@ -573,10 +599,11 @@ export function ProjectEditorLayout({
         mainPath: exportMainPath,
         openPath: exportOpenPath,
         attributes: exportAttributes,
+        extraFontDirs: projectRenderAttributes.extraFontDirs,
       });
       return snapshot;
     },
-    [exportOpenPath, exportMainPath, exportAttributes, getProjectFiles],
+    [exportOpenPath, exportMainPath, exportAttributes, projectRenderAttributes, getProjectFiles],
   );
 
   // One-click export: enumerate the referenced assets, AWAIT their bytes (so nothing renders as a
@@ -987,6 +1014,7 @@ export function ProjectEditorLayout({
                     mainPath={previewMainPath}
                     getFiles={getProjectFiles}
                     filesVersion={reachableDocVersion}
+                    projectAttributes={projectRenderAttributes.attributes}
                     rootFilePath={previewRootPath}
                     openFilePath={previewOpenPath}
                     scrollToLine={scrollRequest}
