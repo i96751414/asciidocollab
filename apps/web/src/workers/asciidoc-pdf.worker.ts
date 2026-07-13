@@ -14,6 +14,7 @@
  */
 
 import {
+  createCitationsStage,
   createImageGuardStage,
   createIncludeResolveStage,
   createMountAssetsStage,
@@ -36,6 +37,7 @@ import {
   type ToWorker,
 } from '@asciidocollab/asciidoc-pdf';
 import { assembleIncludes } from './assemble-includes';
+import { createCitationJsShim } from './shims/citation-js';
 import { createWoff2FontConverter } from './woff2-font-converter';
 import { resolveSandboxedPath } from '../lib/asciidoc/sandbox-path';
 import {
@@ -152,10 +154,17 @@ function buildController(module: WebAssembly.Module): PdfRenderController {
   const fontConverter = createWoff2FontConverter();
 
   const buildPipeline = (arguments_: BuildPipelineArguments): BuiltPipeline => {
-    // Ordered stage list; the orchestrator re-sorts to the fixed pipeline order regardless. The
-    // remaining stages slot in HERE as they land: citations, diagrams-math.
+    // Ordered stage list; the orchestrator re-sorts to the fixed pipeline order regardless.
+    //
+    // The `diagrams-math` stage is intentionally NOT wired here yet: its mermaid and MathJax shims
+    // need a DOM (script injection, `document`-bound serialization) that a dedicated Web Worker does
+    // not provide — the MathJax shim self-guards this exact case ("worker with no document: the
+    // browser converter cannot run here"). Wiring it into the worker as-is would fail every diagram/
+    // math block, and a partial registry (graphviz/vega only) would misroute mermaid blocks through
+    // the diagram-family fallback. It lands once those shims render on the main thread.
     const stages: PipelineStage[] = [
       createIncludeResolveStage({ resolveSandboxedPath: arguments_.resolveSandboxedPath }),
+      createCitationsStage(),
       createImageGuardStage(),
       createMountAssetsStage({ fontConverter }),
     ];
@@ -163,7 +172,9 @@ function buildController(module: WebAssembly.Module): PdfRenderController {
       request: arguments_.request,
       readFile: (path) => arguments_.request.snapshot.files[path] ?? null,
       vfs,
-      shims: createShimRegistry([]),
+      // citation-js is pure JS, so it runs in the worker; the diagram/math shims (DOM-bound) are
+      // omitted for the reason above and slot in with the `diagrams-math` stage when they land.
+      shims: createShimRegistry([createCitationJsShim()]),
       includeAssembler: arguments_.includeAssembler,
       cache: arguments_.cache,
       diagnostics: arguments_.diagnostics,

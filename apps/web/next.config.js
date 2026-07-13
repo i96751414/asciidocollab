@@ -19,6 +19,17 @@ const nextConfig = {
   // No COOP/COEP cross-origin-isolation headers: the engine uses the single-threaded ruby.wasm build,
   // so there is no SharedArrayBuffer and cross-origin isolation is unnecessary. Adding those headers
   // would isolate the whole app and could break other same-origin assets, for no benefit here.
+  turbopack: {
+    resolveAlias: {
+      // The citations shim pulls in `@citation-js/core`, whose `util/fetchFile.js` statically imports
+      // `node-fetch` and `sync-fetch`. Both drag in Node built-ins (`fetch-blob` → node:fs/node:net;
+      // sync-fetch → node:child_process) that cannot be bundled for the browser/worker. Neither is ever
+      // invoked at runtime here (a worker uses the native `fetch`; the sync path is unused), so alias
+      // both to browser stubs to keep the Node-only chains out of the client bundle. See the stub files.
+      'node-fetch': './src/workers/shims/node-fetch-browser.js',
+      'sync-fetch': './src/workers/shims/sync-fetch-browser.js',
+    },
+  },
 };
 
 module.exports = nextConfig;
