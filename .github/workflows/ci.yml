@@ -123,7 +123,11 @@ jobs:
   e2e:
     name: E2E tests (Playwright)
     runs-on: ubuntu-latest
-    needs: [unit, integration]
+    # Also `needs` pdf-wasm so — when it runs (a wasm-input change) — its freshly built engine is ready
+    # to download here and the live-PDF specs run for real. pdf-wasm is conditional, so the `if` below
+    # keeps e2e running (via always()) whether pdf-wasm succeeded, was skipped, or failed.
+    needs: [unit, integration, pdf-wasm]
+    if: ${{ always() && needs.unit.result == 'success' && needs.integration.result == 'success' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -141,11 +145,42 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Make the Asciidoctor-PDF wasm engine available so the live-PDF specs (pdf-preview-responsive,
+      # pdf-image-embed, pdf-parity) run for real instead of test.skip'ing. The web prebuild copies
+      # ruby/asciidoctor-pdf.wasm into public/vendor/ when present. Two sources, in order of freshness:
+      #   1. this run's pdf-wasm artifact, when a wasm-input change rebuilt the engine;
+      #   2. otherwise the cache pdf-wasm populated on an earlier build (same gem closure).
+      # If neither exists yet (cold cache, no wasm change), the specs skip exactly as before — no fail.
+      - name: Download the PDF wasm engine (when pdf-wasm built it this run)
+        if: needs.pdf-wasm.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: asciidoctor-pdf-wasm
+          path: packages/asciidoc-pdf/ruby/
+
+      # Only when pdf-wasm was SKIPPED (no wasm-input change) — deliberately NOT on 'failure': if the
+      # build failed we must not run the live-PDF specs against a stale cached engine (a green e2e
+      # would mask the broken build). On failure this step is skipped, the engine is absent, and the
+      # specs skip exactly as they do on a cold cache.
+      - name: Restore the PDF wasm engine from cache (when pdf-wasm was skipped)
+        if: needs.pdf-wasm.result == 'skipped'
+        uses: actions/cache/restore@v6
+        with:
+          path: packages/asciidoc-pdf/ruby/asciidoctor-pdf.wasm
+          key: pdf-engine-${{ runner.os }}-${{ hashFiles('packages/asciidoc-pdf/ruby/Gemfile', 'packages/asciidoc-pdf/ruby/Gemfile.lock', 'packages/asciidoc-pdf/ruby/build-wasm.sh', 'scripts/ci/wasm.sh') }}
+
       - name: Build shared packages (Prisma client + declaration files)
         run: pnpm --filter '!@asciidocollab/web' -r build
 
       - name: Install Playwright browsers
         run: pnpm --filter @asciidocollab/web exec playwright install --with-deps chromium
+
+      # The live-PDF specs inspect the exported PDF via poppler's CLI: pdf-image-embed reads its text
+      # with `pdftotext`, and the pdf-parity harness (once reference fixtures land) rasterizes pages
+      # with `pdftoppm`. Without poppler those specs error with "spawnSync pdftotext ENOENT" instead
+      # of running. This is the "parity host has poppler" assumption the harness documents.
+      - name: Install poppler-utils (PDF text/raster inspection for the live-PDF specs)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
 
       - name: Start PostgreSQL and Mailpit
         run: docker compose -f docker-compose.dev.yml up -d postgres mailpit --wait
@@ -272,7 +307,6 @@ jobs:
       # A job-level permissions block REPLACES the workflow default, so contents:read must be
       # restated here or actions/checkout loses repo-read access (breaks if the repo goes private).
       contents: read
-      pull-requests: read      # dorny/paths-filter reads the PR's changed-file list via the API
     outputs:
       wasm: ${{ steps.filter.outputs.wasm }}
 
@@ -280,25 +314,50 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-          # Full history so dorny/paths-filter can diff `before..after` on PUSH events (main is
-          # pushed to directly). With a shallow clone it can't find the base commit and falls back to
-          # "everything changed", which would run the heavy wasm build on every push. PRs use the API
-          # and don't need this, but it's harmless for them.
+          # Full history so the diff below can reach the base commit on both PR (base..head) and
+          # PUSH (before..after) events — main is pushed to directly. With a shallow clone the base
+          # commit is unreachable and we fail safe to "changed", running the heavy wasm build anyway.
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
+      # Native path filter (no third-party action): diff the wasm inputs against the event's base.
+      - name: Detect changed wasm inputs
         id: filter
-        with:
-          filters: |
-            wasm:
-              - 'packages/asciidoc-pdf/ruby/**'
-              - 'scripts/ci/wasm.sh'
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # Missing/zero/unreachable base (first push of a branch, force-push, shallow clone) → fail
+          # safe: assume the inputs changed so the engine is always rebuilt when we can't be sure.
+          if [ -z "${BASE_SHA:-}" ] \
+             || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "base commit unavailable — assuming wasm inputs changed"
+            echo "wasm=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A directory pathspec matches every file under it recursively. If the diff itself errors
+          # (unexpected repo state the base-reachability check above didn't catch), fail safe to
+          # "changed" rather than letting `set -e` abort the step and silently skip the build.
+          if ! changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            packages/asciidoc-pdf/ruby scripts/ci/wasm.sh)"; then
+            echo "git diff failed — assuming wasm inputs changed"
+            echo "wasm=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$changed" ]; then
+            echo "wasm inputs changed:"; echo "$changed" | sed 's/^/  /'
+            echo "wasm=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no wasm input changes"
+            echo "wasm=false" >> "$GITHUB_OUTPUT"
+          fi
 
   # ── Build the client-side Asciidoctor-PDF WebAssembly engine ───────────────
   # Runs ONLY when the wasm inputs changed (see `changes`). The engine is gitignored and re-synced
-  # from the pinned Gemfile.lock via the ruby.wasm Docker toolchain — the runner has Docker but no
-  # host ruby, so scripts/ci/wasm.sh (the same script `pnpm wasm` runs locally) builds inside the
-  # pinned container. No node/pnpm needed: the compile is fully self-contained in Docker.
+  # from the pinned Gemfile.lock via the ruby.wasm toolchain (rbwasm) running directly on the runner —
+  # no container. setup-ruby provides Ruby 3.3; scripts/ci/wasm.sh (the same script `pnpm wasm` runs
+  # locally) installs the pinned rbwasm and builds. No node/pnpm needed.
   pdf-wasm:
     name: PDF wasm engine build
     runs-on: ubuntu-latest
@@ -310,8 +369,38 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build asciidoctor-pdf.wasm (pinned ruby.wasm Docker toolchain)
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      # Cache the expensive part — rbwasm's downloaded wasi-sdk + compiled CRuby (./build, ./rubies) —
+      # keyed on the full set of inputs the compile is a pure function of, so a re-run that didn't
+      # change any of them skips the ~15-25 min compile. (Docker named volumes couldn't do this: CI
+      # runners are ephemeral.) Restore + a *gated* save (not the combined actions/cache) so a FAILED
+      # or partial build never persists a corrupt ./build under the key — a poisoned cache would
+      # otherwise keep breaking every later run until an input changed to bust the key.
+      - name: Restore the CRuby→wasm build cache (wasi-sdk + compiled CRuby)
+        id: build-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            packages/asciidoc-pdf/ruby/build
+            packages/asciidoc-pdf/ruby/rubies
+          key: rbwasm-${{ runner.os }}-${{ hashFiles('packages/asciidoc-pdf/ruby/Gemfile', 'packages/asciidoc-pdf/ruby/Gemfile.lock', 'packages/asciidoc-pdf/ruby/build-wasm.sh', 'scripts/ci/wasm.sh') }}
+
+      - name: Build asciidoctor-pdf.wasm (ruby.wasm toolchain)
         run: bash scripts/ci/wasm.sh
+
+      # Save only after a SUCCESSFUL build and only when the restore missed — never persist a partial
+      # compile tree, and don't re-save an identical key.
+      - name: Save the CRuby→wasm build cache
+        if: ${{ success() && steps.build-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            packages/asciidoc-pdf/ruby/build
+            packages/asciidoc-pdf/ruby/rubies
+          key: rbwasm-${{ runner.os }}-${{ hashFiles('packages/asciidoc-pdf/ruby/Gemfile', 'packages/asciidoc-pdf/ruby/Gemfile.lock', 'packages/asciidoc-pdf/ruby/build-wasm.sh', 'scripts/ci/wasm.sh') }}
 
       - name: Upload wasm engine artifact
         uses: actions/upload-artifact@v7
@@ -319,6 +408,16 @@ jobs:
           name: asciidoctor-pdf-wasm
           path: packages/asciidoc-pdf/ruby/asciidoctor-pdf.wasm
           retention-days: 7
+
+      # Persist the engine under a stable cache so the e2e job can restore it on runs where pdf-wasm
+      # itself doesn't run (no wasm-input change). Runs only on success (a failed build skips this
+      # step), so a broken engine is never cached. The key covers EVERY input the engine is a pure
+      # function of — matching the e2e restore key — so a restored engine is never stale.
+      - name: Cache the built engine for the e2e job
+        uses: actions/cache/save@v6
+        with:
+          path: packages/asciidoc-pdf/ruby/asciidoctor-pdf.wasm
+          key: pdf-engine-${{ runner.os }}-${{ hashFiles('packages/asciidoc-pdf/ruby/Gemfile', 'packages/asciidoc-pdf/ruby/Gemfile.lock', 'packages/asciidoc-pdf/ruby/build-wasm.sh', 'scripts/ci/wasm.sh') }}
 
   # ── Security scanning: SAST · secrets · dependency CVEs · workflow hardening ─
   security:

@@ -61,7 +61,7 @@ not hand-edit it — it is fully re-syncable from its pinned inputs.
   survives the `wasm32-wasip1` closure), because the engine runs in the WASI sandbox with no
   subprocess, no socket, and no native extension loading. To change the closure, edit the `Gemfile`
   and re-resolve the lockfile — never edit the `.wasm`.
-- **`ruby/build-wasm.sh`** pins the toolchain versions (`RUBY_WASM_VERSION`, `RUBY_VERSION`, the
+- **`ruby/build-wasm.sh`** pins the toolchain versions (`RUBY_WASM_VERSION`, `RBWASM_RUBY_VERSION`, the
   `wasm32-wasip1` target) and a fixed `SOURCE_DATE_EPOCH` so identical inputs produce a stable
   artifact. Bump the pins deliberately and re-run.
 
@@ -78,24 +78,23 @@ not hand-edit it — it is fully re-syncable from its pinned inputs.
 3. **Compiles** CRuby with `rbwasm` and bakes the full stdlib + gem closure into the engine's in-image
    virtual filesystem under `/usr` via wasi-vfs, emitting a single self-contained `asciidoctor-pdf.wasm`.
 
-Running it requires the ruby.wasm builder toolchain — the `ruby_wasm` gem (which provides the
-`rbwasm` CLI and bundles wasi-vfs) plus a host C toolchain to compile CRuby. The first run downloads
-the wasi-sdk and builds CRuby, which is slow; subsequent runs are cached.
-
-**Two entry points:**
+Running it requires a host **Ruby 3.3** toolchain on PATH (plus a host C toolchain to compile CRuby).
+The `ruby_wasm` gem — which provides the `rbwasm` CLI and bundles wasi-vfs — is installed by the
+script itself if absent, pinned to `RUBY_WASM_VERSION`. The first run downloads the wasi-sdk and
+builds CRuby, which is slow; `ruby/build` + `ruby/rubies` cache it so subsequent runs are fast.
 
 ```bash
-# 1. Direct — requires rbwasm + the ruby.wasm toolchain already on PATH.
+# Requires a host Ruby 3.3 (rbenv/asdf/rvm or system). rbwasm is auto-installed on first run.
 pnpm --filter @asciidocollab/asciidoc-pdf build:wasm      # → bash ruby/build-wasm.sh
-
-# 2. Dockerized — no host Ruby toolchain needed; builds the pinned toolchain image
-#    (ruby/Dockerfile) and runs build-wasm.sh inside it with ruby/ mounted.
-./ruby/build-wasm.docker.sh
-REBUILD_IMAGE=1 ./ruby/build-wasm.docker.sh               # force-rebuild the toolchain image first
 ```
 
-The Docker wrapper keeps the heavy, cacheable parts (wasi-sdk download, CRuby compile, vendored gems)
-in named volumes so re-runs are fast and the host checkout stays clean.
+> **Note — host header removal.** The `js` host bridge is compiled once for the host (during
+> `bundle install`) and once for wasm (by rbwasm); to stop the host Ruby headers from shadowing the
+> wasm headers, the build removes the running Ruby's header dir after vendoring. Because that deletes
+> your Ruby's dev headers, it only runs automatically under CI (`$CI`); locally it is skipped and you
+> opt in with `WASM_STRIP_HOST_HEADERS=1` if the js wasm compile fails with `'ruby/config.h' file not
+> found`. CI builds this via `ruby/setup-ruby` (see the `pdf-wasm` job), whose `/opt/hostedtoolcache`
+> prefix keeps it off the default include path.
 
 ### Optional: PDF optimize (hexapdf) is intentionally unbaked
 
