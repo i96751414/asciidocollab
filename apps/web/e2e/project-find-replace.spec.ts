@@ -32,7 +32,12 @@ async function openFilesTab(page: Page): Promise<void> {
   await page.getByRole('tab', { name: /files/i }).click();
 }
 
-/** Enter a search term and wait for the grouped results to settle. */
+/**
+ * Enter a search term into the debounced query input. This only fills the field; it does NOT wait
+ * for the (debounced, async) search to settle. Callers must therefore assert results with
+ * auto-retrying `expect(locator)` matchers — which poll until the search resolves — and must NOT read
+ * a value into a plain variable immediately after calling this (that would race the debounce).
+ */
 async function searchFor(page: Page, term: string): Promise<void> {
   await page.getByLabel('Search query').fill(term);
 }
@@ -79,7 +84,10 @@ test.describe('Project-wide find and replace', () => {
     await openFile(page, 'a.adoc', /replace one/);
     await openSearchTab(page);
     await searchFor(page, 'replace');
-    await page.getByLabel('Replacement text').fill('REPLACED');
+    // Use a replacement token that does NOT contain the search term: the default search is
+    // case-insensitive substring, so a replacement like "REPLACED" still matches "replace" and the
+    // replaced file would (racily) reappear in the b.adoc `toHaveCount(0)` re-search below.
+    await page.getByLabel('Replacement text').fill('SWAPPED');
 
     // Exclude the very first match (line with "replace one").
     await page.getByRole('checkbox', { name: /exclude match on line 3/i }).first().uncheck();
@@ -96,8 +104,8 @@ test.describe('Project-wide find and replace', () => {
 
     // The dormant file b.adoc was persisted with the replacement (open it from the file tree).
     await openFilesTab(page);
-    await openFile(page, 'b.adoc', /REPLACED/);
-    expect(await getEditorText(page)).toContain('REPLACED three here.');
+    await openFile(page, 'b.adoc', /SWAPPED/);
+    expect(await getEditorText(page)).toContain('SWAPPED three here.');
   });
 
   test('an open-session file receives the replacement live (merged)', async ({ page, browser }) => {
